@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>日本語学習 - JapaneseLearn</title>
+<title>言旅 Kotabi</title>
 <style>
 /* ─── 全局变量 ─────────────────────────────────────────────────── */
 :root {
@@ -345,8 +345,11 @@ ul { list-style: none; }
 <!-- ─── 登录页 ─────────────────────────────────────────────────── -->
 <div id="auth-page">
   <div class="auth-card">
-    <h1>日语学习</h1>
-    <p class="subtitle">JapaneseLearn · 沉浸式日语课堂</p>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:4px">
+      <div style="width:72px;height:72px;border-radius:20px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:900;color:#fff">あ</div>
+      <h1 style="margin:0">言旅 Kotabi</h1>
+    </div>
+    <p class="subtitle">每天进步一点点</p>
     <div class="auth-tabs">
       <div class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">登录</div>
       <div class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">注册</div>
@@ -397,7 +400,10 @@ ul { list-style: none; }
     <div class="hamburger" onclick="toggleSidebar()" id="hamburger">
       <span></span><span></span><span></span>
     </div>
-    <div class="logo">日語<span>Learn</span></div>
+    <div class="logo" style="display:flex;align-items:center;gap:8px">
+      <div style="width:32px;height:32px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;color:#fff;letter-spacing:0;flex-shrink:0">あ</div>
+      <span>言旅 <span style="color:var(--secondary)">Kotabi</span></span>
+    </div>
     <div class="spacer"></div>
     <div class="user-btn" onclick="navigate('profile')">
       <span id="topbar-username">...</span>
@@ -432,7 +438,7 @@ ul { list-style: none; }
 
       <!-- 首页 -->
       <div class="page active" id="page-home">
-        <h2 style="margin-bottom:20px;font-size:22px">今日学习 🌸</h2>
+        <h2 style="margin-bottom:20px;font-size:22px">今日のお勉強 🌸</h2>
         <div class="home-stats" id="home-stats">
           <div class="stat-card"><div class="val" id="stat-streak">-</div><div class="lbl">🔥 连续天数</div></div>
           <div class="stat-card"><div class="val" id="stat-minutes">-</div><div class="lbl">⏱ 学习分钟</div></div>
