@@ -131,7 +131,7 @@ async function start() {
     logger.info('Database connection established.');
     // 生产环境只做 "CREATE TABLE IF NOT EXISTS"，不执行任何 ALTER
     // 如需新增字段请手动执行 SQL migration
-    await sequelize.sync();
+    await sequelize.sync({ alter: { drop: false } }); // 自动添加新列，但不删除现有列/数据
 
     const certPath = process.env.SSL_CERT_PATH || './certs/cert.pem';
     const keyPath  = process.env.SSL_KEY_PATH  || './certs/key.pem';

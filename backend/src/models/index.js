@@ -149,6 +149,7 @@ const GameScore = sequelize.define('GameScore', {
   max_combo:           { type: DataTypes.INTEGER,  defaultValue: 0 },
   questions_answered:  { type: DataTypes.INTEGER,  defaultValue: 0 },
   passed:              { type: DataTypes.BOOLEAN,  defaultValue: false },
+  base_speed_ms:       { type: DataTypes.INTEGER,  defaultValue: 2000, allowNull: true },
 }, { tableName: 'game_scores', updatedAt: false });
 
 const GameConfig = sequelize.define('GameConfig', {
