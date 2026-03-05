@@ -86,7 +86,8 @@ function gLvlCfg(lv) {
   const cols     = lv === 1 ? 2 : lv <= 3 ? 3 : lv <= 6 ? 4 : lv <= 10 ? 5 : 6;
   const rows     = lv === 1 ? 3 : lv <= 3 ? 4 : Math.min(3 + lv, 12);
   const toPass   = rows * cols;                         // 全部填满才算通关
-  const livesMax = lv <= 2 ? 1 : lv <= 5 ? 2 : lv <= 10 ? 3 : lv <= 18 ? 4 : 5;
+  // 第1关：打错1道直接失败（livesMax=1）；其他关卡按难度递减
+  const livesMax = lv === 1 ? 1 : lv <= 3 ? 99 : lv <= 8 ? 5 : lv <= 15 ? 3 : 2;
   return {
     rows, cols, toPass, livesMax,
     speedMul: Math.max(0.28, 1 - (lv - 1) * 0.028),
@@ -357,7 +358,7 @@ function gameConfirm() {
   if (landRow < 0) { gRunning = false; setTimeout(gLevelFail, 300); return; }
   gBoard[landRow][gDropCol]    = ok ? 'correct' : 'wrong';
   gBoardTxt[landRow][gDropCol] = ans;
-  gBoardClr[landRow][gDropCol] = ok ? gComboColor() : '#78716c';
+  gBoardClr[landRow][gDropCol] = ok ? gComboColor() : 'linear-gradient(135deg,#dc2626,#ef4444)';
 
   if (ok) {
     gPassCount++;
@@ -444,9 +445,9 @@ function gameClearRows() {
         gBoardTxt[rr] = [...gBoardTxt[rr-1]];
         gBoardClr[rr] = [...gBoardClr[rr-1]];
       }
-      gBoard[0]    = Array(G_COLS).fill(null);
-      gBoardTxt[0] = Array(G_COLS).fill('');
-      gBoardClr[0] = Array(G_COLS).fill('');
+      gBoard[0]    = Array(gGCols).fill(null);
+      gBoardTxt[0] = Array(gGCols).fill('');
+      gBoardClr[0] = Array(gGCols).fill('');
       document.getElementById('g-score').textContent = gScore;
       toast('🎉 消行！+' + bonus + '分');
       r++;
