@@ -344,6 +344,14 @@ ul { list-style: none; }
 
 .overlay-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 89; }
 .overlay-bg.show { display: block; }
+
+/* ─── 小游戏 ────────────────────────────────────────────────── */
+.g-diff-btn{padding:10px 4px;border-radius:8px;border:2px solid var(--border);text-align:center;cursor:pointer;font-size:22px;font-weight:600;line-height:1.5;transition:all .15s;background:var(--surface);color:var(--text-sub);user-select:none;-webkit-tap-highlight-color:transparent}
+.g-diff-btn span{display:block;font-size:12px;margin-top:2px}
+.g-diff-btn small{display:block;font-size:10px;opacity:.7;font-weight:400}
+.g-diff-btn.active,.g-diff-btn:hover{border-color:var(--primary);background:var(--primary-light,#e8effe);color:var(--primary)}
+.g-cell{border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;aspect-ratio:1;min-height:24px;transition:background .1s,box-shadow .1s;font-family:inherit}
+@keyframes gpulse{from{box-shadow:0 0 4px rgba(67,97,238,.5)}to{box-shadow:0 0 16px rgba(67,97,238,.95),0 0 4px rgba(67,97,238,.3) inset}}
 </style>
 </head>
 <body>
@@ -631,42 +639,63 @@ ul { list-style: none; }
 
       <!-- 小游戏页 -->
       <div class="page" id="page-game">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
-          <h2 style="font-size:22px">🎮 助词方块</h2>
-          <div style="font-size:13px;color:var(--text-sub)">答对填蓝块，答错填灰块，棋盘顶端有块则游戏结束</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <h2 style="font-size:20px;margin:0">🎮 助词方块</h2>
+          <div id="g-level-badge" style="background:var(--primary);color:#fff;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700">LV.1</div>
         </div>
-        <div style="max-width:480px;margin:0 auto">
-          <!-- 得分栏 -->
-          <div style="display:flex;gap:12px;margin-bottom:14px">
-            <div class="card" style="flex:1;padding:12px;text-align:center">
-              <div style="font-size:26px;font-weight:800;color:var(--primary)" id="g-score">0</div>
-              <div style="font-size:11px;color:var(--text-sub)">得分</div>
-            </div>
-            <div class="card" style="flex:1;padding:12px;text-align:center">
-              <div style="font-size:26px;font-weight:800;color:var(--secondary)" id="g-combo">0</div>
-              <div style="font-size:11px;color:var(--text-sub)">连击</div>
-            </div>
-            <div class="card" style="flex:1;padding:12px;text-align:center">
-              <div style="font-size:26px;font-weight:800;color:var(--danger)" id="g-wrong">0</div>
-              <div style="font-size:11px;color:var(--text-sub)">错误</div>
+        <div style="max-width:500px;margin:0 auto">
+          <!-- 速度设置 -->
+          <div id="g-diff-panel" class="card" style="margin-bottom:12px;padding:14px">
+            <div style="font-size:11px;font-weight:700;color:var(--text-hint);margin-bottom:8px;letter-spacing:.5px">⚡ 下落速度（开始后不可更改）</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+              <div class="g-diff-btn active" onclick="gameSetDiff(this,2000)">🐢<span>慢速</span><small>2.0s</small></div>
+              <div class="g-diff-btn" onclick="gameSetDiff(this,1400)">🚶<span>正常</span><small>1.4s</small></div>
+              <div class="g-diff-btn" onclick="gameSetDiff(this,900)">🏃<span>快速</span><small>0.9s</small></div>
+              <div class="g-diff-btn" onclick="gameSetDiff(this,500)">⚡<span>挑战</span><small>0.5s</small></div>
             </div>
           </div>
-          <!-- 题目+计时条 -->
-          <div class="card" style="margin-bottom:14px;padding:16px 20px">
-            <div id="g-sentence" style="font-size:20px;font-weight:800;text-align:center;color:var(--text);min-height:32px;letter-spacing:2px">按"开始游戏"开始</div>
+          <!-- 统计栏 -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
+            <div class="card" style="padding:10px;text-align:center">
+              <div style="font-size:22px;font-weight:800;color:var(--primary)" id="g-score">0</div>
+              <div style="font-size:10px;color:var(--text-sub)">得分</div>
+            </div>
+            <div class="card" style="padding:10px;text-align:center">
+              <div style="font-size:22px;font-weight:800;color:#f59e0b" id="g-combo">0</div>
+              <div style="font-size:10px;color:var(--text-sub)">连击</div>
+            </div>
+            <div class="card" style="padding:10px;text-align:center">
+              <div style="font-size:22px;font-weight:800;color:#7c3aed" id="g-level-num">1</div>
+              <div style="font-size:10px;color:var(--text-sub)">关卡</div>
+            </div>
+            <div class="card" style="padding:10px;text-align:center">
+              <div style="font-size:22px;font-weight:800;color:var(--danger)" id="g-wrong">0</div>
+              <div style="font-size:10px;color:var(--text-sub)">错误</div>
+            </div>
+          </div>
+          <!-- 关卡进度条 -->
+          <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:10px">
+            <div id="g-level-bar" style="height:100%;background:linear-gradient(90deg,#7c3aed,#4361ee);border-radius:2px;width:0%;transition:width .4s"></div>
+          </div>
+          <!-- 题目卡 -->
+          <div class="card" style="margin-bottom:10px;padding:14px 18px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <span id="g-qtype-badge" style="font-size:10px;background:var(--primary);color:#fff;padding:2px 10px;border-radius:10px;font-weight:700">助词填空</span>
+              <span id="g-col-hint" style="font-family:monospace;font-size:14px;letter-spacing:6px;color:var(--text-hint)">◦◦◦◦◦◦</span>
+            </div>
+            <div id="g-sentence" style="font-size:19px;font-weight:800;text-align:center;color:var(--text);min-height:30px;letter-spacing:2px;line-height:1.4">选择速度，点击「开始游戏」</div>
             <div style="margin-top:10px;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
-              <div id="g-timebar" style="height:100%;background:var(--primary);border-radius:3px;transition:width .1s linear;width:100%"></div>
+              <div id="g-timebar" style="height:100%;background:var(--primary);border-radius:3px;width:100%;transition:width .08s linear"></div>
             </div>
           </div>
-          <!-- 选项按钮 -->
-          <div id="g-options" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px"></div>
-          <!-- 方块棋盘 -->
-          <div id="g-board" style="display:grid;grid-template-columns:repeat(6,1fr);gap:2px;background:var(--border);border-radius:10px;padding:3px;margin-bottom:14px"></div>
-          <!-- 提示 -->
-          <div style="text-align:center;font-size:12px;color:var(--text-hint);margin-bottom:10px">← → 键切换选项 · Enter / 空格 确认</div>
-          <!-- 开始按钮 -->
-          <div style="text-align:center">
-            <button class="btn btn-primary" id="g-start-btn" onclick="gameStart()" style="font-size:16px;padding:12px 32px">开始游戏</button>
+          <!-- 选项 -->
+          <div id="g-options" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px"></div>
+          <!-- 棋盘 -->
+          <div id="g-board" style="display:grid;grid-template-columns:repeat(6,1fr);gap:3px;background:#e2e8f0;border-radius:12px;padding:4px;box-shadow:inset 0 2px 8px rgba(0,0,0,.07);margin-bottom:10px"></div>
+          <!-- 底部操作栏 -->
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+            <div style="font-size:11px;color:var(--text-hint)">← → 切换 · Enter/空格 确认 · 连击10+解锁更多题型</div>
+            <button class="btn btn-primary" id="g-start-btn" onclick="gameStart()">开始游戏</button>
           </div>
         </div>
       </div>
@@ -1534,246 +1563,399 @@ async function updateProfile() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  GAME (助词方块)
+//  GAME v2 (助词方块)
 // ══════════════════════════════════════════════════════════════════
+// 题库  t: 'p'=助词  'v'=动词活用  'w'=词义选择
 const GAME_QS = [
-  {s:'東京＿に行きます。',a:'に',o:['に','を','で'],e:'「に」表示移动的目的地。'},
-  {s:'電車＿乗ります。',a:'に',o:['に','を','で'],e:'「に」乗る：乘坐交通工具搭配「に」。'},
-  {s:'水＿飲みます。',a:'を',o:['を','に','で'],e:'「を」表示动作直接对象。'},
-  {s:'図書館＿勉強します。',a:'で',o:['で','に','を'],e:'「で」表示动作发生的场所。'},
-  {s:'友達＿会います。',a:'に',o:['に','と','で'],e:'「に」会う：与某人见面用「に」。'},
-  {s:'日本語＿話します。',a:'を',o:['を','で','に'],e:'「を」表示说话的内容/语言。'},
-  {s:'先生＿習います。',a:'に',o:['に','から','で'],e:'「に」習う：向…学习。'},
-  {s:'公園＿遊びます。',a:'で',o:['で','に','を'],e:'「で」表示活动进行的场所。'},
-  {s:'本＿読みます。',a:'を',o:['を','に','で'],e:'「を」读书，书是动作对象。'},
-  {s:'山田さん＿話します。',a:'と',o:['と','に','で'],e:'「と」表示共同动作的对象。'},
-  {s:'学校＿行きます。',a:'へ',o:['へ','に','で'],e:'「へ」表示移动方向，与「に」可互换。'},
-  {s:'バス＿来ます。',a:'で',o:['で','を','に'],e:'「で」表示使用的交通手段。'},
-  {s:'ご飯＿食べます。',a:'を',o:['を','に','で'],e:'「を」吃饭，饭是动作对象。'},
-  {s:'コーヒー＿好きです。',a:'が',o:['が','を','の'],e:'「が」与「好き/嫌い」固定搭配。'},
-  {s:'日本語＿上手です。',a:'が',o:['が','は','を'],e:'「が」与「上手/下手」固定搭配。'},
-  {s:'私＿学生です。',a:'は',o:['は','が','も'],e:'「は」表示句子的话题。'},
-  {s:'どこ＿来ましたか。',a:'から',o:['から','に','で'],e:'「から」表示来源地/出发点。'},
-  {s:'3時＿始まります。',a:'に',o:['に','で','から'],e:'「に」表示具体时间点。'},
-  {s:'月曜日＿来てください。',a:'に',o:['に','で','は'],e:'「に」表示特定日期时间点。'},
-  {s:'ペン＿書きます。',a:'で',o:['で','を','に'],e:'「で」表示使用的工具。'},
-  {s:'妹＿お菓子をあげます。',a:'に',o:['に','へ','と'],e:'「に」あげる：给予某人用「に」。'},
-  {s:'先生＿もらいました。',a:'に',o:['に','から','で'],e:'「に」もらう：从…那里收到。'},
-  {s:'9時＿10時＿働きます。',a:'まで',o:['まで','から','に'],e:'「まで」表示时间/地点的终点。'},
-  {s:'日本＿来ました。',a:'から',o:['から','に','を'],e:'「から」表示移动的起点。'},
-  {s:'猫＿好きです。',a:'が',o:['が','は','を'],e:'「が」与「好き」搭配，表示喜好对象。'},
-  {s:'一人＿行きます。',a:'で',o:['で','と','に'],e:'「で」～人で：以…人数进行。'},
-  {s:'電話＿連絡します。',a:'で',o:['で','に','を'],e:'「で」表示联系手段（工具）。'},
-  {s:'弟＿本を貸します。',a:'に',o:['に','へ','と'],e:'「に」貸す：把某物借给某人。'},
-  {s:'朝ご飯＿食べないです。',a:'は',o:['は','を','が'],e:'「は」对比话题，至于早饭，不吃。'},
-  {s:'この部屋＿広いです。',a:'は',o:['は','が','の'],e:'「は」表示说话的话题。'},
+  // ── 助词 N5-N4 ──
+  {t:'p',s:'東京＿行きます',a:'に',o:['に','を','で'],e:'「に」表示移动目的地。'},
+  {t:'p',s:'電車＿乗ります',a:'に',o:['に','を','で'],e:'「に」乗る：乘坐交通工具。'},
+  {t:'p',s:'水＿飲みます',a:'を',o:['を','に','で'],e:'「を」表示动作直接对象。'},
+  {t:'p',s:'図書館＿勉強します',a:'で',o:['で','に','を'],e:'「で」表示动作场所。'},
+  {t:'p',s:'友達＿会います',a:'に',o:['に','と','で'],e:'「に」会う：与某人见面。'},
+  {t:'p',s:'先生＿習います',a:'に',o:['に','から','で'],e:'「に」習う：向…学习。'},
+  {t:'p',s:'公園＿遊びます',a:'で',o:['で','に','を'],e:'「で」表示活动场所。'},
+  {t:'p',s:'本＿読みます',a:'を',o:['を','に','で'],e:'「を」表示动作对象。'},
+  {t:'p',s:'山田さん＿話します',a:'と',o:['と','に','で'],e:'「と」表示共同动作对象。'},
+  {t:'p',s:'バス＿来ます',a:'で',o:['で','を','に'],e:'「で」表示交通手段。'},
+  {t:'p',s:'ご飯＿食べます',a:'を',o:['を','に','で'],e:'「を」表示动作对象。'},
+  {t:'p',s:'コーヒー＿好きです',a:'が',o:['が','を','の'],e:'「が」与「好き/嫌い」搭配。'},
+  {t:'p',s:'日本語＿上手です',a:'が',o:['が','は','を'],e:'「が」与「上手/下手」搭配。'},
+  {t:'p',s:'私＿学生です',a:'は',o:['は','が','も'],e:'「は」表示话题。'},
+  {t:'p',s:'どこ＿来ましたか',a:'から',o:['から','に','で'],e:'「から」表示来源地。'},
+  {t:'p',s:'3時＿始まります',a:'に',o:['に','で','から'],e:'「に」表示具体时间点。'},
+  {t:'p',s:'ペン＿書きます',a:'で',o:['で','を','に'],e:'「で」表示使用的工具。'},
+  {t:'p',s:'妹＿お菓子をあげます',a:'に',o:['に','へ','と'],e:'「に」あげる：给予某人。'},
+  {t:'p',s:'先生＿もらいました',a:'に',o:['に','から','で'],e:'「に」もらう：从…收到。'},
+  {t:'p',s:'日本＿来ました',a:'から',o:['から','に','を'],e:'「から」表示移动起点。'},
+  {t:'p',s:'猫＿好きです',a:'が',o:['が','は','を'],e:'「が」与「好き」搭配。'},
+  {t:'p',s:'電話＿連絡します',a:'で',o:['で','に','を'],e:'「で」表示联系手段。'},
+  {t:'p',s:'弟＿本を貸します',a:'に',o:['に','へ','と'],e:'「に」貸す：借给某人。'},
+  {t:'p',s:'この部屋＿広いです',a:'は',o:['は','が','の'],e:'「は」表示话题。'},
+  {t:'p',s:'学校＿行きます',a:'へ',o:['へ','に','で'],e:'「へ」表示移动方向。'},
+  {t:'p',s:'朝ご飯＿食べないです',a:'は',o:['は','を','が'],e:'「は」对比话题用。'},
+  {t:'p',s:'一人＿行きます',a:'で',o:['で','と','に'],e:'「で」～人で：以…人数。'},
+  {t:'p',s:'部屋の中＿入ります',a:'に',o:['に','を','で'],e:'「に」表示进入的目的地。'},
+  {t:'p',s:'9時＿働きます',a:'から',o:['から','に','まで'],e:'「から」表示开始时间。'},
+  {t:'p',s:'駅＿歩いて行きます',a:'まで',o:['まで','から','で'],e:'「まで」表示移动终点。'},
+  // ── 动词活用 ──
+  {t:'v',s:'飲む → て形',a:'飲んで',o:['飲んで','飲みて','飲いて'],e:'む→んで：撥音変形。'},
+  {t:'v',s:'書く → て形',a:'書いて',o:['書いて','書いで','書えて'],e:'く→いて：イ音便。'},
+  {t:'v',s:'食べる → て形',a:'食べて',o:['食べて','食べりて','食べって'],e:'一段動詞：直接加て。'},
+  {t:'v',s:'行く → て形',a:'行って',o:['行って','行いて','行きて'],e:'行く例外：行って。'},
+  {t:'v',s:'持つ → て形',a:'持って',o:['持って','持ちて','持いて'],e:'つ→って：促音変。'},
+  {t:'v',s:'遊ぶ → て形',a:'遊んで',o:['遊んで','遊びて','遊ぶて'],e:'ぶ→んで：撥音変形。'},
+  {t:'v',s:'聞く → ない形',a:'聞かない',o:['聞かない','聞きない','聞くない'],e:'五段：く→か+ない。'},
+  {t:'v',s:'見る → ない形',a:'見ない',o:['見ない','見りない','見えない'],e:'一段：る→ない。'},
+  {t:'v',s:'来る → て形',a:'来て',o:['来て','来りて','来って'],e:'来る不规则：来て。'},
+  {t:'v',s:'する → て形',a:'して',o:['して','すて','しいて'],e:'する不规则：して。'},
+  {t:'v',s:'読む → ます形',a:'読みます',o:['読みます','読ます','読えます'],e:'む→み+ます。'},
+  {t:'v',s:'起きる → ます形',a:'起きます',o:['起きます','起ります','起えます'],e:'一段：る→ます。'},
+  // ── 词义选择 ──
+  {t:'w',s:'嬉しい の意味は？',a:'高兴',o:['高兴','悲伤','害怕'],e:'嬉しい(うれしい)：高兴、喜悦。'},
+  {t:'w',s:'難しい の意味は？',a:'困难',o:['困难','容易','有趣'],e:'難しい(むずかしい)：困难的。'},
+  {t:'w',s:'寂しい の意味は？',a:'寂寞',o:['寂寞','烦躁','愤怒'],e:'寂しい(さびしい)：寂寞的。'},
+  {t:'w',s:'危ない の意味は？',a:'危险',o:['危险','安全','快速'],e:'危ない(あぶない)：危险的。'},
+  {t:'w',s:'懐かしい の意味は？',a:'怀念',o:['怀念','陌生','无聊'],e:'懐かしい(なつかしい)：怀念的。'},
+  {t:'w',s:'諦める の意味は？',a:'放弃',o:['放弃','期待','努力'],e:'諦める(あきらめる)：放弃。'},
+  {t:'w',s:'褒める の意味は？',a:'表扬',o:['表扬','批评','忽视'],e:'褒める(ほめる)：表扬、夸赞。'},
+  {t:'w',s:'慌てる の意味は？',a:'慌张',o:['慌张','镇定','欢呼'],e:'慌てる(あわてる)：慌张、慌忙。'},
+  {t:'w',s:'混む の意味は？',a:'拥挤',o:['拥挤','空旷','清洁'],e:'混む(こむ)：拥挤、繁忙。'},
+  {t:'w',s:'片付ける の意味は？',a:'整理',o:['整理','破坏','装饰'],e:'片付ける(かたづける)：整理。'},
 ];
 
-const G_ROWS = 12, G_COLS = 6;
-let gBoard = null, gScore = 0, gCombo = 0, gWrong = 0, gWrongLog = [];
-let gCurQ = null, gSelected = 1, gDropMs = 1200, gTimerIv = null, gTimeElapsed = 0, gRunning = false, gStarted = false;
+const G_Q_LABELS = { p:'助词填空', v:'动词活用', w:'词义选择' };
+const G_ROWS = 10, G_COLS = 6;
 
-function gamePageInit() {
-  if (!gStarted) {
-    gBoard = Array.from({length: G_ROWS}, () => Array(G_COLS).fill(null));
-    renderGameBoard(true);
-  }
+let gBoard = null, gBoardTxt = null, gBoardClr = null;
+let gScore = 0, gCombo = 0, gWrong = 0, gWrongLog = [];
+let gCurQ = null, gSelected = 1, gDropCol = 0;
+let gBaseMs = 2000, gDropMs = 2000;
+let gTimerIv = null, gTimeElapsed = 0;
+let gRunning = false, gStarted = false;
+let gLevel = 1, gCorrectCount = 0;
+
+// ── 速度选择 ──
+function gameSetDiff(el, ms) {
+  document.querySelectorAll('.g-diff-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  gBaseMs = ms;
+  if (!gRunning) gDropMs = ms;
 }
 
-function renderGameBoard(init) {
+// ── 页面初始化（首次进入） ──
+function gamePageInit() {
+  if (!gStarted) gameInitBoard();
+}
+
+function gameInitBoard() {
   const el = document.getElementById('g-board');
   if (!el) return;
-  // set fixed height based on col width
-  const cols = el.clientWidth || 300;
-  const cellW = Math.floor(cols / G_COLS) - 2;
-  el.style.height = (cellW * G_ROWS + (G_ROWS + 1) * 2) + 'px';
-  if (init) {
-    let html = '';
-    for (let r = 0; r < G_ROWS; r++)
-      for (let c = 0; c < G_COLS; c++)
-        html += `<div style="border-radius:4px;background:#f9fafb;border:1px solid var(--border)"></div>`;
-    el.innerHTML = html;
-  }
+  gBoard    = Array.from({length: G_ROWS}, () => Array(G_COLS).fill(null));
+  gBoardTxt = Array.from({length: G_ROWS}, () => Array(G_COLS).fill(''));
+  gBoardClr = Array.from({length: G_ROWS}, () => Array(G_COLS).fill(''));
+  let html = '';
+  for (let r = 0; r < G_ROWS; r++)
+    for (let c = 0; c < G_COLS; c++)
+      html += `<div class="g-cell" style="background:#f1f5f9;border:1px solid #e2e8f0;color:transparent"></div>`;
+  el.innerHTML = html;
 }
 
+// 根据连击返回渐变色
+function gComboColor() {
+  if (gCombo >= 10) return 'linear-gradient(135deg,#ef4444,#f59e0b)'; // 紅金
+  if (gCombo >= 5)  return 'linear-gradient(135deg,#7c3aed,#4361ee)'; // 紫蓝
+  return 'linear-gradient(135deg,#1976d2,#1565c0)';                   // 蓝
+}
+
+// ── 刷新棋盘显示 ──
 function gameRefreshBoard() {
   const el = document.getElementById('g-board');
   if (!el || !gBoard) return;
   const cells = el.children;
-  if (cells.length !== G_ROWS * G_COLS) { renderGameBoard(true); return; }
+  if (cells.length !== G_ROWS * G_COLS) { gameInitBoard(); return; }
+  const selTxt = (gCurQ && gRunning) ? (gCurQ.o[gSelected] || '?') : '';
   for (let r = 0; r < G_ROWS; r++) {
     for (let c = 0; c < G_COLS; c++) {
-      const cell = gBoard[r][c];
-      const d = cells[r * G_COLS + c];
+      const st = gBoard[r][c], d = cells[r * G_COLS + c];
       if (!d) continue;
-      if (cell === 'correct') { d.style.background='#1565c0'; d.style.boxShadow=''; }
-      else if (cell === 'wrong') { d.style.background='#9e9e9e'; d.style.boxShadow=''; }
-      else if (cell === 'active') { d.style.background='#4361ee'; d.style.boxShadow='0 0 6px rgba(67,97,238,.5)'; }
-      else { d.style.background='#f9fafb'; d.style.boxShadow=''; }
+      const isDropCol = (c === gDropCol) && gRunning;
+      if (st === 'correct') {
+        d.style.cssText = `border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;aspect-ratio:1;min-height:24px;background:${gBoardClr[r][c]};border:none;box-shadow:0 1px 3px rgba(0,0,0,.2)`;
+        d.textContent = gBoardTxt[r][c];
+      } else if (st === 'wrong') {
+        d.style.cssText = 'border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:rgba(255,255,255,.75);aspect-ratio:1;min-height:24px;background:#78716c;border:none';
+        d.textContent = gBoardTxt[r][c];
+      } else if (st === 'active') {
+        d.style.cssText = 'border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;aspect-ratio:1;min-height:24px;background:#4361ee;border:none;animation:gpulse .5s infinite alternate';
+        d.textContent = selTxt;
+      } else {
+        const bg = isDropCol ? '#dce7ff' : '#f1f5f9';
+        const bd = isDropCol ? '1px solid #90aaff' : '1px solid #e2e8f0';
+        d.style.cssText = `border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:transparent;aspect-ratio:1;min-height:24px;background:${bg};border:${bd};animation:none`;
+        d.textContent = '';
+      }
     }
   }
 }
 
+// ── 开始游戏 ──
 function gameStart() {
-  gBoard = Array.from({length: G_ROWS}, () => Array(G_COLS).fill(null));
+  gBoard    = Array.from({length: G_ROWS}, () => Array(G_COLS).fill(null));
+  gBoardTxt = Array.from({length: G_ROWS}, () => Array(G_COLS).fill(''));
+  gBoardClr = Array.from({length: G_ROWS}, () => Array(G_COLS).fill(''));
   gScore = 0; gCombo = 0; gWrong = 0; gWrongLog = [];
-  gDropMs = 1200; gRunning = true; gStarted = true;
-  document.getElementById('g-score').textContent = 0;
-  document.getElementById('g-combo').textContent = 0;
-  document.getElementById('g-wrong').textContent = 0;
+  gLevel = 1; gCorrectCount = 0;
+  gDropMs = gBaseMs;
+  gRunning = true; gStarted = true;
+  ['g-score','g-combo','g-wrong'].forEach(id => document.getElementById(id).textContent = 0);
+  document.getElementById('g-level-num').textContent = 1;
+  document.getElementById('g-level-badge').textContent = 'LV.1';
+  document.getElementById('g-level-bar').style.width = '0%';
   document.getElementById('g-start-btn').textContent = '重新开始';
-  renderGameBoard(true);
+  // 禁用速度面板
+  const dp = document.getElementById('g-diff-panel');
+  if (dp) { dp.style.opacity = '0.45'; dp.style.pointerEvents = 'none'; }
+  gameInitBoard();
   gameNextQ();
 }
 
+// ── 随机选一个有空位的列 ──
+function gamePickCol() {
+  const idxs = [...Array(G_COLS).keys()].sort(() => Math.random() - .5);
+  for (const c of idxs) if (!gBoard[0][c]) return c;
+  return -1;
+}
+
+// ── 根据关卡筛出题目池 ──
+function gameQPool() {
+  if (gLevel >= 5) return GAME_QS;
+  if (gLevel >= 3) return GAME_QS.filter(q => q.t === 'p' || q.t === 'v');
+  return GAME_QS.filter(q => q.t === 'p');
+}
+
+// ── 下一题 ──
 function gameNextQ() {
   if (!gRunning) return;
-  gCurQ = GAME_QS[Math.floor(Math.random() * GAME_QS.length)];
-  gSelected = 1;
+  gDropCol = gamePickCol();
+  if (gDropCol === -1) { gRunning = false; setTimeout(gameOver, 300); return; }
+
+  const pool = gameQPool();
+  gCurQ     = pool[Math.floor(Math.random() * pool.length)];
+  gSelected = Math.floor(gCurQ.o.length / 2); // 默认选中间项
   gTimeElapsed = 0;
+
   document.getElementById('g-sentence').textContent = gCurQ.s;
+  document.getElementById('g-qtype-badge').textContent = G_Q_LABELS[gCurQ.t] || '填空';
+  gameUpdateColHint();
   gameRenderOptions();
-  // show active block at row 0 col 2
-  gBoard[0][2] = 'active';
+
+  gBoard[0][gDropCol] = 'active';
   gameRefreshBoard();
+
   if (gTimerIv) clearInterval(gTimerIv);
-  const totalMs = gDropMs;
   gTimerIv = setInterval(() => {
-    gTimeElapsed += 100;
-    const pct = Math.max(0, 100 - gTimeElapsed / totalMs * 100);
+    gTimeElapsed += 80;
+    const pct = Math.max(0, 100 - gTimeElapsed / gDropMs * 100);
     const bar = document.getElementById('g-timebar');
     if (bar) {
       bar.style.width = pct + '%';
-      bar.style.background = pct > 50 ? 'var(--primary)' : pct > 20 ? '#f9a825' : 'var(--danger)';
+      bar.style.background = pct > 55 ? 'var(--primary)' : pct > 22 ? '#f59e0b' : 'var(--danger)';
     }
-    if (gTimeElapsed >= totalMs) gameConfirm();
-  }, 100);
+    if (gTimeElapsed >= gDropMs) gameConfirm();
+  }, 80);
 }
 
+// 更新列指示器
+function gameUpdateColHint() {
+  const el = document.getElementById('g-col-hint');
+  if (!el) return;
+  let s = '';
+  for (let c = 0; c < G_COLS; c++) s += c === gDropCol ? '▼' : '◦';
+  el.textContent = s;
+}
+
+// ── 渲染选项按钮 ──
 function gameRenderOptions() {
   const el = document.getElementById('g-options');
   if (!el || !gCurQ) return;
+  const maxLen = Math.max(...gCurQ.o.map(o => o.length));
+  const fs = maxLen > 4 ? '14px' : maxLen > 2 ? '16px' : '20px';
   el.innerHTML = gCurQ.o.map((opt, i) => `
     <div id="gopt-${i}" onclick="gameSelect(${i})" style="
-      padding:14px 8px;border-radius:10px;text-align:center;cursor:pointer;
-      font-size:20px;font-weight:800;transition:all .15s;
+      padding:13px 6px;border-radius:10px;text-align:center;cursor:pointer;
+      font-size:${fs};font-weight:800;transition:all .15s;user-select:none;
       border:2.5px solid ${i===gSelected?'var(--primary)':'var(--border)'};
-      background:${i===gSelected?'var(--primary-light, #e8effe)':'var(--surface)'};
+      background:${i===gSelected?'var(--primary-light,#e8effe)':'var(--surface)'};
       color:${i===gSelected?'var(--primary)':'var(--text-sub)'};
     ">${opt}</div>`).join('');
 }
 
+// ── 切换选项 ──
 function gameSelect(i) {
   if (!gRunning) return;
   gSelected = i;
   gameRenderOptions();
+  // 实时更新活跃格的文字
+  const el = document.getElementById('g-board');
+  if (el && gBoard && gBoard[0][gDropCol] === 'active') {
+    el.children[gDropCol].textContent = gCurQ.o[i];
+  }
 }
 
+// ── 确认答案 ──
 function gameConfirm() {
   if (!gRunning || !gCurQ) return;
   if (gTimerIv) { clearInterval(gTimerIv); gTimerIv = null; }
-  gBoard[0][2] = null;
+  gBoard[0][gDropCol] = null;
+
   const ans = gCurQ.o[gSelected];
-  const ok = ans === gCurQ.a;
-  // place at bottom of col 2
+  const ok  = ans === gCurQ.a;
+
+  // 找到该列最底部空行
+  let landRow = -1;
   for (let r = G_ROWS - 1; r >= 0; r--) {
-    if (!gBoard[r][2]) { gBoard[r][2] = ok ? 'correct' : 'wrong'; break; }
+    if (!gBoard[r][gDropCol]) { landRow = r; break; }
   }
+  if (landRow < 0) { gRunning = false; setTimeout(gameOver, 300); return; }
+
+  gBoard[landRow][gDropCol] = ok ? 'correct' : 'wrong';
+  gBoardTxt[landRow][gDropCol] = ans;
+  gBoardClr[landRow][gDropCol] = ok ? gComboColor() : '#78716c';
+
   if (ok) {
-    gScore++; gCombo++;
-    gDropMs = Math.max(400, 1200 - gCombo * 80);
+    gScore++; gCombo++; gCorrectCount++;
+    gDropMs = Math.max(Math.round(gBaseMs * 0.35), gDropMs - Math.round(gCombo * 30));
     gameClearRows();
     gameShowFeedback(gSelected, true);
+    gameLevelCheck();
   } else {
     gWrong++; gCombo = 0;
-    gDropMs = Math.min(1400, gDropMs + 100);
+    gDropMs = Math.min(Math.round(gBaseMs * 1.15), gDropMs + 120);
     gWrongLog.push({s: gCurQ.s, wrong: ans, correct: gCurQ.a, e: gCurQ.e});
     gameShowFeedback(gSelected, false);
   }
+
   document.getElementById('g-score').textContent = gScore;
-  document.getElementById('g-combo').textContent = gCombo;
-  document.getElementById('g-wrong').textContent = gWrong;
+  document.getElementById('g-combo').textContent  = gCombo;
+  document.getElementById('g-wrong').textContent  = gWrong;
   gameRefreshBoard();
-  // game over check
+
+  // 判断游戏结束（顶行有块）
   if (gBoard[0].some(c => c && c !== 'active')) {
     gRunning = false;
-    setTimeout(gameOver, 700);
+    setTimeout(gameOver, 800);
   } else {
-    setTimeout(gameNextQ, 550);
+    setTimeout(gameNextQ, 480);
   }
 }
 
+// ── 选项反馈高亮 ──
 function gameShowFeedback(idx, ok) {
   const el = document.getElementById('g-options');
   if (!el || !gCurQ) return;
   el.querySelectorAll('div').forEach((d, i) => {
     if (i === idx) {
-      d.style.background = ok ? '#e8f5e9' : '#ffebee';
-      d.style.borderColor = ok ? 'var(--success)' : 'var(--danger)';
-      d.style.color = ok ? 'var(--success)' : 'var(--danger)';
+      d.style.background   = ok ? '#e8f5e9' : '#ffebee';
+      d.style.borderColor  = ok ? 'var(--success)' : 'var(--danger)';
+      d.style.color        = ok ? 'var(--success)' : 'var(--danger)';
     }
     if (!ok && gCurQ.o[i] === gCurQ.a) {
-      d.style.background = '#e8f5e9';
+      d.style.background  = '#e8f5e9';
       d.style.borderColor = 'var(--success)';
-      d.style.color = 'var(--success)';
+      d.style.color       = 'var(--success)';
     }
   });
 }
 
+// ── 消行（满行） ──
 function gameClearRows() {
   for (let r = G_ROWS - 1; r >= 0; r--) {
     if (gBoard[r].every(c => c === 'correct' || c === 'wrong')) {
-      gScore += 3;
-      for (let rr = r; rr > 0; rr--) gBoard[rr] = [...gBoard[rr-1]];
-      gBoard[0] = Array(G_COLS).fill(null);
+      gScore += 5; // 消行奖励
+      for (let rr = r; rr > 0; rr--) {
+        gBoard[rr]    = [...gBoard[rr-1]];
+        gBoardTxt[rr] = [...gBoardTxt[rr-1]];
+        gBoardClr[rr] = [...gBoardClr[rr-1]];
+      }
+      gBoard[0]    = Array(G_COLS).fill(null);
+      gBoardTxt[0] = Array(G_COLS).fill('');
+      gBoardClr[0] = Array(G_COLS).fill('');
       document.getElementById('g-score').textContent = gScore;
+      toast('🎉 消行！+5分');
       r++;
     }
   }
 }
 
+// ── 关卡检查 ──
+function gameLevelCheck() {
+  const CORRECT_PER_LEVEL = 8;
+  const progress = (gCorrectCount % CORRECT_PER_LEVEL) / CORRECT_PER_LEVEL * 100;
+  document.getElementById('g-level-bar').style.width = progress + '%';
+  if (gCorrectCount > 0 && gCorrectCount % CORRECT_PER_LEVEL === 0) {
+    gLevel++;
+    gDropMs = Math.max(Math.round(gBaseMs * 0.35), gDropMs - 80);
+    document.getElementById('g-level-num').textContent  = gLevel;
+    document.getElementById('g-level-badge').textContent = `LV.${gLevel}`;
+    let msg = `🎉 升到 LV.${gLevel}！`;
+    if (gLevel === 3) msg += ' 动词活用题解锁！';
+    if (gLevel === 5) msg += ' 词义选择题解锁！';
+    toast(msg);
+  }
+}
+
+// ── 游戏结束报告 ──
 function gameOver() {
+  // 恢复速度面板
+  const dp = document.getElementById('g-diff-panel');
+  if (dp) { dp.style.opacity = ''; dp.style.pointerEvents = ''; }
   const total = gScore + gWrong;
-  const acc = total > 0 ? Math.round(gScore / total * 100) : 0;
-  const emoji = acc >= 80 ? '🏆' : acc >= 60 ? '🌟' : '💪';
+  const acc   = total > 0 ? Math.round(gScore / total * 100) : 0;
+  const emoji = acc >= 85 ? '🏆' : acc >= 70 ? '🌟' : acc >= 50 ? '😊' : '💪';
   const wrongHtml = gWrongLog.length
-    ? gWrongLog.slice(0, 8).map(w =>
-        `<div style="padding:10px;background:var(--surface2,#f5f5f5);border-radius:8px;margin-bottom:8px;font-size:13px;text-align:left">
-          <div style="font-weight:700;font-size:15px;letter-spacing:1px">${escHtml(w.s)}</div>
-          <div style="color:var(--danger);margin-top:4px">❌ 你的答案：${escHtml(w.wrong)}</div>
-          <div style="color:var(--success)">✅ 正确答案：${escHtml(w.correct)}</div>
+    ? gWrongLog.slice(0, 8).map(w => `
+        <div style="padding:10px;background:var(--surface2,#f5f5f5);border-radius:8px;margin-bottom:8px;font-size:13px;text-align:left">
+          <div style="font-weight:700;font-size:14px">${escHtml(w.s)}</div>
+          <div style="color:var(--danger);margin-top:4px">❌ ${escHtml(w.wrong)}</div>
+          <div style="color:var(--success)">✅ ${escHtml(w.correct)}</div>
           <div style="color:var(--text-sub);font-size:12px;margin-top:2px">${escHtml(w.e)}</div>
         </div>`).join('')
-    : '<div style="color:var(--text-hint);text-align:center;padding:16px">🎉 全部答对，非常棒！</div>';
-  openModal('🎮 游戏结束 · 学习报告',
-    `<div style="text-align:center;margin-bottom:16px">
-      <div style="font-size:52px">${emoji}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:12px 0">
-        <div style="background:var(--primary-light,#e8effe);padding:14px;border-radius:8px">
-          <div style="font-size:28px;font-weight:800;color:var(--primary)">${gScore}</div>
-          <div style="font-size:11px;color:var(--text-sub)">得分</div></div>
-        <div style="background:#ffebee;padding:14px;border-radius:8px">
-          <div style="font-size:28px;font-weight:800;color:var(--danger)">${gWrong}</div>
-          <div style="font-size:11px;color:var(--text-sub)">错误</div></div>
-        <div style="background:#e8f5e9;padding:14px;border-radius:8px">
-          <div style="font-size:28px;font-weight:800;color:var(--success)">${acc}%</div>
-          <div style="font-size:11px;color:var(--text-sub)">正确率</div></div>
+    : '<div style="color:var(--text-hint);text-align:center;padding:16px">🎊 全部答对，完美！</div>';
+
+  openModal('🎮 游戏结束',
+    `<div style="text-align:center;margin-bottom:14px">
+      <div style="font-size:48px;margin-bottom:8px">${emoji}</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
+        <div style="background:var(--primary-light,#e8effe);padding:10px;border-radius:8px">
+          <div style="font-size:22px;font-weight:800;color:var(--primary)">${gScore}</div>
+          <div style="font-size:10px;color:var(--text-sub)">得分</div></div>
+        <div style="background:#fffbeb;padding:10px;border-radius:8px">
+          <div style="font-size:22px;font-weight:800;color:#f59e0b">${gLevel}</div>
+          <div style="font-size:10px;color:var(--text-sub)">关卡</div></div>
+        <div style="background:#ffebee;padding:10px;border-radius:8px">
+          <div style="font-size:22px;font-weight:800;color:var(--danger)">${gWrong}</div>
+          <div style="font-size:10px;color:var(--text-sub)">错误</div></div>
+        <div style="background:#e8f5e9;padding:10px;border-radius:8px">
+          <div style="font-size:22px;font-weight:800;color:var(--success)">${acc}%</div>
+          <div style="font-size:10px;color:var(--text-sub)">正确率</div></div>
       </div>
     </div>
-    ${gWrongLog.length ? '<div style="font-weight:700;margin-bottom:10px">📋 错题回顾</div>' : ''}
+    ${gWrongLog.length ? '<div style="font-weight:700;margin-bottom:8px">📋 错题回顾</div>' : ''}
     ${wrongHtml}
-    <div style="display:flex;gap:10px;margin-top:16px;justify-content:center">
+    <div style="display:flex;gap:10px;margin-top:14px;justify-content:center">
       <button class="btn btn-outline" onclick="closeModal();gameStart()">再来一局</button>
       <button class="btn btn-primary" onclick="closeModal()">关闭</button>
     </div>`);
 }
 
+// ── 键盘控制 ──
 document.addEventListener('keydown', function(e) {
   const ap = document.querySelector('.page.active');
   if (!ap || ap.id !== 'page-game' || !gRunning) return;
   const len = gCurQ ? gCurQ.o.length : 3;
-  if (e.key === 'ArrowLeft') { gameSelect(Math.max(0, gSelected - 1)); e.preventDefault(); }
-  else if (e.key === 'ArrowRight') { gameSelect(Math.min(len - 1, gSelected + 1)); e.preventDefault(); }
+  if      (e.key === 'ArrowLeft')              { gameSelect(Math.max(0, gSelected - 1)); e.preventDefault(); }
+  else if (e.key === 'ArrowRight')             { gameSelect(Math.min(len - 1, gSelected + 1)); e.preventDefault(); }
   else if (e.key === 'Enter' || e.key === ' ') { gameConfirm(); e.preventDefault(); }
 });
 
