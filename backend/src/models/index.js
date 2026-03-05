@@ -138,6 +138,25 @@ const ContentVersion = sequelize.define('ContentVersion', {
   updated_at_ts: { type: DataTypes.BIGINT, defaultValue: () => Date.now() },
 }, { tableName: 'content_version', timestamps: false });
 
+// ────────── Game ──────────
+const GameScore = sequelize.define('GameScore', {
+  id:                  { type: DataTypes.BIGINT,   primaryKey: true, autoIncrement: true },
+  user_id:             { type: DataTypes.UUID,    allowNull: false },
+  username:            { type: DataTypes.STRING(100) },
+  level_num:           { type: DataTypes.INTEGER,  defaultValue: 1 },
+  score:               { type: DataTypes.INTEGER,  defaultValue: 0 },
+  accuracy:            { type: DataTypes.INTEGER,  defaultValue: 0 },
+  max_combo:           { type: DataTypes.INTEGER,  defaultValue: 0 },
+  questions_answered:  { type: DataTypes.INTEGER,  defaultValue: 0 },
+  passed:              { type: DataTypes.BOOLEAN,  defaultValue: false },
+}, { tableName: 'game_scores', updatedAt: false });
+
+const GameConfig = sequelize.define('GameConfig', {
+  config_key:   { type: DataTypes.STRING(50), primaryKey: true },
+  config_value: { type: DataTypes.TEXT },
+  updated_by:   { type: DataTypes.STRING(100) },
+}, { tableName: 'game_configs' });
+
 // ────────── API Request Log (traffic monitoring) ──────────
 const ApiLog = sequelize.define('ApiLog', {
   id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
@@ -169,4 +188,6 @@ module.exports = {
   ContentVersion,
   ApiLog,
   AppRelease,
+  GameScore,
+  GameConfig,
 };
