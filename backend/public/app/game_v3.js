@@ -434,11 +434,11 @@ function gameShowFeedback(idx, ok, pts) {
   });
 }
 
-// ── 消行 ──
+// ── 消行（仅全部答对的行才消除并加分，错误格永久留板增加压力）──
 function gameClearRows() {
   const bonus = gLvlCfg(gCurrentLevel).rowBonus;
   for (let r = gGRows - 1; r >= 0; r--) {
-    if (gBoard[r].every(c => c === 'correct' || c === 'wrong')) {
+    if (gBoard[r].every(c => c === 'correct')) {   // 只消全正确行
       gScore += bonus;
       for (let rr = r; rr > 0; rr--) {
         gBoard[rr]    = [...gBoard[rr-1]];
@@ -449,7 +449,7 @@ function gameClearRows() {
       gBoardTxt[0] = Array(gGCols).fill('');
       gBoardClr[0] = Array(gGCols).fill('');
       document.getElementById('g-score').textContent = gScore;
-      toast('🎉 消行！+' + bonus + '分');
+      toast('🎉 完美消行！+' + bonus + '分');
       r++;
     }
   }
