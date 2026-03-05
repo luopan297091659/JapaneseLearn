@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>日语学习 — 管理后台</title>
+<script src="/admin/chart.umd.min.js"></script>
+<style>
+:root{
+  --primary:#6366f1;--primary-dark:#4f46e5;--primary-light:#818cf8;
+  --success:#10b981;--warning:#f59e0b;--danger:#ef4444;--info:#06b6d4;
+  --sidebar-bg:#0f172a;--sidebar-text:#94a3b8;
+  --bg:#f1f5f9;--bg-card:#ffffff;--border:#e2e8f0;
+  --text:#1e293b;--text-muted:#64748b;
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 4px 6px -1px rgba(0,0,0,.08),0 2px 4px -2px rgba(0,0,0,.05);
+  --shadow-lg:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.05);
+  --radius:10px;--radius-sm:6px;--radius-lg:16px
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;background:var(--bg);color:var(--text);display:flex;height:100vh;overflow:hidden}
+a{text-decoration:none;color:inherit}
+button{cursor:pointer;font-family:inherit}
+
+/* ─── Login ─────────────────────────────────────── */
+#login-page{position:fixed;inset:0;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);display:flex;align-items:center;justify-content:center;z-index:999}
+.login-card{background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border-radius:20px;padding:44px 48px;width:400px;box-shadow:0 25px 50px -12px rgba(0,0,0,.25)}
+.login-logo{text-align:center;margin-bottom:30px}
+.login-logo .logo-icon{font-size:44px;display:block;margin-bottom:10px}
+.login-logo h1{font-size:22px;font-weight:700;color:#1e293b}
+.login-logo p{color:#64748b;font-size:13px;margin-top:3px}
+.inp-group{position:relative;margin-bottom:14px}
+.inp-group .inp-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none}
+.login-card input{width:100%;padding:11px 14px 11px 38px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;transition:border-color .2s,box-shadow .2s}
+.login-card input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+.login-card .login-btn{width:100%;padding:12px;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;margin-top:4px;transition:all .2s}
+.login-card .login-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(99,102,241,.35)}
+#login-err{color:var(--danger);font-size:13px;text-align:center;margin-top:10px;min-height:20px}
+
+/* ─── Sidebar ────────────────────────────────────── */
+#sidebar{width:240px;min-width:240px;background:var(--sidebar-bg);color:var(--sidebar-text);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden}
+#sidebar::-webkit-scrollbar{width:4px}
+#sidebar::-webkit-scrollbar-track{background:transparent}
+#sidebar::-webkit-scrollbar-thumb{background:#334155;border-radius:4px}
+.sidebar-logo{padding:20px 16px 16px}
+.sidebar-logo-inner{display:flex;align-items:center;gap:10px}
+.sidebar-logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.sidebar-logo-text{font-size:15px;font-weight:700;color:#f1f5f9;letter-spacing:.3px}
+.sidebar-logo-sub{font-size:10px;color:#475569;margin-top:1px}
+.sidebar-section{font-size:10px;font-weight:600;color:#475569;padding:14px 20px 5px;letter-spacing:1px;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 12px;margin:1px 8px;cursor:pointer;transition:all .15s;font-size:13px;border-radius:8px;color:var(--sidebar-text)}
+.nav-item:hover{background:#1e293b;color:#e2e8f0}
+.nav-item.active{background:linear-gradient(135deg,rgba(99,102,241,.25),rgba(79,70,229,.15));color:#c7d2fe;border-left:3px solid var(--primary-light);padding-left:9px}
+.nav-item .icon{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.sidebar-footer{padding:12px 16px;margin-top:auto;border-top:1px solid #1e293b}
+.sidebar-footer-txt{font-size:10px;color:#334155;text-align:center}
+/* 内容导入步骤指示器 */
+.import-step{padding:10px 18px;font-size:13px;color:var(--text-muted);border-bottom:2px solid transparent;cursor:default;transition:all .2s}
+.import-step.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+.drop-zone{border:2px dashed var(--border);border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg)}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--primary);background:#f5f3ff}
+.drop-zone-icon{font-size:40px;margin-bottom:10px}
+.drop-zone-title{font-weight:600;color:var(--text);font-size:15px}
+.drop-zone-sub{font-size:12px;color:var(--text-muted);margin-top:6px}
+.drop-zone-file{margin-top:12px;color:var(--primary);font-size:13px;font-weight:500}
+.import-result-card{background:var(--bg);border-radius:12px;padding:16px 24px;text-align:center}
+.import-result-num{font-size:28px;font-weight:700}
+.import-result-label{font-size:12px;margin-top:2px}
+
+/* ─── Main ───────────────────────────────────────── */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#topbar{background:var(--bg-card);padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0;box-shadow:var(--shadow)}
+#page-title{font-size:17px;font-weight:600;color:var(--text)}
+#topbar-right{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--text-muted)}
+.topbar-avatar{width:32px;height:32px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700}
+#content{flex:1;overflow-y:auto;padding:24px}
+#content::-webkit-scrollbar{width:6px}
+#content::-webkit-scrollbar-track{background:transparent}
+#content::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:6px}
+
+/* ─── Stat Cards ─────────────────────────────────── */
+.cards-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:var(--bg-card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);border:1px solid var(--border);display:flex;align-items:flex-start;gap:14px;transition:box-shadow .2s,transform .2s}
+.stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.stat-icon{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.stat-body{flex:1;min-width:0}
+.stat-label{font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+.stat-value{font-size:28px;font-weight:800;color:var(--text);line-height:1;letter-spacing:-.5px}
+.stat-sub{font-size:11px;color:var(--success);margin-top:5px;font-weight:500}
+.stat-sub.warn{color:var(--warning)}
+/* color helpers */
+.c-indigo{background:rgba(99,102,241,.12);color:var(--primary)}
+.c-emerald{background:rgba(16,185,129,.12);color:var(--success)}
+.c-amber{background:rgba(245,158,11,.12);color:var(--warning)}
+.c-rose{background:rgba(239,68,68,.12);color:var(--danger)}
+.c-cyan{background:rgba(6,182,212,.12);color:var(--info)}
+.c-purple{background:rgba(139,92,246,.12);color:#8b5cf6}
+
+.panel{background:var(--bg-card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);border:1px solid var(--border);margin-bottom:20px}
+.panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.panel-header h3{font-size:14px;font-weight:700;color:var(--text)}
+/* Dashboard grid */
+.db-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.db-grid{grid-template-columns:1fr}}
+
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;background:var(--bg-card);padding:14px;border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--border)}
+.toolbar input[type=text]{padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;min-width:200px;outline:none;transition:border-color .2s}
+.toolbar input:focus{border-color:var(--primary)}
+.btn{padding:8px 16px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:500;transition:all .15s;display:inline-flex;align-items:center;gap:5px}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark);box-shadow:0 2px 8px rgba(99,102,241,.3)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{background:#dc2626}
+.btn-ghost{background:#f8fafc;color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover{background:#f1f5f9}
+.btn-sm{padding:5px 10px;font-size:12px;border-radius:5px}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover{background:#059669}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead tr{background:#f8fafc}
+th{padding:11px 14px;text-align:left;font-weight:600;color:var(--text-muted);border-bottom:2px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+td{padding:11px 14px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#f8faff}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;line-height:1.8}
+.badge-blue{background:#eff6ff;color:#2563eb}
+.badge-green{background:#f0fdf4;color:#16a34a}
+.badge-orange{background:#fffbeb;color:#d97706}
+.badge-red{background:#fef2f2;color:#dc2626}
+.badge-purple{background:#f5f3ff;color:#7c3aed}
+
+.pagination{display:flex;gap:4px;align-items:center;margin-top:14px;justify-content:flex-end}
+.page-btn{padding:5px 10px;border:1.5px solid var(--border);background:var(--bg-card);border-radius:6px;font-size:12px;cursor:pointer;transition:all .15s}
+.page-btn:hover{border-color:var(--primary);color:var(--primary)}
+.page-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.page-info{font-size:12px;color:var(--text-muted);margin-left:6px}
+
+/* ─── Modal ──────────────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:500}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg-card);border-radius:var(--radius-lg);width:600px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:32px;box-shadow:0 25px 50px -12px rgba(0,0,0,.25)}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:20px;color:var(--text)}
+.form-row{margin-bottom:16px}
+.form-row label{display:block;font-size:11px;color:var(--text-muted);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.form-row input,.form-row select,.form-row textarea{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;outline:none;transition:border-color .2s,box-shadow .2s;background:#fafafa}
+.form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(99,102,241,.1);background:#fff}
+.form-row textarea{resize:vertical;min-height:80px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--border)}
+.tabs{display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border)}
+.tab-btn{padding:8px 18px;border:none;background:none;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text-muted);transition:color .15s}
+.tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* ─── Stats ──────────────────────────────────────── */
+.range-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:20px;background:var(--bg-card);padding:14px 18px;border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--border)}
+.range-bar label{font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.range-bar select,.range-bar input[type=date]{padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;outline:none}
+.range-bar select:focus,.range-bar input[type=date]:focus{border-color:var(--primary)}
+.range-shortcuts{display:flex;gap:5px;flex-wrap:wrap}
+.range-shortcuts .btn{padding:5px 10px;font-size:11px}
+.charts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:20px}
+.chart-card{background:var(--bg-card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.chart-card h4{font-size:13px;font-weight:600;margin-bottom:14px;color:var(--text)}
+.chart-card canvas{max-height:260px}
+.top-table{width:100%;font-size:12px;border-collapse:collapse}
+.top-table th{padding:8px 10px;background:#f8fafc;font-weight:600;color:var(--text-muted);border-bottom:2px solid var(--border);text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+.top-table td{padding:8px 10px;border-bottom:1px solid #f1f5f9}
+.top-table tr:last-child td{border-bottom:none}
+.top-table tr:hover td{background:#f8faff}
+
+#toast{position:fixed;bottom:28px;right:28px;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;z-index:9999;transform:translateY(8px);max-width:320px;box-shadow:var(--shadow-lg)}
+#toast.show{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <span class="logo-icon">🇯🇵</span>
+      <h1>日语学习</h1>
+      <p>管理控制台 · Admin Console</p>
+    </div>
+    <div class="inp-group">
+      <span class="inp-icon">👤</span>
+      <input id="li-user" type="text" placeholder="用户名 / 邮箱" />
+    </div>
+    <div class="inp-group">
+      <span class="inp-icon">🔑</span>
+      <input id="li-pass" type="password" placeholder="密码" />
+    </div>
+    <button id="login-btn" class="login-btn">登 录</button>
+    <div id="login-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="sidebar" style="display:none">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-inner">
+      <div class="sidebar-logo-icon">🇯🇵</div>
+      <div>
+        <div class="sidebar-logo-text">日语学习</div>
+        <div class="sidebar-logo-sub">Admin Console</div>
+      </div>
+    </div>
+  </div>
+  <div class="sidebar-section">概览</div>
+  <div class="nav-item active" onclick="nav('dashboard')" id="nav-dashboard"><span class="icon">📊</span>仪表板</div>
+  <div class="sidebar-section">内容管理</div>
+  <div class="nav-item" onclick="nav('vocab')"   id="nav-vocab">  <span class="icon">📚</span>词汇管理</div>
+  <div class="nav-item" onclick="nav('grammar')" id="nav-grammar"><span class="icon">📖</span>文法管理</div>
+  <div class="nav-item" onclick="nav('tracks')"  id="nav-tracks"> <span class="icon">🎧</span>听力管理</div>
+  <div class="nav-item" onclick="nav('users')"   id="nav-users">  <span class="icon">👥</span>用户管理</div>
+  <div class="sidebar-section">数据分析</div>
+  <div class="nav-item" onclick="nav('stat-users')"    id="nav-stat-users">   <span class="icon">📈</span>用户统计</div>
+  <div class="nav-item" onclick="nav('stat-traffic')"  id="nav-stat-traffic"> <span class="icon">🌐</span>流量监控</div>
+  <div class="nav-item" onclick="nav('stat-behavior')" id="nav-stat-behavior"><span class="icon">🎯</span>行为分析</div>
+  <div class="sidebar-section">运营</div>
+  <div class="nav-item" onclick="nav('membership')" id="nav-membership"><span class="icon">👑</span>会员配置</div>
+  <div class="nav-item" onclick="nav('import')" id="nav-import"><span class="icon">📥</span>内容导入</div>
+  <div class="sidebar-section">系统</div>
+  <div class="nav-item" onclick="nav('sync')" id="nav-sync"><span class="icon">🔄</span>全局同步</div>
+  <div class="nav-item" onclick="nav('app')" id="nav-app"><span class="icon">📱</span>App管理</div>
+  <div class="sidebar-footer"><div class="sidebar-footer-txt">言旅 · JapaneseLearn v1.0</div></div>
+</div>
+
+<div id="main" style="display:none">
+  <div id="topbar">
+    <h2 id="page-title">仪表板</h2>
+    <div id="topbar-right">
+      <div class="topbar-avatar" id="topbar-avatar">A</div>
+      <span id="topbar-user" style="font-weight:500;color:var(--text)">—</span>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">退出登录</button>
+    </div>
+  </div>
+  <div id="content"></div>
+</div>
+
+<div id="toast"></div>
+
+<!-- MEMBERSHIP PLAN MODAL -->
+<div class="modal-overlay" id="modal-plan">
+  <div class="modal" style="width:560px">
+    <h2 id="mp-title">添加套餐</h2>
+    <input type="hidden" id="mp-idx" value="-1" />
+    <div class="form-row"><label>ID（唯一标识，小写英文） *</label><input id="mp-id" placeholder="monthly" /></div>
+    <div class="form-row"><label>套餐名称 *</label><input id="mp-name" placeholder="月度会员" /></div>
+    <div class="form-row"><label>价格（元 CNY，0 表示免费） *</label><input id="mp-price" type="number" min="0" step="0.01" placeholder="18" /></div>
+    <div class="form-row"><label>计费周期</label>
+      <select id="mp-period">
+        <option value="month">按月</option>
+        <option value="year">按年</option>
+        <option value="forever">永久</option>
+      </select>
+    </div>
+    <div class="form-row"><label>套餐简介</label><input id="mp-desc" placeholder="适合入门用户的免费套餐" /></div>
+    <div class="form-row"><label>功能清单（每行一项）</label>
+      <textarea id="mp-features" rows="4" placeholder="无限练习题&#10;SRS 间隔复习&#10;听力课程"></textarea>
+    </div>
+    <div class="form-row" style="display:flex;align-items:center;gap:8px">
+      <input type="checkbox" id="mp-enabled" style="width:auto" /> <label style="margin:0">启用此套餐</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-plan')"> 取消</button>
+      <button class="btn btn-primary" onclick="savePlan()"> 保存</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="modal-vocab">
+  <div class="modal">
+    <h2 id="mv-title">添加词汇</h2>
+    <input type="hidden" id="mv-id" />
+    <div class="form-row"><label>单词 *</label><input id="mv-word" placeholder="e.g. 食べる" /></div>
+    <div class="form-row"><label>读音（假名）</label><input id="mv-reading" placeholder="e.g. たべる" /></div>
+    <div class="form-row"><label>意思 *</label><input id="mv-meaning" placeholder="e.g. 吃" /></div>
+    <div class="form-row"><label>词性</label>
+      <select id="mv-pos"><option value="verb">动词</option><option value="noun">名词</option><option value="adjective">形容词</option><option value="adverb">副词</option><option value="particle">助词</option><option value="conjunction">接续词</option><option value="interjection">感叹词</option><option value="other">其他</option></select>
+    </div>
+    <div class="form-row"><label>例句</label><textarea id="mv-example" rows="2"></textarea></div>
+    <div class="form-row"><label>级别</label>
+      <select id="mv-level"><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-vocab')">取消</button>
+      <button class="btn btn-primary" onclick="saveVocab()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="modal-overlay" id="modal-import">
+  <div class="modal">
+    <h2>导入词汇</h2>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchImpTab('json')">JSON 卡片</button>
+      <button class="tab-btn" onclick="switchImpTab('file')">文件上传</button>
+      <button class="tab-btn" onclick="switchImpTab('txt')">文本粘贴</button>
+    </div>
+    <div id="imp-json" class="tab-pane active">
+      <div class="form-row"><label>JSON 数组（word / reading / meaning_zh / jlpt_level）</label>
+        <textarea id="imp-json-data" rows="6" placeholder='[{"word":"食べる","reading":"たべる","meaning_zh":"吃","jlpt_level":"N5"}]'></textarea>
+      </div>
+    </div>
+    <div id="imp-file" class="tab-pane">
+      <div class="form-row"><label>选择文件（.txt / .csv / .tsv）</label>
+        <input type="file" id="imp-file-data" accept=".txt,.csv,.tsv" />
+      </div>
+      <p style="font-size:12px;color:#888">每行：单词[Tab]读音[Tab]中文意思[Tab]级别(N5-N1)</p>
+    </div>
+    <div id="imp-txt" class="tab-pane">
+      <div class="form-row"><label>文本（每行：单词 读音 意思 级别，Tab 或逗号分隔）</label>
+        <textarea id="imp-txt-data" rows="8" placeholder="食べる たべる 吃 N5&#10;飲む のむ 喝 N5"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-import')">取消</button>
+      <button class="btn btn-primary" onclick="doImport()">导入</button>
+    </div>
+  </div>
+</div>
+
+<!-- GRAMMAR MODAL -->
+<div class="modal-overlay" id="modal-grammar">
+  <div class="modal" style="width:680px">
+    <h2 id="mg-title">添加文法</h2>
+    <input type="hidden" id="mg-id" />
+    <div class="form-row"><label>标题 *</label><input id="mg-title-input" placeholder="e.g. ～ている" /></div>
+    <div class="form-row"><label>级别</label>
+      <select id="mg-level"><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option></select>
+    </div>
+    <div class="form-row"><label>说明 / 解释</label><textarea id="mg-desc"></textarea></div>
+    <div class="form-row"><label>例句（每行：日语|中文翻译）</label>
+      <textarea id="mg-examples" rows="4" placeholder="食べています|正在吃饭&#10;読んでいます|正在读书"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-grammar')">取消</button>
+      <button class="btn btn-primary" onclick="saveGrammar()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- TRACK MODAL -->
+<div class="modal-overlay" id="modal-track">
+  <div class="modal">
+    <h2 id="mt-title">添加听力</h2>
+    <input type="hidden" id="mt-id" />
+    <div class="form-row"><label>标题 *</label><input id="mt-title-input" /></div>
+    <div class="form-row"><label>音频 URL</label><input id="mt-url" placeholder="https://..." /></div>
+    <div class="form-row"><label>文本内容（日语）</label><textarea id="mt-text"></textarea></div>
+    <div class="form-row"><label>翻译（中文）</label><textarea id="mt-trans"></textarea></div>
+    <div class="form-row"><label>级别</label>
+      <select id="mt-diff"><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-track')">取消</button>
+      <button class="btn btn-primary" onclick="saveTrack()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ───────────────────────────────── ERROR TRAP ───────────────────────────────── */
+window.onerror = function(msg, src, line, col, err){
+  const el = document.getElementById('login-err');
+  if(el) el.textContent = 'JS错误: ' + msg + ' (line ' + line + ')';
+  return false;
+};
+
+/* ───────────────────────────────── GLOBALS ───────────────────────────────── */
+const API = '/api/v1';
+let TOKEN = localStorage.getItem('admin_token') || '';
+const charts = {};
+
+/* ───────────────────────────────── UTILS ─────────────────────────────────── */
+function toast(msg, err=false){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = err ? 'var(--danger)' : '#1e293b';
+  el.style.color = '#fff';
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 2800);
+}
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+function openModal(id)  { document.getElementById(id).classList.add('open') }
+function closeModal(id) { document.getElementById(id).classList.remove('open') }
+
+function switchImpTab(tab){
+  ['json','file','txt'].forEach(t=>{
+    document.getElementById(`imp-${t}`).classList.toggle('active', t===tab);
+  });
+  document.querySelectorAll('#modal-import .tab-btn').forEach((b,i)=>{
+    b.classList.toggle('active', ['json','file','txt'][i]===tab);
+  });
+}
+
+async function api(method, path, body=null, isForm=false){
+  const opts = { method, headers:{ Authorization:`Bearer ${TOKEN}` } };
+  if(body && !isForm){ opts.headers['Content-Type']='application/json'; opts.body=JSON.stringify(body); }
+  if(body && isForm)  { opts.body = body; }
+  const r = await fetch(`${API}${path}`, opts);
+  const data = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(data.message || r.statusText);
+  return data;
+}
+
+function destroyChart(name){ if(charts[name]){ charts[name].destroy(); delete charts[name]; } }
+function mkChart(id, cfg, name){
+  destroyChart(name||id);
+  const ctx = document.getElementById(id);
+  if(ctx) charts[name||id] = new Chart(ctx, cfg);
+}
+
+function today()    { return new Date().toISOString().slice(0,10) }
+function daysAgo(n) { const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10) }
+function monthStart(){ const d=new Date(); d.setDate(1); return d.toISOString().slice(0,10) }
+function yearStart() { return new Date().getFullYear()+'-01-01' }
+function qs(obj)    { return '?'+Object.entries(obj).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&') }
+const PALETTE = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#f97316','#84cc16','#3b82f6'];
+
+/* ───────────────────────────────── AUTH ──────────────────────────────────── */
+async function doLogin(){
+  const username = document.getElementById('li-user').value.trim();
+  const password = document.getElementById('li-pass').value;
+  document.getElementById('login-err').textContent = '';
+  try{
+    const d = await fetch(`${API}/auth/login`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username, password})
+    }).then(r=>r.json());
+    if(!d.accessToken) throw new Error(d.error||d.message||'登录失败');
+    const me = await fetch(`${API}/auth/me`,{headers:{Authorization:`Bearer ${d.accessToken}`}}).then(r=>r.json());
+    const user = me.user || me;
+    if(user.role !== 'admin') throw new Error('非管理员账号');
+    TOKEN = d.accessToken;
+    localStorage.setItem('admin_token', TOKEN);
+    document.getElementById('topbar-user').textContent = user.username;
+    const av = document.getElementById('topbar-avatar');
+    if(av) av.textContent = (user.username||'A')[0].toUpperCase();
+    showApp();
+  }catch(e){ document.getElementById('login-err').textContent = e.message; }
+}
+function doLogout(){ TOKEN=''; localStorage.removeItem('admin_token'); location.reload(); }
+function showApp(){
+  document.getElementById('login-page').style.display='none';
+  document.getElementById('sidebar').style.display='flex';
+  document.getElementById('main').style.display='flex';
+  nav('dashboard');
+}
+
+/* ───────────────────────────────── NAV ───────────────────────────────────── */
+const PAGE_TITLES = {
+  dashboard:'仪表板', vocab:'词汇管理', grammar:'文法管理',
+  tracks:'听力管理', users:'用户管理',
+  'stat-users':'用户统计', 'stat-traffic':'流量监控', 'stat-behavior':'行为分析',
+  membership:'会员配置', import:'内容导入', sync:'全局同步',
+  app:'App管理'
+};
+const PAGE_FNS = {
+  dashboard: renderDashboard, vocab: renderVocab, grammar: renderGrammar,
+  tracks: renderTracks, users: renderUsers,
+  'stat-users': renderStatUsers, 'stat-traffic': renderStatTraffic, 'stat-behavior': renderStatBehavior,
+  membership: renderMembership, import: renderImport, sync: renderSync,
+  app: renderAppManage,
+};
+/* ─────────────────────────── APP 管理 ───────────────────────────────────── */
+async function renderAppManage() {
+  document.getElementById('content').innerHTML = `
+    <div class="panel" style="max-width:700px;margin-bottom:24px">
+      <div class="panel-header"><h3>📱 App 上传</h3></div>
+      <form id="app-upload-form" enctype="multipart/form-data" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+        <div class="form-row" style="flex:1;min-width:180px">
+          <label>平台</label>
+          <select id="app-platform" name="platform">
+            <option value="android">Android</option>
+            <option value="ios">iOS</option>
+          </select>
+        </div>
+        <div class="form-row" style="flex:2;min-width:220px">
+          <label>版本号</label>
+          <input id="app-version" name="version" placeholder="如 1.0.0" required />
+        </div>
+        <div class="form-row" style="flex:2;min-width:220px">
+          <label>上传文件</label>
+          <input id="app-file" name="file" type="file" required />
+        </div>
+        <button class="btn btn-primary" type="submit">上传</button>
+      </form>
+    </div>
+    <div class="panel" style="max-width:900px">
+      <div class="panel-header"><h3>📦 App 版本列表</h3></div>
+      <table><thead><tr><th>平台</th><th>版本号</th><th>上传时间</th><th>下载次数</th><th>下载直链</th><th>操作</th></tr></thead>
+      <tbody id="app-list-body"><tr><td colspan="6" style="text-align:center;color:#aaa">加载中…</td></tr></tbody></table>
+    </div>
+  `;
+  document.getElementById('app-upload-form').onsubmit = async function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const fd = new FormData(form);
+    try {
+      await api('POST', '/admin/uploadApp', fd, true);
+      toast('上传成功');
+      form.reset();
+      loadAppList();
+    } catch (err) { toast(err.message, true); }
+  };
+  loadAppList();
+}
+
+async function loadAppList() {
+  try {
+    const d = await api('GET', '/admin/listAppReleases');
+    const rows = (d.data||[]).map(r => `
+      <tr>
+        <td>${esc(r.platform)}</td>
+        <td>${esc(r.version)}</td>
+        <td>${new Date(r.createdAt).toLocaleString('zh-CN')}</td>
+        <td>${r.downloadCount||0}</td>
+        <td>
+          <input type="text" value="${location.origin}/api/v1/admin/downloadApp/${r.id}" readonly style="width:220px;font-size:12px;padding:3px 6px;border:1px solid #eee;border-radius:5px;background:#f8fafc;color:#334155" onclick="this.select();document.execCommand('copy');toast('已复制直链')" />
+        </td>
+        <td>
+          <a class="btn btn-ghost btn-sm" href="/api/v1/admin/downloadApp/${r.id}" target="_blank">下载</a>
+        </td>
+      </tr>
+    `).join('');
+    document.getElementById('app-list-body').innerHTML = rows || '<tr><td colspan="6" style="text-align:center;color:#aaa">暂无数据</td></tr>';
+  } catch(e) {
+    document.getElementById('app-list-body').innerHTML = `<tr><td colspan="6" style="color:#e74c3c;text-align:center">${esc(e.message)}</td></tr>`;
+  }
+}
+function nav(page){
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  const ni = document.getElementById('nav-'+page);
+  if(ni) ni.classList.add('active');
+  document.getElementById('page-title').textContent = PAGE_TITLES[page]||'';
+  document.getElementById('content').innerHTML = '<p style="color:#aaa;padding:40px;text-align:center">加载中…</p>';
+  if(PAGE_FNS[page]) PAGE_FNS[page]();
+}
+
+/* ───────────────────────────────── PAGINATION ────────────────────────────── */
+function renderPager(containerId, page, total, onPage){
+  const el = document.getElementById(containerId);
+  if(!el || total<=1){ if(el) el.innerHTML=''; return; }
+  const btns = [];
+  for(let i=1;i<=total;i++){
+    if(i===1||i===total||Math.abs(i-page)<=2)
+      btns.push(`<button class="page-btn ${i===page?'active':''}" onclick="(${onPage})(${i})">${i}</button>`);
+    else if(Math.abs(i-page)===3)
+      btns.push('<span style="padding:0 4px;color:#aaa">…</span>');
+  }
+  el.innerHTML = `<div class="pagination">${btns.join('')}<span class="page-info"> 共 ${total} 页</span></div>`;
+}
+
+/* ───────────────────────────────── DASHBOARD ─────────────────────────────── */
+async function renderDashboard(){
+  try{
+    const d = await api('GET','/admin/dashboard');
+    document.getElementById('content').innerHTML = `
+    <div class="cards-row">
+      <div class="stat-card">
+        <div class="stat-icon c-indigo">📚</div>
+        <div class="stat-body"><div class="stat-label">词汇总数</div><div class="stat-value">${(d.vocabCount||0).toLocaleString()}</div><div class="stat-sub">全量词汇条目</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon c-emerald">📖</div>
+        <div class="stat-body"><div class="stat-label">文法条目</div><div class="stat-value">${(d.grammarCount||0).toLocaleString()}</div><div class="stat-sub">语法点总数</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon c-amber">🎧</div>
+        <div class="stat-body"><div class="stat-label">听力曲目</div><div class="stat-value">${(d.trackCount||0).toLocaleString()}</div><div class="stat-sub">听力素材</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon c-cyan">👥</div>
+        <div class="stat-body"><div class="stat-label">注册用户</div><div class="stat-value">${(d.userCount||0).toLocaleString()}</div><div class="stat-sub">累计注册</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon c-purple">⚡</div>
+        <div class="stat-body"><div class="stat-label">7日活跃</div><div class="stat-value">${(d.activeUsers||0).toLocaleString()}</div><div class="stat-sub">近7天活跃用户</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon c-rose">🔖</div>
+        <div class="stat-body"><div class="stat-label">内容版本</div><div class="stat-value" style="font-size:20px;letter-spacing:0">${d.contentVersion?.version||'—'}</div><div class="stat-sub warn">词汇v${d.contentVersion?.vocab_version||0} · 语法v${d.contentVersion?.grammar_version||0}</div></div>
+      </div>
+    </div>
+    <div class="db-grid">
+      <div class="panel">
+        <div class="panel-header"><h3>📊 词汇级别分布</h3></div>
+        <canvas id="db-level-chart" height="200"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><h3>👤 最近注册用户</h3></div>
+        <table><thead><tr><th>用户名</th><th>邮箱</th><th>角色</th><th>注册时间</th></tr></thead>
+        <tbody>${(d.recentUsers||[]).map(u=>`<tr>
+          <td><b>${esc(u.username)}</b></td>
+          <td style="color:var(--text-muted)">${esc(u.email)}</td>
+          <td><span class="badge ${u.role==='admin'?'badge-red':'badge-blue'}">${esc(u.role)}</span></td>
+          <td style="color:var(--text-muted);font-size:12px">${new Date(u.createdAt).toLocaleString('zh-CN')}</td>
+        </tr>`).join('')}</tbody></table>
+      </div>
+    </div>`;
+    const lv = Object.entries(d.vocabByLevel||{});
+    mkChart('db-level-chart',{
+      type:'doughnut',
+      data:{ labels:lv.map(([k])=>k), datasets:[{data:lv.map(([,v])=>v), backgroundColor:PALETTE, borderWidth:2, hoverOffset:6}] },
+      options:{plugins:{legend:{position:'right',labels:{font:{size:13},padding:16}}},cutout:'60%'}
+    },'db-level');
+  }catch(e){ toast(e.message,true) }
+}
+
+/* ───────────────────────────────── VOCAB ─────────────────────────────────── */
+let vState = {page:1, limit:20, search:'', total:0};
+async function renderVocab(){
+  document.getElementById('content').innerHTML = `
+  <div class="toolbar">
+    <input type="text" id="v-search" placeholder="搜索单词/意思…" value="${esc(vState.search)}" onkeydown="if(event.key==='Enter')vocabSearch()" />
+    <button class="btn btn-primary" onclick="vocabSearch()">搜索</button>
+    <button class="btn btn-ghost" onclick="openVocabModal()">＋ 添加</button>
+    <button class="btn btn-ghost" onclick="openModal('modal-import')">📥 导入</button>
+    <button class="btn btn-danger btn-sm" id="v-del-btn" style="display:none" onclick="bulkDeleteVocab()">删除选中</button>
+  </div>
+  <div class="panel" style="padding:0">
+    <table><thead><tr>
+      <th><input type="checkbox" onchange="toggleAllVocab(this)" /></th>
+      <th>单词</th><th>读音</th><th>意思</th><th>词性</th><th>级别</th><th>操作</th>
+    </tr></thead><tbody id="vt-body"></tbody></table>
+    <div style="padding:12px 16px" id="v-pager"></div>
+  </div>`;
+  await loadVocab();
+}
+async function loadVocab(){
+  try{
+    const d = await api('GET',`/admin/vocabulary?page=${vState.page}&limit=${vState.limit}&q=${encodeURIComponent(vState.search)}`);
+    vState.total = d.total||0;
+    document.getElementById('vt-body').innerHTML = (d.data||[]).map(v=>`
+      <tr>
+        <td><input type="checkbox" class="v-cb" value="${v.id}" onchange="updateDelBtn()" /></td>
+        <td><b>${esc(v.word)}</b></td><td>${esc(v.reading)}</td><td>${esc(v.meaning_zh)}</td>
+        <td>${esc(v.part_of_speech||'')}</td>
+        <td><span class="badge badge-blue">${esc(v.jlpt_level)}</span></td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick='editVocab(${JSON.stringify(v)})'>编辑</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteVocab('${v.id}')">删除</button>
+        </td>
+      </tr>`).join('');
+    renderPager('v-pager', vState.page, Math.ceil(vState.total/vState.limit), p=>{ vState.page=p; loadVocab(); });
+  }catch(e){ toast(e.message,true) }
+}
+function vocabSearch(){ vState.page=1; vState.search=document.getElementById('v-search').value; loadVocab(); }
+function updateDelBtn(){ document.getElementById('v-del-btn').style.display=document.querySelectorAll('.v-cb:checked').length>0?'':'none'; }
+function toggleAllVocab(cb){ document.querySelectorAll('.v-cb').forEach(c=>c.checked=cb.checked); updateDelBtn(); }
+function openVocabModal(v=null){
+  document.getElementById('mv-id').value = v?.id||'';
+  document.getElementById('mv-word').value = v?.word||'';
+  document.getElementById('mv-reading').value = v?.reading||'';
+  document.getElementById('mv-meaning').value = v?.meaning_zh||'';
+  document.getElementById('mv-pos').value = v?.part_of_speech||'verb';
+  document.getElementById('mv-example').value = v?.example_sentence||'';
+  document.getElementById('mv-level').value = v?.jlpt_level||'N5';
+  document.getElementById('mv-title').textContent = v ? '编辑词汇' : '添加词汇';
+  openModal('modal-vocab');
+}
+function editVocab(v){ openVocabModal(v); }
+async function saveVocab(){
+  const id = document.getElementById('mv-id').value;
+  const body={
+    word: document.getElementById('mv-word').value.trim(),
+    reading: document.getElementById('mv-reading').value.trim(),
+    meaning_zh: document.getElementById('mv-meaning').value.trim(),
+    part_of_speech: document.getElementById('mv-pos').value,
+    example_sentence: document.getElementById('mv-example').value.trim(),
+    jlpt_level: document.getElementById('mv-level').value,
+  };
+  try{
+    if(id) await api('PUT',`/admin/vocabulary/${id}`,body);
+    else   await api('POST','/admin/vocabulary',body);
+    toast('保存成功'); closeModal('modal-vocab'); loadVocab();
+  }catch(e){ toast(e.message,true) }
+}
+async function deleteVocab(id){
+  if(!confirm('确认删除该词汇？')) return;
+  try{ await api('DELETE',`/admin/vocabulary/${id}`); toast('已删除'); loadVocab(); }catch(e){ toast(e.message,true) }
+}
+async function bulkDeleteVocab(){
+  const ids=[...(document.querySelectorAll('.v-cb:checked'))].map(c=>c.value);
+  if(!ids.length || !confirm(`确认删除 ${ids.length} 条词汇？`)) return;
+  try{ await api('POST','/admin/vocabulary/bulk-delete',{ids}); toast('已批量删除'); loadVocab(); }catch(e){ toast(e.message,true) }
+}
+async function doImport(){
+  const active=['json','file','txt'].find(t=>document.getElementById(`imp-${t}`).classList.contains('active'));
+  try{
+    if(active==='json'){
+      const data=JSON.parse(document.getElementById('imp-json-data').value);
+      const r=await api('POST','/admin/vocabulary/import',{cards:data});
+      toast(`导入成功：${r.imported} 条`);
+    } else if(active==='file'){
+      const file=document.getElementById('imp-file-data').files[0];
+      if(!file) throw new Error('请选择文件');
+      const fd=new FormData(); fd.append('file',file);
+      const jlpt=document.getElementById('imp-level')?.value||'N3';
+      fd.append('jlpt_level',jlpt);
+      const r=await api('POST','/admin/vocabulary/import-file',fd,true);
+      toast(`导入成功：${r.imported} 条`);
+    } else {
+      const lines=document.getElementById('imp-txt-data').value.trim().split('\n');
+      const cards=lines.filter(Boolean).map(l=>{ const p=l.split(/\t|,/); return {word:p[0],reading:p[1],meaning_zh:p[2],jlpt_level:p[3]||'N5'}; });
+      const r=await api('POST','/admin/vocabulary/import',{cards});
+      toast(`导入成功：${r.imported} 条`);
+    }
+    closeModal('modal-import'); loadVocab();
+  }catch(e){ toast(e.message,true) }
+}
+
+/* ───────────────────────────────── GRAMMAR ───────────────────────────────── */
+let gState = {page:1, limit:20, search:'', total:0};
+async function renderGrammar(){
+  document.getElementById('content').innerHTML = `
+  <div class="toolbar">
+    <input type="text" id="gr-search" placeholder="搜索文法标题…" onkeydown="if(event.key==='Enter')grammarSearch()" />
+    <button class="btn btn-primary" onclick="grammarSearch()">搜索</button>
+    <button class="btn btn-ghost" onclick="openGrammarModal()">＋ 添加</button>
+  </div>
+  <div class="panel" style="padding:0">
+    <table><thead><tr><th>ID</th><th>标题</th><th>级别</th><th>例句数</th><th>操作</th></tr></thead>
+    <tbody id="gr-body"></tbody></table>
+    <div style="padding:12px 16px" id="gr-pager"></div>
+  </div>`;
+  await loadGrammar();
+}
+async function loadGrammar(){
+  try{
+    const d=await api('GET',`/admin/grammar?page=${gState.page}&limit=${gState.limit}&q=${encodeURIComponent(gState.search)}`);
+    gState.total=d.total||0;
+    document.getElementById('gr-body').innerHTML=(d.data||[]).map(g=>`
+      <tr>
+        <td>${g.id}</td><td>${esc(g.title||g.pattern)}</td>
+        <td><span class="badge badge-orange">${esc(g.jlpt_level)}</span></td>
+        <td>${g.examples?.length||0}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick='editGrammar(${JSON.stringify(g)})'>编辑</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteGrammar('${g.id}')">删除</button>
+        </td>
+      </tr>`).join('');
+    renderPager('gr-pager', gState.page, Math.ceil(gState.total/gState.limit), p=>{ gState.page=p; loadGrammar(); });
+  }catch(e){ toast(e.message,true) }
+}
+function grammarSearch(){ gState.page=1; gState.search=document.getElementById('gr-search').value; loadGrammar(); }
+function openGrammarModal(g=null){
+  document.getElementById('mg-id').value=g?.id||'';
+  document.getElementById('mg-title-input').value=g?.title||g?.pattern||'';
+  document.getElementById('mg-level').value=g?.jlpt_level||'N5';
+  document.getElementById('mg-desc').value=g?.explanation_zh||g?.explanation||'';
+  document.getElementById('mg-examples').value=(g?.examples||[]).map(e=>`${e.sentence||''}|${e.meaning_zh||''}`).join('\n');
+  document.getElementById('mg-title').textContent=g?'编辑文法':'添加文法';
+  openModal('modal-grammar');
+}
+function editGrammar(g){ openGrammarModal(g); }
+async function saveGrammar(){
+  const id=document.getElementById('mg-id').value;
+  const examples=document.getElementById('mg-examples').value.trim().split('\n').filter(Boolean)
+    .map(l=>{ const[j,c]=l.split('|'); return {sentence:j?.trim(), meaning_zh:c?.trim()}; });
+  const body={
+    title: document.getElementById('mg-title-input').value.trim(),
+    jlpt_level: document.getElementById('mg-level').value,
+    explanation_zh: document.getElementById('mg-desc').value.trim(),
+    examples,
+  };
+  try{
+    if(id) await api('PUT',`/admin/grammar/${id}`,body);
+    else   await api('POST','/admin/grammar',body);
+    toast('保存成功'); closeModal('modal-grammar'); loadGrammar();
+  }catch(e){ toast(e.message,true) }
+}
+async function deleteGrammar(id){
+  if(!confirm('确认删除？')) return;
+  try{ await api('DELETE',`/admin/grammar/${id}`); toast('已删除'); loadGrammar(); }catch(e){ toast(e.message,true) }
+}
+
+/* ───────────────────────────────── TRACKS ────────────────────────────────── */
+let tState = {page:1, limit:20, search:'', total:0};
+async function renderTracks(){
+  document.getElementById('content').innerHTML = `
+  <div class="toolbar">
+    <input type="text" id="tr-search" placeholder="搜索标题…" onkeydown="if(event.key==='Enter')trackSearch()" />
+    <button class="btn btn-primary" onclick="trackSearch()">搜索</button>
+    <button class="btn btn-ghost" onclick="openTrackModal()">＋ 添加</button>
+  </div>
+  <div class="panel" style="padding:0">
+    <table><thead><tr><th>ID</th><th>标题</th><th>难度</th><th>音频 URL</th><th>操作</th></tr></thead>
+    <tbody id="tr-body"></tbody></table>
+    <div style="padding:12px 16px" id="tr-pager"></div>
+  </div>`;
+  await loadTracks();
+}
+async function loadTracks(){
+  try{
+    const d=await api('GET',`/admin/tracks?page=${tState.page}&limit=${tState.limit}&q=${encodeURIComponent(tState.search)}`);
+    tState.total=d.total||0;
+    document.getElementById('tr-body').innerHTML=(d.data||[]).map(t=>`
+      <tr>
+        <td>${t.id}</td><td>${esc(t.title)}</td>
+        <td><span class="badge badge-green">${esc(t.jlpt_level)}</span></td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.audio_url||'')}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick='editTrack(${JSON.stringify(t)})'>编辑</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteTrack('${t.id}')">删除</button>
+        </td>
+      </tr>`).join('');
+    renderPager('tr-pager', tState.page, Math.ceil(tState.total/tState.limit), p=>{ tState.page=p; loadTracks(); });
+  }catch(e){ toast(e.message,true) }
+}
+function trackSearch(){ tState.page=1; tState.search=document.getElementById('tr-search').value; loadTracks(); }
+function openTrackModal(t=null){
+  document.getElementById('mt-id').value=t?.id||'';
+  document.getElementById('mt-title-input').value=t?.title||'';
+  document.getElementById('mt-url').value=t?.audio_url||'';
+  document.getElementById('mt-text').value=t?.transcript||'';
+  document.getElementById('mt-trans').value=t?.transcript_zh||'';
+  document.getElementById('mt-diff').value=t?.jlpt_level||'N5';
+  document.getElementById('mt-title').textContent=t?'编辑听力':'添加听力';
+  openModal('modal-track');
+}
+function editTrack(t){ openTrackModal(t); }
+async function saveTrack(){
+  const id=document.getElementById('mt-id').value;
+  const body={
+    title: document.getElementById('mt-title-input').value.trim(),
+    audio_url: document.getElementById('mt-url').value.trim(),
+    transcript: document.getElementById('mt-text').value.trim(),
+    transcript_zh: document.getElementById('mt-trans').value.trim(),
+    jlpt_level: document.getElementById('mt-diff').value,
+  };
+  try{
+    if(id) await api('PUT',`/admin/tracks/${id}`,body);
+    else   await api('POST','/admin/tracks',body);
+    toast('保存成功'); closeModal('modal-track'); loadTracks();
+  }catch(e){ toast(e.message,true) }
+}
+async function deleteTrack(id){
+  if(!confirm('确认删除？')) return;
+  try{ await api('DELETE',`/admin/tracks/${id}`); toast('已删除'); loadTracks(); }catch(e){ toast(e.message,true) }
+}
+
+/* ───────────────────────────────── USERS ─────────────────────────────────── */
+let uState = {page:1, limit:20, search:'', total:0};
+async function renderUsers(){
+  document.getElementById('content').innerHTML = `
+  <div class="toolbar">
+    <input type="text" id="us-search" placeholder="搜索用户名/邮箱…" onkeydown="if(event.key==='Enter')userSearch()" />
+    <button class="btn btn-primary" onclick="userSearch()">搜索</button>
+  </div>
+  <div class="panel" style="padding:0">
+    <table><thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th><th>活跃</th><th>注册时间</th><th>操作</th></tr></thead>
+    <tbody id="us-body"></tbody></table>
+    <div style="padding:12px 16px" id="us-pager"></div>
+  </div>`;
+  await loadUsers();
+}
+async function loadUsers(){
+  try{
+    const d=await api('GET',`/admin/users?page=${uState.page}&limit=${uState.limit}&q=${encodeURIComponent(uState.search)}`);
+    uState.total=d.total||0;
+    document.getElementById('us-body').innerHTML=(d.data||[]).map(u=>`
+      <tr>
+        <td>${u.id}</td><td>${esc(u.username)}</td><td>${esc(u.email)}</td>
+        <td><span class="badge ${u.role==='admin'?'badge-red':'badge-blue'}">${esc(u.role)}</span></td>
+        <td>${u.is_active?'✅':'❌'}</td>
+        <td>${new Date(u.createdAt).toLocaleDateString('zh-CN')}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="toggleRole('${u.id}','${u.role==='admin'?'user':'admin'}')">${u.role==='admin'?'降为普通':'设为管理员'}</button>
+          <button class="btn btn-danger btn-sm" onclick="toggleActive('${u.id}',${!u.is_active})">${u.is_active?'禁用':'启用'}</button>
+        </td>
+      </tr>`).join('');
+    renderPager('us-pager', uState.page, Math.ceil(uState.total/uState.limit), p=>{ uState.page=p; loadUsers(); });
+  }catch(e){ toast(e.message,true) }
+}
+function userSearch(){ uState.page=1; uState.search=document.getElementById('us-search').value; loadUsers(); }
+async function toggleRole(id, role){ try{ await api('PUT',`/admin/users/${id}`,{role}); toast('已更新'); loadUsers(); }catch(e){ toast(e.message,true) } }
+async function toggleActive(id, is_active){ try{ await api('PUT',`/admin/users/${id}`,{is_active}); toast('已更新'); loadUsers(); }catch(e){ toast(e.message,true) } }
+
+/* ─────────────────────────── STATS HELPERS ───────────────────────────────── */
+function rangeBarHTML(prefix, onApply){
+  return `<div class="range-bar">
+    <label>粒度</label>
+    <select id="${prefix}-grain"><option value="day">日</option><option value="month">月</option><option value="year">年</option></select>
+    <label>开始</label><input type="date" id="${prefix}-start" value="${daysAgo(29)}" />
+    <label>结束</label><input type="date" id="${prefix}-end" value="${today()}" />
+    <div class="range-shortcuts">
+      <button class="btn btn-ghost" onclick="qRange('${prefix}','day',0,0)">今天</button>
+      <button class="btn btn-ghost" onclick="qRange('${prefix}','day',1,1)">昨天</button>
+      <button class="btn btn-ghost" onclick="qRange('${prefix}','day',6,0)">近7天</button>
+      <button class="btn btn-ghost" onclick="qRange('${prefix}','day',29,0)">近30天</button>
+      <button class="btn btn-ghost" onclick="qRangeMonth('${prefix}')">本月</button>
+      <button class="btn btn-ghost" onclick="qRangeYear('${prefix}')">本年</button>
+    </div>
+    <button class="btn btn-primary" onclick="${onApply}">查&nbsp;询</button>
+  </div>`;
+}
+function qRange(p, grain, startAgo, endAgo){
+  document.getElementById(`${p}-grain`).value=grain;
+  document.getElementById(`${p}-start`).value=daysAgo(startAgo);
+  document.getElementById(`${p}-end`).value=daysAgo(endAgo);
+}
+function qRangeMonth(p){
+  document.getElementById(`${p}-grain`).value='day';
+  document.getElementById(`${p}-start`).value=monthStart();
+  document.getElementById(`${p}-end`).value=today();
+}
+function qRangeYear(p){
+  document.getElementById(`${p}-grain`).value='month';
+  document.getElementById(`${p}-start`).value=yearStart();
+  document.getElementById(`${p}-end`).value=today();
+}
+function getRange(p){ return { grain:document.getElementById(`${p}-grain`).value, start:document.getElementById(`${p}-start`).value, end:document.getElementById(`${p}-end`).value }; }
+
+function lineCfg(labels, datasets){
+  return { type:'line', data:{ labels, datasets:datasets.map((ds,i)=>({
+    label:ds.label, data:ds.data,
+    borderColor:PALETTE[i%PALETTE.length], backgroundColor:PALETTE[i%PALETTE.length]+'22',
+    tension:.4, pointRadius:3, pointHoverRadius:5, fill:!!ds.fill, borderWidth:2
+  }))}, options:{responsive:true, plugins:{legend:{position:'top',labels:{font:{size:12},padding:14}}},
+    scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'}},x:{grid:{display:false}}}} };
+}
+function barCfg(labels, datasets){
+  return { type:'bar', data:{ labels, datasets:datasets.map((ds,i)=>({
+    label:ds.label, data:ds.data,
+    backgroundColor:PALETTE[i%PALETTE.length]+'cc', borderRadius:5, borderSkipped:false
+  }))}, options:{responsive:true, plugins:{legend:{position:'top',labels:{font:{size:12},padding:14}}},
+    scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'}},x:{grid:{display:false}}}} };
+}
+function pieCfg(labels, data, type='doughnut'){
+  return { type, data:{ labels, datasets:[{data, backgroundColor:PALETTE, borderWidth:2, hoverOffset:6}]},
+    options:{responsive:true, plugins:{legend:{position:'right',labels:{font:{size:12},padding:14}}}} };
+}
+
+/* ─────────────────────────── STAT: TRAFFIC ───────────────────────────────── */
+async function renderStatTraffic(){
+  document.getElementById('content').innerHTML =
+    rangeBarHTML('tf','loadTrafficCharts()') +
+    `<div class="charts-grid">
+      <div class="chart-card"><h4>📊 请求量 &amp; 错误量趋势</h4><canvas id="tf-req-c"></canvas></div>
+      <div class="chart-card"><h4>⏱ 响应时间 avg / max（ms）</h4><canvas id="tf-rt-c"></canvas></div>
+      <div class="chart-card"><h4>🔵 状态码分布</h4><canvas id="tf-status-c"></canvas></div>
+      <div class="chart-card"><h4>🐢 最慢路径 Top 10</h4>
+        <table class="top-table"><thead><tr><th>路径</th><th>均值(ms)</th><th>最大(ms)</th><th>次数</th></tr></thead>
+        <tbody id="tf-slow-body"></tbody></table>
+      </div>
+      <div class="chart-card" style="grid-column:1/-1"><h4>🔥 最热路径 Top 10</h4><canvas id="tf-hot-c" style="max-height:240px"></canvas></div>
+    </div>`;
+  await loadTrafficCharts();
+}
+async function loadTrafficCharts(){
+  const r=getRange('tf');
+  try{
+    const d=await api('GET','/admin/stats/traffic'+qs(r));
+    const labels=(d.period||[]).map(x=>x.period);
+    mkChart('tf-req-c', lineCfg(labels,[
+      {label:'总请求', data:(d.period||[]).map(x=>x.total)},
+      {label:'错误(4xx/5xx)', data:(d.period||[]).map(x=>x.errors)}
+    ]),'tf-req');
+    mkChart('tf-rt-c', barCfg(labels,[
+      {label:'平均响应(ms)', data:(d.period||[]).map(x=>Math.round(x.avg_ms||0))},
+      {label:'最大响应(ms)', data:(d.period||[]).map(x=>Math.round(x.max_ms||0))}
+    ]),'tf-rt');
+    const st=d.statusDist||[];
+    mkChart('tf-status-c', pieCfg(st.map(x=>String(x.status_code)), st.map(x=>x.count)),'tf-status');
+    document.getElementById('tf-slow-body').innerHTML=(d.slowTop||[]).map(x=>`
+      <tr><td style="word-break:break-all">${esc(x.path)}</td><td>${Math.round(x.avg_ms)}</td><td>${Math.round(x.max_ms)}</td><td>${x.cnt}</td></tr>`).join('');
+    const hp=d.hotPaths||[];
+    mkChart('tf-hot-c', barCfg(hp.map(x=>x.path),[{label:'请求次数', data:hp.map(x=>x.cnt)}]),'tf-hot');
+  }catch(e){ toast(e.message,true) }
+}
+
+/* ─────────────────────────── STAT: USERS ─────────────────────────────────── */
+async function renderStatUsers(){
+  document.getElementById('content').innerHTML =
+    rangeBarHTML('su','loadUserCharts()') +
+    `<div class="cards-row" id="su-cards"></div>
+    <div class="charts-grid">
+      <div class="chart-card"><h4>📈 用户注册趋势</h4><canvas id="su-reg-c"></canvas></div>
+      <div class="chart-card"><h4>👥 活跃用户趋势</h4><canvas id="su-active-c"></canvas></div>
+      <div class="chart-card"><h4>🎌 级别分布</h4><canvas id="su-level-c"></canvas></div>
+      <div class="chart-card"><h4>🔥 连续打卡天数分布</h4><canvas id="su-streak-c"></canvas></div>
+    </div>`;
+  await loadUserCharts();
+}
+async function loadUserCharts(){
+  const r=getRange('su');
+  try{
+    const d=await api('GET','/admin/stats/users'+qs(r));
+    document.getElementById('su-cards').innerHTML=`
+      <div class="stat-card"><div class="stat-icon c-indigo">🆕</div><div class="stat-body"><div class="stat-label">范围内新用户</div><div class="stat-value">${(d.newUsers||0).toLocaleString()}</div></div></div>
+      <div class="stat-card"><div class="stat-icon c-emerald">⚡</div><div class="stat-body"><div class="stat-label">范围内活跃用户</div><div class="stat-value">${(d.activeUsers||0).toLocaleString()}</div></div></div>`;
+    const rLabels=(d.regTrend||[]).map(x=>x.period);
+    mkChart('su-reg-c', lineCfg(rLabels,[{label:'新注册', data:(d.regTrend||[]).map(x=>x.count)}]),'su-reg');
+    const aLabels=(d.activeTrend||[]).map(x=>x.period);
+    mkChart('su-active-c', lineCfg(aLabels,[{label:'活跃用户', data:(d.activeTrend||[]).map(x=>x.count)}]),'su-active');
+    const lv=d.levelDist||[];
+    mkChart('su-level-c', pieCfg(lv.map(x=>x.current_level||'未知'),lv.map(x=>x.count)),'su-level');
+    const sk=d.streakDist||[];
+    mkChart('su-streak-c', barCfg(sk.map(x=>x.bucket),[{label:'用户数', data:sk.map(x=>x.count)}]),'su-streak');
+  }catch(e){ toast(e.message,true) }
+}
+
+/* ─────────────────────────── STAT: BEHAVIOR ──────────────────────────────── */
+async function renderStatBehavior(){
+  document.getElementById('content').innerHTML =
+    rangeBarHTML('bh','loadBehaviorCharts()') +
+    `<div class="charts-grid">
+      <div class="chart-card" style="grid-column:1/-1"><h4>📚 活动类型趋势（堆叠面积）</h4><canvas id="bh-act-c" style="max-height:300px"></canvas></div>
+      <div class="chart-card"><h4>🧪 测验平均得分趋势</h4><canvas id="bh-quiz-c"></canvas></div>
+      <div class="chart-card"><h4>🃏 SRS 复习量趋势</h4><canvas id="bh-srs-c"></canvas></div>
+      <div class="chart-card"><h4>⏰ 日均学习时长（分钟）</h4><canvas id="bh-daily-c"></canvas></div>
+      <div class="chart-card"><h4>🎯 行为占比分布</h4><canvas id="bh-dist-c"></canvas></div>
+    </div>`;
+  await loadBehaviorCharts();
+}
+async function loadBehaviorCharts(){
+  const r=getRange('bh');
+  try{
+    const d=await api('GET','/admin/stats/behavior'+qs(r));
+
+    // stacked area
+    const atRaw=d.activityTrend||[];
+    const atLabels=[...new Set(atRaw.map(x=>x.period))].sort();
+    const atTypes=[...new Set(atRaw.map(x=>x.activity_type))];
+    const atMap={};
+    atRaw.forEach(x=>{ (atMap[x.activity_type]=atMap[x.activity_type]||{})[x.period]=x.count; });
+    destroyChart('bh-act');
+    const bCtx=document.getElementById('bh-act-c');
+    if(bCtx) charts['bh-act']=new Chart(bCtx,{
+      type:'line',
+      data:{ labels:atLabels, datasets:atTypes.map((t,i)=>({
+        label:t, data:atLabels.map(l=>atMap[t]?.[l]||0), fill:true,
+        borderColor:PALETTE[i%PALETTE.length], backgroundColor:PALETTE[i%PALETTE.length]+'55', tension:.3, pointRadius:2
+      }))},
+      options:{responsive:true, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true,stacked:true}}}
+    });
+
+    const qLabels=(d.quizTrend||[]).map(x=>x.period);
+    mkChart('bh-quiz-c', lineCfg(qLabels,[{label:'平均得分', data:(d.quizTrend||[]).map(x=>+(+x.avg_score||0).toFixed(1))}]),'bh-quiz');
+
+    const sLabels=(d.srsTrend||[]).map(x=>x.period);
+    mkChart('bh-srs-c', barCfg(sLabels,[{label:'SRS复习', data:(d.srsTrend||[]).map(x=>x.reviews)}]),'bh-srs');
+
+    const dlLabels=(d.dailyStudy||[]).map(x=>x.period);
+    mkChart('bh-daily-c', barCfg(dlLabels,[{label:'日均(分钟)', data:(d.dailyStudy||[]).map(x=>+(+x.avg_min||0).toFixed(1))}]),'bh-daily');
+
+    const dist=d.activityDist||[];
+    mkChart('bh-dist-c', pieCfg(dist.map(x=>x.activity_type||'其他'),dist.map(x=>x.count),'pie'),'bh-dist');
+  }catch(e){ toast(e.message,true) }
+}
+
+/* ─────────────────────────── MEMBERSHIP ─────────────────────────────────── */
+let _memCfg = null;
+
+async function renderMembership() {
+  document.getElementById('content').innerHTML = '<p style="color:#aaa;padding:40px;text-align:center">加载中…</p>';
+  try {
+    _memCfg = await api('GET', '/admin/membership');
+    _buildMembershipUI();
+  } catch(e) { toast(e.message, true); }
+}
+
+const PERIOD_LABEL = { month:'按月度', year:'按年度', forever:'永久' };
+
+function _buildMembershipUI() {
+  const { plans = [], payment = {}, notice = '' } = _memCfg;
+  const rows = plans.map((p, i) => `
+    <tr>
+      <td><span class="badge ${p.enabled?'badge-green':'badge-red'}">${p.enabled?'启用':'停用'}</span></td>
+      <td><b>${esc(p.name)}</b><br/><small style="color:#888">${esc(p.id)}</small></td>
+      <td style="font-size:15px;font-weight:700">${p.price==0?'<span class="badge badge-blue">免费</span>':'&#165;'+p.price}</td>
+      <td>${PERIOD_LABEL[p.period]||p.period}</td>
+      <td style="max-width:240px;color:#555">${(p.features||[]).map(f=>`<span style="display:inline-block;background:#f5f5f5;border-radius:10px;padding:1px 8px;margin:1px;font-size:11px">${esc(f)}</span>`).join(' ')}</td>
+      <td>${esc(p.description||'')}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="editPlan(${i})">编辑</button>
+        <button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="deletePlan(${i})">删除</button>
+        <button class="btn btn-ghost btn-sm" style="margin-left:4px" onclick="movePlan(${i},${i>0?i-1:i})">↑</button>
+        <button class="btn btn-ghost btn-sm" onclick="movePlan(${i},${i<plans.length-1?i+1:i})">↓</button>
+      </td>
+    </tr>`).join('');
+
+  document.getElementById('content').innerHTML = `
+  <div class="panel" style="margin-bottom:16px">
+    <div class="panel-header"><h3>📢 运营公告（App 内展示给用户）</h3></div>
+    <input id="mem-notice" style="width:100%;padding:8px 12px;border:1px solid #d9d9d9;border-radius:7px;font-size:14px" value="${esc(notice)}" placeholder="留空表示不展示公告" />
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h3>👑 会员套餐配置</h3>
+      <button class="btn btn-primary btn-sm" onclick="addPlan()">＋ 添加套餐</button>
+    </div>
+    <p style="font-size:12px;color:#999;margin-bottom:12px">客户端当前不开放付费入口，此处配置为上线做准备。</p>
+    <div style="overflow-x:auto">
+    <table>
+      <thead><tr>
+        <th>状态</th><th>套餐</th><th>价格</th><th>周期</th><th>功能清单</th><th>简介</th><th>操作</th>
+      </tr></thead>
+      <tbody id="mem-plans-body">${rows||'<tr><td colspan="7" style="text-align:center;color:#aaa">暂无套餐，请点击"添加套餐"</td></tr>'}</tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><h3>💳 支付渠道配置</h3></div>
+    <p style="font-size:12px;color:#e74c3c;margin-bottom:16px">⚠️ 支付密钥存储在服务端配置文件，请勿在客户端上线之前填写生产密钥。</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <div>
+        <div style="font-weight:600;margin-bottom:12px;color:#555">📱 支付宝</div>
+        <div class="form-row" style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <input type="checkbox" id="pay-ali-enabled" style="width:auto" ${payment.alipay_enabled?'checked':''} />
+          <label style="margin:0;font-size:13px">启用支付宝</label>
+        </div>
+        <div class="form-row"><label>App ID</label><input id="pay-ali-appid" value="${esc(payment.alipay_appid||'')}" placeholder="2021XXXXXXXX" /></div>
+        <div class="form-row"><label>回调地址</label><input id="pay-ali-notify" value="${esc(payment.alipay_notify_url||'')}" placeholder="https://api.yourdomain.com/pay/alipay/notify" /></div>
+      </div>
+      <div>
+        <div style="font-weight:600;margin-bottom:12px;color:#555">📱 微信支付</div>
+        <div class="form-row" style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <input type="checkbox" id="pay-wx-enabled" style="width:auto" ${payment.wechat_enabled?'checked':''} />
+          <label style="margin:0;font-size:13px">启用微信支付</label>
+        </div>
+        <div class="form-row"><label>App ID</label><input id="pay-wx-appid" value="${esc(payment.wechat_appid||'')}" placeholder="wxXXXXXXXX" /></div>
+        <div class="form-row"><label>商户号 MCH ID</label><input id="pay-wx-mchid" value="${esc(payment.wechat_mchid||'')}" placeholder="1XXXXXXXXX" /></div>
+        <div class="form-row"><label>回调地址</label><input id="pay-wx-notify" value="${esc(payment.wechat_notify_url||'')}" placeholder="https://api.yourdomain.com/pay/wechat/notify" /></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;margin-top:4px">
+    <button class="btn btn-success" style="padding:10px 32px;font-size:14px" onclick="saveAllMembership()">💾 保存所有配置</button>
+  </div>`;
+}
+
+function addPlan() {
+  document.getElementById('mp-title').textContent = '添加套餐';
+  ['mp-idx','mp-id','mp-name','mp-price','mp-desc','mp-features'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = id==='mp-idx' ? '-1' : '';
+  });
+  document.getElementById('mp-period').value = 'month';
+  document.getElementById('mp-enabled').checked = true;
+  openModal('modal-plan');
+}
+
+function editPlan(idx) {
+  const p = _memCfg.plans[idx];
+  if (!p) return;
+  document.getElementById('mp-title').textContent = '编辑套餐';
+  document.getElementById('mp-idx').value   = idx;
+  document.getElementById('mp-id').value    = p.id;
+  document.getElementById('mp-name').value  = p.name;
+  document.getElementById('mp-price').value = p.price;
+  document.getElementById('mp-period').value= p.period||'month';
+  document.getElementById('mp-desc').value  = p.description||'';
+  document.getElementById('mp-features').value = (p.features||[]).join('\n');
+  document.getElementById('mp-enabled').checked = !!p.enabled;
+  openModal('modal-plan');
+}
+
+function savePlan() {
+  const idx     = parseInt(document.getElementById('mp-idx').value);
+  const id      = document.getElementById('mp-id').value.trim();
+  const name    = document.getElementById('mp-name').value.trim();
+  const price   = parseFloat(document.getElementById('mp-price').value) || 0;
+  const period  = document.getElementById('mp-period').value;
+  const desc    = document.getElementById('mp-desc').value.trim();
+  const feats   = document.getElementById('mp-features').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const enabled = document.getElementById('mp-enabled').checked;
+  if (!id || !name) { toast('请填写 ID 和套餐名称', true); return; }
+  const dup = _memCfg.plans.findIndex((p,i)=>p.id===id && i!==idx);
+  if (dup !== -1) { toast('套餐 ID 已存在', true); return; }
+  const plan = { id, name, price, period, description: desc, features: feats, enabled };
+  if (idx === -1) { _memCfg.plans.push(plan); }
+  else            { _memCfg.plans[idx] = plan; }
+  closeModal('modal-plan');
+  _buildMembershipUI();
+}
+
+function deletePlan(idx) {
+  if (!confirm(`确认删除套餐「${_memCfg.plans[idx]?.name}」？`)) return;
+  _memCfg.plans.splice(idx, 1);
+  _buildMembershipUI();
+}
+
+function movePlan(from, to) {
+  if (from === to) return;
+  const [p] = _memCfg.plans.splice(from, 1);
+  _memCfg.plans.splice(to, 0, p);
+  _buildMembershipUI();
+}
+
+async function saveAllMembership() {
+  _memCfg.notice = document.getElementById('mem-notice')?.value || '';
+  _memCfg.payment = {
+    alipay_enabled:    document.getElementById('pay-ali-enabled').checked,
+    alipay_appid:      document.getElementById('pay-ali-appid').value.trim(),
+    alipay_notify_url: document.getElementById('pay-ali-notify').value.trim(),
+    wechat_enabled:    document.getElementById('pay-wx-enabled').checked,
+    wechat_appid:      document.getElementById('pay-wx-appid').value.trim(),
+    wechat_mchid:      document.getElementById('pay-wx-mchid').value.trim(),
+    wechat_notify_url: document.getElementById('pay-wx-notify').value.trim(),
+  };
+  try {
+    await api('POST', '/admin/membership', { plans: _memCfg.plans, payment: _memCfg.payment, notice: _memCfg.notice });
+    toast('保存成功 ✅');
+  } catch(e) { toast(e.message, true); }
+}
+
+/* ─────────────────────────── SYNC ────────────────────────────────────────── */
+async function renderSync(){
+  document.getElementById('content').innerHTML=`
+  <div class="panel">
+    <div class="panel-header"><h3>内容版本管理</h3></div>
+    <div id="sync-info" style="margin-bottom:18px;font-size:14px;line-height:2.2;color:#555">加载中…</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="publishContent('vocab')">📤 发布词汇版本</button>
+      <button class="btn btn-primary" onclick="publishContent('grammar')">📤 发布语法版本</button>
+      <button class="btn btn-success" onclick="publishContent('all')">🚀 全量发布</button>
+    </div>
+    <div id="sync-msg" style="margin-top:16px;font-size:14px;color:#52c41a;min-height:24px"></div>
+  </div>`;
+  await loadSyncInfo();
+}
+async function loadSyncInfo(){
+  try{
+    const d=await api('GET','/admin/content-version');
+    const v=d.version||d;
+    document.getElementById('sync-info').innerHTML=`
+      <b>当前内容版本：</b>${v.version||'—'}<br/>
+      <b>词汇版本：</b>${v.vocab_version||0}<br/>
+      <b>语法版本：</b>${v.grammar_version||0}<br/>
+      <b>最后更新：</b>${v.updated_at_ts?new Date(v.updated_at_ts*1000).toLocaleString('zh-CN'):'—'}`;
+  }catch(e){ toast(e.message,true) }
+}
+async function publishContent(type){
+  try{
+    const d=await api('POST','/admin/content-version/publish',{type});
+    document.getElementById('sync-msg').textContent=`✅ 发布成功，新版本：${d.version}`;
+    await loadSyncInfo();
+  }catch(e){ toast(e.message,true) }
+}
+
+/* ─────────────────────────── IMPORT ──────────────────────────────────────── */
+const iState = { file: null, preview: null, importType: 'vocabulary', level: 'N3', deck: 'Anki Import' };
+
+function renderImport() {
+  document.getElementById('content').innerHTML = `
+  <div class="panel" style="max-width:860px">
+    <div class="panel-header">
+      <h3>📥 内容导入</h3>
+      <p style="color:var(--text-muted);margin:4px 0 0;font-size:13px">支持 Anki .apkg、CSV、TSV、TXT 格式 — 服务端解析并自动提取音频文件</p>
+    </div>
+    <div style="display:flex;border-bottom:1px solid var(--border);margin:0 0 24px">
+      <div class="import-step active" id="istep-1">① 上传文件</div>
+      <div class="import-step" id="istep-2">② 字段配置</div>
+      <div class="import-step" id="istep-3">③ 导入完成</div>
+    </div>
+    <div id="import-body"></div>
+  </div>`;
+  renderImportStep1();
+}
+
+function setImportStep(n) {
+  document.querySelectorAll('.import-step').forEach((el, i) => el.classList.toggle('active', i === n - 1));
+}
+
+function renderImportStep1() {
+  setImportStep(1);
+  document.getElementById('import-body').innerHTML = `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="form-row" style="margin:0">
+      <label>导入类型</label>
+      <select id="i-type">
+        <option value="vocabulary">词汇（Vocabulary）</option>
+        <option value="grammar">语法（Grammar）</option>
+      </select>
+    </div>
+    <div class="form-row" style="margin:0">
+      <label>JLPT 级别</label>
+      <select id="i-level">
+        <option value="N5">N5</option><option value="N4">N4</option>
+        <option value="N3" selected>N3</option>
+        <option value="N2">N2</option><option value="N1">N1</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-row">
+    <label>牌组 / 分类名称</label>
+    <input id="i-deck" placeholder="例：N3频出单词" value="Anki Import" />
+  </div>
+  <div class="drop-zone" id="i-dropzone"
+    ondragover="event.preventDefault();this.classList.add('drag-over')"
+    ondragleave="this.classList.remove('drag-over')"
+    ondrop="importFileDrop(event)"
+    onclick="document.getElementById('i-file').click()">
+    <input type="file" id="i-file" accept=".apkg,.csv,.txt,.tsv" style="display:none" onchange="importFileChange(this)" />
+    <div class="drop-zone-icon">📦</div>
+    <div class="drop-zone-title">拖拽文件至此 或 点击选择</div>
+    <div class="drop-zone-sub">支持 .apkg（Anki词库包含音频）、.csv、.txt、.tsv</div>
+    <div class="drop-zone-file" id="i-filename"></div>
+  </div>
+  <div style="background:#eff6ff;border-radius:8px;padding:10px 14px;margin-top:14px;font-size:12px;color:#1e40af">
+    <b>💡 关于 .apkg 音频：</b>上传后服务器会自动提取音频文件并保存，客户端可通过同步获取带音频的词汇/语法。
+  </div>
+  <div style="margin-top:16px;text-align:right">
+    <button class="btn btn-primary" onclick="importPreview()" id="i-preview-btn" disabled>解析预览 →</button>
+  </div>`;
+}
+
+function importFileDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) setImportFile(file);
+}
+function importFileChange(input) { if (input.files[0]) setImportFile(input.files[0]); }
+function setImportFile(file) {
+  iState.file = file;
+  const exts = ['.apkg','.csv','.txt','.tsv'];
+  const ext  = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+  if (!exts.includes(ext)) { toast('仅支持 .apkg / .csv / .txt / .tsv 格式', true); return; }
+  document.getElementById('i-filename').textContent = `✓ 已选择：${file.name}（${(file.size/1024).toFixed(1)} KB）`;
+  document.getElementById('i-preview-btn').disabled = false;
+}
+
+async function importPreview() {
+  if (!iState.file) return;
+  const btn = document.getElementById('i-preview-btn');
+  btn.disabled = true; btn.textContent = '解析中…';
+  try {
+    const fd = new FormData();
+    fd.append('file', iState.file);
+    const r = await fetch(`${API}/anki/preview`, {
+      method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: fd
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || r.statusText);
+    iState.preview    = data;
+    iState.importType = document.getElementById('i-type').value;
+    iState.level      = document.getElementById('i-level').value;
+    iState.deck       = document.getElementById('i-deck').value || 'Anki Import';
+    renderImportStep2();
+  } catch(e) {
+    toast(e.message, true);
+    btn.disabled = false; btn.textContent = '解析预览 →';
+  }
+}
+
+function renderImportStep2() {
+  setImportStep(2);
+  const p        = iState.preview;
+  const isGrammar = iState.importType === 'grammar';
+  const fields   = p.fields || [];
+
+  const vocabSchema  = [
+    { key:'word',        label:'单词 *',    hint:'日语词汇' },
+    { key:'reading',     label:'读音',       hint:'假名读音' },
+    { key:'meaning_zh',  label:'中文意思',   hint:'汉语释义' },
+    { key:'meaning_en',  label:'英文意思',   hint:'英语释义（可选）' },
+    { key:'example',     label:'例句',       hint:'日语例句（可选）' },
+  ];
+  const grammarSchema = [
+    { key:'pattern',        label:'文型 *',     hint:'语法文型，如 ～てもいい' },
+    { key:'explanation_zh', label:'中文解释',    hint:'文型的中文说明' },
+    { key:'explanation',    label:'日语解释',    hint:'文型的日语说明（可选）' },
+    { key:'example',        label:'例句',        hint:'日语例句（可选）' },
+    { key:'example_meaning_zh', label:'例句翻译', hint:'例句中文翻译（可选）' },
+  ];
+  const schema  = isGrammar ? grammarSchema : vocabSchema;
+  const mapping = p.mapping || {};
+
+  const fieldOpts = (selectedIdx) =>
+    ['（跳过）', ...fields].map((f, i) =>
+      `<option value="${i===0?'':i-1}" ${i === (selectedIdx !== undefined ? selectedIdx+1 : 0) ? 'selected' : ''}>${esc(f)}</option>`
+    ).join('');
+
+  const mappingRows = schema.map(s => {
+    const detected = mapping[s.key] !== undefined ? mapping[s.key] : undefined;
+    return `<tr>
+      <td style="font-size:13px"><b>${s.label}</b><br/><span style="font-size:11px;color:var(--text-muted)">${s.hint}</span></td>
+      <td><select id="mapping-${s.key}" style="width:100%">${fieldOpts(detected)}</select></td>
+    </tr>`;
+  }).join('');
+
+  const posRow = !isGrammar ? `<div class="form-row" style="margin-top:12px">
+    <label>词性</label>
+    <select id="i-pos">
+      <option value="noun">名词</option><option value="verb">动词</option>
+      <option value="adjective">形容词</option><option value="adverb">副词</option>
+      <option value="particle">助词</option><option value="other" selected>其他</option>
+    </select>
+  </div>` : '';
+
+  const samples = (p.samples || []).slice(0, 3);
+  const hasAudio = p.hasAudio || p.audioCount > 0;
+  const sampleHtml = samples.length > 0 ? `<div style="overflow-x:auto;margin-top:8px">
+    <table><thead><tr>${fields.map(f=>`<th>${esc(f)}</th>`).join('')}</tr></thead>
+    <tbody>${samples.map(s=>`<tr>${fields.map(f=>`<td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(String(s[f]||''))}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table></div>` : '<p style="color:var(--text-muted);font-size:13px">无预览数据</p>';
+
+  document.getElementById('import-body').innerHTML = `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+    <div>
+      <h4 style="margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted)">字段映射</h4>
+      <table style="width:100%"><thead><tr><th>目标字段</th><th>来源列</th></tr></thead>
+      <tbody>${mappingRows}</tbody></table>
+      ${posRow}
+    </div>
+    <div>
+      <h4 style="margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted)">
+        数据预览
+        <span style="font-weight:400;font-size:11px;color:var(--text-muted)">共&nbsp;<b>${p.total||'?'}</b>&nbsp;条</span>
+      </h4>
+      ${sampleHtml}
+      <div style="margin-top:10px;padding:10px 12px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--text-muted)">
+        <b>格式：</b>${(p.format||'').toUpperCase()}&ensp;
+        <b>字段数：</b>${fields.length}&ensp;
+        <b>记录数：</b>${p.total||'?'}
+        ${hasAudio ? `&ensp;<span style="color:#2563eb"><b>🎵 含音频</b>（导入时自动提取到服务器）</span>` : ''}
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end">
+    <button class="btn btn-ghost" onclick="renderImportStep1()">← 重新上传</button>
+    <button class="btn btn-primary" onclick="doServerImport()">🚀 开始导入</button>
+  </div>`;
+}
+
+async function doServerImport() {
+  const schema = iState.importType === 'grammar'
+    ? ['pattern','explanation_zh','explanation','example','example_meaning_zh']
+    : ['word','reading','meaning_zh','meaning_en','example'];
+  const mapping = {};
+  for (const key of schema) {
+    const sel = document.getElementById('mapping-' + key);
+    if (sel && sel.value !== '') mapping[key] = parseInt(sel.value);
+  }
+  const pos = document.getElementById('i-pos')?.value || 'other';
+
+  document.getElementById('import-body').innerHTML = `
+  <div style="text-align:center;padding:60px 20px">
+    <div style="font-size:48px;margin-bottom:16px">⏳</div>
+    <div style="font-weight:600;font-size:16px;color:var(--text)">正在导入，请稍候…</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-top:8px">
+      服务端正在解析数据${iState.preview?.hasAudio ? '并提取音频文件' : ''}，请勿关闭页面
+    </div>
+  </div>`;
+
+  try {
+    const fd = new FormData();
+    fd.append('file', iState.file);
+    fd.append('import_type',    iState.importType);
+    fd.append('jlpt_level',     iState.level);
+    fd.append('deck_name',      iState.deck);
+    fd.append('part_of_speech', pos);
+    fd.append('mapping',        JSON.stringify(mapping));
+    fd.append('has_header',     iState.preview?.hasHeader ? 'true' : 'false');
+
+    const r = await fetch(`${API}/anki/server-import`, {
+      method: 'POST', headers: { Authorization: `Bearer ${TOKEN}` }, body: fd
+    });
+    const result = await r.json();
+    if (!r.ok) throw new Error(result.error || r.statusText);
+    renderImportStep3(result);
+  } catch(e) {
+    toast(e.message, true);
+    renderImportStep2();
+  }
+}
+
+function renderImportStep3(result) {
+  setImportStep(3);
+  const ok      = result.failed === 0;
+  const typeZh  = result.import_type === 'grammar' ? '语法' : '词汇';
+  document.getElementById('import-body').innerHTML = `
+  <div style="text-align:center;padding:32px 20px">
+    <div style="font-size:60px;margin-bottom:12px">${ok ? '✅' : '⚠️'}</div>
+    <h2 style="margin:0 0 6px;color:var(--text)">${typeZh}导入${ok ? '成功' : '部分成功'}</h2>
+    <p style="color:var(--text-muted);font-size:13px">内容版本已自动递增，客户端下次启动时将自动同步最新数据</p>
+    <div style="display:flex;gap:16px;justify-content:center;margin:24px 0;flex-wrap:wrap">
+      <div class="import-result-card" style="background:#f0fdf4">
+        <div class="import-result-num" style="color:#16a34a">${result.imported}</div>
+        <div style="font-size:12px;color:#15803d;margin-top:2px">成功导入</div>
+      </div>
+      ${result.failed > 0 ? `<div class="import-result-card" style="background:#fef2f2">
+        <div class="import-result-num" style="color:#dc2626">${result.failed}</div>
+        <div style="font-size:12px;color:#b91c1c;margin-top:2px">失败/重复</div>
+      </div>` : ''}
+      ${result.audio_count > 0 ? `<div class="import-result-card" style="background:#eff6ff">
+        <div class="import-result-num" style="color:#2563eb">${result.audio_count}</div>
+        <div style="font-size:12px;color:#1d4ed8;margin-top:2px">音频文件</div>
+      </div>` : ''}
+    </div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:24px">
+      类型：<b>${typeZh}</b>&ensp;
+      牌组：<b>${esc(result.deck_name)}</b>&ensp;
+      级别：<b>${iState.level}</b>&ensp;
+      共计：<b>${result.total}</b> 条
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button class="btn btn-ghost" onclick="nav('${result.import_type === 'grammar' ? 'grammar' : 'vocab'}')">查看列表 →</button>
+      <button class="btn btn-primary" onclick="renderImportStep1()">继续导入</button>
+    </div>
+  </div>`;
+}
+
+/* ─────────────────────────── INIT ────────────────────────────────────────── */
+// 绑定登录按钮事件（避免依赖 onclick 属性被 CSP 拦截）
+document.getElementById('login-btn').addEventListener('click', doLogin);
+document.getElementById('li-pass').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
+
+(async function init(){
+  if(!TOKEN) return;
+  try{
+    const r=await fetch(`${API}/auth/me`,{headers:{Authorization:`Bearer ${TOKEN}`}});
+    if(!r.ok) throw new Error('expired');
+    const me=await r.json();
+    const user=me.user||me;
+    if(user.role!=='admin') throw new Error('not admin');
+    document.getElementById('topbar-user').textContent=user.username;
+    const av2=document.getElementById('topbar-avatar');
+    if(av2) av2.textContent=(user.username||'A')[0].toUpperCase();
+    showApp();
+  }catch(_e){ TOKEN=''; localStorage.removeItem('admin_token'); }
+})();
+</script>
+</body>
+</html>
