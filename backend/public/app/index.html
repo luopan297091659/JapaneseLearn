@@ -346,10 +346,10 @@ ul { list-style: none; }
 .overlay-bg.show { display: block; }
 
 /* ─── 小游戏 ────────────────────────────────────────────────── */
-.g-diff-btn{padding:10px 4px;border-radius:8px;border:2px solid var(--border);text-align:center;cursor:pointer;font-size:22px;font-weight:600;line-height:1.5;transition:all .15s;background:var(--surface);color:var(--text-sub);user-select:none;-webkit-tap-highlight-color:transparent}
-.g-diff-btn span{display:block;font-size:12px;margin-top:2px}
-.g-diff-btn small{display:block;font-size:10px;opacity:.7;font-weight:400}
-.g-diff-btn.active,.g-diff-btn:hover{border-color:var(--primary);background:var(--primary-light,#e8effe);color:var(--primary)}
+#g-speed-slider{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:3px;background:var(--border);outline:none;cursor:pointer;transition:background .2s}
+#g-speed-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;background:var(--primary);cursor:grab;box-shadow:0 2px 6px rgba(67,97,238,.4);transition:box-shadow .15s}
+#g-speed-slider::-webkit-slider-thumb:active{cursor:grabbing;box-shadow:0 0 0 6px rgba(67,97,238,.18)}
+#g-speed-slider::-moz-range-thumb{width:22px;height:22px;border:none;border-radius:50%;background:var(--primary);cursor:grab;box-shadow:0 2px 6px rgba(67,97,238,.4)}
 .g-cell{border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;aspect-ratio:1;min-height:24px;transition:background .1s,box-shadow .1s;font-family:inherit}
 @keyframes gpulse{from{box-shadow:0 0 4px rgba(67,97,238,.5)}to{box-shadow:0 0 16px rgba(67,97,238,.95),0 0 4px rgba(67,97,238,.3) inset}}
 </style>
@@ -646,12 +646,17 @@ ul { list-style: none; }
         <div style="max-width:500px;margin:0 auto">
           <!-- 速度设置 -->
           <div id="g-diff-panel" class="card" style="margin-bottom:12px;padding:14px">
-            <div style="font-size:11px;font-weight:700;color:var(--text-hint);margin-bottom:8px;letter-spacing:.5px">⚡ 下落速度（开始后不可更改）</div>
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-              <div class="g-diff-btn active" onclick="gameSetDiff(this,2000)">🐢<span>慢速</span><small>2.0s</small></div>
-              <div class="g-diff-btn" onclick="gameSetDiff(this,1400)">🚶<span>正常</span><small>1.4s</small></div>
-              <div class="g-diff-btn" onclick="gameSetDiff(this,900)">🏃<span>快速</span><small>0.9s</small></div>
-              <div class="g-diff-btn" onclick="gameSetDiff(this,500)">⚡<span>挑战</span><small>0.5s</small></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <div style="font-size:11px;font-weight:700;color:var(--text-hint);letter-spacing:.5px">⚡ 下落速度（开始后不可更改）</div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span id="g-speed-emoji" style="font-size:18px">🐢</span>
+                <span id="g-speed-label" style="font-size:13px;font-weight:700;color:var(--primary)">慢速</span>
+                <span id="g-speed-val" style="font-size:13px;font-weight:800;background:var(--primary);color:#fff;padding:2px 10px;border-radius:12px;min-width:42px;text-align:center">2.0s</span>
+              </div>
+            </div>
+            <input id="g-speed-slider" type="range" min="300" max="10000" step="100" value="2000" oninput="gameSpeedInput(this)">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-hint);margin-top:5px">
+              <span>⚡ 0.3s 极速</span><span>🚶 1.4s 正常</span><span>🐌 10s 超慢</span>
             </div>
           </div>
           <!-- 统计栏 -->
@@ -1635,16 +1640,36 @@ let gTimerIv = null, gTimeElapsed = 0;
 let gRunning = false, gStarted = false;
 let gLevel = 1, gCorrectCount = 0;
 
-// ── 速度选择 ──
-function gameSetDiff(el, ms) {
-  document.querySelectorAll('.g-diff-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
+// ── 滑块速度 ──
+function gameSpeedInput(input) {
+  const ms = parseInt(input.value);
   gBaseMs = ms;
   if (!gRunning) gDropMs = ms;
+  // 更新滑轨填充色
+  const pct = (ms - 300) / (10000 - 300) * 100;
+  input.style.background = `linear-gradient(to right, var(--primary) ${pct}%, var(--border) ${pct}%)`;
+  // 标签
+  const secs = (ms / 1000).toFixed(1);
+  document.getElementById('g-speed-val').textContent = secs + 's';
+  let emoji = '⚡', label = '极速';
+  if (ms >= 8000)       { emoji='🐌'; label='超慢'; }
+  else if (ms >= 4000)  { emoji='🐢'; label='很慢'; }
+  else if (ms >= 2000)  { emoji='🐢'; label='慢速'; }
+  else if (ms >= 1200)  { emoji='🚶'; label='正常'; }
+  else if (ms >= 700)   { emoji='🏃'; label='快速'; }
+  else if (ms >= 400)   { emoji='💨'; label='冲刺'; }
+  document.getElementById('g-speed-emoji').textContent = emoji;
+  document.getElementById('g-speed-label').textContent = label;
+}
+// 页面加载后初始化滑轨填色
+function gameSpeedInit() {
+  const sl = document.getElementById('g-speed-slider');
+  if (sl) gameSpeedInput(sl);
 }
 
 // ── 页面初始化（首次进入） ──
 function gamePageInit() {
+  gameSpeedInit();
   if (!gStarted) gameInitBoard();
 }
 
@@ -1701,6 +1726,9 @@ function gameRefreshBoard() {
 
 // ── 开始游戏 ──
 function gameStart() {
+  // 从滑块同步最新速度
+  const sl = document.getElementById('g-speed-slider');
+  if (sl) { gBaseMs = parseInt(sl.value); }
   gBoard    = Array.from({length: G_ROWS}, () => Array(G_COLS).fill(null));
   gBoardTxt = Array.from({length: G_ROWS}, () => Array(G_COLS).fill(''));
   gBoardClr = Array.from({length: G_ROWS}, () => Array(G_COLS).fill(''));
