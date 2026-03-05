@@ -45,6 +45,15 @@ app.use('/admin', (_req, res, next) => {
   next();
 });
 
+// Web 前端同样需要内联脚本/样式的 CSP
+app.use('/app', (_req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; script-src-attr 'unsafe-inline'; style-src 'self' https: 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https: data:; media-src 'self' https:; connect-src 'self'"
+  );
+  next();
+});
+
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
   credentials: true,
@@ -74,6 +83,9 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // Admin panel static files
 app.use('/admin', express.static(path.join(__dirname, '../public/admin')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '../public/admin/index.html')));
+// Web frontend static files
+app.use('/app', express.static(path.join(__dirname, '../public/app')));
+app.get('/app', (req, res) => res.sendFile(path.join(__dirname, '../public/app/index.html')));
 
 // API Routes
 app.use('/api/v1/auth', authRoutes);
