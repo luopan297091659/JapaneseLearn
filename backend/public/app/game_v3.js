@@ -223,11 +223,13 @@ function gameInitBoard() {
   gBoardClr = Array.from({length: gGRows}, () => Array(gGCols).fill(''));
   el.style.gridTemplateRows     = 'repeat(' + gGRows + ', 1fr)';
   el.style.gridTemplateColumns  = 'repeat(' + gGCols + ', 1fr)';
-  const ch = Math.max(28, 60 - gGRows * 4);
+  // 棋盘高度自适应视口，最多占可用高度的40%
+  const boardH = Math.min(300, Math.max(gGRows * 44, Math.round(window.innerHeight * 0.38)));
+  el.style.height = boardH + 'px';
   let html = '';
   for (let r = 0; r < gGRows; r++)
     for (let c = 0; c < gGCols; c++)
-      html += '<div class="g-cell" style="background:#f1f5f9;border:1px solid #e2e8f0;color:transparent;min-height:' + ch + 'px"></div>';
+      html += '<div class="g-cell" style="background:#f1f5f9;border:1px solid #e2e8f0;color:transparent"></div>';
   el.innerHTML = html;
 }
 
@@ -237,8 +239,7 @@ function gameRefreshBoard() {
   if (!el || !gBoard) return;
   const cells = el.children;
   if (cells.length !== gGRows * gGCols) { gameInitBoard(); return; }
-  const ch      = Math.max(28, 60 - gGRows * 4);
-  const fsSz    = gGCols <= 3 ? '15px' : gGCols <= 4 ? '13px' : '11px';
+  const fsSz    = gGCols <= 3 ? '14px' : gGCols <= 4 ? '12px' : '10px';
   const selTxt  = (gCurQ && gRunning) ? (gCurQ.o[gSelected] || '') : '';
   for (let r = 0; r < gGRows; r++) {
     for (let c = 0; c < gGCols; c++) {
@@ -246,7 +247,7 @@ function gameRefreshBoard() {
       const d  = cells[r * gGCols + c];
       if (!d) continue;
       const idc = c === gDropCol && gRunning && st !== 'correct' && st !== 'wrong';
-      const base = 'border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:' + fsSz + ';font-weight:800;aspect-ratio:1;min-height:' + ch + 'px;';
+      const base = 'border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:' + fsSz + ';font-weight:800;height:100%;';
       if (st === 'correct') {
         d.style.cssText = base + 'color:#fff;background:' + gBoardClr[r][c] + ';border:none;box-shadow:0 2px 6px rgba(22,163,74,.5)';
         d.textContent = gBoardTxt[r][c];
@@ -320,10 +321,10 @@ function gameRenderOptions() {
   const el = document.getElementById('g-options');
   if (!el || !gCurQ) return;
   const maxLen = Math.max(...gCurQ.o.map(o => o.length));
-  const fs = maxLen > 4 ? '13px' : maxLen > 2 ? '16px' : '20px';
+  const fs = maxLen > 4 ? '12px' : maxLen > 2 ? '14px' : '17px';
   el.innerHTML = gCurQ.o.map((opt, i) =>
     '<div id="gopt-' + i + '" onclick="gameSelect(' + i + ',true)" style="' +
-    'padding:13px 6px;border-radius:10px;text-align:center;cursor:pointer;' +
+    'padding:8px 4px;border-radius:8px;text-align:center;cursor:pointer;' +
     'font-size:' + fs + ';font-weight:800;transition:all .15s;user-select:none;' +
     'border:2.5px solid ' + (i===gSelected ? 'var(--primary)' : 'var(--border)') + ';' +
     'background:' + (i===gSelected ? 'var(--primary-light,#e8effe)' : 'var(--surface)') + ';' +
