@@ -62,7 +62,6 @@ const GAME_QS = [
 ];
 
 const G_Q_LABELS = { p:'助词填空', v:'动词活用', w:'词义选择' };
-const G_COLS = 6;
 
 // ── 全局状态 ──
 let gBoard = null, gBoardTxt = null, gBoardClr = null;
@@ -76,17 +75,20 @@ let gCurrentLevel = 1;
 let gMaxLevels    = 10;
 let gUnlockedTo   = 1;
 let gLevelScores  = {};
-let gGRows        = 5;
-let gLives        = 99, gLivesMax = 99;
-let gPassTarget   = 12, gPassCount = 0;
+let gGRows        = 3;
+let gGCols        = 2;   // 动态列数（第1关=2列）
+let gLives        = 1,  gLivesMax = 1;
+let gPassTarget   = 6,  gPassCount = 0;
 let gFever        = false;
 
-// ── 关卡配置生成 ──
+// ── 关卡配置生成（cols 从 2 渐增到 6）──
 function gLvlCfg(lv) {
+  const cols     = lv === 1 ? 2 : lv <= 3 ? 3 : lv <= 6 ? 4 : lv <= 10 ? 5 : 6;
+  const rows     = lv === 1 ? 3 : lv <= 3 ? 4 : Math.min(3 + lv, 12);
+  const toPass   = rows * cols;                         // 全部填满才算通关
+  const livesMax = lv <= 2 ? 1 : lv <= 5 ? 2 : lv <= 10 ? 3 : lv <= 18 ? 4 : 5;
   return {
-    rows:     Math.min(4 + lv, 12),
-    toPass:   10 + Math.floor(lv * 1.8),
-    livesMax: lv <= 3 ? 99 : lv <= 8 ? 5 : lv <= 15 ? 3 : 2,
+    rows, cols, toPass, livesMax,
     speedMul: Math.max(0.28, 1 - (lv - 1) * 0.028),
     qTypes:   lv <= 2 ? ['p'] : lv <= 6 ? ['p','v'] : ['p','v','w'],
     rowBonus: lv <= 5 ? 5 : lv <= 12 ? 8 : 12,
@@ -147,7 +149,7 @@ function gRenderLevelGrid() {
     const cls     = locked ? 'locked' : saved ? 'done' : '';
     html += '<div class="g-lvl-cell ' + cls + '"' + (locked ? '' : ' onclick="gBeginLevel(' + lv + ')"') + '>' +
       '<div class="g-lvl-n">' + lv + '</div>' +
-      '<div class="g-lvl-row">' + cfg.rows + '行</div>' +
+      '<div class="g-lvl-row">' + cfg.rows + '×' + cfg.cols + '</div>' +
       '<div class="g-lvl-star">' + starStr + '</div>' +
       (saved ? '<div class="g-lvl-hi">' + saved.score + '分</div>' : '') +
       (locked ? '<div class="g-lvl-lock">🔒</div>' : '') +
@@ -161,6 +163,7 @@ function gBeginLevel(lv) {
   const cfg    = gLvlCfg(lv);
   gCurrentLevel = lv;
   gGRows        = cfg.rows;
+  gGCols        = cfg.cols;
   gLives        = cfg.livesMax;
   gLivesMax     = cfg.livesMax;
   gPassTarget   = cfg.toPass;
@@ -170,7 +173,7 @@ function gBeginLevel(lv) {
   gFever = false; gRunning = true;
   document.getElementById('g-sel').style.display  = 'none';
   document.getElementById('g-play').style.display = '';
-  document.getElementById('g-hud-title').textContent = '关卡 ' + lv + ' · ' + gGRows + '行';
+  document.getElementById('g-hud-title').textContent = '关卡 ' + lv + ' · ' + gGRows + '×' + gGCols;
   document.getElementById('g-pass-bar').style.width  = '0%';
   document.getElementById('g-pass-txt').textContent  = '0/' + cfg.toPass;
   document.getElementById('g-fever-banner').style.display = 'none';
@@ -214,15 +217,15 @@ function gUpdatePassBar() {
 function gameInitBoard() {
   const el = document.getElementById('g-board');
   if (!el) return;
-  gBoard    = Array.from({length: gGRows}, () => Array(G_COLS).fill(null));
-  gBoardTxt = Array.from({length: gGRows}, () => Array(G_COLS).fill(''));
-  gBoardClr = Array.from({length: gGRows}, () => Array(G_COLS).fill(''));
+  gBoard    = Array.from({length: gGRows}, () => Array(gGCols).fill(null));
+  gBoardTxt = Array.from({length: gGRows}, () => Array(gGCols).fill(''));
+  gBoardClr = Array.from({length: gGRows}, () => Array(gGCols).fill(''));
   el.style.gridTemplateRows     = 'repeat(' + gGRows + ', 1fr)';
-  el.style.gridTemplateColumns  = 'repeat(' + G_COLS + ', 1fr)';
-  const ch = Math.max(22, 40 - gGRows);
+  el.style.gridTemplateColumns  = 'repeat(' + gGCols + ', 1fr)';
+  const ch = Math.max(28, 60 - gGRows * 4);
   let html = '';
   for (let r = 0; r < gGRows; r++)
-    for (let c = 0; c < G_COLS; c++)
+    for (let c = 0; c < gGCols; c++)
       html += '<div class="g-cell" style="background:#f1f5f9;border:1px solid #e2e8f0;color:transparent;min-height:' + ch + 'px"></div>';
   el.innerHTML = html;
 }
@@ -232,24 +235,25 @@ function gameRefreshBoard() {
   const el = document.getElementById('g-board');
   if (!el || !gBoard) return;
   const cells = el.children;
-  if (cells.length !== gGRows * G_COLS) { gameInitBoard(); return; }
-  const ch      = Math.max(22, 40 - gGRows);
+  if (cells.length !== gGRows * gGCols) { gameInitBoard(); return; }
+  const ch      = Math.max(28, 60 - gGRows * 4);
+  const fsSz    = gGCols <= 3 ? '15px' : gGCols <= 4 ? '13px' : '11px';
   const selTxt  = (gCurQ && gRunning) ? (gCurQ.o[gSelected] || '') : '';
   for (let r = 0; r < gGRows; r++) {
-    for (let c = 0; c < G_COLS; c++) {
+    for (let c = 0; c < gGCols; c++) {
       const st = gBoard[r][c];
-      const d  = cells[r * G_COLS + c];
+      const d  = cells[r * gGCols + c];
       if (!d) continue;
       const idc = c === gDropCol && gRunning && st !== 'correct' && st !== 'wrong';
-      const base = 'border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;aspect-ratio:1;min-height:' + ch + 'px;';
+      const base = 'border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:' + fsSz + ';font-weight:800;aspect-ratio:1;min-height:' + ch + 'px;';
       if (st === 'correct') {
-        d.style.cssText = base + 'color:#fff;background:' + gBoardClr[r][c] + ';border:none;box-shadow:0 1px 3px rgba(0,0,0,.2)';
+        d.style.cssText = base + 'color:#fff;background:' + gBoardClr[r][c] + ';border:none;box-shadow:0 2px 6px rgba(22,163,74,.5)';
         d.textContent = gBoardTxt[r][c];
       } else if (st === 'wrong') {
-        d.style.cssText = base + 'color:rgba(255,255,255,.75);background:#78716c;border:none';
+        d.style.cssText = base + 'color:#fff;background:linear-gradient(135deg,#dc2626,#ef4444);border:none;box-shadow:0 2px 6px rgba(220,38,38,.45)';
         d.textContent = gBoardTxt[r][c];
       } else if (st === 'active') {
-        d.style.cssText = base + 'color:#fff;background:#4361ee;border:none;animation:gpulse .5s infinite alternate;font-size:12px';
+        d.style.cssText = base + 'color:#fff;background:#4361ee;border:none;animation:gpulse .5s infinite alternate;font-size:' + fsSz;
         d.textContent = selTxt;
       } else {
         d.style.cssText = base + 'color:transparent;background:' + (idc ? '#dce7ff' : '#f1f5f9') + ';border:1px solid ' + (idc ? '#90aaff' : '#e2e8f0') + ';animation:none';
@@ -261,7 +265,7 @@ function gameRefreshBoard() {
 
 // ── 随机取空列 ──
 function gamePickCol() {
-  const idxs = [...Array(G_COLS).keys()].sort(() => Math.random() - .5);
+  const idxs = [...Array(gGCols).keys()].sort(() => Math.random() - .5);
   for (const c of idxs) if (!gBoard[0][c]) return c;
   return -1;
 }
@@ -306,7 +310,7 @@ function gUpdateColHint() {
   const el = document.getElementById('g-col-hint');
   if (!el) return;
   let s = '';
-  for (let c = 0; c < G_COLS; c++) s += c === gDropCol ? '▼' : '◦';
+  for (let c = 0; c < gGCols; c++) s += c === gDropCol ? '▼' : '◦';
   el.textContent = s;
 }
 
@@ -317,7 +321,7 @@ function gameRenderOptions() {
   const maxLen = Math.max(...gCurQ.o.map(o => o.length));
   const fs = maxLen > 4 ? '13px' : maxLen > 2 ? '16px' : '20px';
   el.innerHTML = gCurQ.o.map((opt, i) =>
-    '<div id="gopt-' + i + '" onclick="gameSelect(' + i + ')" style="' +
+    '<div id="gopt-' + i + '" onclick="gameSelect(' + i + ',true)" style="' +
     'padding:13px 6px;border-radius:10px;text-align:center;cursor:pointer;' +
     'font-size:' + fs + ';font-weight:800;transition:all .15s;user-select:none;' +
     'border:2.5px solid ' + (i===gSelected ? 'var(--primary)' : 'var(--border)') + ';' +
@@ -327,8 +331,8 @@ function gameRenderOptions() {
   ).join('');
 }
 
-// ── 切换选项 ──
-function gameSelect(i) {
+// ── 切换选项（autoConfirm=true 时点选即提交）──
+function gameSelect(i, autoConfirm = false) {
   if (!gRunning) return;
   gSelected = i;
   gameRenderOptions();
@@ -337,6 +341,7 @@ function gameSelect(i) {
     const d = el.children[gDropCol];
     if (d) d.textContent = gCurQ.o[i];
   }
+  if (autoConfirm) setTimeout(gameConfirm, 80); // 点选80ms后自动确认
 }
 
 // ── 确认答案 ──
@@ -408,21 +413,22 @@ function gameConfirm() {
   }
 }
 
-// ── 选项反馈 ──
+// ── 选项反馈（使用更醒目的颜色）──
 function gameShowFeedback(idx, ok, pts) {
   const el = document.getElementById('g-options');
   if (!el || !gCurQ) return;
   el.querySelectorAll('div').forEach((d, i) => {
     if (i === idx) {
-      d.style.background  = ok ? '#e8f5e9' : '#ffebee';
-      d.style.borderColor = ok ? 'var(--success)' : 'var(--danger)';
-      d.style.color       = ok ? 'var(--success)' : 'var(--danger)';
+      d.style.background  = ok ? '#dcfce7' : '#fee2e2';
+      d.style.borderColor = ok ? '#16a34a' : '#dc2626';
+      d.style.color       = ok ? '#15803d' : '#b91c1c';
+      d.style.transform   = ok ? 'scale(1.06)' : 'scale(0.96)';
       if (ok && pts > 1) d.textContent += ' +' + pts;
     }
     if (!ok && gCurQ.o[i] === gCurQ.a) {
-      d.style.background  = '#e8f5e9';
-      d.style.borderColor = 'var(--success)';
-      d.style.color       = 'var(--success)';
+      d.style.background  = '#dcfce7';
+      d.style.borderColor = '#16a34a';
+      d.style.color       = '#15803d';
     }
   });
 }
@@ -448,11 +454,11 @@ function gameClearRows() {
   }
 }
 
-// ── 连击颜色 ──
+// ── 连击颜色（基础=鲜绿，连击升级到紫蓝、火焰红橙）──
 function gComboColor() {
-  if (gCombo >= 10) return 'linear-gradient(135deg,#ef4444,#f59e0b)';
-  if (gCombo >= 5)  return 'linear-gradient(135deg,#7c3aed,#4361ee)';
-  return 'linear-gradient(135deg,#1976d2,#1565c0)';
+  if (gCombo >= 10) return 'linear-gradient(135deg,#dc2626,#f97316)'; // 火焰
+  if (gCombo >= 5)  return 'linear-gradient(135deg,#7c3aed,#4361ee)'; // 紫蓝
+  return 'linear-gradient(135deg,#16a34a,#22c55e)';                   // 鲜绿
 }
 
 // ── 星级计算 ──
@@ -535,14 +541,15 @@ function gLevelFail() {
     '</div>');
 }
 
-// ── 分数上报后端 ──
+// ── 分数上报后端（含速度 speed_ms 用于加权排名）──
 function gameSaveScore(lv, score, acc, maxCombo, total, passed) {
   const token = (typeof getToken === 'function') ? getToken() : localStorage.getItem('token');
   if (!token) return;
   fetch('/api/v1/game/score', {
     method: 'POST',
     headers: {'Content-Type':'application/json','Authorization':'Bearer ' + token},
-    body: JSON.stringify({level_num:lv, score, accuracy:acc, max_combo:maxCombo, questions_answered:total, passed}),
+    body: JSON.stringify({level_num:lv, score, accuracy:acc, max_combo:maxCombo,
+                         questions_answered:total, passed, speed_ms: gBaseMs}),
   }).catch(() => {});
 }
 
@@ -557,11 +564,13 @@ function gOpenLeaderboard() {
         return;
       }
       const rows = d.data.map((row, i) => {
-        const md = i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1);
+        const md  = i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1);
+        const spd = row.avg_speed_ms ? (row.avg_speed_ms/1000).toFixed(1)+'s' : '-';
         return '<tr><td style="padding:8px 4px;text-align:center;font-size:15px">' + md + '</td>' +
           '<td style="padding:8px 4px;font-weight:700">' + escHtml(row.username||'匿名') + '</td>' +
           '<td style="padding:8px 4px;text-align:center;font-weight:800;color:var(--primary)">' + (row.max_level||0) + '</td>' +
-          '<td style="padding:8px 4px;text-align:center">' + (row.total_score||0) + '</td>' +
+          '<td style="padding:8px 4px;text-align:center;font-weight:800;color:#16a34a">' + (row.rating||0) + '</td>' +
+          '<td style="padding:8px 4px;text-align:center;color:var(--text-sub);font-size:11px">' + spd + '</td>' +
           '<td style="padding:8px 4px;text-align:center;color:#f59e0b">' + (row.best_combo||0) + '</td></tr>';
       }).join('');
       document.getElementById('modal-body').innerHTML =
@@ -569,7 +578,9 @@ function gOpenLeaderboard() {
         '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
         '<thead><tr style="border-bottom:2px solid var(--border);color:var(--text-sub)">' +
         '<th style="padding:6px;text-align:center">名次</th><th style="padding:6px">玩家</th>' +
-        '<th style="padding:6px;text-align:center">最高关</th><th style="padding:6px;text-align:center">总分</th>' +
+        '<th style="padding:6px;text-align:center">最高关</th>' +
+        '<th style="padding:6px;text-align:center">评分<br><span style="font-size:9px;font-weight:400">得分×速度</span></th>' +
+        '<th style="padding:6px;text-align:center">用时</th>' +
         '<th style="padding:6px;text-align:center">最高连击</th></tr></thead>' +
         '<tbody>' + rows + '</tbody></table></div>' +
         '<div style="text-align:center;margin-top:12px">' +
@@ -672,4 +683,5 @@ document.addEventListener('keydown', function(e) {
   if      (e.key === 'ArrowLeft')              { gameSelect(Math.max(0, gSelected - 1)); e.preventDefault(); }
   else if (e.key === 'ArrowRight')             { gameSelect(Math.min(len - 1, gSelected + 1)); e.preventDefault(); }
   else if (e.key === 'Enter' || e.key === ' ') { gameConfirm(); e.preventDefault(); }
+  else if (e.key >= '1' && e.key <= '3') { const idx=parseInt(e.key)-1; if(gCurQ&&idx<gCurQ.o.length) gameSelect(idx,true); e.preventDefault(); }
 });

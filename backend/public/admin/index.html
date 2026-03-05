@@ -469,44 +469,126 @@ const PAGE_FNS = {
 /* ─────────────────────────── APP 管理 ───────────────────────────────────── */
 async function renderAppManage() {
   document.getElementById('content').innerHTML = `
-    <div class="panel" style="max-width:700px;margin-bottom:24px">
+    <div class="panel" style="max-width:740px;margin-bottom:24px">
       <div class="panel-header"><h3>📱 App 上传</h3></div>
-      <form id="app-upload-form" enctype="multipart/form-data" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
-        <div class="form-row" style="flex:1;min-width:180px">
-          <label>平台</label>
-          <select id="app-platform" name="platform">
-            <option value="android">Android</option>
-            <option value="ios">iOS</option>
-          </select>
+      <form id="app-upload-form" enctype="multipart/form-data">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+          <div class="form-row" style="flex:1;min-width:160px">
+            <label>平台</label>
+            <select id="app-platform" name="platform">
+              <option value="android">Android</option>
+              <option value="ios">iOS</option>
+            </select>
+          </div>
+          <div class="form-row" style="flex:1;min-width:160px">
+            <label>版本号</label>
+            <input id="app-version" name="version" placeholder="如 1.0.0" required />
+          </div>
+          <div class="form-row" style="flex:2;min-width:220px">
+            <label>选择文件 <span id="app-file-name" style="font-weight:400;color:#64748b;font-size:12px"></span></label>
+            <input id="app-file" name="file" type="file" accept=".apk,.ipa,.aab" required style="cursor:pointer" />
+          </div>
+          <button id="app-upload-btn" class="btn btn-primary" type="submit" style="height:38px;min-width:88px">上 传</button>
         </div>
-        <div class="form-row" style="flex:2;min-width:220px">
-          <label>版本号</label>
-          <input id="app-version" name="version" placeholder="如 1.0.0" required />
+        <div class="form-row" style="margin-top:10px">
+          <label>更新日志（选填）</label>
+          <textarea name="changelog" id="app-changelog" rows="2" placeholder="本版本更新内容…" style="width:100%;resize:vertical;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none"></textarea>
         </div>
-        <div class="form-row" style="flex:2;min-width:220px">
-          <label>上传文件</label>
-          <input id="app-file" name="file" type="file" required />
+        <!-- 进度条区域 -->
+        <div id="app-progress-wrap" style="display:none;margin-top:14px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:#475569;margin-bottom:6px">
+            <span id="app-progress-label">上传中…</span>
+            <span id="app-progress-pct">0%</span>
+          </div>
+          <div style="background:#e2e8f0;border-radius:999px;height:10px;overflow:hidden">
+            <div id="app-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#6366f1,#818cf8);border-radius:999px;transition:width .2s"></div>
+          </div>
+          <div id="app-progress-speed" style="font-size:12px;color:#94a3b8;margin-top:4px"></div>
         </div>
-        <button class="btn btn-primary" type="submit">上传</button>
       </form>
     </div>
-    <div class="panel" style="max-width:900px">
+    <div class="panel" style="max-width:960px">
       <div class="panel-header"><h3>📦 App 版本列表</h3></div>
       <table><thead><tr><th>平台</th><th>版本号</th><th>上传时间</th><th>下载次数</th><th>下载直链</th><th>操作</th></tr></thead>
       <tbody id="app-list-body"><tr><td colspan="6" style="text-align:center;color:#aaa">加载中…</td></tr></tbody></table>
     </div>
   `;
-  document.getElementById('app-upload-form').onsubmit = async function(e) {
+
+  // 显示选中的文件名
+  document.getElementById('app-file').addEventListener('change', function() {
+    const name = this.files[0] ? this.files[0].name : '';
+    const size = this.files[0] ? (this.files[0].size / 1024 / 1024).toFixed(1) + ' MB' : '';
+    document.getElementById('app-file-name').textContent = name ? `${name}（${size}）` : '';
+  });
+
+  document.getElementById('app-upload-form').onsubmit = function(e) {
     e.preventDefault();
     const form = e.target;
     const fd = new FormData(form);
-    try {
-      await api('POST', '/admin/uploadApp', fd, true);
-      toast('上传成功');
-      form.reset();
-      loadAppList();
-    } catch (err) { toast(err.message, true); }
+    const btn = document.getElementById('app-upload-btn');
+    const wrap = document.getElementById('app-progress-wrap');
+    const bar = document.getElementById('app-progress-bar');
+    const pct = document.getElementById('app-progress-pct');
+    const label = document.getElementById('app-progress-label');
+    const speed = document.getElementById('app-progress-speed');
+
+    btn.disabled = true;
+    btn.textContent = '上传中…';
+    wrap.style.display = 'block';
+    bar.style.width = '0%';
+    pct.textContent = '0%';
+    label.textContent = '上传中…';
+    speed.textContent = '';
+
+    const startTime = Date.now();
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener('progress', function(ev) {
+      if (!ev.lengthComputable) return;
+      const percent = Math.round(ev.loaded / ev.total * 100);
+      bar.style.width = percent + '%';
+      pct.textContent = percent + '%';
+      const elapsed = (Date.now() - startTime) / 1000;
+      const kbps = elapsed > 0 ? ((ev.loaded / 1024) / elapsed).toFixed(0) : 0;
+      const remaining = ev.loaded > 0 ? (((ev.total - ev.loaded) / 1024) / (ev.loaded / 1024 / elapsed)).toFixed(0) : '—';
+      speed.textContent = `${kbps} KB/s · 剩余约 ${remaining} 秒`;
+    });
+
+    xhr.addEventListener('load', function() {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        bar.style.width = '100%';
+        pct.textContent = '100%';
+        label.textContent = '✅ 上传成功！';
+        speed.textContent = `耗时 ${((Date.now() - startTime)/1000).toFixed(1)} 秒`;
+        toast('上传成功');
+        form.reset();
+        document.getElementById('app-file-name').textContent = '';
+        setTimeout(() => { wrap.style.display = 'none'; }, 3000);
+        loadAppList();
+      } else {
+        let msg = '上传失败';
+        try { msg = JSON.parse(xhr.responseText).message || msg; } catch(_){}
+        label.textContent = '❌ ' + msg;
+        bar.style.background = '#ef4444';
+        toast(msg, true);
+      }
+      btn.disabled = false;
+      btn.textContent = '上 传';
+    });
+
+    xhr.addEventListener('error', function() {
+      label.textContent = '❌ 网络错误，上传失败';
+      bar.style.background = '#ef4444';
+      toast('网络错误，上传失败', true);
+      btn.disabled = false;
+      btn.textContent = '上 传';
+    });
+
+    xhr.open('POST', `${API}/admin/uploadApp`);
+    xhr.setRequestHeader('Authorization', `Bearer ${TOKEN}`);
+    xhr.send(fd);
   };
+
   loadAppList();
 }
 
@@ -516,11 +598,13 @@ async function loadAppList() {
     const rows = (d.data||[]).map(r => `
       <tr>
         <td>${esc(r.platform)}</td>
-        <td>${esc(r.version)}</td>
-        <td>${new Date(r.createdAt).toLocaleString('zh-CN')}</td>
-        <td>${r.downloadCount||0}</td>
+        <td><b>${esc(r.version)}</b></td>
+        <td>${new Date(r.upload_time||r.createdAt).toLocaleString('zh-CN')}</td>
+        <td>${r.download_count||r.downloadCount||0}</td>
         <td>
-          <input type="text" value="${location.origin}/api/v1/admin/downloadApp/${r.id}" readonly style="width:220px;font-size:12px;padding:3px 6px;border:1px solid #eee;border-radius:5px;background:#f8fafc;color:#334155" onclick="this.select();document.execCommand('copy');toast('已复制直链')" />
+          <input type="text" value="${location.origin}/api/v1/admin/downloadApp/${r.id}" readonly
+            style="width:240px;font-size:12px;padding:3px 6px;border:1px solid #e2e8f0;border-radius:5px;background:#f8fafc;color:#334155;cursor:pointer"
+            onclick="this.select();document.execCommand('copy');toast('已复制直链')" title="点击复制" />
         </td>
         <td>
           <a class="btn btn-ghost btn-sm" href="/api/v1/admin/downloadApp/${r.id}" target="_blank">下载</a>

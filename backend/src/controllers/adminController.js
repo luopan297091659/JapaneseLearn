@@ -705,19 +705,13 @@ async function uploadApp(req, res) {
   if (!req.file) return res.status(400).json({ error: '未上传文件' });
   const { version, platform, changelog } = req.body;
   if (!version || !platform) return res.status(400).json({ error: '缺少版本号或平台' });
-  // 保存文件到 uploads/app/
-  const uploadDir = path.join(__dirname, '../../uploads/app');
-  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-  const ext = path.extname(req.file.originalname);
-  const filename = `${platform}_${version}_${Date.now()}${ext}`;
-  const filepath = path.join(uploadDir, filename);
-  fs.writeFileSync(filepath, req.file.buffer);
-  const fileUrl = `/uploads/app/${filename}`;
+  // multer diskStorage 已自动保存文件，req.file.filename 即磁盘文件名
+  const fileUrl = `/uploads/app/${req.file.filename}`;
   const app = await AppRelease.create({
     version,
     platform,
     file_url: fileUrl,
-    changelog,
+    changelog: changelog || null,
   });
   res.json({ ok: true, app });
 }
@@ -727,18 +721,18 @@ async function listAppReleases(req, res) {
   const { platform } = req.query;
   const where = platform ? { platform } : {};
   const list = await AppRelease.findAll({ where, order: [['upload_time', 'DESC']] });
-  res.json(list);
+  res.json({ data: list });
 }
 
-// ─── 下载计数 + 返回直链 ─────────────────────────────────────────────────────
+// ─── 下载计数 + 重定向文件 ───────────────────────────────────────────────────
 async function downloadApp(req, res) {
   const { id } = req.params;
   const app = await AppRelease.findByPk(id);
   if (!app) return res.status(404).json({ error: '未找到该版本' });
   app.download_count += 1;
   await app.save();
-  // 返回可复制的直链
-  res.json({ url: app.file_url, download_count: app.download_count });
+  // 重定向到实际文件，浏览器/App 直接下载
+  res.redirect(app.file_url);
 }
 
 module.exports = {

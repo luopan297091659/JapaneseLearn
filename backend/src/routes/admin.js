@@ -26,10 +26,23 @@ const upload = multer({
   },
 });
 
+const fs = require('fs');
+const appUploadDir = path.join(__dirname, '../../uploads/app');
+if (!fs.existsSync(appUploadDir)) fs.mkdirSync(appUploadDir, { recursive: true });
+
 const appUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 200 * 1024 * 1024 },
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, appUploadDir),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname);
+      cb(null, `app_${Date.now()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
 });
+
+// ── App 下载（公开，不需要 adminAuth）──
+router.get('/downloadApp/:id', asyncHandler(downloadApp));
 
 // 所有 admin 路由都需要管理员身份
 router.use(adminAuth);
@@ -75,9 +88,8 @@ router.post('/content-version/publish', asyncHandler(publishContent));
 router.get('/membership',  asyncHandler(getMembershipConfig));
 router.post('/membership', asyncHandler(saveMembershipConfig));
 
-// App 上传与下载（无权限控制）
-router.post('/app/upload', appUpload.single('file'), asyncHandler(uploadApp));
-router.get('/app/list', asyncHandler(listAppReleases));
-router.get('/app/download/:id', asyncHandler(downloadApp));
+// App 管理
+router.post('/uploadApp', appUpload.single('file'), asyncHandler(uploadApp));
+router.get('/listAppReleases', asyncHandler(listAppReleases));
 
 module.exports = router;

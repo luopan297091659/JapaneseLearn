@@ -5,7 +5,7 @@ const { GameScore, GameConfig } = require('../models');
 // POST /api/v1/game/score  (auth required)
 async function saveScore(req, res) {
   try {
-    const { level_num, score, accuracy, max_combo, questions_answered, passed } = req.body;
+    const { level_num, score, accuracy, max_combo, questions_answered, passed, speed_ms } = req.body;
     await GameScore.create({
       user_id: req.user.id,
       username: req.user.username || req.user.email || 'Unknown',
@@ -15,6 +15,7 @@ async function saveScore(req, res) {
       max_combo:           Math.max(0, Number(max_combo)           || 0),
       questions_answered:  Math.max(0, Number(questions_answered)  || 0),
       passed: !!passed,
+      base_speed_ms: Math.max(100, Math.min(10000, Number(speed_ms) || 2000)),
     });
     res.json({ ok: true });
   } catch (e) {
@@ -46,9 +47,30 @@ async function getLeaderboard(req, res) {
 }
 
 // GET /api/v1/game/leaderboard/global  (public)
+// rating = SUM(score) * 5000 / AVG(base_speed_ms)  — 越快越高
 async function getGlobalLeaderboard(req, res) {
-  try {
-    const rows = await GameScore.findAll({
+  // 尝试速度加权排行，若列不存在则降级为普通排行
+  async function queryWithSpeed() {
+    return GameScore.findAll({
+      where: { passed: true },
+      attributes: [
+        'user_id', 'username',
+        [sequelize.fn('MAX', sequelize.col('level_num')),  'max_level'],
+        [sequelize.fn('SUM', sequelize.col('score')),      'total_score'],
+        [sequelize.fn('MAX', sequelize.col('max_combo')),  'best_combo'],
+        [sequelize.fn('COUNT', sequelize.col('id')),       'levels_cleared'],
+        [sequelize.fn('ROUND', sequelize.fn('AVG', sequelize.col('base_speed_ms')), 0), 'avg_speed_ms'],
+        [sequelize.literal(
+          'ROUND(SUM(score) * 5000.0 / AVG(COALESCE(base_speed_ms, 2000)), 0)'
+        ), 'rating'],
+      ],
+      group:  ['user_id', 'username'],
+      order:  [[sequelize.literal('ROUND(SUM(score) * 5000.0 / AVG(COALESCE(base_speed_ms, 2000)), 0)'), 'DESC']],
+      limit: 30,
+    });
+  }
+  async function queryBasic() {
+    return GameScore.findAll({
       where: { passed: true },
       attributes: [
         'user_id', 'username',
@@ -64,7 +86,19 @@ async function getGlobalLeaderboard(req, res) {
       ],
       limit: 30,
     });
-    res.json({ ok: true, data: rows.map(r => r.toJSON()) });
+  }
+  try {
+    try {
+      const rows = await queryWithSpeed();
+      return res.json({ ok: true, data: rows.map(r => r.toJSON()) });
+    } catch (colErr) {
+      if (colErr.message && colErr.message.includes('base_speed_ms')) {
+        // 列尚未迁移，降级为基础排行
+        const rows = await queryBasic();
+        return res.json({ ok: true, data: rows.map(r => r.toJSON()) });
+      }
+      throw colErr;
+    }
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
