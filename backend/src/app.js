@@ -30,6 +30,7 @@ const dictionaryRoutes = require('./routes/dictionary');
 const ankiRoutes = require('./routes/anki');
 const adminRoutes = require('./routes/admin');
 const syncRoutes  = require('./routes/sync');
+const gameRoutes  = require('./routes/game');
 
 const app = express();
 
@@ -101,6 +102,7 @@ app.use('/api/v1/dictionary', dictionaryRoutes);
 app.use('/api/v1/anki', ankiRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/sync', syncRoutes);
+app.use('/api/v1/game', gameRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
