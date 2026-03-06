@@ -5,6 +5,7 @@ const { adminAuth }    = require('../middlewares/adminAuth');
 const ctrl             = require('../controllers/gameController');
 
 router.post('/score',                authenticate,            ctrl.saveScore);
+router.get('/my-progress',           authenticate,            ctrl.getMyProgress);
 router.get('/leaderboard',                                    ctrl.getLeaderboard);
 router.get('/leaderboard/global',                             ctrl.getGlobalLeaderboard);
 router.get('/config',                                         ctrl.getConfig);

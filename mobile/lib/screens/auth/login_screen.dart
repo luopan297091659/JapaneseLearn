@@ -35,76 +35,138 @@ class _LoginScreenState extends State<LoginScreen> {
     final cs = Theme.of(context).colorScheme;
     final s = S.of(context);
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 48),
-              // Logo
-              Center(
-                child: Container(
-                  width: 80, height: 80,
-                  decoration: BoxDecoration(
-                    color: cs.primaryContainer,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Center(
-                    child: Text('あ', style: TextStyle(fontSize: 40, color: cs.primary, fontWeight: FontWeight.bold)),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              cs.primary,
+              cs.primary.withValues(alpha: 0.8),
+              cs.surfaceContainerLowest,
+              cs.surfaceContainerLowest,
+            ],
+            stops: const [0.0, 0.3, 0.3, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 40),
+                // Logo — 使用 app 图标
+                Center(
+                  child: Container(
+                    width: 88, height: 88,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(22),
+                      child: Image.asset('assets/images/app_icon.png', fit: BoxFit.cover),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(s.appTitle, textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
-              Text(s.appSubtitle, textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.outline)),
-              const SizedBox(height: 40),
-              Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    TextFormField(
-                      controller: _emailCtrl,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: InputDecoration(labelText: s.email, prefixIcon: const Icon(Icons.email_outlined)),
-                      validator: (v) => v!.isEmpty ? s.pleaseEnterEmail : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passwordCtrl,
-                      obscureText: _obscure,
-                      decoration: InputDecoration(
-                        labelText: s.password,
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
-                          onPressed: () => setState(() => _obscure = !_obscure),
+                const SizedBox(height: 16),
+                Text(s.appTitle, textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    )),
+                Text(s.appSubtitle, textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.8),
+                    )),
+                const SizedBox(height: 36),
+                // 表单卡片
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: cs.shadow.withValues(alpha: 0.08),
+                        blurRadius: 20,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Form(
+                        key: _formKey,
+                        child: Column(
+                          children: [
+                            TextFormField(
+                              controller: _emailCtrl,
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: InputDecoration(
+                                labelText: s.email,
+                                prefixIcon: Icon(Icons.email_outlined, color: cs.primary),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                filled: true,
+                                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                              ),
+                              validator: (v) => v!.isEmpty ? s.pleaseEnterEmail : null,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _passwordCtrl,
+                              obscureText: _obscure,
+                              decoration: InputDecoration(
+                                labelText: s.password,
+                                prefixIcon: Icon(Icons.lock_outline, color: cs.primary),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                filled: true,
+                                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                                suffixIcon: IconButton(
+                                  icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+                                  onPressed: () => setState(() => _obscure = !_obscure),
+                                ),
+                              ),
+                              validator: (v) => v!.isEmpty ? s.pleaseEnterPassword : null,
+                            ),
+                          ],
                         ),
                       ),
-                      validator: (v) => v!.isEmpty ? s.pleaseEnterPassword : null,
-                    ),
-                  ],
+                      if (_error != null) ...[
+                        const SizedBox(height: 12),
+                        Text(_error!, style: TextStyle(color: cs.error, fontSize: 13), textAlign: TextAlign.center),
+                      ],
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: FilledButton(
+                          onPressed: _loading ? null : _login,
+                          style: FilledButton.styleFrom(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: _loading
+                              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : Text(s.login, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 8),
-                Text(_error!, style: TextStyle(color: cs.error), textAlign: TextAlign.center),
+                const SizedBox(height: 20),
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text(s.noAccount, style: TextStyle(color: cs.outline)),
+                  TextButton(onPressed: () => context.go('/register'), child: Text(s.registerNow)),
+                ]),
               ],
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _loading ? null : _login,
-                child: _loading
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(s.login),
-              ),
-              const SizedBox(height: 16),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Text(s.noAccount),
-                TextButton(onPressed: () => context.go('/register'), child: Text(s.registerNow)),
-              ]),
-            ],
+            ),
           ),
         ),
       ),

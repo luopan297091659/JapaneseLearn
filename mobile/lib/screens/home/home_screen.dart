@@ -144,9 +144,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   // ── 搜索栏 ──────────────────────────────────────
                   _SearchBar(),
                   const SizedBox(height: 20),
-                  // ── 快捷功能行 ──────────────────────────────────
-                  _QuickAccessRow(),
-                  const SizedBox(height: 20),
                   // ── SRS 提醒（加载完才判断）──────────────────────
                   if (!_srsLoading && (_srsStats?['due_today'] ?? 0) > 0) ...[
                     _SrsReviewBanner(dueCount: _srsStats!['due_today']),
@@ -165,15 +162,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       onNext: _nextWord,
                     ),
                   const SizedBox(height: 20),
-                  // ── 学习专区 ────────────────────────────────────
-                  _SectionTitle(title: '学习专区', icon: Icons.widgets_rounded),
-                  const SizedBox(height: 10),
-                  _FeatureGrid(),
-                  const SizedBox(height: 20),
-                  // ── 学习工具 ────────────────────────────────────
-                  _SectionTitle(title: '学习工具', icon: Icons.build_rounded),
-                  const SizedBox(height: 10),
-                  _ToolRow(),
                   const SizedBox(height: 8),
                 ]),
               ),
@@ -390,76 +378,6 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
-// ─── Quick Access Row ────────────────────────────────────────────────────────
-
-class _QuickAccessRow extends StatelessWidget {
-  static const _items = [
-    (icon: Icons.menu_book_rounded,     label: '单词',   path: '/vocabulary',  color: Color(0xFF4CAF50)),
-    (icon: Icons.school_rounded,        label: '语法',   path: '/grammar',     color: Color(0xFF2196F3)),
-    (icon: Icons.headphones_rounded,    label: '听力',   path: '/listening',   color: Color(0xFF9C27B0)),
-    (icon: Icons.quiz_rounded,          label: '测验',   path: '/quiz',        color: Color(0xFFFF5722)),
-    (icon: Icons.layers_rounded,        label: 'SRS',    path: '/srs-review',  color: Color(0xFFFF9800)),
-    (icon: Icons.manage_search_rounded, label: '辞书',   path: '/dictionary',  color: Color(0xFF607D8B)),
-    (icon: Icons.upload_file_rounded,   label: 'Anki',   path: '/anki-import', color: Color(0xFFE91E63)),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 82,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: _items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 4),
-        itemBuilder: (context, i) {
-          final item = _items[i];
-          return _QuickItem(
-            icon: item.icon,
-            label: item.label,
-            color: item.color,
-            onTap: () => context.push(item.path),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _QuickItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  const _QuickItem({required this.icon, required this.label, required this.color, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 68,
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.13),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: color.withValues(alpha: 0.25)),
-            ),
-            child: Icon(icon, color: color, size: 26),
-          ),
-          const SizedBox(height: 5),
-          Text(label,
-              style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
-        ]),
-      ),
-    );
-  }
-}
-
 // ─── SRS Banner ──────────────────────────────────────────────────────────────
 
 class _SrsReviewBanner extends StatelessWidget {
@@ -643,17 +561,13 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-// ─── Feature Grid ─────────────────────────────────────────────────────────────
+// ─── Category Grid (可复用的 3 列宫格) ──────────────────────────────────────────
 
-class _FeatureGrid extends StatelessWidget {
-  static const _features = [
-    (icon: Icons.menu_book_rounded,    label: '单词学习',  sub: '词汇积累',   path: '/vocabulary',  color: Color(0xFF4CAF50)),
-    (icon: Icons.school_rounded,       label: '语法学习',  sub: '规则掌握',   path: '/grammar',     color: Color(0xFF2196F3)),
-    (icon: Icons.headphones_rounded,   label: '听力练习',  sub: '提升听力',   path: '/listening',   color: Color(0xFF9C27B0)),
-    (icon: Icons.quiz_rounded,         label: '随机测验',  sub: '检验水平',   path: '/quiz',        color: Color(0xFFFF5722)),
-    (icon: Icons.layers_rounded,       label: 'SRS复习',   sub: '间隔记忆',   path: '/srs-review',  color: Color(0xFFFF9800)),
-    (icon: Icons.folder_copy_rounded,  label: 'Anki词库',  sub: '本地卡片复习', path: '/local-vocab', color: Color(0xFF00897B)),
-  ];
+typedef _CatItem = ({IconData icon, String label, String sub, String path, Color color});
+
+class _CategoryGrid extends StatelessWidget {
+  final List<_CatItem> items;
+  const _CategoryGrid({required this.items});
 
   @override
   Widget build(BuildContext context) {
@@ -666,11 +580,72 @@ class _FeatureGrid extends StatelessWidget {
         mainAxisSpacing: 12,
         childAspectRatio: 0.95,
       ),
-      itemCount: _features.length,
+      itemCount: items.length,
       itemBuilder: (context, i) {
-        final f = _features[i];
+        final f = items[i];
         return _FeatureTile(icon: f.icon, label: f.label, sub: f.sub, path: f.path, color: f.color);
       },
+    );
+  }
+}
+
+// ─── Game Banner (游戏区横幅) ─────────────────────────────────────────────────
+
+class _GameBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFFE91E63);
+    return InkWell(
+      onTap: () => context.push('/game'),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFE91E63), Color(0xFFFF5252)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.25),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.sports_esports_rounded, color: Colors.white, size: 28),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('助词方块',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 3),
+              Text('趣味闯关 · 越玩越强',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12)),
+            ]),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text('开始',
+                style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+        ]),
+      ),
     );
   }
 }
@@ -714,123 +689,4 @@ class _FeatureTile extends StatelessWidget {
   }
 }
 
-// ─── Tool Row ─────────────────────────────────────────────────────────────────
 
-class _ToolRow extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final tools = [
-      _ToolData(icon: Icons.upload_file_rounded, title: 'Anki 导入', subtitle: '导入本地词库',
-          color: const Color(0xFFE91E63), route: '/anki-import'),
-      _ToolData(icon: Icons.manage_search_rounded, title: '辞书检索', subtitle: '日语词典查询',
-          color: const Color(0xFF607D8B), route: '/dictionary'),
-      _ToolData(icon: Icons.folder_copy_rounded, title: 'Anki 词库', subtitle: '本地卡片复习',
-          color: const Color(0xFF00897B), route: '/local-vocab'),
-      _ToolData(icon: Icons.layers_rounded, title: 'SRS 复习', subtitle: '间隔记忆练习',
-          color: const Color(0xFFFF9800), route: '/srs-review'),
-    ];
-    return Column(
-      children: [
-        Row(children: tools.take(2).map((t) => Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: _ToolCard(icon: t.icon, title: t.title, subtitle: t.subtitle,
-                color: t.color, onTap: () => context.push(t.route)),
-          ))).toList()),
-        const SizedBox(height: 8),
-        Row(children: tools.skip(2).map((t) => Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: _ToolCard(icon: t.icon, title: t.title, subtitle: t.subtitle,
-                color: t.color, onTap: () => context.push(t.route)),
-          ))).toList()),
-      ],
-    );
-  }
-}
-
-class _ToolData {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-  final String route;
-  const _ToolData({required this.icon, required this.title, required this.subtitle,
-      required this.color, required this.route});
-}
-
-class _ToolCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-  final VoidCallback onTap;
-  const _ToolCard({required this.icon, required this.title, required this.subtitle, required this.color, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: cs.outlineVariant),
-        ),
-        child: Row(children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.13),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(width: 10),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            Text(subtitle, style: TextStyle(fontSize: 11, color: cs.outline)),
-          ])),
-        ]),
-      ),
-    );
-  }
-}
-
-class _HomeMainButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  const _HomeMainButton({required this.icon, required this.label, required this.color, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          height: 72,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.10),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withOpacity(0.22)),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: color, size: 28),
-              const SizedBox(height: 8),
-              Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
