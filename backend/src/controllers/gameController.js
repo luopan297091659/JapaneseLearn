@@ -116,6 +116,37 @@ async function getConfig(req, res) {
   }
 }
 
+// GET /api/v1/game/my-progress  (auth required)
+// 从 GameScore 表推导当前用户将占进度：每关最佳成绩 + 解锁到几关
+async function getMyProgress(req, res) {
+  try {
+    const rows = await GameScore.findAll({
+      where: { user_id: req.user.id, passed: true },
+      attributes: [
+        'level_num',
+        [sequelize.fn('MAX', sequelize.col('score')),    'best_score'],
+        [sequelize.fn('MAX', sequelize.col('max_combo')), 'best_combo'],
+        [sequelize.fn('MAX', sequelize.col('accuracy')), 'best_acc'],
+      ],
+      group: ['level_num'],
+      order: [['level_num', 'ASC']],
+      raw: true,
+    });
+    let maxPassedLevel = 0;
+    const byLevel = {};
+    rows.forEach(r => {
+      const lv  = Number(r.level_num);
+      if (lv > maxPassedLevel) maxPassedLevel = lv;
+      const acc   = Number(r.best_acc)   || 0;
+      const stars = acc >= 100 ? 3 : acc >= 70 ? 2 : 1;
+      byLevel[lv] = { score: Number(r.best_score) || 0, stars, combo: Number(r.best_combo) || 0 };
+    });
+    res.json({ ok: true, unlocked_to: maxPassedLevel + 1, level_scores: byLevel });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+}
+
 // PUT /api/v1/game/config  (admin only; uses adminAuth middleware in route)
 async function updateConfig(req, res) {
   try {
@@ -131,4 +162,4 @@ async function updateConfig(req, res) {
   }
 }
 
-module.exports = { saveScore, getLeaderboard, getGlobalLeaderboard, getConfig, updateConfig };
+module.exports = { saveScore, getLeaderboard, getGlobalLeaderboard, getConfig, updateConfig, getMyProgress };

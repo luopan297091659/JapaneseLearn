@@ -44,6 +44,7 @@ class ApiService {
 
   final _storage = const FlutterSecureStorage();
   late final Dio _dio;
+  Dio get dio => _dio;
   final _cache = _MemCache();
 
   void init() {

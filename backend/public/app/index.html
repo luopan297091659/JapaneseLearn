@@ -212,6 +212,9 @@ ul { list-style: none; }
 .auth-tab.active { background: var(--primary); color: #fff; }
 
 /* ─── 首页 ──────────────────────────────────────────────────── */
+.home-welcome { margin-bottom: 20px; padding: 20px; background: linear-gradient(135deg, var(--primary-light) 0%, #e8eeff 100%); border-radius: var(--radius); }
+.welcome-text h2 { color: var(--primary); }
+
 .home-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
 .stat-card { background: var(--surface); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); text-align: center; }
 .stat-card .val { font-size: 32px; font-weight: 800; color: var(--primary); }
@@ -219,6 +222,20 @@ ul { list-style: none; }
 
 .home-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 @media (max-width: 768px) { .home-grid { grid-template-columns: 1fr; } }
+
+.frequent-item {
+  background: var(--surface); border-radius: var(--radius); padding: 16px;
+  box-shadow: var(--shadow); cursor: pointer; transition: box-shadow .15s, transform .1s;
+  text-align: center; position: relative;
+}
+.frequent-item:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.frequent-item .freq-icon { font-size: 28px; margin-bottom: 6px; }
+.frequent-item .freq-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.frequent-item .freq-remove {
+  position: absolute; top: 4px; right: 6px; font-size: 14px; color: var(--text-hint);
+  cursor: pointer; opacity: 0; transition: opacity .15s; line-height: 1;
+}
+.frequent-item:hover .freq-remove { opacity: 1; }
 
 .word-of-day { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: #fff; }
 .word-of-day .word { font-size: 40px; font-weight: 800; text-align: center; padding: 16px 0; letter-spacing: 2px; }
@@ -436,17 +453,19 @@ ul { list-style: none; }
   <div id="main">
     <!-- 侧边栏 -->
     <div id="sidebar">
-      <div class="nav-section">学习</div>
       <div class="nav-item active" data-page="home" onclick="navigate('home')"><span class="icon">🏠</span>首页</div>
+      <div class="nav-section">学习</div>
       <div class="nav-item" data-page="vocabulary" onclick="navigate('vocabulary')"><span class="icon">📖</span>单词</div>
       <div class="nav-item" data-page="grammar" onclick="navigate('grammar')"><span class="icon">📝</span>语法</div>
       <div class="nav-item" data-page="srs" onclick="navigate('srs')"><span class="icon">🗂️</span>SRS 复习</div>
-      <div class="nav-item" data-page="quiz" onclick="navigate('quiz')"><span class="icon">✏️</span>测验</div>
-      <div class="nav-item" data-page="game" onclick="navigate('game')"><span class="icon">🎮</span>小游戏</div>
-      <div class="nav-section">内容</div>
-      <div class="nav-item" data-page="dictionary" onclick="navigate('dictionary')"><span class="icon">🔍</span>词典</div>
       <div class="nav-item" data-page="listening" onclick="navigate('listening')"><span class="icon">🎧</span>听力</div>
+      <div class="nav-section">游戏</div>
+      <div class="nav-item" data-page="game" onclick="navigate('game')"><span class="icon">🎮</span>助词方块</div>
+      <div class="nav-section">工具</div>
+      <div class="nav-item" data-page="dictionary" onclick="navigate('dictionary')"><span class="icon">🔍</span>词典</div>
       <div class="nav-item" data-page="news" onclick="navigate('news')"><span class="icon">📰</span>新闻</div>
+      <div class="nav-section">测试</div>
+      <div class="nav-item" data-page="quiz" onclick="navigate('quiz')"><span class="icon">✏️</span>测验</div>
       <div class="nav-section">账号</div>
       <div class="nav-item" data-page="profile" onclick="navigate('profile')"><span class="icon">👤</span>我的</div>
       <div class="nav-footer">
@@ -461,45 +480,43 @@ ul { list-style: none; }
 
       <!-- 首页 -->
       <div class="page active" id="page-home">
-        <h2 style="margin-bottom:20px;font-size:22px">今日のお勉強 🌸</h2>
-        <div class="home-stats" id="home-stats">
-          <div class="stat-card"><div class="val" id="stat-streak">-</div><div class="lbl">🔥 连续天数</div></div>
-          <div class="stat-card"><div class="val" id="stat-minutes">-</div><div class="lbl">⏱ 学习分钟</div></div>
-          <div class="stat-card"><div class="val" id="stat-level">-</div><div class="lbl">🎯 当前级别</div></div>
-          <div class="stat-card"><div class="val" id="stat-due">-</div><div class="lbl">🗂 待复习</div></div>
-        </div>
-
-        <div class="home-grid">
-          <div class="card word-of-day" id="word-of-day">
-            <div class="card-title" style="color:#fff;opacity:.8">✨ 每日一词</div>
-            <div class="word" id="wod-word">　</div>
-            <div class="reading" id="wod-reading">　</div>
-            <div class="meaning" id="wod-meaning">　</div>
-            <div style="text-align:center;margin-top:8px">
-              <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border:none" onclick="nextWod()">换一个 →</button>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-title">🗂 SRS 复习进度</div>
-            <div id="srs-stats-home">
-              <div class="loading"><div class="spinner"></div></div>
-            </div>
-            <button class="btn btn-primary btn-sm" style="margin-top:14px" onclick="navigate('srs')">开始复习 →</button>
+        <!-- 欢迎语 -->
+        <div class="home-welcome" id="home-welcome">
+          <div class="welcome-text">
+            <h2 style="font-size:22px;margin:0" id="welcome-greeting">おはようございます 🌸</h2>
+            <p style="color:var(--text-sub);margin:6px 0 0;font-size:14px" id="welcome-sub">每天进步一点点</p>
           </div>
         </div>
 
-        <div style="height:20px"></div>
+        <!-- 辞书 -->
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-title">🔍 辞書（词典）</div>
+          <div style="display:flex;gap:10px">
+            <input class="input" id="home-dict-input" placeholder="输入日文、汉字或中文…" style="flex:1" onkeydown="if(event.key==='Enter')homeSearchDict()">
+            <button class="btn btn-primary" onclick="homeSearchDict()">搜索</button>
+          </div>
+          <div id="home-dict-results" style="margin-top:12px"></div>
+        </div>
 
+        <!-- 今日一词 -->
+        <div class="card word-of-day" id="word-of-day" style="margin-bottom:20px">
+          <div class="card-title" style="color:#fff;opacity:.8">✨ 每日一词</div>
+          <div class="word" id="wod-word">　</div>
+          <div class="reading" id="wod-reading">　</div>
+          <div class="meaning" id="wod-meaning">　</div>
+          <div style="text-align:center;margin-top:8px">
+            <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border:none" onclick="nextWod()">换一个 →</button>
+          </div>
+        </div>
+
+        <!-- 常用功能 -->
         <div class="card">
-          <div class="card-title">📊 快捷入口</div>
-          <div class="grid-4">
-            <div class="list-row" onclick="navigate('vocabulary')">📖 单词学习</div>
-            <div class="list-row" onclick="navigate('grammar')">📝 语法课程</div>
-            <div class="list-row" onclick="navigate('quiz')">✏️ 随堂测验</div>
-            <div class="list-row" onclick="navigate('dictionary')">🔍 词典查询</div>
-            <div class="list-row" onclick="navigate('listening')">🎧 听力练习</div>
-            <div class="list-row" onclick="navigate('news')">📰 日语新闻</div>
-            <div class="list-row" onclick="navigate('game')">🎮 助词方块</div>
+          <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span>⭐ 常用功能</span>
+            <span style="font-size:12px;color:var(--text-hint)" id="frequent-count">0/6</span>
+          </div>
+          <div class="grid-3" id="frequent-list">
+            <div class="empty-state" style="grid-column:1/-1"><div class="icon">📭</div><p style="font-size:13px">使用功能后自动添加到这里<br>最多显示 6 个常用功能</p></div>
           </div>
         </div>
       </div>
@@ -851,6 +868,9 @@ function navigate(page) {
   closeSidebar();
   window.scrollTo(0, 0);
 
+  // 记录常用功能
+  trackFrequentFunc(page);
+
   // lazy-load
   switch(page) {
     case 'home': loadHome(); break;
@@ -948,28 +968,122 @@ document.getElementById('login-pwd').addEventListener('keydown', e => { if (e.ke
 // ══════════════════════════════════════════════════════════════════
 let _wodPool = []; let _wodIdx = 0;
 
+// ── 常用功能配置 ──
+const FREQUENT_KEY = 'kotabi_frequent_funcs';
+const FREQUENT_MAX = 6;
+const PAGE_META = {
+  vocabulary: { icon: '📖', name: '单词学习' },
+  grammar:    { icon: '📝', name: '语法课程' },
+  srs:        { icon: '🗂️', name: 'SRS 复习' },
+  quiz:       { icon: '✏️', name: '随堂测验' },
+  game:       { icon: '🎮', name: '助词方块' },
+  dictionary: { icon: '🔍', name: '词典查询' },
+  listening:  { icon: '🎧', name: '听力练习' },
+  news:       { icon: '📰', name: '日语新闻' },
+  profile:    { icon: '👤', name: '我的' },
+};
+
+function getFrequentFuncs() {
+  try { return JSON.parse(localStorage.getItem(FREQUENT_KEY)) || []; } catch(_) { return []; }
+}
+function saveFrequentFuncs(list) {
+  localStorage.setItem(FREQUENT_KEY, JSON.stringify(list));
+}
+function trackFrequentFunc(page) {
+  if (page === 'home' || !PAGE_META[page]) return;
+  let list = getFrequentFuncs();
+  // 已存在则移到第一位
+  list = list.filter(p => p !== page);
+  list.unshift(page);
+  // 最多保留 FREQUENT_MAX 个
+  if (list.length > FREQUENT_MAX) list = list.slice(0, FREQUENT_MAX);
+  saveFrequentFuncs(list);
+}
+function removeFrequentFunc(page) {
+  let list = getFrequentFuncs().filter(p => p !== page);
+  saveFrequentFuncs(list);
+  renderFrequentFuncs();
+}
+function renderFrequentFuncs() {
+  const list = getFrequentFuncs();
+  const el = document.getElementById('frequent-list');
+  const countEl = document.getElementById('frequent-count');
+  countEl.textContent = `${list.length}/${FREQUENT_MAX}`;
+  if (list.length === 0) {
+    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">📭</div><p style="font-size:13px">使用功能后自动添加到这里<br>最多显示 6 个常用功能</p></div>';
+    return;
+  }
+  el.innerHTML = list.map(page => {
+    const meta = PAGE_META[page] || { icon: '📄', name: page };
+    return `<div class="frequent-item" onclick="navigate('${page}')">
+      <div class="freq-remove" onclick="event.stopPropagation();removeFrequentFunc('${page}')">✕</div>
+      <div class="freq-icon">${meta.icon}</div>
+      <div class="freq-name">${meta.name}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── 欢迎语 ──
+function updateWelcomeGreeting(username) {
+  const hour = new Date().getHours();
+  let greeting, emoji;
+  if (hour < 6) { greeting = 'お休みなさい'; emoji = '🌙'; }
+  else if (hour < 11) { greeting = 'おはようございます'; emoji = '🌸'; }
+  else if (hour < 14) { greeting = 'こんにちは'; emoji = '☀️'; }
+  else if (hour < 18) { greeting = 'こんにちは'; emoji = '🍵'; }
+  else { greeting = 'こんばんは'; emoji = '🌙'; }
+  document.getElementById('welcome-greeting').textContent = `${greeting} ${emoji}`;
+  document.getElementById('welcome-sub').textContent = username ? `${username}，每天进步一点点` : '每天进步一点点';
+}
+
+// ── 主页辞书 ──
+async function homeSearchDict() {
+  const q = document.getElementById('home-dict-input').value.trim();
+  if (!q) return;
+  const el = document.getElementById('home-dict-results');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const res = await GET(`/dictionary/search?q=${encodeURIComponent(q)}&lang=zh`);
+    const data = res.data || [];
+    if (data.length === 0) {
+      el.innerHTML = '<div style="text-align:center;color:var(--text-sub);padding:12px">没有找到相关词条</div>';
+      return;
+    }
+    el.innerHTML = data.slice(0, 3).map(e => {
+      const word = e.word || (e.japanese && e.japanese[0] && (e.japanese[0].word || e.japanese[0].reading)) || e.slug;
+      const reading = e.reading || (e.japanese && e.japanese[0] && e.japanese[0].reading) || '';
+      const meanings = e.meanings || [];
+      const defs = meanings.slice(0, 2).map(m => {
+        const d = (m.chinese_definitions && m.chinese_definitions.length ? m.chinese_definitions : m.english_definitions) || [];
+        return escHtml(d.join('；'));
+      }).join('；');
+      return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:18px;font-weight:700">${escHtml(word)}</span>
+        <span style="font-size:12px;color:var(--text-sub);margin-left:6px">${escHtml(reading)}</span>
+        <div style="font-size:13px;color:var(--text-sub);margin-top:2px">${defs}</div>
+      </div>`;
+    }).join('') + `<div style="text-align:center;margin-top:8px">
+      <button class="btn btn-sm btn-outline" onclick="navigate('dictionary');document.getElementById('dict-input').value='${escHtml(q)}';searchDict()">查看更多结果 →</button>
+    </div>`;
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--danger);padding:8px">搜索失败: ${escHtml(e.message)}</div>`;
+  }
+}
+
 async function loadHome() {
-  // user stats
+  // 用户信息 & 欢迎语
   try {
     const me = await GET('/auth/me');
     const u = me.user || me;
-    document.getElementById('stat-streak').textContent = u.streak_days ?? 0;
-    document.getElementById('stat-minutes').textContent = u.total_study_minutes ?? 0;
-    document.getElementById('stat-level').textContent = u.level ?? 'N5';
-    document.getElementById('topbar-username').textContent = u.username || '我';
-  } catch(_) {}
+    const username = u.username || '';
+    document.getElementById('topbar-username').textContent = username || '我';
+    updateWelcomeGreeting(username);
+  } catch(_) {
+    updateWelcomeGreeting('');
+  }
 
-  // SRS stats
-  try {
-    const s = await GET('/srs/stats');
-    document.getElementById('stat-due').textContent = s.due_count ?? 0;
-    document.getElementById('srs-stats-home').innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center">
-        <div><div style="font-size:24px;font-weight:800;color:var(--primary)">${s.due_count ?? 0}</div><div style="font-size:12px;color:var(--text-sub)">待复习</div></div>
-        <div><div style="font-size:24px;font-weight:800;color:var(--success)">${s.graduated_count ?? 0}</div><div style="font-size:12px;color:var(--text-sub)">已毕业</div></div>
-        <div><div style="font-size:24px;font-weight:800;color:var(--warning)">${s.total_cards ?? 0}</div><div style="font-size:12px;color:var(--text-sub)">总卡片</div></div>
-      </div>`;
-  } catch(_) { document.getElementById('srs-stats-home').textContent = '--'; }
+  // 常用功能
+  renderFrequentFuncs();
 
   // word of day
   if (_wodPool.length === 0) {

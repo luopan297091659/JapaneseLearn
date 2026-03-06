@@ -84,7 +84,8 @@ let gFever        = false;
 // ── 关卡配置生成（cols 从 2 渐增到 6）──
 function gLvlCfg(lv) {
   const cols     = lv === 1 ? 2 : lv <= 3 ? 3 : lv <= 6 ? 4 : lv <= 10 ? 5 : 6;
-  const rows     = lv === 1 ? 3 : lv <= 3 ? 4 : Math.min(3 + lv, 12);
+  // 行数限制71，避免棋盘过长超出屏幕
+  const rows     = lv === 1 ? 3 : lv <= 3 ? 4 : lv <= 7 ? 5 : lv <= 12 ? 6 : 7;
   const toPass   = rows * cols;                         // 全部填满才算通关
   // 第1关：打错1道直接失败（livesMax=1）；其他关卡按难度递减
   const livesMax = lv === 1 ? 1 : lv <= 3 ? 99 : lv <= 8 ? 5 : lv <= 15 ? 3 : 2;
@@ -111,10 +112,47 @@ function gSaveLocalProgress(lv, score, stars, combo) {
   }
 }
 
+// ── 从服务器同步进度（登录用户） ──
+function gSyncServerProgress() {
+  const token = (typeof getToken === 'function') ? getToken() : localStorage.getItem('token');
+  if (!token) return;
+  fetch('/api/v1/game/my-progress', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok) return;
+      let changed = false;
+      // 合并 unlocked_to（取最大值）
+      const serverUnlocked = parseInt(d.unlocked_to) || 1;
+      if (serverUnlocked > gUnlockedTo) {
+        gUnlockedTo = serverUnlocked;
+        try { localStorage.setItem('gUnlockedTo', gUnlockedTo); } catch {}
+        changed = true;
+      }
+      // 合并各关分数（取最高分）
+      const serverScores = d.level_scores || {};
+      for (const lv of Object.keys(serverScores)) {
+        const sv = serverScores[lv];
+        const lo = gLevelScores[lv];
+        if (!lo || (sv.score || 0) > (lo.score || 0)) {
+          gLevelScores[lv] = sv;
+          changed = true;
+        }
+      }
+      if (changed) {
+        try { localStorage.setItem('gLevelScores', JSON.stringify(gLevelScores)); } catch {}
+        gRenderLevelGrid();
+      }
+    })
+    .catch(() => {});
+}
+
 // ── 页面初始化 ──
 function gamePageInit() {
   gLoadLocalSaves();
   gameSpeedInit();
+  gSyncServerProgress();
   fetch('/api/v1/game/config')
     .then(r => r.json())
     .then(d => {
@@ -221,15 +259,15 @@ function gameInitBoard() {
   gBoard    = Array.from({length: gGRows}, () => Array(gGCols).fill(null));
   gBoardTxt = Array.from({length: gGRows}, () => Array(gGCols).fill(''));
   gBoardClr = Array.from({length: gGRows}, () => Array(gGCols).fill(''));
-  el.style.gridTemplateRows     = 'repeat(' + gGRows + ', 1fr)';
+  el.style.gridTemplateRows     = 'repeat(' + gGRows + ', auto)';
   el.style.gridTemplateColumns  = 'repeat(' + gGCols + ', 1fr)';
-  // 棋盘高度自适应视口，最多占可用高度的40%
-  const boardH = Math.min(300, Math.max(gGRows * 44, Math.round(window.innerHeight * 0.38)));
-  el.style.height = boardH + 'px';
+  el.style.height = '';  // 不固定高度，让格子撑开
+  // 格子高度：让总棋盘保持约160px，每格最小22px最大50px
+  const ch = Math.max(22, Math.min(50, Math.floor(168 / gGRows)));
   let html = '';
   for (let r = 0; r < gGRows; r++)
     for (let c = 0; c < gGCols; c++)
-      html += '<div class="g-cell" style="background:#f1f5f9;border:1px solid #e2e8f0;color:transparent"></div>';
+      html += '<div class="g-cell" style="background:#f1f5f9;border:1px solid #e2e8f0;color:transparent;height:' + ch + 'px;width:100%"></div>';
   el.innerHTML = html;
 }
 
@@ -239,6 +277,7 @@ function gameRefreshBoard() {
   if (!el || !gBoard) return;
   const cells = el.children;
   if (cells.length !== gGRows * gGCols) { gameInitBoard(); return; }
+  const ch      = Math.max(22, Math.min(50, Math.floor(168 / gGRows)));
   const fsSz    = gGCols <= 3 ? '14px' : gGCols <= 4 ? '12px' : '10px';
   const selTxt  = (gCurQ && gRunning) ? (gCurQ.o[gSelected] || '') : '';
   for (let r = 0; r < gGRows; r++) {
@@ -247,7 +286,7 @@ function gameRefreshBoard() {
       const d  = cells[r * gGCols + c];
       if (!d) continue;
       const idc = c === gDropCol && gRunning && st !== 'correct' && st !== 'wrong';
-      const base = 'border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:' + fsSz + ';font-weight:800;height:100%;';
+      const base = 'border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:' + fsSz + ';font-weight:800;height:' + ch + 'px;width:100%;';
       if (st === 'correct') {
         d.style.cssText = base + 'color:#fff;background:' + gBoardClr[r][c] + ';border:none;box-shadow:0 2px 6px rgba(22,163,74,.5)';
         d.textContent = gBoardTxt[r][c];
@@ -407,7 +446,8 @@ function gameConfirm() {
     setTimeout(gLevelClear, 600);
     return;
   }
-  if (gBoard[0].some(c => c && c !== 'active')) {
+  // 只有所有列都顶格才判溢出失败；单列满时 gamePickCol 会自动跳过
+  if (gBoard[0].every(c => c && c !== 'active')) {
     gRunning = false;
     setTimeout(gLevelFail, 800);
   } else {
