@@ -25,6 +25,13 @@ import '../screens/tabs/study_tab.dart';
 import '../screens/tabs/game_tab.dart';
 import '../screens/tabs/test_tab.dart';
 import '../screens/tabs/tools_tab.dart';
+import '../screens/study/gojuon_screen.dart';
+import '../screens/study/pronunciation_screen.dart';
+import '../screens/news/news_list_screen.dart';
+import '../screens/news/news_detail_screen.dart';
+import '../screens/news/nhk_detail_screen.dart';
+import '../screens/tools/todofuken_quiz_screen.dart';
+import '../models/models.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -86,7 +93,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(path: '/anki-import', builder: (_, __) => const AnkiImportScreen()),
           GoRoute(path: '/local-vocab',  builder: (_, __) => const LocalVocabScreen()),
-          GoRoute(path: '/game', builder: (_, __) => const TetrisGrammarGame()),
+          GoRoute(
+            path: '/game',
+            builder: (_, state) => TetrisGrammarGame(
+              gameType: (state.extra as String?) ?? 'particles',
+            ),
+          ),
+          GoRoute(path: '/gojuon', builder: (_, __) => const GojuonScreen()),
+          GoRoute(path: '/pronunciation', builder: (_, __) => const PronunciationScreen()),
+          GoRoute(path: '/news', builder: (_, __) => const NewsListScreen()),
+          GoRoute(
+            path: '/news/:id',
+            builder: (_, state) => NewsDetailScreen(id: state.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: '/nhk-news/:id',
+            builder: (_, state) => NhkDetailScreen(
+              newsId: state.pathParameters['id']!,
+              article: state.extra as NewsArticleModel?,
+            ),
+          ),
+          GoRoute(path: '/todofuken-quiz', builder: (_, __) => const TodofukenQuizScreen()),
         ],
       ),
     ],
@@ -123,7 +150,10 @@ class _MainShellState extends State<MainShell> {
       if (location.startsWith('/vocabulary') ||
           location.startsWith('/grammar') ||
           location.startsWith('/listening') ||
-          location.startsWith('/srs-review')) {
+          location.startsWith('/srs-review') ||
+          location.startsWith('/gojuon') ||
+          location.startsWith('/news') ||
+          location.startsWith('/nhk-news')) {
         idx = 1; // 学习
       } else if (location.startsWith('/game')) {
         idx = 2; // 游戏 (covers /game and /games)
@@ -131,7 +161,8 @@ class _MainShellState extends State<MainShell> {
         idx = 3; // 测试
       } else if (location.startsWith('/dictionary') ||
           location.startsWith('/anki') ||
-          location.startsWith('/local-vocab')) {
+          location.startsWith('/local-vocab') ||
+          location.startsWith('/todofuken')) {
         idx = 4; // 工具
       } else {
         idx = 0; // 主页

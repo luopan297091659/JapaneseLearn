@@ -244,10 +244,48 @@ class QuizQuestionModel {
   bool get isCorrect => userAnswer == correctAnswer;
 }
 
+// ─── News Favorite Model ─────────────────────────────────────────────────────
+class NewsFavoriteModel {
+  final int id;
+  final String newsType;
+  final String newsId;
+  final String title;
+  final String? description;
+  final String? imageUrl;
+  final String? link;
+  final String? source;
+  final String? publishedAt;
+
+  const NewsFavoriteModel({
+    required this.id,
+    required this.newsType,
+    required this.newsId,
+    required this.title,
+    this.description,
+    this.imageUrl,
+    this.link,
+    this.source,
+    this.publishedAt,
+  });
+
+  factory NewsFavoriteModel.fromJson(Map<String, dynamic> json) => NewsFavoriteModel(
+        id: json['id'] ?? 0,
+        newsType: json['news_type'] ?? 'db',
+        newsId: json['news_id']?.toString() ?? '',
+        title: json['title'] ?? '',
+        description: json['description'],
+        imageUrl: json['image_url'],
+        link: json['link'],
+        source: json['source'],
+        publishedAt: json['published_at'],
+      );
+}
+
 // ─── News Article Model ──────────────────────────────────────────────────────
 class NewsArticleModel {
   final String id;
   final String title;
+  final String? titleWithRuby;
   final String? body;
   final String? bodyWithRuby;
   final String? audioUrl;
@@ -259,6 +297,7 @@ class NewsArticleModel {
   const NewsArticleModel({
     required this.id,
     required this.title,
+    this.titleWithRuby,
     this.body,
     this.bodyWithRuby,
     this.audioUrl,
@@ -269,13 +308,14 @@ class NewsArticleModel {
   });
 
   factory NewsArticleModel.fromJson(Map<String, dynamic> json) => NewsArticleModel(
-        id: json['id'],
-        title: json['title'],
+        id: json['id']?.toString() ?? '',
+        title: json['title'] ?? '',
+        titleWithRuby: json['titleWithRuby'] ?? json['title_with_ruby'],
         body: json['body'],
-        bodyWithRuby: json['body_with_ruby'],
-        audioUrl: json['audio_url'],
-        imageUrl: json['image_url'],
-        publishedAt: json['published_at'],
+        bodyWithRuby: json['body_with_ruby'] ?? json['bodyWithRuby'],
+        audioUrl: json['audio_url'] ?? json['audioUrl'],
+        imageUrl: json['image_url'] ?? json['imageUrl'],
+        publishedAt: json['published_at'] ?? json['publishedAt'],
         source: json['source'] ?? 'NHK Easy',
         difficulty: json['difficulty'] ?? 'easy',
       );
@@ -286,29 +326,35 @@ class ProgressSummaryModel {
   final int streakDays;
   final int totalStudyMinutes;
   final String level;
+  final int totalXp;
   final List<DailyStatModel> dailyStats;
   final QuizStatModel? quizStats;
   final SrsStatModel? srsStats;
+  final WeeklyStatModel? weeklyStats;
 
   const ProgressSummaryModel({
     required this.streakDays,
     required this.totalStudyMinutes,
     required this.level,
+    required this.totalXp,
     required this.dailyStats,
     this.quizStats,
     this.srsStats,
+    this.weeklyStats,
   });
 
   factory ProgressSummaryModel.fromJson(Map<String, dynamic> json) => ProgressSummaryModel(
         streakDays: json['user']?['streak_days'] ?? 0,
         totalStudyMinutes: json['user']?['total_study_minutes'] ?? 0,
         level: json['user']?['level'] ?? 'N5',
+        totalXp: int.tryParse(json['user']?['total_xp']?.toString() ?? '0') ?? 0,
         dailyStats: (json['daily_stats'] as List<dynamic>?)
                 ?.map((e) => DailyStatModel.fromJson(e))
                 .toList() ??
             [],
         quizStats: json['quiz_stats'] != null ? QuizStatModel.fromJson(json['quiz_stats']) : null,
         srsStats: json['srs_stats'] != null ? SrsStatModel.fromJson(json['srs_stats']) : null,
+        weeklyStats: json['weekly_stats'] != null ? WeeklyStatModel.fromJson(json['weekly_stats']) : null,
       );
 }
 
@@ -330,6 +376,33 @@ class DailyStatModel {
         totalSeconds: int.tryParse(json['total_seconds'].toString()) ?? 0,
         totalXp: int.tryParse(json['total_xp'].toString()) ?? 0,
         activityCount: int.tryParse(json['activity_count'].toString()) ?? 0,
+      );
+}
+
+class WeeklyStatModel {
+  final int xp;
+  final int studySeconds;
+  final int activities;
+  final int studyDays;
+  final int quizCount;
+  final int quizAvgScore;
+
+  const WeeklyStatModel({
+    required this.xp,
+    required this.studySeconds,
+    required this.activities,
+    required this.studyDays,
+    required this.quizCount,
+    required this.quizAvgScore,
+  });
+
+  factory WeeklyStatModel.fromJson(Map<String, dynamic> json) => WeeklyStatModel(
+        xp: int.tryParse(json['xp']?.toString() ?? '0') ?? 0,
+        studySeconds: int.tryParse(json['study_seconds']?.toString() ?? '0') ?? 0,
+        activities: int.tryParse(json['activities']?.toString() ?? '0') ?? 0,
+        studyDays: int.tryParse(json['study_days']?.toString() ?? '0') ?? 0,
+        quizCount: int.tryParse(json['quiz_count']?.toString() ?? '0') ?? 0,
+        quizAvgScore: int.tryParse(json['quiz_avg_score']?.toString() ?? '0') ?? 0,
       );
 }
 

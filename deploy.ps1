@@ -53,7 +53,7 @@ Remote-Run "cd $RemotePath; npm install --production 2>&1 | tail -n 5"
 
 # 步骤 4: pm2 启动/重启
 Write-Host "[4/4] 启动服务..." -ForegroundColor Yellow
-$pm2Script = "if pm2 describe japanese-learn > /dev/null 2>&1; then pm2 restart japanese-learn; else pm2 start src/app.js --name japanese-learn; fi; pm2 save --force; pm2 list"
+$pm2Script = "pm2 delete japanese-learn 2>/dev/null; pm2 start src/app.js --name japanese-learn; pm2 save --force; pm2 list"
 $code = Remote-Run "bash -c 'cd $RemotePath; $pm2Script'"
 
 if ($code -eq 0) {

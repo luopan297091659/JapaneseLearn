@@ -120,11 +120,7 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
             tooltip: S.of(context).ankiImport,
             onPressed: () => context.push('/anki-import'),
           ),
-          IconButton(
-            icon: const Icon(Icons.home_rounded),
-            tooltip: '返回首页',
-            onPressed: () => context.go('/home'),
-          ),
+
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(100),

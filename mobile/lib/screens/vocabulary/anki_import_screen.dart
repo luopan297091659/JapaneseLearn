@@ -216,9 +216,9 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
           if (_step != _Step.pick)
             IconButton(icon: const Icon(Icons.refresh), onPressed: _reset),
           IconButton(
-            icon: const Icon(Icons.home_rounded),
-            tooltip: '返回首页',
-            onPressed: () => context.go('/home'),
+            icon: const Icon(Icons.refresh),
+            tooltip: '刷新',
+            onPressed: () {},
           ),
         ],
       ),

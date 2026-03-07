@@ -136,9 +136,9 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.home_rounded),
-            tooltip: '返回首页',
-            onPressed: () => context.go('/home'),
+            icon: const Icon(Icons.refresh),
+            tooltip: '刷新',
+            onPressed: () {},
           ),
         ],
         bottom: PreferredSize(

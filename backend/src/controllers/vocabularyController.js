@@ -40,10 +40,12 @@ async function getById(req, res) {
 
 async function getByLevel(req, res) {
   try {
+    const { Sequelize } = require('sequelize');
+    const limit = Math.min(parseInt(req.query.limit) || 100, 200);
     const words = await Vocabulary.findAll({
       where: { jlpt_level: req.params.level },
-      limit: 100,
-      order: [['word', 'ASC']],
+      limit,
+      order: Sequelize.fn('RAND'),
     });
     res.json(words);
   } catch (err) {

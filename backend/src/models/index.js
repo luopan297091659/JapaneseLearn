@@ -170,6 +170,23 @@ const ApiLog = sequelize.define('ApiLog', {
   user_agent: { type: DataTypes.STRING(300), allowNull: true },
 }, { tableName: 'api_logs', timestamps: true, updatedAt: false });
 
+// ────────── News Favorite (用户收藏新闻) ──────────
+const NewsFavorite = sequelize.define('NewsFavorite', {
+  id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
+  user_id: { type: DataTypes.UUID, allowNull: false },
+  news_type: { type: DataTypes.ENUM('db', 'nhk'), allowNull: false, comment: 'db=收录新闻, nhk=NHK RSS' },
+  news_id: { type: DataTypes.STRING(100), allowNull: false, comment: 'DB article UUID or NHK ID like 20260306-k100150...' },
+  title: { type: DataTypes.TEXT, allowNull: false },
+  description: { type: DataTypes.TEXT, allowNull: true },
+  image_url: { type: DataTypes.STRING(500), allowNull: true },
+  link: { type: DataTypes.STRING(500), allowNull: true },
+  source: { type: DataTypes.STRING(100), defaultValue: 'NHK' },
+  published_at: { type: DataTypes.STRING(50), allowNull: true },
+}, {
+  tableName: 'news_favorites',
+  indexes: [{ unique: true, fields: ['user_id', 'news_type', 'news_id'] }],
+});
+
 // ────────── Associations ──────────
 GrammarLesson.hasMany(GrammarExample, { foreignKey: 'grammar_lesson_id', as: 'examples' });
 GrammarExample.belongsTo(GrammarLesson, { foreignKey: 'grammar_lesson_id' });
@@ -185,6 +202,7 @@ module.exports = {
   QuizQuestion,
   QuizSession,
   NewsArticle,
+  NewsFavorite,
   UserProgress,
   ContentVersion,
   ApiLog,

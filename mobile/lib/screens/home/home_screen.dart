@@ -162,6 +162,38 @@ class _HomeScreenState extends State<HomeScreen> {
                       onNext: _nextWord,
                     ),
                   const SizedBox(height: 20),
+                  // ── 📚 学习 ────────────────────────────────────
+                  _SectionTitle(title: '学习', icon: Icons.menu_book_rounded),
+                  const SizedBox(height: 10),
+                  _CategoryGrid(items: const [
+                    (icon: Icons.grid_view_rounded,  label: '五十音',   sub: '基础入门', path: '/gojuon',       color: Color(0xFFE91E63)),
+                    (icon: Icons.menu_book_rounded,  label: '单词学习', sub: '词汇积累', path: '/vocabulary', color: Color(0xFF4CAF50)),
+                    (icon: Icons.school_rounded,     label: '语法学习', sub: '规则掌握', path: '/grammar',    color: Color(0xFF2196F3)),
+                    (icon: Icons.headphones_rounded, label: '听力练习', sub: '提升听力', path: '/listening',  color: Color(0xFF9C27B0)),
+                    (icon: Icons.layers_rounded,     label: 'SRS复习',  sub: '间隔记忆', path: '/srs-review', color: Color(0xFFFF9800)),
+                    (icon: Icons.folder_copy_rounded, label: 'Anki词库', sub: '本地卡片', path: '/local-vocab', color: Color(0xFF00897B)),
+                  ]),
+                  const SizedBox(height: 20),
+                  // ── 🎮 游戏 ────────────────────────────────────
+                  _SectionTitle(title: '游戏', icon: Icons.sports_esports_rounded),
+                  const SizedBox(height: 10),
+                  _GameBanner(),
+                  const SizedBox(height: 20),
+                  // ── 🔧 工具 ────────────────────────────────────
+                  _SectionTitle(title: '工具', icon: Icons.build_rounded),
+                  const SizedBox(height: 10),
+                  _CategoryGrid(items: const [
+                    (icon: Icons.manage_search_rounded, label: '辞书检索', sub: '词典查询', path: '/dictionary',  color: Color(0xFF607D8B)),
+                    (icon: Icons.upload_file_rounded,   label: 'Anki导入', sub: '导入词库', path: '/anki-import', color: Color(0xFF795548)),
+                  ]),
+                  const SizedBox(height: 20),
+                  // ── ✏️ 测试 ────────────────────────────────────
+                  _SectionTitle(title: '测试', icon: Icons.assignment_rounded),
+                  const SizedBox(height: 10),
+                  _CategoryGrid(items: const [
+                    (icon: Icons.quiz_rounded, label: '随机测验', sub: '检验水平', path: '/quiz', color: Color(0xFFFF5722)),
+                    (icon: Icons.map_rounded,  label: '都道府県', sub: '地理测验', path: '/todofuken-quiz', color: Color(0xFFE65100)),
+                  ]),
                   const SizedBox(height: 8),
                 ]),
               ),
@@ -175,7 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Sliver App Bar ─────────────────────────────────────────────────────────
   Widget _buildSliverHeader(ColorScheme cs) {
     return SliverAppBar(
-      expandedHeight: 160,
+      expandedHeight: 130,
       floating: false,
       pinned: true,
       backgroundColor: cs.primary,
@@ -206,26 +238,37 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 6, 60, 14),
+              padding: const EdgeInsets.fromLTRB(20, 4, 60, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // 时间问候 + 用户名
-                  Text(
-                    _user != null
-                        ? '${_greeting()}　${_user!.username}さん 👋'
-                        : '${_greeting()}　日本語の旅へ ✨',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      height: 1.4,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  // 时间问候 + 用户名 + 等级（一行）
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _user != null
+                              ? '${_greeting()}　${_user!.username}さん'
+                              : '${_greeting()}　学生',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _StatBadge(
+                        icon: Icons.star,
+                        color: Colors.amber,
+                        label: _user?.level ?? 'N5',
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(children: [
@@ -233,12 +276,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         icon: Icons.local_fire_department,
                         color: Colors.orange,
                         label: '${_user?.streakDays ?? 0} 天连续',
-                      ),
-                      const SizedBox(width: 8),
-                      _StatBadge(
-                        icon: Icons.star,
-                        color: Colors.amber,
-                        label: _user?.level ?? 'N5',
                       ),
                       const SizedBox(width: 8),
                       _StatBadge(
@@ -468,7 +505,6 @@ class _WordOfDayCard extends StatelessWidget {
                   style: TextStyle(color: cs.tertiary, fontSize: 11, fontWeight: FontWeight.bold)),
             ),
             const Spacer(),
-            Icon(Icons.arrow_forward_ios_rounded, size: 14, color: cs.onSurfaceVariant),
           ]),
           const SizedBox(height: 14),
           Text(word.word,
@@ -594,15 +630,47 @@ class _CategoryGrid extends StatelessWidget {
 class _GameBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    const color = Color(0xFFE91E63);
+    return Column(children: [
+      _GameCard(
+        title: '助词方块',
+        subtitle: '趣味闯关 · 助词填空',
+        color: const Color(0xFFE91E63),
+        onTap: () => context.push('/game', extra: 'particles'),
+      ),
+      const SizedBox(height: 12),
+      _GameCard(
+        title: '动词方块',
+        subtitle: '趣味闯关 · 动词变形',
+        color: const Color(0xFF9C27B0),
+        onTap: () => context.push('/game', extra: 'verbs'),
+      ),
+    ]);
+  }
+}
+
+class _GameCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _GameCard({
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => context.push('/game'),
+      onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFE91E63), Color(0xFFFF5252)],
+          gradient: LinearGradient(
+            colors: [color, color.withOpacity(0.7)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -628,10 +696,10 @@ class _GameBanner extends StatelessWidget {
           const SizedBox(width: 14),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('助词方块',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(title,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 3),
-              Text('趣味闯关 · 越玩越强',
+              Text(subtitle,
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12)),
             ]),
           ),
@@ -642,7 +710,7 @@ class _GameBanner extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Text('开始',
-                style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
+                style: TextStyle(color: Color(0xFFE91E63), fontWeight: FontWeight.bold, fontSize: 13)),
           ),
         ]),
       ),

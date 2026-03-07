@@ -14,6 +14,7 @@
 
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 const multer = require('multer');
 const AdmZip = require('adm-zip');
 const { v4: uuidv4 } = require('uuid');
@@ -245,6 +246,41 @@ async function serverImport(req, res) {
     if (ext === '.apkg') {
       const { notes, fieldNameMap, audioUrlMap } = await serverParseApkg(req.file.buffer);
       audioCount = Object.keys(audioUrlMap).length;
+      
+      // ✅ 新增：Anki 导入上限检查
+      const MAX_AUDIO_FILES = 5000;      // 最多音频文件数
+      const MAX_TOTAL_SIZE_MB = 2000;    // 最多总大小（MB）
+      const MAX_VOCAB_CARDS = 50000;     // 最多词汇卡片数
+      
+      if (audioCount > MAX_AUDIO_FILES) {
+        return res.status(400).json({ 
+          error: `音频文件过多：${audioCount}/${MAX_AUDIO_FILES}，超出限制` 
+        });
+      }
+      
+      if (notes.length > MAX_VOCAB_CARDS) {
+        return res.status(400).json({ 
+          error: `卡片数过多：${notes.length}/${MAX_VOCAB_CARDS}，超出限制` 
+        });
+      }
+      
+      // 计算已上传音频的总大小
+      let totalAudioSize = 0;
+      const uploadDir = path.join(__dirname, '../../uploads/audio');
+      if (fs.existsSync(uploadDir)) {
+        const files = fs.readdirSync(uploadDir);
+        for (const file of files) {
+          const stats = fs.statSync(path.join(uploadDir, file));
+          totalAudioSize += stats.size;
+        }
+      }
+      const totalSizeMB = totalAudioSize / (1024 * 1024);
+      if (totalSizeMB > MAX_TOTAL_SIZE_MB) {
+        return res.status(400).json({ 
+          error: `服务器音频存储已满：${totalSizeMB.toFixed(1)}MB/${MAX_TOTAL_SIZE_MB}MB` 
+        });
+      }
+      
       for (const note of notes) {
         const rawFlds = note.flds.split('\x1f');
         // 从原始字段提取音频引用

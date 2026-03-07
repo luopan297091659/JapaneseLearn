@@ -182,11 +182,6 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
                       ),
                     ),
             ),
-          IconButton(
-            icon: const Icon(Icons.home_rounded),
-            tooltip: '返回首页',
-            onPressed: () => context.go('/home'),
-          ),
         ],
       ),
       body: _loading

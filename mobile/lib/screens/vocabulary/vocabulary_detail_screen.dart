@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
+import '../../services/permission_service.dart';
 import '../../models/models.dart';
+import '../../utils/japanese_text_utils.dart';
 import '../../widgets/audio_player_widget.dart';
 import 'vocab_whiteboard_screen.dart';
 
@@ -62,27 +64,51 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
       if (mounted) setState(() => _ttsPlaying = false);
     });
 
-    // 检测日语引擎可用性
-    bool langSet = false;
-    try {
-      final raw   = await _tts.getLanguages;
-      final langs = raw is List ? raw : <dynamic>[];
-      final hasJa = langs.any((l) => l.toString().toLowerCase().startsWith('ja'));
-      if (hasJa) {
-        await _tts.setLanguage('ja-JP');
-        langSet = true;
+    // ✅ 新增：添加 15 秒超时机制，防止初始化永久卡死
+    Future<void> initWithTimeout() async {
+      try {
+        // 检测日语引擎可用性
+        bool langSet = false;
+        try {
+          final raw   = await _tts.getLanguages;
+          final langs = raw is List ? raw : <dynamic>[];
+          final hasJa = langs.any((l) => l.toString().toLowerCase().startsWith('ja'));
+          if (hasJa) {
+            await _tts.setLanguage('ja-JP');
+            langSet = true;
+          }
+        } catch (_) {}
+        // 引擎未列出 ja-JP 时强制尝试（部分设备不返回列表但实际支持）
+        if (!langSet) {
+          try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+        }
+
+        await _tts.setSpeechRate(0.5);  // 稍慢，更清晰
+        await _tts.setVolume(1.0);
+        await _tts.setPitch(1.0);
+
+        if (mounted) setState(() => _ttsReady = true);
+      } catch (e) {
+        print('TTS 初始化异常: $e');
+        // 初始化失败，也标记为就绪，之后会在使用时提示用户
+        if (mounted) setState(() => _ttsReady = true);
       }
-    } catch (_) {}
-    // 引擎未列出 ja-JP 时强制尝试（部分设备不返回列表但实际支持）
-    if (!langSet) {
-      try { await _tts.setLanguage('ja-JP'); } catch (_) {}
     }
 
-    await _tts.setSpeechRate(0.5);  // 稍慢，更清晰
-    await _tts.setVolume(1.0);
-    await _tts.setPitch(1.0);
-
-    if (mounted) setState(() => _ttsReady = true);
+    // 带 15 秒超时的初始化（防止某些设备永久卡死）
+    try {
+      await initWithTimeout().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          print('TTS 初始化超时（15s），标记为就绪以避免卡死');
+          if (mounted) setState(() => _ttsReady = true);
+        },
+      );
+    } catch (e) {
+      print('TTS 初始化失败: $e');
+      // 确保最终标记为就绪，来自超时或其他异常
+      if (mounted) setState(() => _ttsReady = true);
+    }
   }
 
   Future<void> _speak() async {
@@ -107,9 +133,36 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
       return;
     }
 
-    final text = _vocab!.reading.isNotEmpty ? _vocab!.reading : _vocab!.word;
+    // ✅ 新增：检查麦克风权限（Android 6.0+）
+    final hasMicPermission = await _requestMicrophonePermission();
+    if (!hasMicPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Expanded(child: Text('需要麦克风权限')),
+                TextButton(
+                  onPressed: () => _openSettings(),
+                  child: const Text('打开设置', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      return;
+    }
+
+    final text = ttsText(_vocab!.word, _vocab!.reading);
     try {
       setState(() => _ttsPlaying = true); // 乐观更新，按钮立即响应
+      
+      // ✅ 新增：设置音量和音频焦点
+      await _tts.setVolume(1.0);  // 确保音量为最大
+      
       final result = await _tts.speak(text);
       // result == 1 表示成功启动，0 表示引擎拒绝
       if (result != 1 && mounted) {
@@ -134,6 +187,16 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
         );
       }
     }
+  }
+
+  /// ✅ 新增：请求麦克风权限
+  Future<bool> _requestMicrophonePermission() async {
+    return await PermissionService.requestMicrophonePermission();
+  }
+
+  /// ✅ 新增：打开应用设置
+  void _openSettings() {
+    PermissionService.openPermissionSettings();
   }
 
   @override
@@ -280,11 +343,6 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
               label: const Text('加入SRS'),
               onPressed: _addToSrs,
             ),
-          IconButton(
-            icon: const Icon(Icons.home_rounded),
-            tooltip: '返回首页',
-            onPressed: () => context.go('/home'),
-          ),
         ],
       ),
       body: _loading
@@ -346,13 +404,13 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                         const SnackBar(content: Text('已复制'), behavior: SnackBarBehavior.floating,
                             duration: Duration(seconds: 1)));
                   },
-                  child: Text(v.word,
+                  child: Text(cleanWord(v.word),
                       style: TextStyle(fontSize: 52, fontWeight: FontWeight.bold,
                           color: cs.primary, height: 1.2)),
                 ),
                 if (_showAnswer) ...[  
                   const SizedBox(height: 8),
-                  Text(v.reading,
+                  Text(cleanReading(v.reading).isNotEmpty ? cleanReading(v.reading) : ttsText(v.word, v.reading),
                       style: TextStyle(fontSize: 24, color: cs.secondary, fontWeight: FontWeight.w500)),
                 ],
                 const SizedBox(height: 12),

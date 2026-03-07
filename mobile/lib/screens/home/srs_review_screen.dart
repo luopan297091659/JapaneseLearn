@@ -30,6 +30,14 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
       setState(() { _cards = res['cards'] as List<SrsCardModel>; _loading = false; });
     } catch (_) {
       setState(() => _loading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('加载复习卡片失败，请检查网络'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -37,7 +45,19 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
     final card = _cards[_current];
     if (quality >= 3) _correct++;
     _reviewed++;
-    await apiService.submitSrsReview(card.id, quality);
+    try {
+      await apiService.submitSrsReview(card.id, quality);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('复习数据保存失败，请检查网络'),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
     if (mounted) {
       final label = quality == 0 ? '重来' : quality <= 3 ? '困难' : quality == 4 ? '良好' : '简单';
       ScaffoldMessenger.of(context).showSnackBar(
@@ -65,14 +85,20 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('复习完成！'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           Text('共复习 $_reviewed 张卡片', style: const TextStyle(fontSize: 16)),
           Text('正确率 ${_reviewed > 0 ? (_correct / _reviewed * 100).round() : 0}%',
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green)),
         ]),
-        actions: [FilledButton(onPressed: () { Navigator.of(context).pop(); context.go('/home'); }, child: const Text('返回首页'))],
+        actions: [FilledButton(
+          onPressed: () { 
+            Navigator.pop(dialogContext);
+            if (mounted) context.go('/home'); 
+          }, 
+          child: const Text('返回首页')
+        )],
       ),
     );
   }

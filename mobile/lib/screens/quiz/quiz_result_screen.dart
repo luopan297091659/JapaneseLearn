@@ -53,8 +53,8 @@ class QuizResultScreen extends StatelessWidget {
                 const SizedBox(width: 16),
                 Expanded(
                   child: FilledButton(
-                    onPressed: () => context.go('/home'),
-                    child: const Text('返回首页'),
+                    onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+                    child: const Text('返回'),
                   ),
                 ),
               ]),

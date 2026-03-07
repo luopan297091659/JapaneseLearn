@@ -46,13 +46,7 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
           tooltip: '返回',
           onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_rounded),
-            tooltip: '返回首页',
-            onPressed: () => context.go('/home'),
-          ),
-        ],
+        actions: [],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(50),
           child: Padding(

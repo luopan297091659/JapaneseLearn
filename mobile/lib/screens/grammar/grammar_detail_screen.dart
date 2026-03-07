@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
@@ -28,11 +29,45 @@ class GrammarDetailScreen extends StatefulWidget {
 }
 
 class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
+  final FlutterTts _tts = FlutterTts();
   GrammarLessonModel? _lesson;
   bool _loading = true;
+  bool _ttsReady = false;
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _initTts();
+    _load();
+  }
+
+  Future<void> _initTts() async {
+    try {
+      await _tts.setLanguage('ja-JP');
+      await _tts.setSpeechRate(0.45);
+      _ttsReady = true;
+    } catch (e) {
+      debugPrint('TTS 初始化失败: $e');
+    }
+  }
+
+  void _speakJa(String text) {
+    if (!_ttsReady) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('语音引擎不可用，请在系统设置中安装日语 TTS 引擎'), duration: Duration(seconds: 3)),
+      );
+      return;
+    }
+    _tts.speak(text).catchError((e) {
+      debugPrint('TTS 播放失败: $e');
+    });
+  }
+
+  @override
+  void dispose() {
+    _tts.stop();
+    super.dispose();
+  }
 
   Future<void> _load() async {
     try {
@@ -52,13 +87,7 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
           onPressed: () => context.canPop() ? context.pop() : context.go('/grammar'),
         ),
         title: Text(_lesson?.pattern ?? '文法'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_rounded),
-            tooltip: '返回首页',
-            onPressed: () => context.go('/home'),
-          ),
-        ],
+        actions: [],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -152,7 +181,20 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(e.sentence, style: const TextStyle(fontSize: 15, height: 1.4)),
+                                  Row(
+                                    children: [
+                                      Expanded(child: Text(e.sentence, style: const TextStyle(fontSize: 15, height: 1.4))),
+                                      const SizedBox(width: 4),
+                                      InkWell(
+                                        onTap: () => _speakJa(e.sentence),
+                                        borderRadius: BorderRadius.circular(14),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(4),
+                                          child: Icon(Icons.volume_up_rounded, size: 20, color: cs.primary),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                   if (e.reading != null) ...[const SizedBox(height: 2),
                                     Text(e.reading!, style: TextStyle(color: cs.primary, fontSize: 12))],
                                   const SizedBox(height: 4),

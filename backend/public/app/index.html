@@ -410,7 +410,7 @@ ul { list-style: none; }
     <div id="register-form" style="display:none">
       <div class="input-group">
         <label>用户名</label>
-        <input class="input" id="reg-name" type="text" placeholder="昵称">
+        <input class="input" id="reg-name" type="text" placeholder="仅限英文字母、数字和下划线">
       </div>
       <div class="input-group">
         <label>邮箱</label>
@@ -459,6 +459,7 @@ ul { list-style: none; }
       <div class="nav-item" data-page="grammar" onclick="navigate('grammar')"><span class="icon">📝</span>语法</div>
       <div class="nav-item" data-page="srs" onclick="navigate('srs')"><span class="icon">🗂️</span>SRS 复习</div>
       <div class="nav-item" data-page="listening" onclick="navigate('listening')"><span class="icon">🎧</span>听力</div>
+      <div class="nav-item" data-page="pronunciation" onclick="navigate('pronunciation')"><span class="icon">🎤</span>发音练习</div>
       <div class="nav-section">游戏</div>
       <div class="nav-item" data-page="game" onclick="navigate('game')"><span class="icon">🎮</span>助词方块</div>
       <div class="nav-section">工具</div>
@@ -480,11 +481,94 @@ ul { list-style: none; }
 
       <!-- 首页 -->
       <div class="page active" id="page-home">
-        <!-- 欢迎语 -->
+        <!-- 欢迎语 + 等级进度 -->
         <div class="home-welcome" id="home-welcome">
           <div class="welcome-text">
             <h2 style="font-size:22px;margin:0" id="welcome-greeting">おはようございます 🌸</h2>
             <p style="color:var(--text-sub);margin:6px 0 0;font-size:14px" id="welcome-sub">每天进步一点点</p>
+          </div>
+        </div>
+
+        <!-- JLPT 等级 + 连续打卡 -->
+        <div class="grid-2" style="margin-bottom:20px">
+          <div class="card" style="margin-bottom:0;text-align:center">
+            <div style="font-size:12px;color:var(--text-hint);margin-bottom:4px">当前等级</div>
+            <div id="home-level" style="font-size:36px;font-weight:900;color:var(--primary)">N5</div>
+            <div style="margin:8px 0 4px">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-hint)">
+                <span id="home-level-cur">N5</span><span id="home-level-next">→ N4</span>
+              </div>
+              <div style="background:var(--bg3);border-radius:6px;height:8px;overflow:hidden;margin-top:3px">
+                <div id="home-level-bar" style="background:var(--primary);height:100%;width:0%;border-radius:6px;transition:width .6s"></div>
+              </div>
+              <div style="font-size:11px;color:var(--text-hint);margin-top:3px"><span id="home-level-xp">0</span> / <span id="home-level-xp-max">500</span> XP</div>
+            </div>
+          </div>
+          <div class="card" style="margin-bottom:0;text-align:center">
+            <div style="font-size:12px;color:var(--text-hint);margin-bottom:4px">连续打卡</div>
+            <div style="font-size:36px;font-weight:900">🔥</div>
+            <div id="home-streak" style="font-size:28px;font-weight:800;color:var(--danger)">0</div>
+            <div style="font-size:12px;color:var(--text-hint)">天</div>
+          </div>
+        </div>
+
+        <!-- 本周学习统计 -->
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-title">📊 本周学习统计</div>
+          <div class="grid-2" style="gap:12px">
+            <div style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center">
+              <div style="font-size:24px;font-weight:800;color:var(--primary)" id="week-xp">0</div>
+              <div style="font-size:12px;color:var(--text-hint)">获得 XP</div>
+            </div>
+            <div style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center">
+              <div style="font-size:24px;font-weight:800;color:#10b981" id="week-time">0</div>
+              <div style="font-size:12px;color:var(--text-hint)">学习分钟</div>
+            </div>
+            <div style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center">
+              <div style="font-size:24px;font-weight:800;color:#f59e0b" id="week-activities">0</div>
+              <div style="font-size:12px;color:var(--text-hint)">学习活动</div>
+            </div>
+            <div style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center">
+              <div style="font-size:24px;font-weight:800;color:#8b5cf6" id="week-accuracy">-</div>
+              <div style="font-size:12px;color:var(--text-hint)">测验准确率</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SRS 复习提醒 -->
+        <div class="card" id="home-srs-banner" style="margin-bottom:20px;display:none;background:linear-gradient(135deg,#f97316,#ef4444);color:#fff;cursor:pointer" onclick="navigate('srs')">
+          <div style="display:flex;align-items:center;gap:14px">
+            <span style="font-size:32px">🗂️</span>
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:16px"><span id="home-srs-due">0</span> 张卡片待复习</div>
+              <div style="font-size:12px;opacity:.8">趁热打铁，强化记忆！</div>
+            </div>
+            <span style="background:rgba(255,255,255,.25);padding:6px 16px;border-radius:20px;font-weight:600;font-size:13px">开始</span>
+          </div>
+        </div>
+
+        <!-- 快捷操作 -->
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-title">⚡ 快捷操作</div>
+          <div class="grid-3" style="gap:10px">
+            <div class="quick-action" onclick="navigate('vocabulary')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
+              <div style="font-size:24px">📖</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">背单词</div>
+            </div>
+            <div class="quick-action" onclick="navigate('grammar')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
+              <div style="font-size:24px">📝</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">学语法</div>
+            </div>
+            <div class="quick-action" onclick="navigate('srs')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
+              <div style="font-size:24px">🗂️</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">SRS复习</div>
+            </div>
+            <div class="quick-action" onclick="navigate('quiz')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
+              <div style="font-size:24px">✏️</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">做测验</div>
+            </div>
+            <div class="quick-action" onclick="navigate('game')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
+              <div style="font-size:24px">🎮</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">助词游戏</div>
+            </div>
+            <div class="quick-action" onclick="navigate('pronunciation')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
+              <div style="font-size:24px">🎤</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">发音练习</div>
+            </div>
           </div>
         </div>
 
@@ -506,17 +590,6 @@ ul { list-style: none; }
           <div class="meaning" id="wod-meaning">　</div>
           <div style="text-align:center;margin-top:8px">
             <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border:none" onclick="nextWod()">换一个 →</button>
-          </div>
-        </div>
-
-        <!-- 常用功能 -->
-        <div class="card">
-          <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
-            <span>⭐ 常用功能</span>
-            <span style="font-size:12px;color:var(--text-hint)" id="frequent-count">0/6</span>
-          </div>
-          <div class="grid-3" id="frequent-list">
-            <div class="empty-state" style="grid-column:1/-1"><div class="icon">📭</div><p style="font-size:13px">使用功能后自动添加到这里<br>最多显示 6 个常用功能</p></div>
           </div>
         </div>
       </div>
@@ -649,10 +722,87 @@ ul { list-style: none; }
         <div id="listen-loading" class="loading"><div class="spinner"></div></div>
       </div>
 
+      <!-- 发音练习页 -->
+      <div class="page" id="page-pronunciation">
+        <h2 style="margin-bottom:20px;font-size:22px">🎤 AI 発音練習</h2>
+        <p style="color:var(--text-sub);margin-bottom:16px">选择词汇级别，听原生发音后录音，AI 对比评分</p>
+        <!-- 级别选择 -->
+        <div class="chips" id="pron-level-chips" style="margin-bottom:16px">
+          <div class="chip active" onclick="selectPronLevel('N5')">N5</div>
+          <div class="chip" onclick="selectPronLevel('N4')">N4</div>
+          <div class="chip" onclick="selectPronLevel('N3')">N3</div>
+        </div>
+
+        <!-- 练习主体 -->
+        <div class="card" id="pron-card" style="text-align:center;padding:30px 20px;margin-bottom:20px">
+          <div style="font-size:48px;font-weight:900;color:var(--primary);margin-bottom:4px" id="pron-word">--</div>
+          <div style="font-size:18px;color:var(--text-sub);margin-bottom:2px" id="pron-reading">--</div>
+          <div style="font-size:14px;color:var(--text-hint);margin-bottom:20px" id="pron-meaning">--</div>
+
+          <!-- 听发音 -->
+          <button class="btn btn-outline" id="pron-play-btn" onclick="pronPlayAudio()" style="margin-bottom:12px">
+            🔊 听原生发音
+          </button>
+          <br>
+          <!-- 录音按钮 -->
+          <button class="btn btn-primary" id="pron-rec-btn" onclick="pronToggleRecord()" style="min-width:180px">
+            🎙️ 按住录音
+          </button>
+          <div id="pron-recording-hint" style="font-size:12px;color:var(--danger);margin-top:8px;display:none">🔴 正在录音…</div>
+
+          <!-- AI 评分 -->
+          <div id="pron-result" style="display:none;margin-top:20px;padding:16px;background:var(--bg2);border-radius:12px">
+            <div style="font-size:14px;color:var(--text-hint);margin-bottom:6px">AI 评分</div>
+            <div style="font-size:48px;font-weight:900" id="pron-score">--</div>
+            <div id="pron-feedback" style="font-size:13px;color:var(--text-sub);margin-top:8px"></div>
+          </div>
+
+          <!-- 导航按钮 -->
+          <div style="display:flex;justify-content:center;gap:12px;margin-top:20px">
+            <button class="btn btn-outline btn-sm" onclick="pronPrev()">← 上一个</button>
+            <span style="font-size:13px;color:var(--text-hint);line-height:32px" id="pron-progress">1 / 10</span>
+            <button class="btn btn-outline btn-sm" onclick="pronNext()">下一个 →</button>
+          </div>
+        </div>
+
+        <!-- 练习历史 -->
+        <div class="card">
+          <div class="card-title">📈 本次练习统计</div>
+          <div class="grid-2" style="gap:10px">
+            <div style="background:var(--bg2);border-radius:10px;padding:12px;text-align:center">
+              <div style="font-size:22px;font-weight:800;color:var(--primary)" id="pron-practiced">0</div>
+              <div style="font-size:11px;color:var(--text-hint)">已练习</div>
+            </div>
+            <div style="background:var(--bg2);border-radius:10px;padding:12px;text-align:center">
+              <div style="font-size:22px;font-weight:800;color:#10b981" id="pron-avg-score">-</div>
+              <div style="font-size:11px;color:var(--text-hint)">平均得分</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 新闻页 -->
       <div class="page" id="page-news">
         <h2 style="margin-bottom:20px;font-size:22px">📰 日語ニュース</h2>
-        <div class="chips" id="news-diff-chips">
+        <!-- 新闻来源 tab -->
+        <div class="chips" id="news-tab-chips" style="margin-bottom:12px">
+          <div class="chip active" onclick="switchNewsTab('nhk')">NHK新闻</div>
+          <div class="chip" onclick="switchNewsTab('db')">收录新闻</div>
+          <div class="chip" onclick="switchNewsTab('fav')">⭐ 我的收藏</div>
+          <div class="chip" onclick="switchNewsTab('video')">📺 视频新闻</div>
+        </div>
+        <!-- NHK分类 -->
+        <div class="chips" id="nhk-cat-chips">
+          <div class="chip active" onclick="selectNhkCat('0')">総合</div>
+          <div class="chip" onclick="selectNhkCat('1')">社会</div>
+          <div class="chip" onclick="selectNhkCat('4')">政治</div>
+          <div class="chip" onclick="selectNhkCat('5')">経済</div>
+          <div class="chip" onclick="selectNhkCat('6')">国際</div>
+          <div class="chip" onclick="selectNhkCat('7')">スポーツ</div>
+          <div class="chip" onclick="selectNhkCat('3')">科学·文化</div>
+        </div>
+        <!-- DB难度 -->
+        <div class="chips" id="news-diff-chips" style="display:none">
           <div class="chip active" onclick="selectNewsDiff('easy')">easy</div>
           <div class="chip" onclick="selectNewsDiff('medium')">medium</div>
           <div class="chip" onclick="selectNewsDiff('hard')">hard</div>
@@ -660,6 +810,18 @@ ul { list-style: none; }
         </div>
         <div class="grid-2" id="news-list"></div>
         <div id="news-loading" class="loading"><div class="spinner"></div></div>
+        <!-- 视频新闻 iframe -->
+        <div id="news-video-wrap" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span style="font-size:14px;color:var(--text-hint)">NHK 视频新闻（嵌入页面）</span>
+            <a href="https://www3.nhk.or.jp/news/movie.html" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">↗ 新窗口打开</a>
+          </div>
+          <iframe id="news-video-iframe" style="width:100%;height:calc(100vh - 220px);border:1px solid var(--border);border-radius:12px" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
+          <div id="news-video-fallback" style="display:none;text-align:center;padding:40px 0">
+            <p style="font-size:15px;margin-bottom:16px">⚠️ 该页面不支持嵌入，请在新窗口中查看</p>
+            <a href="https://www3.nhk.or.jp/news/movie.html" target="_blank" rel="noopener noreferrer" class="btn btn-primary">📺 打开 NHK 视频新闻</a>
+          </div>
+        </div>
       </div>
 
       <!-- 小游戏页 -->
@@ -794,30 +956,68 @@ function setToken(t, r) {
 }
 function clearTokens() { localStorage.removeItem('access_token'); localStorage.removeItem('refresh_token'); }
 
-async function request(method, path, body = null, opts = {}) {
+let _isRefreshing = false;
+async function request(method, path, body = null, opts = {}, _retryCount = 0) {
   const headers = { 'Content-Type': 'application/json' };
   const token = getToken();
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(API + path, {
-    method, headers,
-    body: body ? JSON.stringify(body) : undefined,
-    ...opts,
-  });
-  if (res.status === 401) {
-    // try refresh
-    const rt = localStorage.getItem('refresh_token');
-    if (rt) {
-      const r = await fetch(API + '/auth/refresh', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: rt }),
-      });
-      if (r.ok) {
-        const d = await r.json();
-        setToken(d.accessToken, null);
-        return request(method, path, body, opts); // retry
-      }
+
+  // 超时控制 (20s)
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+
+  let res;
+  try {
+    res = await fetch(API + path, {
+      method, headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+      ...opts,
+    });
+  } catch (err) {
+    clearTimeout(timeout);
+    // 网络错误 / 超时 → 对 GET 自动重试 1 次
+    if (_retryCount < 1 && method === 'GET') {
+      await new Promise(r => setTimeout(r, 1500));
+      return request(method, path, body, opts, _retryCount + 1);
     }
-    showAuth(); return null;
+    throw new Error(err.name === 'AbortError' ? '请求超时，请检查网络连接' : '网络连接失败，请检查网络');
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  // 登录/注册接口的 401 直接走通用错误处理，展示服务器返回的具体原因
+  const isAuthPath = path.startsWith('/auth/login') || path.startsWith('/auth/register');
+  if (res.status === 401 && !isAuthPath && !_isRefreshing) {
+    _isRefreshing = true;
+    try {
+      const rt = localStorage.getItem('refresh_token');
+      if (rt) {
+        const r = await fetch(API + '/auth/refresh', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: rt }),
+        });
+        if (r.ok) {
+          const d = await r.json();
+          setToken(d.accessToken, null);
+          _isRefreshing = false;
+          return request(method, path, body, opts, 0);
+        }
+      }
+    } finally {
+      _isRefreshing = false;
+    }
+    clearTokens();
+    showAuth();
+    throw new Error('登录已过期，请重新登录');
+  }
+  if (res.status === 401 && !isAuthPath) {
+    throw new Error('登录已过期，请重新登录');
+  }
+  // 5xx 服务器错误 → GET 自动重试 1 次
+  if (res.status >= 500 && _retryCount < 1 && method === 'GET') {
+    await new Promise(r => setTimeout(r, 2000));
+    return request(method, path, body, opts, _retryCount + 1);
   }
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
@@ -826,7 +1026,7 @@ async function request(method, path, body = null, opts = {}) {
   }
   const ct = res.headers.get('content-type') || '';
   if (ct.includes('application/json')) return res.json();
-  return null;
+  return {};
 }
 const GET  = (p) => request('GET', p);
 const POST = (p, b) => request('POST', p, b);
@@ -878,9 +1078,10 @@ function navigate(page) {
     case 'grammar': if (!grammarLoaded) loadGrammar(); break;
     case 'srs': loadSrs(); break;
     case 'listening': if (!listenLoaded) loadListening(); break;
-    case 'news': if (!newsLoaded) loadNews(); break;
+    case 'news': if (newsTab === 'nhk') { if (!nhkLoaded) loadNhkNews(); } else if (newsTab === 'fav') { loadFavNews(); } else { if (!newsLoaded) loadNews(); } break;
     case 'profile': loadProfile(); break;
     case 'game': gamePageInit(); break;
+    case 'pronunciation': loadPronunciation(); break;
   }
 }
 
@@ -941,6 +1142,8 @@ async function doRegister() {
   const errEl = document.getElementById('reg-err');
   errEl.style.display = 'none';
   if (!name || !email || !pwd) { errEl.textContent = '请填写所有字段'; errEl.style.display = ''; return; }
+  if (!/^[a-zA-Z0-9_]+$/.test(name)) { errEl.textContent = '用户名只能包含英文字母、数字和下划线'; errEl.style.display = ''; return; }
+  if (name.length < 3 || name.length > 50) { errEl.textContent = '用户名长度需在 3-50 个字符之间'; errEl.style.display = ''; return; }
   try {
     const res = await POST('/auth/register', { username: name, email, password: pwd, level });
     setToken(res.accessToken, res.refreshToken);
@@ -948,7 +1151,7 @@ async function doRegister() {
     loadHome();
     if (res.user) document.getElementById('topbar-username').textContent = res.user.username || name;
   } catch(e) {
-    errEl.textContent = e.message || '注册失败';
+    errEl.textContent = e.message || '注册失败，请稍后重试';
     errEl.style.display = '';
   }
 }
@@ -956,7 +1159,7 @@ async function doRegister() {
 async function doLogout() {
   clearTokens();
   showAuth();
-  vocabLoaded = false; grammarLoaded = false; listenLoaded = false; newsLoaded = false;
+  vocabLoaded = false; grammarLoaded = false; listenLoaded = false; newsLoaded = false; nhkLoaded = false;
   toast('已退出登录');
 }
 
@@ -1070,7 +1273,11 @@ async function homeSearchDict() {
   }
 }
 
+let _homeLoadFailed = false;
 async function loadHome() {
+  _homeLoadFailed = false;
+  let errorCount = 0;
+
   // 用户信息 & 欢迎语
   try {
     const me = await GET('/auth/me');
@@ -1078,7 +1285,8 @@ async function loadHome() {
     const username = u.username || '';
     document.getElementById('topbar-username').textContent = username || '我';
     updateWelcomeGreeting(username);
-  } catch(_) {
+  } catch(e) {
+    errorCount++;
     updateWelcomeGreeting('');
   }
 
@@ -1089,11 +1297,70 @@ async function loadHome() {
   if (_wodPool.length === 0) {
     try {
       const r = await GET('/vocabulary?level=N5&limit=30&page=1');
-      _wodPool = r.data || [];
-      _wodIdx = Math.floor(Math.random() * _wodPool.length);
-    } catch(_){}
+      _wodPool = (r && r.data) || [];
+      _wodIdx = Math.floor(Math.random() * Math.max(1, _wodPool.length));
+    } catch(_){ errorCount++; }
   }
   showWod();
+
+  // ── Dashboard 数据 ──
+  try {
+    const summary = await GET('/progress/summary');
+    if (!summary) throw new Error('empty response');
+    // 等级 + XP
+    const level = summary.user?.level || 'N5';
+    const totalXp = summary.user?.total_xp || 0;
+    const levelThresholds = { N5: 500, N4: 1500, N3: 3500, N2: 7000, N1: 15000 };
+    const levelOrder = ['N5','N4','N3','N2','N1'];
+    const curIdx = levelOrder.indexOf(level);
+    const nextLevel = curIdx < 4 ? levelOrder[curIdx + 1] : '🎉';
+    const prevThreshold = curIdx > 0 ? levelThresholds[levelOrder[curIdx - 1]] : 0;
+    const curThreshold = levelThresholds[level] || 500;
+    const xpInLevel = totalXp - prevThreshold;
+    const xpNeeded = curThreshold - prevThreshold;
+    const pct = Math.min(100, Math.round((xpInLevel / Math.max(1, xpNeeded)) * 100));
+
+    document.getElementById('home-level').textContent = level;
+    document.getElementById('home-level-cur').textContent = level;
+    document.getElementById('home-level-next').textContent = nextLevel === '🎉' ? '已满级 🎉' : `→ ${nextLevel}`;
+    document.getElementById('home-level-bar').style.width = pct + '%';
+    document.getElementById('home-level-xp').textContent = xpInLevel;
+    document.getElementById('home-level-xp-max').textContent = xpNeeded;
+
+    // 连续打卡
+    document.getElementById('home-streak').textContent = summary.user?.streak_days || 0;
+
+    // 本周统计
+    const ws = summary.weekly_stats || {};
+    document.getElementById('week-xp').textContent = ws.xp || 0;
+    document.getElementById('week-time').textContent = Math.round((ws.study_seconds || 0) / 60);
+    document.getElementById('week-activities').textContent = ws.activities || 0;
+    document.getElementById('week-accuracy').textContent = ws.quiz_avg_score ? ws.quiz_avg_score + '%' : '-';
+
+    // SRS
+    const srs = summary.srs_stats;
+    const dueToday = srs?.due_today ?? 0;
+    if (dueToday > 0) {
+      document.getElementById('home-srs-banner').style.display = '';
+      document.getElementById('home-srs-due').textContent = dueToday;
+    }
+  } catch(_) { errorCount++; }
+
+  // SRS stats (due_today from separate endpoint for accuracy)
+  try {
+    const srsData = await GET('/srs/stats');
+    const due = (srsData && srsData.due_today) || 0;
+    if (due > 0) {
+      document.getElementById('home-srs-banner').style.display = '';
+      document.getElementById('home-srs-due').textContent = due;
+    }
+  } catch(_) { errorCount++; }
+
+  // 全部加载失败时显示提示
+  if (errorCount >= 3) {
+    _homeLoadFailed = true;
+    toast('数据加载失败，请检查网络后重试', 4000);
+  }
 }
 
 function showWod() {
@@ -1174,8 +1441,8 @@ function renderVocabList() {
   }
   el.innerHTML = vocabWords.map(w => `
     <div class="vocab-card" onclick="showVocabDetail('${escHtml(w.id)}')">
-      <div class="vocab-card word">${escHtml(w.word)}</div>
-      <div class="vocab-card reading">${escHtml(w.reading || '')}</div>
+      <div class="vocab-card word">${escHtml(cleanWord(w.word))}</div>
+      <div class="vocab-card reading">${escHtml(cleanReading(w.reading) || '')}</div>
       <div class="vocab-card meaning">${escHtml(w.meaning_zh || w.meaningZh || '')}</div>
       <div class="vocab-card footer">
         ${levelBadge(w.jlpt_level || w.jlptLevel || vocabLevel)}
@@ -1198,8 +1465,8 @@ async function showVocabDetail(id) {
       : `<button class="btn btn-sm btn-primary" onclick="addToSrs('${escHtml(w.id)}')">+ 加入 SRS 复习</button>`;
     document.getElementById('modal-body').innerHTML = `
       <div class="vocab-detail">
-        <div class="word-big">${escHtml(w.word)}</div>
-        <div class="reading-big">${escHtml(w.reading || '')}</div>
+        <div class="word-big">${escHtml(cleanWord(w.word))}</div>
+        <div class="reading-big">${escHtml(cleanReading(w.reading) || ttsText(w))}</div>
         <div class="meaning-big">${escHtml(w.meaning_zh || '')}</div>
         ${w.meaning_en ? `<div style="text-align:center;color:var(--text-sub);font-size:13px;margin-bottom:12px">${escHtml(w.meaning_en)}</div>` : ''}
         ${w.example_sentence ? `
@@ -1209,8 +1476,12 @@ async function showVocabDetail(id) {
             ${w.example_meaning_zh ? `<div class="zh">${escHtml(w.example_meaning_zh)}</div>` : ''}
           </div>` : ''}
         <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap">
-          ${audioHtml}${srsHtml}
+          ${audioHtml}
+          <button class="btn btn-sm btn-outline" onclick="event.stopPropagation();speakJa('${escHtml(ttsText(w))}')">🔊 朗读</button>
+          <button class="btn btn-sm btn-primary" onclick="event.stopPropagation();startPronPractice('${escHtml(ttsText(w))}','vocab-pron-result')">🎤 跟读练习</button>
+          ${srsHtml}
         </div>
+        <div id="vocab-pron-result" style="margin-top:12px"></div>
       </div>`;
   } catch(e) {
     document.getElementById('modal-body').innerHTML = `<p style="color:var(--danger)">加载失败: ${escHtml(e.message)}</p>`;
@@ -1266,16 +1537,23 @@ async function showGrammarDetail(id) {
   openModal('文法詳細', '<div class="loading"><div class="spinner"></div></div>');
   try {
     const g = await GET(`/grammar/${id}`);
-    const exHtml = (g.examples || []).map(ex => `
+    const exHtml = (g.examples || []).map((ex, idx) => `
       <div class="grammar-example-item">
-        <div style="font-size:15px;font-weight:600">${escHtml(ex.sentence)}</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div style="font-size:15px;font-weight:600;flex:1">${escHtml(ex.sentence)}</div>
+          <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();speakJa('${escHtml(ex.sentence)}')">🔊</button>
+          <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();startPronPractice('${escHtml(ex.reading || ex.sentence)}','grammar-pron-${idx}')">🎤</button>
+        </div>
         ${ex.reading ? `<div style="font-size:12px;color:var(--text-sub)">${escHtml(ex.reading)}</div>` : ''}
         <div style="font-size:13px;color:var(--text-sub);margin-top:4px">${escHtml(ex.meaning_zh)}</div>
+        <div id="grammar-pron-${idx}" style="margin-top:6px"></div>
       </div>
     `).join('');
     document.getElementById('modal-body').innerHTML = `
       <div class="grammar-detail">
-        <div class="pattern-big">${escHtml(g.pattern)}</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:10px">
+          <div class="pattern-big">${escHtml(g.pattern)}</div>
+        </div>
         <div style="font-size:18px;font-weight:700;margin:6px 0">${escHtml(g.title)}</div>
         ${g.title_zh ? `<div style="color:var(--text-sub);margin-bottom:12px">${escHtml(g.title_zh)}</div>` : ''}
         <div class="explanation">${escHtml(g.explanation || '')}</div>
@@ -1368,16 +1646,16 @@ async function srsRate(quality) {
   const card = srsCards[srsCurrent];
   if (quality >= 3) srsCorrect++;
   srsReviewed++;
-  try { await POST('/srs/review', { card_id: card.id, quality }); } catch(_){}
+  try { await POST('/srs/review', { card_id: card.id, quality }); } catch(e){ toast('复习数据保存失败: ' + e.message); }
   srsCurrent++;
   renderSrsCard();
 }
 
-function finishSrs() {
+async function finishSrs() {
   const el = document.getElementById('srs-container');
   const acc = srsReviewed > 0 ? Math.round(srsCorrect / srsReviewed * 100) : 0;
   // log activity
-  try { POST('/progress/log', { activity_type: 'srs_review', duration_seconds: 0, score: acc }); } catch(_){}
+  try { await POST('/progress/log', { activity_type: 'srs_review', duration_seconds: 0, score: acc }); } catch(_){}
   el.innerHTML = `
     <div class="card" style="text-align:center;padding:40px">
       <div style="font-size:64px;margin-bottom:16px">🎉</div>
@@ -1475,7 +1753,7 @@ function nextQuizQ() {
   }
 }
 
-function showQuizResult() {
+async function showQuizResult() {
   document.getElementById('quiz-playing').style.display = 'none';
   document.getElementById('quiz-result').style.display = '';
   const total = quizQuestions.length;
@@ -1487,7 +1765,7 @@ function showQuizResult() {
     `conic-gradient(${pct>=80 ? 'var(--success)' : pct>=60 ? 'var(--warning)' : 'var(--danger)'} ${pct*3.6}deg, var(--border) 0)`;
   document.getElementById('result-summary').textContent = `答对 ${quizCorrect} / ${total} 题`;
   // log
-  try { POST('/progress/log', { activity_type: 'quiz', duration_seconds: 0, score: pct }); } catch(_){}
+  try { await POST('/progress/log', { activity_type: 'quiz', duration_seconds: 0, score: pct }); } catch(_){}
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1584,9 +1862,399 @@ function showTrackPlayer(id, title, audioUrl) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+//  PRONUNCIATION
+// ══════════════════════════════════════════════════════════════════
+let _pronWords = [], _pronIdx = 0, _pronLevel = 'N5';
+let _pronRecording = false, _pronRecognition = null, _pronScores = [];
+
+function selectPronLevel(level) {
+  _pronLevel = level;
+  document.querySelectorAll('#pron-level-chips .chip').forEach(c => {
+    c.classList.toggle('active', c.textContent.trim() === level);
+  });
+  _pronWords = []; _pronIdx = 0; _pronScores = [];
+  loadPronunciation();
+}
+
+async function loadPronunciation() {
+  if (_pronWords.length > 0) { renderPronWord(); return; }
+  try {
+    const res = await GET(`/vocabulary/level/${_pronLevel}`);
+    const words = Array.isArray(res) ? res : (res.data || res);
+    // shuffle and take 10
+    for (let i = words.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [words[i], words[j]] = [words[j], words[i]];
+    }
+    _pronWords = words.slice(0, 10);
+    _pronIdx = 0; _pronScores = [];
+    renderPronWord();
+    updatePronStats();
+  } catch(e) { toast('加载词汇失败: ' + e.message); }
+}
+
+// Strip raw formatting markers from vocabulary data
+function cleanWord(raw) {
+  if (!raw) return '';
+  return raw.replace(/!/g, '').replace(/\[[^\]]*\]/g, '').replace(/[（(][^)）]*[)）]/g, '').trim();
+}
+function cleanReading(raw) {
+  if (!raw) return '';
+  return raw.replace(/!/g, '').replace(/@\d+/g, '').replace(/\[[^\]]*\]/g, '').replace(/[（(][^)）]*[)）]/g, '').trim();
+}
+function ttsText(w) {
+  const cr = cleanReading(w.reading);
+  if (cr) return cr;
+  const bm = (w.word || '').match(/\[([^\]]*)\]/);
+  if (bm) return bm[1];
+  const pm = (w.word || '').match(/[（(]([^)）]*)[)）]/);
+  if (pm) return pm[1];
+  return cleanWord(w.word);
+}
+
+function renderPronWord() {
+  if (_pronWords.length === 0) return;
+  const w = _pronWords[_pronIdx];
+  document.getElementById('pron-word').textContent = cleanWord(w.word) || '--';
+  const cr = cleanReading(w.reading);
+  document.getElementById('pron-reading').textContent = (cr || ttsText(w)) || '--';
+  document.getElementById('pron-meaning').textContent = w.meaning_zh || w.meaning_en || '--';
+  document.getElementById('pron-progress').textContent = `${_pronIdx + 1} / ${_pronWords.length}`;
+  document.getElementById('pron-result').style.display = 'none';
+  document.getElementById('pron-rec-btn').textContent = '🎙️ 按住录音';
+  document.getElementById('pron-recording-hint').style.display = 'none';
+}
+
+// 通用日语 TTS 朗读
+function speakJa(text, rate = 0.8) {
+  if (!text) return;
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'ja-JP';
+  utter.rate = rate;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utter);
+}
+
+// 通用跟读练习（嵌入到任意容器）
+function startPronPractice(targetText, containerId) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { toast('您的浏览器不支持语音识别'); return; }
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const cleanTarget = cleanReading(targetText) || cleanWord(targetText);
+  container.innerHTML = `<div style="text-align:center;padding:8px 0">
+    <div style="font-size:12px;color:var(--danger);margin-bottom:6px">🔴 正在录音，请朗读…</div>
+    <button class="btn btn-outline btn-sm" onclick="stopInlinePron()">⏹ 停止</button>
+  </div>`;
+
+  const recog = new SpeechRecognition();
+  recog.lang = 'ja-JP';
+  recog.interimResults = false;
+  recog.maxAlternatives = 3;
+  window._inlinePronRecog = recog;
+
+  recog.onresult = (event) => {
+    const results = event.results[0];
+    let bestScore = 0, recognized = '';
+    for (let i = 0; i < results.length; i++) {
+      const text = results[i].transcript.trim();
+      const score = calcPronScore(cleanTarget, text);
+      if (score > bestScore) { bestScore = score; recognized = text; }
+    }
+    const color = bestScore >= 80 ? '#10b981' : bestScore >= 50 ? '#f59e0b' : 'var(--danger)';
+    let fb = '';
+    if (bestScore >= 90) fb = '🎉 完美发音！';
+    else if (bestScore >= 70) fb = `👍 不错！识别为「${recognized}」`;
+    else if (bestScore >= 40) fb = `💪 继续努力！识别为「${recognized}」`;
+    else fb = `🔄 再试试！识别为「${recognized}」`;
+    container.innerHTML = `<div style="text-align:center;padding:8px 0">
+      <div style="font-size:32px;font-weight:900;color:${color}">${bestScore}</div>
+      <div style="font-size:12px;color:var(--text-sub);margin-top:4px">${fb}</div>
+      <button class="btn btn-outline btn-sm" style="margin-top:8px" onclick="startPronPractice('${escHtml(targetText)}','${containerId}')">🎙️ 再试一次</button>
+    </div>`;
+  };
+
+  recog.onerror = (e) => {
+    if (e.error === 'no-speech') container.innerHTML = '<div style="text-align:center;font-size:12px;color:var(--text-sub);padding:8px">未检测到语音，请重试</div>';
+    else container.innerHTML = `<div style="text-align:center;font-size:12px;color:var(--danger);padding:8px">识别出错: ${e.error}</div>`;
+  };
+
+  recog.onend = () => { window._inlinePronRecog = null; };
+  recog.start();
+}
+function stopInlinePron() { if (window._inlinePronRecog) window._inlinePronRecog.stop(); }
+
+function pronPlayAudio() {
+  if (_pronWords.length === 0) return;
+  speakJa(ttsText(_pronWords[_pronIdx]));
+}
+
+function pronToggleRecord() {
+  if (_pronRecording) { pronStopRecord(); return; }
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { toast('您的浏览器不支持语音识别'); return; }
+
+  _pronRecognition = new SpeechRecognition();
+  _pronRecognition.lang = 'ja-JP';
+  _pronRecognition.interimResults = false;
+  _pronRecognition.maxAlternatives = 3;
+
+  _pronRecognition.onresult = (event) => {
+    const results = event.results[0];
+    const w = _pronWords[_pronIdx];
+    const reading = cleanReading(w.reading);
+    const word = cleanWord(w.word);
+    const tts = ttsText(w);
+    const targets = [reading, word, tts].filter(Boolean);
+    let bestScore = 0;
+    let recognized = '';
+    for (let i = 0; i < results.length; i++) {
+      const text = results[i].transcript.trim();
+      for (const t of targets) {
+        const score = calcPronScore(t, text);
+        if (score > bestScore) { bestScore = score; recognized = text; }
+      }
+    }
+    const target = reading || word;
+    showPronResult(bestScore, recognized, target);
+  };
+
+  _pronRecognition.onerror = (e) => {
+    _pronRecording = false;
+    document.getElementById('pron-rec-btn').textContent = '🎙️ 按住录音';
+    document.getElementById('pron-recording-hint').style.display = 'none';
+    if (e.error === 'no-speech') toast('未检测到语音，请重试');
+    else toast('识别出错: ' + e.error);
+  };
+
+  _pronRecognition.onend = () => {
+    _pronRecording = false;
+    document.getElementById('pron-rec-btn').textContent = '🎙️ 按住录音';
+    document.getElementById('pron-recording-hint').style.display = 'none';
+  };
+
+  _pronRecognition.start();
+  _pronRecording = true;
+  document.getElementById('pron-rec-btn').textContent = '⏹ 停止录音';
+  document.getElementById('pron-recording-hint').style.display = '';
+}
+
+function pronStopRecord() {
+  if (_pronRecognition) _pronRecognition.stop();
+}
+
+function calcPronScore(target, recognized) {
+  if (!target || !recognized) return 0;
+  if (target === recognized) return 100;
+  // character-level similarity
+  const t = [...target], r = [...recognized];
+  const maxLen = Math.max(t.length, r.length);
+  if (maxLen === 0) return 0;
+  let matches = 0;
+  for (let i = 0; i < Math.min(t.length, r.length); i++) {
+    if (t[i] === r[i]) matches++;
+  }
+  return Math.round((matches / maxLen) * 100);
+}
+
+function showPronResult(score, recognized, target) {
+  _pronScores.push(score);
+  document.getElementById('pron-result').style.display = '';
+  const scoreEl = document.getElementById('pron-score');
+  scoreEl.textContent = score;
+  scoreEl.style.color = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : 'var(--danger)';
+
+  let feedback = '';
+  if (score >= 90) feedback = '🎉 完美发音！';
+  else if (score >= 70) feedback = `👍 不错！识别为「${recognized}」`;
+  else if (score >= 40) feedback = `💪 继续努力！识别为「${recognized}」，目标「${target}」`;
+  else feedback = `🔄 再试一次吧！识别为「${recognized}」，目标「${target}」`;
+  document.getElementById('pron-feedback').textContent = feedback;
+
+  updatePronStats();
+}
+
+function updatePronStats() {
+  document.getElementById('pron-practiced').textContent = _pronScores.length;
+  if (_pronScores.length > 0) {
+    const avg = Math.round(_pronScores.reduce((a, b) => a + b, 0) / _pronScores.length);
+    document.getElementById('pron-avg-score').textContent = avg;
+  } else {
+    document.getElementById('pron-avg-score').textContent = '-';
+  }
+}
+
+function pronPrev() {
+  if (_pronIdx > 0) { _pronIdx--; renderPronWord(); }
+}
+
+function pronNext() {
+  if (_pronIdx < _pronWords.length - 1) { _pronIdx++; renderPronWord(); }
+  else toast('已经是最后一个了');
+}
+
+// ══════════════════════════════════════════════════════════════════
 //  NEWS
 // ══════════════════════════════════════════════════════════════════
 let newsLoaded = false, newsDiff = 'easy';
+let newsTab = 'nhk', nhkCat = '0', nhkLoaded = false;
+
+function switchNewsTab(tab) {
+  newsTab = tab;
+  document.querySelectorAll('#news-tab-chips .chip').forEach((c, i) => {
+    c.classList.toggle('active', ['nhk','db','fav','video'][i] === tab);
+  });
+  document.getElementById('nhk-cat-chips').style.display = tab === 'nhk' ? '' : 'none';
+  document.getElementById('news-diff-chips').style.display = tab === 'db' ? '' : 'none';
+  const videoWrap = document.getElementById('news-video-wrap');
+  const newsList = document.getElementById('news-list');
+  const newsLoading = document.getElementById('news-loading');
+  if (tab === 'video') {
+    newsList.style.display = 'none';
+    newsLoading.style.display = 'none';
+    videoWrap.style.display = '';
+    const iframe = document.getElementById('news-video-iframe');
+    if (!iframe.src) {
+      iframe.src = 'https://www3.nhk.or.jp/news/movie.html';
+      iframe.onerror = () => {
+        iframe.style.display = 'none';
+        document.getElementById('news-video-fallback').style.display = '';
+      };
+    }
+  } else {
+    videoWrap.style.display = 'none';
+    newsList.style.display = '';
+    newsList.innerHTML = '';
+    if (tab === 'nhk') { nhkLoaded = false; loadNhkNews(); }
+    else if (tab === 'fav') { loadFavNews(); }
+    else { newsLoaded = false; loadNews(); }
+  }
+}
+
+function selectNhkCat(cat) {
+  nhkCat = cat; nhkLoaded = false;
+  document.querySelectorAll('#nhk-cat-chips .chip').forEach(c => {
+    c.classList.toggle('active', c.getAttribute('onclick').includes("'" + cat + "'"));
+  });
+  loadNhkNews();
+}
+
+async function loadNhkNews() {
+  document.getElementById('news-loading').style.display = '';
+  document.getElementById('news-list').innerHTML = '';
+  try {
+    const res = await GET(`/news/nhk?category=${nhkCat}`);
+    const articles = res.data || [];
+    nhkLoaded = true;
+    const el = document.getElementById('news-list');
+    if (articles.length === 0) {
+      el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">📭</div><p>暂无NHK新闻</p></div>';
+    } else {
+      el.innerHTML = articles.map(a => `
+        <div class="news-card" onclick="showNhkDetail('${escHtml(a.id)}','${escHtml(a.link || '')}','${escHtml(a.title)}','${escHtml(a.description || '')}','${escHtml(a.publishedAt || '')}')">
+          <div style="height:60px;background:linear-gradient(135deg,#c62828,#ef5350);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px">NHK NEWS</div>
+          <div class="news-body">
+            <div class="news-title">${escHtml(a.title)}</div>
+            ${a.description ? `<div style="font-size:13px;color:var(--text-secondary);margin:6px 0;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escHtml(a.description)}</div>` : ''}
+            <div class="news-meta">
+              <span>NHK ${escHtml(res.category || '')}</span>
+              ${a.publishedAt ? `<span>${a.publishedAt.split('T')[0]}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+  } catch(e) { toast('NHK新闻加载失败: ' + e.message); }
+  document.getElementById('news-loading').style.display = 'none';
+}
+
+async function showNhkDetail(id, link, title, desc, publishedAt) {
+  openModal('NHK ニュース', '<div class="loading"><div class="spinner"></div></div>');
+  try {
+    const a = await GET(`/news/nhk/${id}`);
+    const artTitle = a.title || title || 'NHK ニュース';
+    const artDesc = a.description || a.body || desc || '无法获取正文摘要';
+    const artImage = a.image || '';
+    const artLink = a.link || link || '';
+    document.getElementById('modal-title').textContent = artTitle;
+    // 检查是否已收藏
+    let favored = false;
+    try { const fc = await GET(`/news/favorites/check?news_type=nhk&news_id=${encodeURIComponent(id)}`); favored = fc.favorited; } catch(_){}
+    document.getElementById('modal-body').innerHTML = `
+      <div class="news-article">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+          <button id="fav-btn" onclick="toggleFav('nhk','${escHtml(id)}',this)" style="border:none;background:none;cursor:pointer;font-size:24px;padding:4px 8px" title="${favored ? '取消收藏' : '收藏'}">${favored ? '⭐' : '☆'}</button>
+        </div>
+        ${artImage ? `<img src="${escHtml(artImage)}" alt="" style="width:100%;border-radius:8px;margin-bottom:16px" loading="lazy" onerror="this.style.display='none'">` : ''}
+        <div class="art-body" style="line-height:2;font-size:16px;white-space:pre-wrap">${escHtml(artDesc)}</div>
+        ${artLink ? `<div style="margin-top:20px;text-align:center"><a href="${escHtml(artLink)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:10px 24px;background:var(--primary);color:#fff;border-radius:8px;text-decoration:none;font-weight:600">📖 阅读原文</a></div>` : ''}
+      </div>`;
+    // 存收藏需要的数据在按钮上
+    const btn = document.getElementById('fav-btn');
+    btn.dataset.title = artTitle;
+    btn.dataset.description = artDesc;
+    btn.dataset.image = artImage;
+    btn.dataset.link = artLink;
+    btn.dataset.source = 'NHK';
+    btn.dataset.publishedAt = publishedAt || '';
+  } catch(e) {
+    document.getElementById('modal-body').innerHTML = `<p style="color:var(--danger)">加载失败: ${escHtml(e.message)}</p>`;
+  }
+}
+
+async function toggleFav(newsType, newsId, btn) {
+  const isFav = btn.textContent.trim() === '⭐';
+  try {
+    if (isFav) {
+      await request('DELETE', '/news/favorites', { news_type: newsType, news_id: newsId });
+      btn.textContent = '☆'; btn.title = '收藏';
+      toast('已取消收藏');
+    } else {
+      await POST('/news/favorites', {
+        news_type: newsType, news_id: newsId,
+        title: btn.dataset.title || '',
+        description: btn.dataset.description || '',
+        image_url: btn.dataset.image || null,
+        link: btn.dataset.link || null,
+        source: btn.dataset.source || 'NHK',
+        published_at: btn.dataset.publishedAt || null,
+      });
+      btn.textContent = '⭐'; btn.title = '取消收藏';
+      toast('已收藏');
+    }
+  } catch(e) { toast('操作失败: ' + e.message); }
+}
+
+async function loadFavNews() {
+  document.getElementById('news-loading').style.display = '';
+  document.getElementById('news-list').innerHTML = '';
+  try {
+    const res = await GET('/news/favorites');
+    const favs = res.data || [];
+    const el = document.getElementById('news-list');
+    if (favs.length === 0) {
+      el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">⭐</div><p>暂无收藏新闻</p><p style="font-size:13px;color:var(--text-hint)">浏览新闻时点击 ☆ 即可收藏</p></div>';
+    } else {
+      el.innerHTML = favs.map(f => `
+        <div class="news-card" onclick="${f.news_type === 'nhk'
+          ? `showNhkDetail('${escHtml(f.news_id)}','${escHtml(f.link || '')}','${escHtml(f.title)}','${escHtml(f.description || '')}','${escHtml(f.published_at || '')}')`
+          : `showNewsDetail('${escHtml(f.news_id)}')`
+        }">
+          ${f.image_url ? `<img src="${escHtml(f.image_url)}" alt="" loading="lazy" onerror="this.style.display='none'">` : `<div style="height:60px;background:linear-gradient(135deg,${f.news_type==='nhk'?'#c62828,#ef5350':'var(--primary-light),var(--border)'});display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px">${f.news_type==='nhk'?'NHK NEWS':''}</div>`}
+          <div class="news-body">
+            <div class="news-title">${escHtml(f.title)}</div>
+            ${f.description ? `<div style="font-size:13px;color:var(--text-secondary);margin:6px 0;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escHtml(f.description)}</div>` : ''}
+            <div class="news-meta">
+              <span>⭐ ${escHtml(f.source || '')}</span>
+              ${f.published_at ? `<span>${String(f.published_at).split('T')[0]}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+  } catch(e) { toast('收藏加载失败: ' + e.message); }
+  document.getElementById('news-loading').style.display = 'none';
+}
 
 function selectNewsDiff(d) {
   newsDiff = d; newsLoaded = false;
@@ -1634,17 +2302,29 @@ async function showNewsDetail(id) {
     const a = await GET(`/news/${id}`);
     const body = a.body_with_ruby || a.body || '';
     document.getElementById('modal-title').textContent = a.title;
+    let favored = false;
+    try { const fc = await GET(`/news/favorites/check?news_type=db&news_id=${encodeURIComponent(id)}`); favored = fc.favorited; } catch(_){}
     document.getElementById('modal-body').innerHTML = `
       <div class="news-article">
-        <div class="art-meta">
-          <span>📰 ${escHtml(a.source || '')}</span>
-          <span class="badge badge-n5">${a.difficulty || 'easy'}</span>
-          ${a.published_at ? `<span>${a.published_at.split('T')[0]}</span>` : ''}
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="art-meta" style="margin:0">
+            <span>📰 ${escHtml(a.source || '')}</span>
+            <span class="badge badge-n5">${a.difficulty || 'easy'}</span>
+            ${a.published_at ? `<span>${a.published_at.split('T')[0]}</span>` : ''}
+          </div>
+          <button id="fav-btn" onclick="toggleFav('db','${escHtml(String(id))}',this)" style="border:none;background:none;cursor:pointer;font-size:24px;padding:4px 8px" title="${favored ? '取消收藏' : '收藏'}">${favored ? '⭐' : '☆'}</button>
         </div>
         ${a.image_url ? `<img src="${escHtml(a.image_url)}" alt="" style="width:100%;border-radius:8px;margin-bottom:16px" loading="lazy">` : ''}
         ${a.audio_url ? `<div class="audio-player" style="margin-bottom:16px"><audio controls src="${escHtml(a.audio_url)}" style="width:100%"></audio></div>` : ''}
         <div class="art-body">${body}</div>
       </div>`;
+    const btn = document.getElementById('fav-btn');
+    btn.dataset.title = a.title || '';
+    btn.dataset.description = (a.body || '').substring(0, 200);
+    btn.dataset.image = a.image_url || '';
+    btn.dataset.link = '';
+    btn.dataset.source = a.source || '';
+    btn.dataset.publishedAt = a.published_at || '';
   } catch(e) {
     document.getElementById('modal-body').innerHTML = `<p style="color:var(--danger)">加载失败: ${escHtml(e.message)}</p>`;
   }
@@ -1735,10 +2415,17 @@ function escHtml(str) {
 // ══════════════════════════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════════════════════════
-(function init() {
+(async function init() {
   const token = getToken();
   if (token) {
     showApp();
+    // 先验证 token 有效性，失败则直接返回登录页，避免空白首页闪烁
+    try {
+      await GET('/auth/me');
+    } catch(_) {
+      // token 无效时 request() 会自动调 showAuth()
+      return;
+    }
     loadHome();
   } else {
     showAuth();

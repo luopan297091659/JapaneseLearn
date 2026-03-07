@@ -55,8 +55,7 @@ class _VocabWhiteboardScreenState extends State<VocabWhiteboardScreen> {
         actions: [
           _RefModeButton(current: _refMode, onChanged: (m) => setState(() => _refMode = m)),
           IconButton(
-            icon: const Icon(Icons.home_rounded),
-            tooltip: '返回首页',
+            icon: const Icon(Icons.arrow_back_ios_rounded),
             onPressed: () => context.go('/home'),
           ),
           const SizedBox(width: 4),

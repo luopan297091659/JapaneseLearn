@@ -57,15 +57,50 @@ async function getSummary(req, res) {
       ],
     });
 
+    // ── 本周统计 ──
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    weekStart.setHours(0,0,0,0);
+    const weeklyAgg = await UserProgress.findAll({
+      where: { user_id: userId, studied_at: { [Op.gte]: weekStart.toISOString().split('T')[0] } },
+      attributes: [
+        [sequelize.fn('SUM', sequelize.col('xp_earned')), 'week_xp'],
+        [sequelize.fn('SUM', sequelize.col('duration_seconds')), 'week_seconds'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'week_activities'],
+        [sequelize.fn('COUNT', sequelize.fn('DISTINCT', sequelize.col('studied_at'))), 'week_days'],
+      ],
+    });
+    const weekQuiz = await QuizSession.findAll({
+      where: { user_id: userId, completed_at: { [Op.gte]: weekStart } },
+      attributes: [
+        [sequelize.fn('AVG', sequelize.col('score_percent')), 'avg_score'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'total_quizzes'],
+      ],
+    });
+    // 总 XP
+    const totalXpRow = await UserProgress.findAll({
+      where: { user_id: userId },
+      attributes: [[sequelize.fn('SUM', sequelize.col('xp_earned')), 'total_xp']],
+    });
+
     res.json({
       user: {
         streak_days: req.user.streak_days,
         total_study_minutes: req.user.total_study_minutes,
         level: req.user.level,
+        total_xp: parseInt(totalXpRow[0]?.dataValues?.total_xp) || 0,
       },
       daily_stats: dailyStats,
       quiz_stats: quizStats[0],
       srs_stats: srsStats[0],
+      weekly_stats: {
+        xp: parseInt(weeklyAgg[0]?.dataValues?.week_xp) || 0,
+        study_seconds: parseInt(weeklyAgg[0]?.dataValues?.week_seconds) || 0,
+        activities: parseInt(weeklyAgg[0]?.dataValues?.week_activities) || 0,
+        study_days: parseInt(weeklyAgg[0]?.dataValues?.week_days) || 0,
+        quiz_count: parseInt(weekQuiz[0]?.dataValues?.total_quizzes) || 0,
+        quiz_avg_score: Math.round(parseFloat(weekQuiz[0]?.dataValues?.avg_score) || 0),
+      },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
