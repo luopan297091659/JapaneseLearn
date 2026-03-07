@@ -15,6 +15,7 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
   NewsArticleModel? _article;
   bool _loading = true;
   bool _showRuby = true;
+  bool _isFav = false;
 
   @override
   void initState() { super.initState(); _load(); }
@@ -24,7 +25,34 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
       final article = await apiService.getNewsDetail(widget.id);
       setState(() { _article = article; _loading = false; });
       apiService.logActivity(activityType: 'news', refId: widget.id, durationSeconds: 0);
+      _checkFav();
     } catch (_) { setState(() => _loading = false); }
+  }
+
+  Future<void> _checkFav() async {
+    try {
+      final fav = await apiService.checkNewsFavorite('db', widget.id);
+      setState(() => _isFav = fav);
+    } catch (_) {}
+  }
+
+  Future<void> _toggleFav() async {
+    if (_article == null) return;
+    try {
+      if (_isFav) {
+        await apiService.removeNewsFavorite('db', widget.id);
+        setState(() => _isFav = false);
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已取消收藏'), duration: Duration(seconds: 1)));
+      } else {
+        await apiService.addNewsFavorite(
+          newsType: 'db', newsId: widget.id, title: _article!.title,
+          description: _article!.body?.substring(0, (_article!.body!.length).clamp(0, 200)),
+          imageUrl: _article!.imageUrl, source: _article!.source, publishedAt: _article!.publishedAt,
+        );
+        setState(() => _isFav = true);
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已收藏'), duration: Duration(seconds: 1)));
+      }
+    } catch (_) {}
   }
 
   @override
@@ -42,15 +70,17 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
           if (_article?.audioUrl != null)
             AudioPlayerWidget(audioUrl: _article!.audioUrl, compact: true),
           IconButton(
+            icon: Icon(_isFav ? Icons.star_rounded : Icons.star_border_rounded),
+            tooltip: _isFav ? '取消收藏' : '收藏',
+            color: _isFav ? Colors.amber : null,
+            onPressed: _toggleFav,
+          ),
+          IconButton(
             icon: Icon(_showRuby ? Icons.text_fields : Icons.translate),
             tooltip: _showRuby ? '隐藏读音' : '显示读音',
             onPressed: () => setState(() => _showRuby = !_showRuby),
           ),
-          IconButton(
-            icon: const Icon(Icons.home_rounded),
-            tooltip: '返回首页',
-            onPressed: () => context.go('/home'),
-          ),
+
         ],
       ),
       body: _loading

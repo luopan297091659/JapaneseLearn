@@ -364,9 +364,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: '返回首页',
           icon: const Icon(Icons.arrow_back_ios_rounded),
-          onPressed: () => context.go('/home'),
+          onPressed: () => context.pop(),
         ),
         title: Text(s.profile),
         actions: [

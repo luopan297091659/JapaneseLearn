@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:audio_session/audio_session.dart';
 import '../services/api_service.dart';
 import '../config/app_config.dart';
 
@@ -23,6 +24,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   late AudioPlayer _player;
   bool _loading = false;
   bool _hasError = false;
+  String _errorMessage = '';  // 详细错误信息
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   PlayerState _playerState = PlayerState(false, ProcessingState.idle);
@@ -30,6 +32,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   @override
   void initState() {
     super.initState();
+    _initAudioSession();
     _player = AudioPlayer();
     _player.playerStateStream.listen((state) {
       if (mounted) setState(() => _playerState = state);
@@ -39,6 +42,20 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     });
     _player.durationStream.listen((d) {
       if (mounted && d != null) setState(() => _duration = d);
+    });
+  }
+
+  /// ✅ 新增：初始化音频焦点（确保音频可以正常播放）
+  void _initAudioSession() {
+    AudioSession.instance.then((session) {
+      session.configure(const AudioSessionConfiguration(
+        avAudioSessionCategory: AVAudioSessionCategory.playback,
+        avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.duckOthers,
+      )).catchError((e) {
+        print('【音频】AudioSession 配置失败: $e');
+      });
+    }).catchError((e) {
+      print('【音频】获取 AudioSession 失败: $e');
     });
   }
 
@@ -56,7 +73,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     }
     if (_playerState.processingState == ProcessingState.idle ||
         _playerState.processingState == ProcessingState.completed) {
-      setState(() { _loading = true; _hasError = false; });
+      setState(() { _loading = true; _hasError = false; _errorMessage = ''; });
       try {
         final url = widget.audioUrl!;
         // 服务端相对路径（/uploads/audio/...）→ 拼接为完整 URL
@@ -81,13 +98,53 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
           }
         }
         setState(() => _loading = false);
+        
+        // ✅ 新增：播放前设置音量为最大
+        await _player.setVolume(1.0);
+        print('【音频】开始播放，音量: 100%');
+        
         await _player.play();
       } catch (e) {
-        setState(() { _loading = false; _hasError = true; });
+        setState(() { 
+          _loading = false; 
+          _hasError = true;
+          // 根据异常类型提供有用的错误提示
+          _errorMessage = _getErrorMessage(e);
+        });
+        print('【音频】播放出错: $e');
       }
     } else {
       await _player.play();
     }
+  }
+
+  /// 根据异常类型返回用户友好的错误信息
+  String _getErrorMessage(Object error) {
+    final msg = error.toString().toLowerCase();
+    if (msg.contains('connection refused') || msg.contains('failed to connect')) {
+      return '网络连接失败，请检查网络';
+    } else if (msg.contains('timeoutexception') || msg.contains('timeout')) {
+      return '加载超时，网络可能较慢';
+    } else if (msg.contains('no route to host') || msg.contains('unreachable')) {
+      return '无法连接到服务器';
+    } else if (msg.contains('certificate') || msg.contains('ssl')) {
+      return '证书验证失败';
+    } else if (msg.contains('not found') || msg.contains('404')) {
+      return '音频文件不存在';
+    } else if (msg.contains('格式不支持') || msg.contains('unsupported')) {
+      return '音频格式不支持';
+    } else if (msg.contains('权限') || msg.contains('permission')) {
+      return '权限不足，无法访问文件，请在设置中授予权限';
+    } else if (msg.contains('存储') || msg.contains('storage')) {
+      return '存储空间不足或权限被拒绝';
+    } else if (msg.contains('磁盘') || msg.contains('disk')) {
+      return '磁盘空间不足';
+    } else if (msg.contains('音频下载失败')) {
+      return '音频下载失败，已重试 3 次';
+    } else if (msg.contains('无法读取') || msg.contains('cannot read')) {
+      return '缓存文件已损坏，请清理存储后重试';
+    }
+    return '音频加载失败: ${error.toString().length > 30 ? error.toString().substring(0, 30) + '...' : error.toString()}';
   }
 
   Future<void> _seek(double value) async {
@@ -175,7 +232,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
           ),
         ]),
         if (_hasError)
-          Text('音频加载失败', style: TextStyle(fontSize: 11, color: cs.error)),
+          Text(_errorMessage, style: TextStyle(fontSize: 11, color: cs.error)),
       ]),
     );
   }

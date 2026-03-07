@@ -76,7 +76,10 @@ const _qTypeLabel = {'p': '助词填空', 'v': '动词活用', 'w': '词义选�
 int _lvCols(int lv)  => lv == 1 ? 2 : lv <= 3 ? 3 : lv <= 6 ? 4 : lv <= 10 ? 5 : 6;
 int _lvRows(int lv)  => lv == 1 ? 3 : lv <= 3 ? 4 : lv <= 7 ? 5 : lv <= 12 ? 6 : 7;
 int _lvLives(int lv) => lv == 1 ? 1 : lv <= 3 ? 99 : lv <= 8 ? 5 : lv <= 15 ? 3 : 2;
-List<String> _lvQTypes(int lv) => lv <= 2 ? ['p'] : lv <= 6 ? ['p','v'] : ['p','v','w'];
+List<String> _lvQTypes(int lv, {String gameType = 'particles'}) {
+  if (gameType == 'verbs') return ['v']; // 动词方块：只包含动词变形
+  return lv <= 2 ? ['p'] : lv <= 6 ? ['p','v'] : ['p','v','w']; // 助词方块：默认逻辑
+}
 int _lvRowBonus(int lv) => lv <= 5 ? 5 : lv <= 12 ? 8 : 12;
 
 // ── 颜色 ──
@@ -92,7 +95,8 @@ List<Color> _comboColor(int combo) {
 enum _Phase { select, play }
 
 class TetrisGrammarGame extends StatefulWidget {
-  const TetrisGrammarGame({super.key});
+  final String gameType; // 'particles' 或 'verbs'
+  const TetrisGrammarGame({super.key, this.gameType = 'particles'});
   @override
   State<TetrisGrammarGame> createState() => _TetrisGrammarGameState();
 }
@@ -236,7 +240,7 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
     int col = -1;
     for (final c in cols) { if (_board[0][c] == null) { col = c; break; } }
     if (col == -1) { _running = false; Future.delayed(const Duration(milliseconds: 300), _levelFail); return; }
-    final pool = _kQs.where((q) => _lvQTypes(_currentLevel).contains(q.t)).toList();
+    final pool = _kQs.where((q) => _lvQTypes(_currentLevel, gameType: widget.gameType).contains(q.t)).toList();
     _curQ = pool[Random().nextInt(pool.length)];
     _dropCol = col; _selected = _curQ!.o.length ~/ 2; _feedbackIdx = null; _timeProgress = 1.0;
     _startTimer(); setState(() {});
@@ -329,7 +333,7 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
     _submitScore();
     showDialog(
       context: context, barrierDismissible: false,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Column(children: [
           const Text('🎊 关卡通关！', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
@@ -338,11 +342,29 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
         ]),
         content: _reportContent(),
         actions: [
-          TextButton(onPressed: () { Navigator.pop(context); _beginLevel(_currentLevel); }, child: const Text('再挑战')),
+          TextButton(
+            onPressed: () { 
+              Navigator.pop(dialogContext); 
+              if (mounted) _beginLevel(_currentLevel); 
+            }, 
+            child: const Text('再挑战')
+          ),
           if (_currentLevel < _maxLevels)
-            FilledButton(onPressed: () { Navigator.pop(context); _beginLevel(_currentLevel + 1); }, child: const Text('下一关 →')),
+            FilledButton(
+              onPressed: () { 
+                Navigator.pop(dialogContext); 
+                if (mounted) _beginLevel(_currentLevel + 1); 
+              }, 
+              child: const Text('下一关 →')
+            ),
           if (_currentLevel >= _maxLevels)
-            FilledButton(onPressed: () { Navigator.pop(context); setState(() => _phase = _Phase.select); }, child: const Text('返回')),
+            FilledButton(
+              onPressed: () { 
+                Navigator.pop(dialogContext); 
+                if (mounted) setState(() => _phase = _Phase.select); 
+              }, 
+              child: const Text('返回')
+            ),
         ],
       ),
     );
@@ -351,13 +373,25 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
   void _levelFail() {
     showDialog(
       context: context, barrierDismissible: false,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('💔 关卡失败', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         content: _reportContent(),
         actions: [
-          TextButton(onPressed: () { Navigator.pop(context); setState(() => _phase = _Phase.select); }, child: const Text('返回选关')),
-          FilledButton(onPressed: () { Navigator.pop(context); _beginLevel(_currentLevel); }, child: const Text('重试')),
+          TextButton(
+            onPressed: () { 
+              Navigator.pop(dialogContext); 
+              if (mounted) setState(() => _phase = _Phase.select); 
+            }, 
+            child: const Text('返回选关')
+          ),
+          FilledButton(
+            onPressed: () { 
+              Navigator.pop(dialogContext); 
+              if (mounted) _beginLevel(_currentLevel); 
+            }, 
+            child: const Text('重试')
+          ),
         ],
       ),
     );
@@ -697,7 +731,16 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
               children: List.generate(_gRows, (r) => Row(
                 children: List.generate(_gCols, (c) {
                   final st = _board[r][c]; final txt = _boardTxt[r][c]; final clr = _boardClr[r][c];
-                  final isActive = c == _dropCol && _running && st == null;
+                  // 只在落点行（该列最低空位）显示当前方块，而非整列所有空格
+                  bool isActive = false;
+                  if (c == _dropCol && _running && st == null) {
+                    // 找到该列最低空位
+                    int landRow = -1;
+                    for (int rr = _gRows - 1; rr >= 0; rr--) {
+                      if (_board[rr][c] == null) { landRow = rr; break; }
+                    }
+                    isActive = (r == landRow);
+                  }
                   List<Color> gradClr;
                   if (st == 'correct')     gradClr = clr;
                   else if (st == 'wrong')  gradClr = _clrWrong;

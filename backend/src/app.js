@@ -118,9 +118,12 @@ app.use((req, res) => {
 // Global error handler
 app.use((err, req, res, next) => {
   logger.error(err.stack);
-  res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
-  });
+  const status = err.status || 500;
+  // 4xx 错误属于客户端错误，始终返回具体信息；5xx 在生产环境隐藏详情
+  const message = status < 500 ? err.message : (
+    process.env.NODE_ENV === 'production' ? '服务器内部错误，请稍后重试' : err.message
+  );
+  res.status(status).json({ error: message });
 });
 
 // Start server
