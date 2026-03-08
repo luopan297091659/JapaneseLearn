@@ -1,0 +1,106 @@
+=== N3 垃圾数据样例 (完整字段) ===
+{"word":"イ形","reading":"イ形","meaning_zh":"有意思","pos":"other","ex":"面[おも]白[しろ]い","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"（味道）浓、（颜色）深","pos":"other","ex":"濃[こ]い","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"昏暗","pos":"other","ex":null,"ex_reading":null,"ex_zh":null,"cat":"blank"}
+{"word":"イ形","reading":"イ形","meaning_zh":"凉","pos":"other","ex":"冷[つめ]たい","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"没意思、微不足道、无聊","pos":"other","ex":null,"ex_reading":null,"ex_zh":null,"cat":"blank"}
+{"word":"イ形","reading":"イ形","meaning_zh":"大","pos":"other","ex":null,"ex_reading":null,"ex_zh":null,"cat":"blank"}
+{"word":"イ形","reading":"イ形","meaning_zh":"正确","pos":"other","ex":"正[ただ]しい","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"好吃","pos":"other","ex":null,"ex_reading":null,"ex_zh":null,"cat":"blank"}
+{"word":"イ形","reading":"イ形","meaning_zh":"红色","pos":"other","ex":"赤[あか]い","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"珍奇、罕见","pos":"other","ex":null,"ex_reading":null,"ex_zh":null,"cat":"blank"}
+{"word":"イ形","reading":"イ形","meaning_zh":"厉害（在表示惊讶和感叹时使用）","pos":"other","ex":"凄[すご]い","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"没意思、微不足道、无聊","pos":"other","ex":"つまらない","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"昏暗","pos":"other","ex":"暗[くら]い","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"辣","pos":"other","ex":"辛[から]い","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"少","pos":"other","ex":"少[すく]ない","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"（味道）淡、（颜色）浅、薄","pos":"other","ex":null,"ex_reading":null,"ex_zh":null,"cat":"blank"}
+{"word":"イ形","reading":"イ形","meaning_zh":"奇怪、可疑","pos":"other","ex":"可[お]笑[か]しい","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"脏、肮脏","pos":"other","ex":"汚[きたな]い","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"美丽、好看","pos":"other","ex":null,"ex_reading":null,"ex_zh":null,"cat":"blank"}
+{"word":"イ形","reading":"イ形","meaning_zh":"（接触的东西）温","pos":"other","ex":"温[あたた]かい","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"吵闹、烦人","pos":"other","ex":"煩[うるさ]い","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"窄","pos":"other","ex":null,"ex_reading":null,"ex_zh":null,"cat":"blank"}
+{"word":"イ形","reading":"イ形","meaning_zh":"老实、温顺","pos":"other","ex":null,"ex_reading":null,"ex_zh":null,"cat":"blank"}
+{"word":"イ形","reading":"イ形","meaning_zh":"软、柔软","pos":"other","ex":"軟[やわ]らかい","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"新、新鲜","pos":"other","ex":"新[あたら]しい","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"黑色","pos":"other","ex":"黒[くろ]い","ex_reading":null,"ex_zh":null,"cat":"test"}
+{"word":"イ形","reading":"イ形","meaning_zh":"忙","pos":"other","ex":null,"ex_reading":null,"ex_zh":null,"cat":"blank"}
+{"word":"イ形","reading":"イ形","meaning_zh":"（接触的东西）温","pos":"other","ex":null,"ex_reading":null,"ex_zh":null,"cat":"blank"}
+{"word":"イ形","reading":"イ形","meaning_zh":"贵、高","pos":"other","ex":null,"ex_reading":null,"ex_zh":null,"cat":"blank"}
+{"word":"イ形","reading":"イ形","meaning_zh":"好","pos":"other","ex":"いい","ex_reading":null,"ex_zh":null,"cat":"test"}
+
+=== word是中文 + meaning_zh无假名 样例 ===
+  word=棟 | reading=むね | meaning_zh=むね（棟）[名]屋脊，房顶；大梁，脊檩 | N3
+  word=感 | reading=感 | meaning_zh=不（比いいえ随意） | N3
+  word=名 | reading=名 | meaning_zh=这（「これ」的礼貌用语） | N3
+  word=動Ⅰ | reading=動Ⅰ | meaning_zh=说、叫（「いいます」的谦逊语） | N3
+  word=動Ⅰ | reading=動Ⅰ | meaning_zh=吃、喝、得到（「たべます」「のみます」「もらいます」的谦逊语） | N3
+  word=副 | reading=副 | meaning_zh=见面（「あいます」的谦逊语） | N3
+  word=動Ⅰ | reading=動Ⅰ | meaning_zh=说、叫（「いいます」的尊敬语） | N3
+  word=前～ | reading=ぜん～ | meaning_zh=ぜん～（前～）前～ | N3
+  word=動Ⅰ | reading=動Ⅰ | meaning_zh=做（「します」的尊敬语） | N3
+  word=名 | reading=名 | meaning_zh=那边（指离说话人、听话人都远的场所，比「あちら」随意） | N3
+  word=接尾 | reading=接尾 | meaning_zh=代替「～さん」接在小孩子名字后面的接尾词 | N3
+  word=名 | reading=名 | meaning_zh=人（「ひと」的尊敬语） | N3
+  word=動Ⅰ | reading=動Ⅰ | meaning_zh=寻找、听、访问（「ききます」「いきます」的谦逊语） | N3
+  word=動Ⅱ | reading=動Ⅱ | meaning_zh=知道（「しります」的谦逊语） | N3
+  word=動Ⅰ | reading=動Ⅰ | meaning_zh=寻找、听、访问（「ききます」「いきます」的谦逊语） | N3
+  word=動Ⅰ | reading=動Ⅰ | meaning_zh=来（「きます」的尊敬用语） | N3
+  word=名 | reading=名 | meaning_zh=府上（「うち」和「いえ」的尊敬语） | N3
+  word=名 | reading=名 | meaning_zh=你（用于同辈、部下、晚辈，比「あなた」随意） | N3
+  word=名 | reading=名 | meaning_zh=那边（指离说话人、听话人都远的场所，比「あちら」随意） | N3
+  word=動Ⅰ | reading=動Ⅰ | meaning_zh=有、在（「います」的敬语） | N3
+
+=== word是长中文文本(>5字符, 无假名) ===
+  word=～左右（表示时间） | reading=～ 頃[ごろ] | meaning_zh=～左右（表示时间）
+  word=指南、入门书 | reading=ガイドブック | meaning_zh=指南、入门书
+  word=什么（表示不特定的某件事情或某一物品） | reading=何[なに]か | meaning_zh=什么（表示不特定的某件事情或某一物品）
+  word=辛苦了。（慰劳同事或部下时用的话） | reading=お 疲[つか]れ 様[さま]でした。 | meaning_zh=辛苦了。（慰劳同事或部下时用的话）
+  word=陪同参观学校。 | reading=学[がっ]校[こう]を 案[あん]内[ない]します。 | meaning_zh=陪同参观学校。
+  word=害羞、不好意思 | reading=恥[は]ずかしい | meaning_zh=害羞、不好意思
+  word=（公寓等的）管理员 | reading=管[かん]理[り]人[にん] | meaning_zh=（公寓等的）管理员
+  word=啊，太好了。（表示安心时使用） | reading=ああ、よかった。 | meaning_zh=啊，太好了。（表示安心时使用）
+  word=游戏、电子游戏 | reading=ゲーム | meaning_zh=游戏、电子游戏
+  word=哪里（表示不特定的某个地方） | reading=どこか | meaning_zh=哪里（表示不特定的某个地方）
+  word=那（离听话人近的东西） | reading=それ | meaning_zh=那（离听话人近的东西）
+  word=（别人的）姐姐 | reading=お 姉[ねえ]さん | meaning_zh=（别人的）姐姐
+  word=下（雨、雪） | reading=降[ふ]ります | meaning_zh=下（雨、雪）
+  word=没那么（后接否定式） | reading=そんなに | meaning_zh=没那么（后接否定式）
+  word=（酒店等的）前台 | reading=フロント | meaning_zh=（酒店等的）前台
+  word=儿童新闻（虚构的新闻） | reading=子[こ]どもニュース | meaning_zh=儿童新闻（虚构的新闻）
+  word=―枚、―张（数纸张、邮票等的量词） | reading=― 枚[まい] | meaning_zh=―枚、―张（数纸张、邮票等的量词）
+  word=大家的学校（虚构的日语学校） | reading=みんなの 学[がっ]校[こう] | meaning_zh=大家的学校（虚构的日语学校）
+  word=空闲、有空儿 | reading=暇[ひま] | meaning_zh=空闲、有空儿
+  word=味道（指味觉） | reading=味[あじ] | meaning_zh=味道（指味觉）
+
+=== reading字段模式 ===
+{"total":31115,"has_hiragana":"24407","has_katakana":"2597","pure_chinese":"3844","same_as_word":"12364","empty_reading":"0"}
+
+=== reading是纯中文 样例 ===
+  word=名 | reading=名 | meaning_zh=日本桥（大阪的商业地区） | N3
+  word=名 | reading=名 | meaning_zh=下 | N3
+  word=ゼミ/ゼミナール | reading=大学的 | meaning_zh=（大学的）研讨会 | N3
+  word=動Ⅰ | reading=動Ⅰ | meaning_zh=贴 | N3
+  word=動Ⅲ | reading=動Ⅲ | meaning_zh=声援、支持 | N3
+  word=名 | reading=名 | meaning_zh=树枝 | N3
+  word=連語 | reading=連語 | meaning_zh=在任何地方都～ | N3
+  word=めきめき | reading=能力、水平等 | meaning_zh=（能力、水平等）显著提高 | N1
+  word=名 | reading=名 | meaning_zh=巴黎 | N3
+  word=名 | reading=名 | meaning_zh=外套 | N3
+  word=名 | reading=名 | meaning_zh=四个人 | N3
+  word=名 | reading=名 | meaning_zh=书店、书店老板 | N3
+  word=名 | reading=名 | meaning_zh=考试 | N3
+  word=名 | reading=名 | meaning_zh=山 | N3
+  word=動Ⅱ | reading=動Ⅱ | meaning_zh=发生 | N3
+  word=名 | reading=名 | meaning_zh=牛肉盖饭 | N3
+  word=名 | reading=名 | meaning_zh=（别人的）女儿 | N3
+  word=名 | reading=名 | meaning_zh=课、课程 | N3
+  word=名 | reading=名 | meaning_zh=母亲节 | N3
+  word=動Ⅰ | reading=動Ⅰ | meaning_zh=上着（锁） | N3
+
+=== 关联引用 ===
+srs_cards总数: 27
+quiz_questions总数: 16
+
+垃圾数据中不同meaning_zh数: 1916

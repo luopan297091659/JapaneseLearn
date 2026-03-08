@@ -73,7 +73,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/vocabulary', builder: (_, __) => const VocabularyListScreen()),
           GoRoute(
             path: '/vocabulary/:id',
-            builder: (_, state) => VocabularyDetailScreen(id: state.pathParameters['id']!),
+            builder: (_, state) {
+              final ids = state.extra as List<String>?;
+              return VocabularyDetailScreen(id: state.pathParameters['id']!, wordIds: ids);
+            },
           ),
           GoRoute(path: '/grammar', builder: (_, __) => const GrammarListScreen()),
           GoRoute(

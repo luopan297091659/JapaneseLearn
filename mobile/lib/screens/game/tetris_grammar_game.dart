@@ -711,35 +711,48 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
   Future<void> _showLeaderboard() async {
     showDialog(
       context: context,
-        builder: (_) => FutureBuilder<Response<dynamic>>(
-        future: ApiService().dio.get('/game/leaderboard'),
+        builder: (dialogCtx) => FutureBuilder<Response<dynamic>>(
+        future: ApiService().dio.get('/game/leaderboard/global', queryParameters: {'game_type': widget.gameType}),
         builder: (ctx, snap) {
           if (snap.connectionState != ConnectionState.done)
             return const AlertDialog(content: SizedBox(height: 80, child: Center(child: CircularProgressIndicator())));
-          final rows = (snap.data?.data['rows'] ?? []) as List;
+          if (snap.hasError || snap.data == null) {
+            return AlertDialog(
+              title: Text('🏆 ${_gameTitle.replaceAll('🎮 ', '')}排行榜'),
+              content: const Text('加载失败，请稍后重试'),
+              actions: [TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('关闭'))],
+            );
+          }
+          final rows = (snap.data?.data['data'] ?? []) as List;
           return AlertDialog(
-            title: const Text('🏆 全球排行榜'),
+            title: Text('🏆 ${_gameTitle.replaceAll('🎮 ', '')}排行榜'),
             content: SizedBox(
               width: 300,
-              child: ListView.separated(
+              child: rows.isEmpty
+                  ? const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('暂无排行数据')))
+                  : ListView.separated(
                 shrinkWrap: true,
                 itemCount: rows.length,
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (_, i) {
                   final r = rows[i] as Map;
                   final medal = i == 0 ? '🥇' : i == 1 ? '🥈' : i == 2 ? '🥉' : '${i+1}.';
+                  final isSelf = r['is_self'] == true;
                   return ListTile(
                     dense: true,
                     leading: Text(medal, style: const TextStyle(fontSize: 16)),
-                    title: Text(r['username']?.toString() ?? '-', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('连击 ${r['max_combo'] ?? 0}'),
-                    trailing: Text('${r['rating'] ?? r['total_score'] ?? 0}分',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4361ee))),
+                    title: Text(
+                      '${r['username'] ?? '-'}${isSelf ? ' 👈' : ''}',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: isSelf ? const Color(0xFF4361ee) : null),
+                    ),
+                    subtitle: Text('最高关 ${r['max_level'] ?? 0} · 连击 ${r['best_combo'] ?? 0}'),
+                    trailing: Text('${r['rating'] ?? 0}分',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: isSelf ? const Color(0xFF4361ee) : const Color(0xFF6b7280))),
                   );
                 },
               ),
             ),
-            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('关闭'))],
+            actions: [TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('关闭'))],
           );
         },
       ),

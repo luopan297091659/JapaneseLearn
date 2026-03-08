@@ -14,10 +14,24 @@ class StudyTab extends StatelessWidget {
         backgroundColor: cs.primary,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person_outline),
+            onPressed: () => context.push('/profile'),
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          _StudyCard(
+            icon: Icons.grid_view_rounded,
+            title: '五十音',
+            subtitle: '基础入门 · 平假名/片假名/浊音/拗音',
+            color: const Color(0xFFE91E63),
+            onTap: () => context.push('/gojuon'),
+          ),
+          const SizedBox(height: 12),
           _StudyCard(
             icon: Icons.menu_book_rounded,
             title: '单词学习',
@@ -51,27 +65,19 @@ class StudyTab extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _StudyCard(
-            icon: Icons.layers_rounded,
-            title: 'SRS 复习',
-            subtitle: '间隔记忆 · 科学记忆曲线',
-            color: const Color(0xFFFF9800),
-            onTap: () => context.push('/srs-review'),
-          ),
-          const SizedBox(height: 12),
-          _StudyCard(
-            icon: Icons.grid_view_rounded,
-            title: '五十音',
-            subtitle: '基础入门 · 平假名/片假名/浊音/拗音',
-            color: const Color(0xFFE91E63),
-            onTap: () => context.push('/gojuon'),
-          ),
-          const SizedBox(height: 12),
-          _StudyCard(
             icon: Icons.style_rounded,
             title: '闪卡练习',
             subtitle: '翻转记忆 · 四级评价·支持等级词库',
             color: const Color(0xFF3F51B5),
             onTap: () => context.push('/flashcard'),
+          ),
+          const SizedBox(height: 12),
+          _StudyCard(
+            icon: Icons.layers_rounded,
+            title: 'SRS 复习',
+            subtitle: '间隔记忆 · 科学记忆曲线',
+            color: const Color(0xFFFF9800),
+            onTap: () => context.push('/srs-review'),
           ),
         ],
       ),

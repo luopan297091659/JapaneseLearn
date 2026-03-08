@@ -9,18 +9,21 @@ import '../../l10n/app_localizations.dart';
 
 // ── 全部可选功能（ID → 元数据） ──
 const _allFeatures = <String, ({IconData icon, String label, String sub, String path, Color color})>{
-  'gojuon':      (icon: Icons.grid_view_rounded,      label: '五十音',   sub: '基础入门', path: '/gojuon',          color: Color(0xFFE91E63)),
-  'vocabulary':  (icon: Icons.menu_book_rounded,      label: '单词学习', sub: '词汇积累', path: '/vocabulary',      color: Color(0xFF4CAF50)),
-  'grammar':     (icon: Icons.school_rounded,         label: '语法学习', sub: '规则掌握', path: '/grammar',         color: Color(0xFF2196F3)),
-  'listening':   (icon: Icons.headphones_rounded,     label: '听力练习', sub: '提升听力', path: '/listening',       color: Color(0xFF9C27B0)),
-  'srs':         (icon: Icons.layers_rounded,         label: 'SRS复习',  sub: '间隔记忆', path: '/srs-review',     color: Color(0xFFFF9800)),
-  'flashcard':   (icon: Icons.style_rounded,          label: '闪卡练习', sub: '翻转记忆', path: '/flashcard',      color: Color(0xFF3F51B5)),
-  'dictionary':  (icon: Icons.manage_search_rounded,  label: '辞书检索', sub: '词典查询', path: '/dictionary',     color: Color(0xFF607D8B)),
-  'quiz':        (icon: Icons.quiz_rounded,           label: '随机测验', sub: '检验水平', path: '/quiz',           color: Color(0xFFFF5722)),
-  'news':        (icon: Icons.article_rounded,        label: 'NHK新闻', sub: '阅读训练', path: '/news',           color: Color(0xFF00897B)),
-  'game':        (icon: Icons.extension_rounded, label: '助词游戏', sub: '趣味闯关', path: '/game',           color: Color(0xFFE91E63)),
-  'todofuken':   (icon: Icons.map_rounded,            label: '都道府県', sub: '地理测验', path: '/todofuken-quiz', color: Color(0xFFE65100)),
-  'anki':        (icon: Icons.upload_file_rounded,    label: 'Anki导入', sub: '导入词库', path: '/anki-import',    color: Color(0xFF795548)),
+  'gojuon':        (icon: Icons.grid_view_rounded,      label: '五十音',     sub: '基础入门', path: '/gojuon',          color: Color(0xFFE91E63)),
+  'vocabulary':    (icon: Icons.menu_book_rounded,      label: '单词学习',   sub: '词汇积累', path: '/vocabulary',      color: Color(0xFF4CAF50)),
+  'grammar':       (icon: Icons.school_rounded,         label: '语法学习',   sub: '规则掌握', path: '/grammar',         color: Color(0xFF2196F3)),
+  'listening':     (icon: Icons.headphones_rounded,     label: '听力练习',   sub: '提升听力', path: '/listening',       color: Color(0xFF9C27B0)),
+  'pronunciation': (icon: Icons.mic_rounded,            label: '发音练习',   sub: 'AI智能纠正', path: '/pronunciation',  color: Color(0xFF00BCD4)),
+  'srs':           (icon: Icons.layers_rounded,         label: 'SRS复习',    sub: '间隔记忆', path: '/srs-review',     color: Color(0xFFFF9800)),
+  'flashcard':     (icon: Icons.style_rounded,          label: '闪卡练习',   sub: '翻转记忆', path: '/flashcard',      color: Color(0xFF3F51B5)),
+  'dictionary':    (icon: Icons.manage_search_rounded,  label: '辞书检索',   sub: '词典查询', path: '/dictionary',     color: Color(0xFF607D8B)),
+  'translate':     (icon: Icons.translate_rounded,      label: '翻译解析',   sub: 'AI句子分析', path: '/translate',    color: Color(0xFF3949AB)),
+  'quiz':          (icon: Icons.quiz_rounded,           label: '随机测验',   sub: '检验水平', path: '/quiz',           color: Color(0xFFFF5722)),
+  'news':          (icon: Icons.article_rounded,        label: 'NHK新闻',   sub: '阅读训练', path: '/news',           color: Color(0xFF00897B)),
+  'game':          (icon: Icons.extension_rounded,      label: '助词游戏',   sub: '趣味闯关', path: '/game',           color: Color(0xFFE91E63)),
+  'todofuken':     (icon: Icons.map_rounded,            label: '都道府県',   sub: '地理测验', path: '/todofuken-quiz', color: Color(0xFFE65100)),
+  'anki':          (icon: Icons.upload_file_rounded,    label: 'Anki导入',  sub: '导入词库', path: '/anki-import',    color: Color(0xFF795548)),
+  'localvocab':    (icon: Icons.folder_copy_rounded,    label: 'Anki词库',  sub: '本地浏览', path: '/local-vocab',    color: Color(0xFF00897B)),
 };
 const _defaultFeatureIds = ['vocabulary', 'grammar', 'srs', 'flashcard', 'listening', 'dictionary'];
 
@@ -100,8 +103,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (!fromCache) {
       setState(() => _refreshing = true);
     }
+    // 先加载用户信息，获取 JLPT 等级后再加载今日一词
+    await _loadUser();
     await Future.wait([
-      _loadUser(),
       _loadSrs(),
       _loadWordOfDay(),
       _loadDailyGoals(),
@@ -142,17 +146,34 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _loadWordOfDay() async {
     setState(() => _wordLoading = true);
     try {
-      final res = await apiService.getVocabulary(limit: 20, page: 1);
+      // 使用用户的 JLPT 等级过滤单词
+      final level = _user?.level ?? 'N5';
+      final res = await apiService.getVocabulary(level: level, limit: 20, page: 1);
       final words = res['data'] as List<VocabularyModel>;
       if (words.isNotEmpty) {
-        // 按当天日期固定起始索引，保证同一天首词一致
-        final seed = DateTime.now().year * 10000 +
-            DateTime.now().month * 100 +
-            DateTime.now().day;
-        final start = Random(seed).nextInt(words.length);
+        final prefs = await SharedPreferences.getInstance();
+        final todayStr = DateTime.now().toIso8601String().substring(0, 10);
+        final savedDate = prefs.getString('wod_date');
+        final savedIdx = prefs.getInt('wod_index');
+        final savedLevel = prefs.getString('wod_level');
+
+        int startIdx;
+        if (savedDate == todayStr && savedIdx != null && savedLevel == level) {
+          // 同一天且同等级，复用已保存的索引（包括用户换过词后的索引）
+          startIdx = savedIdx % words.length;
+        } else {
+          // 新的一天或等级变化，按日期种子生成初始索引
+          final seed = DateTime.now().year * 10000 +
+              DateTime.now().month * 100 +
+              DateTime.now().day;
+          startIdx = Random(seed).nextInt(words.length);
+          await prefs.setString('wod_date', todayStr);
+          await prefs.setInt('wod_index', startIdx);
+          await prefs.setString('wod_level', level);
+        }
         if (mounted) setState(() {
           _wordPool  = words;
-          _wordIndex = start;
+          _wordIndex = startIdx;
           _wordRevealed = false;
           _wordLoading = false;
         });
@@ -164,10 +185,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _nextWord() {
+  void _nextWord() async {
     if (_wordPool.isEmpty) return;
-    setState(() {
-      _wordIndex = (_wordIndex + 1) % _wordPool.length;
+    final newIdx = (_wordIndex + 1) % _wordPool.length;
+    // 持久化索引，杀掉进程重新进仍显示换过的词
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('wod_index', newIdx);
+    if (mounted) setState(() {
+      _wordIndex = newIdx;
       _wordRevealed = false;
     });
   }
@@ -321,11 +346,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       onNext: _nextWord,
                     ),
                   const SizedBox(height: 20),
-                  // ── 快速开始 ────────────────────────────────────────
-                  _SectionTitle(title: '快速开始', icon: Icons.bolt_rounded),
-                  const SizedBox(height: 10),
-                  _QuickActions(srsCount: _srsStats?['due_today'] ?? 0),
-                  const SizedBox(height: 20),
                   // ── 常用功能（可自定义，最多6个）────────────────
                   Row(children: [
                     const Expanded(child: _SectionTitle(title: '常用功能', icon: Icons.apps_rounded)),
@@ -387,7 +407,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 60, 8),
+              padding: const EdgeInsets.fromLTRB(20, 4, 16, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -442,7 +462,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       _StatBadge(
                         icon: Icons.timer_outlined,
                         color: Colors.lightBlueAccent,
-                        label: '$todayMinutes 分钟',
+                        label: '$todayMinutes分',
                       ),
                     ]),
                   ),
@@ -821,87 +841,96 @@ class _DailyGoalsCard extends StatelessWidget {
     final lessonGoal = goals['lessons'] as Map<String, dynamic>?;
     final reviewGoal = goals['reviews'] as Map<String, dynamic>?;
 
+    final items = <Widget>[];
+    if (studyGoal != null) {
+      items.add(_CompactGoalItem(
+        icon: Icons.schedule_rounded,
+        color: const Color(0xFF2563EB),
+        label: '学习',
+        current: (studyGoal['current'] as int),
+        target: (studyGoal['target'] as int),
+        unit: '分钟',
+      ));
+    }
+    if (lessonGoal != null) {
+      items.add(_CompactGoalItem(
+        icon: Icons.check_circle_outline_rounded,
+        color: const Color(0xFF059669),
+        label: '活动',
+        current: (lessonGoal['current'] as int),
+        target: (lessonGoal['target'] as int),
+        unit: '项',
+      ));
+    }
+    if (reviewGoal != null) {
+      items.add(_CompactGoalItem(
+        icon: Icons.layers_rounded,
+        color: const Color(0xFFEA580C),
+        label: '复习',
+        current: (reviewGoal['current'] as int),
+        target: (reviewGoal['target'] as int),
+        unit: '张',
+      ));
+    }
+    if (items.isEmpty) return const SizedBox.shrink();
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: cs.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: cs.outlineVariant),
         boxShadow: [BoxShadow(color: cs.shadow.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
       ),
-      child: Column(children: [
-        if (studyGoal != null) ...[
-          _GoalRow(
-            icon: Icons.schedule_rounded,
-            color: const Color(0xFF2563EB),
-            label: '学习 ${studyGoal['target']} 分钟',
-            current: (studyGoal['current'] as int).toDouble(),
-            target: (studyGoal['target'] as int).toDouble(),
-          ),
-          const SizedBox(height: 12),
+      child: Row(
+        children: [
+          for (int i = 0; i < items.length; i++) ...[
+            if (i > 0) Container(
+              width: 1, height: 36,
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              color: cs.outlineVariant,
+            ),
+            Expanded(child: items[i]),
+          ],
         ],
-        if (lessonGoal != null) ...[
-          _GoalRow(
-            icon: Icons.menu_book_rounded,
-            color: const Color(0xFF059669),
-            label: '完成 ${lessonGoal['target']} 项活动',
-            current: (lessonGoal['current'] as int).toDouble(),
-            target: (lessonGoal['target'] as int).toDouble(),
-          ),
-          const SizedBox(height: 12),
-        ],
-        if (reviewGoal != null)
-          _GoalRow(
-            icon: Icons.layers_rounded,
-            color: const Color(0xFFEA580C),
-            label: '复习 ${reviewGoal['target']} 张卡片',
-            current: (reviewGoal['current'] as int).toDouble(),
-            target: (reviewGoal['target'] as int).toDouble(),
-          ),
-      ]),
+      ),
     );
   }
 }
 
-class _GoalRow extends StatelessWidget {
+class _CompactGoalItem extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String label;
-  final double current, target;
-  const _GoalRow({required this.icon, required this.color, required this.label, required this.current, required this.target});
+  final int current, target;
+  final String unit;
+  const _CompactGoalItem({required this.icon, required this.color, required this.label, required this.current, required this.target, required this.unit});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final progress = target > 0 ? (current / target).clamp(0.0, 1.0) : 0.0;
     final done = progress >= 1.0;
-    return Row(children: [
-      Container(
-        width: 32, height: 32,
-        decoration: BoxDecoration(
-          color: done ? const Color(0xFF059669).withOpacity(0.15) : color.withOpacity(0.12),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(done ? Icons.check_rounded : icon, size: 16, color: done ? const Color(0xFF059669) : color),
-      ),
-      const SizedBox(width: 10),
-      Expanded(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text(label, style: TextStyle(fontSize: 12, color: cs.onSurface, fontWeight: FontWeight.w500)),
-            Text('${current.toInt()}/${target.toInt()}', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
-          ]),
-          const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 6,
-              backgroundColor: cs.surfaceContainerHighest,
-              color: done ? const Color(0xFF059669) : color,
-            ),
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
+        Icon(done ? Icons.check_circle_rounded : icon, size: 14, color: done ? const Color(0xFF059669) : color),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant, fontWeight: FontWeight.w500)),
+      ]),
+      const SizedBox(height: 4),
+      Text('$current/$target$unit', style: TextStyle(fontSize: 13, color: cs.onSurface, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 4),
+      SizedBox(
+        width: 60,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 4,
+            backgroundColor: cs.surfaceContainerHighest,
+            color: done ? const Color(0xFF059669) : color,
           ),
-        ]),
+        ),
       ),
     ]);
   }
@@ -916,13 +945,6 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(children: [
-      Expanded(child: _QuickActionBtn(
-        icon: Icons.menu_book_rounded,
-        label: '继续学习',
-        color: const Color(0xFF4CAF50),
-        onTap: () => context.push('/vocabulary'),
-      )),
-      const SizedBox(width: 10),
       Expanded(child: _QuickActionBtn(
         icon: Icons.layers_rounded,
         label: 'SRS复习${srsCount > 0 ? ' ($srsCount)' : ''}',

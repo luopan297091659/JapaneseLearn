@@ -141,12 +141,12 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
           tooltip: '退出复习',
           onPressed: () => showDialog(
             context: context,
-            builder: (_) => AlertDialog(
+            builder: (dialogCtx) => AlertDialog(
               title: const Text('退出复习'),
               content: const Text('确定要退出当前复习吗？'),
               actions: [
-                TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('继续复习')),
-                FilledButton(onPressed: () { Navigator.of(context).pop(); context.go('/home'); }, child: const Text('退出')),
+                TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('继续复习')),
+                FilledButton(onPressed: () { Navigator.pop(dialogCtx); context.go('/home'); }, child: const Text('退出')),
               ],
             ),
           ),

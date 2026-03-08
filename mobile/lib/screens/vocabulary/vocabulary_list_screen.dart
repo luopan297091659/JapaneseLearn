@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../l10n/app_localizations.dart';
@@ -29,7 +30,21 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
   void initState() {
     super.initState();
     _scrollCtrl.addListener(_onScroll);
+    _restoreLevel();
+  }
+
+  Future<void> _restoreLevel() async {
+    final p = await SharedPreferences.getInstance();
+    final saved = p.getString('vocab_selected_level');
+    if (saved != null && ['N5','N4','N3','N2','N1'].contains(saved)) {
+      _selectedLevel = saved;
+    }
     _loadWords();
+  }
+
+  Future<void> _saveLevel(String level) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString('vocab_selected_level', level);
   }
 
   @override
@@ -114,14 +129,7 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
           tooltip: '返回',
           onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.upload_file_rounded),
-            tooltip: S.of(context).ankiImport,
-            onPressed: () => context.push('/anki-import'),
-          ),
-
-        ],
+        actions: [],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(100),
           child: Padding(
@@ -154,6 +162,7 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                       selected: _selectedLevel == l,
                       onSelected: (_) {
                         setState(() => _selectedLevel = l);
+                        _saveLevel(l);
                         _loadWords(reset: true);
                       },
                     ),
@@ -204,7 +213,7 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                                       )
                                     : const SizedBox.shrink();
                               }
-                              return _VocabCard(word: _words[i]);
+                              return _VocabCard(word: _words[i], wordIds: _words.map((w) => w.id).toList());
                             },
                           ),
                   ),
@@ -227,7 +236,8 @@ const _levelColors = {
 
 class _VocabCard extends StatelessWidget {
   final VocabularyModel word;
-  const _VocabCard({required this.word});
+  final List<String>? wordIds;
+  const _VocabCard({required this.word, this.wordIds});
 
   @override
   Widget build(BuildContext context) {
@@ -238,7 +248,7 @@ class _VocabCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () => context.go('/vocabulary/${word.id}'),
+        onTap: () => context.go('/vocabulary/${word.id}', extra: wordIds),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
