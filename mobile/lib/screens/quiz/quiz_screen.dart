@@ -168,6 +168,9 @@ class _QuizScreenState extends State<QuizScreen> {
     final total   = _questions.length;
     final score   = total > 0 ? ((correct / total) * 100).round() : 0;
 
+    // 记录测验学习活动
+    apiService.logActivity(activityType: 'quiz', durationSeconds: duration, score: score.toDouble());
+
     if (_source == _QuizSource.server) {
       final typeStr = _quizType == _QuizType.meaning ? 'vocabulary' : 'reading';
       final effectiveLevel = (_level == 'ALL') ? 'N5' : _level;

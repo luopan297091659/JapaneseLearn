@@ -112,6 +112,22 @@ class _AudioPlayerSheet extends StatefulWidget {
 
 class __AudioPlayerSheetState extends State<_AudioPlayerSheet> {
   bool _showTranscript = false;
+  late final DateTime _openTime;
+
+  @override
+  void initState() {
+    super.initState();
+    _openTime = DateTime.now();
+  }
+
+  @override
+  void dispose() {
+    final dur = DateTime.now().difference(_openTime).inSeconds;
+    if (dur > 3) {
+      apiService.logActivity(activityType: 'listening', refId: widget.track['id']?.toString(), durationSeconds: dur);
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

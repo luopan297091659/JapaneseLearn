@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import '../../utils/tts_helper.dart';
 import 'package:go_router/go_router.dart';
 
 // ── 五十音数据 ──
@@ -61,15 +62,32 @@ class _GojuonScreenState extends State<GojuonScreen> with SingleTickerProviderSt
   }
 
   Future<void> _initTts() async {
-    await _tts.setLanguage('ja-JP');
-    await _tts.setSpeechRate(0.45);
-    await _tts.setPitch(1.0);
+    _tts.setErrorHandler((err) => debugPrint('TTS error: $err'));
+    await TtsHelper.configureForJapanese(_tts);
   }
 
   @override
   void dispose() { _tts.stop(); _tabCtrl.dispose(); super.dispose(); }
 
-  void _speak(String text) => _tts.speak(text);
+  Future<void> _speak(String text) async {
+    try {
+      try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+      await _tts.setVolume(1.0);
+      final result = await _tts.speak(text);
+      if (result != 1 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('语音引擎不可用，请检查系统TTS设置'), duration: Duration(seconds: 3)),
+        );
+      }
+    } catch (e) {
+      debugPrint('TTS speak error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('朗读出错：$e'), duration: const Duration(seconds: 3)),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

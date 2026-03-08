@@ -1,10 +1,28 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../services/sync_service.dart';
 import '../../models/models.dart';
 import '../../l10n/app_localizations.dart';
+
+// ── 全部可选功能（ID → 元数据） ──
+const _allFeatures = <String, ({IconData icon, String label, String sub, String path, Color color})>{
+  'gojuon':      (icon: Icons.grid_view_rounded,      label: '五十音',   sub: '基础入门', path: '/gojuon',          color: Color(0xFFE91E63)),
+  'vocabulary':  (icon: Icons.menu_book_rounded,      label: '单词学习', sub: '词汇积累', path: '/vocabulary',      color: Color(0xFF4CAF50)),
+  'grammar':     (icon: Icons.school_rounded,         label: '语法学习', sub: '规则掌握', path: '/grammar',         color: Color(0xFF2196F3)),
+  'listening':   (icon: Icons.headphones_rounded,     label: '听力练习', sub: '提升听力', path: '/listening',       color: Color(0xFF9C27B0)),
+  'srs':         (icon: Icons.layers_rounded,         label: 'SRS复习',  sub: '间隔记忆', path: '/srs-review',     color: Color(0xFFFF9800)),
+  'flashcard':   (icon: Icons.style_rounded,          label: '闪卡练习', sub: '翻转记忆', path: '/flashcard',      color: Color(0xFF3F51B5)),
+  'dictionary':  (icon: Icons.manage_search_rounded,  label: '辞书检索', sub: '词典查询', path: '/dictionary',     color: Color(0xFF607D8B)),
+  'quiz':        (icon: Icons.quiz_rounded,           label: '随机测验', sub: '检验水平', path: '/quiz',           color: Color(0xFFFF5722)),
+  'news':        (icon: Icons.article_rounded,        label: 'NHK新闻', sub: '阅读训练', path: '/news',           color: Color(0xFF00897B)),
+  'game':        (icon: Icons.extension_rounded, label: '助词游戏', sub: '趣味闯关', path: '/game',           color: Color(0xFFE91E63)),
+  'todofuken':   (icon: Icons.map_rounded,            label: '都道府県', sub: '地理测验', path: '/todofuken-quiz', color: Color(0xFFE65100)),
+  'anki':        (icon: Icons.upload_file_rounded,    label: 'Anki导入', sub: '导入词库', path: '/anki-import',    color: Color(0xFF795548)),
+};
+const _defaultFeatureIds = ['vocabulary', 'grammar', 'srs', 'flashcard', 'listening', 'dictionary'];
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,9 +30,10 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   UserModel? _user;
   Map<String, dynamic>? _srsStats;
+  Map<String, dynamic>? _dailyGoals;
   List<VocabularyModel> _wordPool = [];
   int _wordIndex = 0;
 
@@ -22,14 +41,24 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _userLoading   = true;
   bool _srsLoading    = true;
   bool _wordLoading   = true;
+  bool _goalsLoading  = true;
   bool _wordRevealed  = false;
 
   // 是否正在刷新（下拉刷新时用）
   bool _refreshing = false;
 
+  // 常用功能自定义列表（最多6个）
+  List<String> _favFeatureIds = List.from(_defaultFeatureIds);
+
+  // 可用功能（经服务端开关过滤后）
+  Map<String, ({IconData icon, String label, String sub, String path, Color color})> _enabledFeatures = Map.from(_allFeatures);
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadFavFeatures();
+    _loadFeatureToggles();
     _loadAll(fromCache: true);
     // 后台检测服务端内容版本是否有更新
     Future.microtask(() async {
@@ -51,15 +80,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   /// [fromCache] true = 先用缓存立即渲染，后台同步刷新；false = 强制刷新
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // 从后台回来时清除缓存、同步最新数据
+      apiService.invalidateCache();
+      _loadAll(fromCache: false);
+    }
+  }
+
+  /// [fromCache] true = 先用缓存立即渲染，后台同步刷新；false = 强制刷新
   Future<void> _loadAll({bool fromCache = false}) async {
     if (!fromCache) {
       setState(() => _refreshing = true);
     }
-    // 三个请求独立进行，任意一个完成立刻更新对应区域
     await Future.wait([
       _loadUser(),
       _loadSrs(),
       _loadWordOfDay(),
+      _loadDailyGoals(),
     ]);
     if (mounted) setState(() => _refreshing = false);
   }
@@ -81,6 +126,16 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() { _srsStats = stats; _srsLoading = false; });
     } catch (_) {
       if (mounted) setState(() => _srsLoading = false);
+    }
+  }
+
+  Future<void> _loadDailyGoals() async {
+    setState(() => _goalsLoading = true);
+    try {
+      final data = await apiService.getDailyGoals();
+      if (mounted) setState(() { _dailyGoals = data; _goalsLoading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _goalsLoading = false);
     }
   }
 
@@ -117,6 +172,94 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  // ── 常用功能持久化 ──
+  Future<void> _loadFavFeatures() async {
+    final p = await SharedPreferences.getInstance();
+    final saved = p.getStringList('home_fav_features');
+    if (saved != null && saved.isNotEmpty) {
+      setState(() => _favFeatureIds = saved.where((id) => _allFeatures.containsKey(id)).toList());
+    }
+  }
+
+  Future<void> _saveFavFeatures() async {
+    final p = await SharedPreferences.getInstance();
+    await p.setStringList('home_fav_features', _favFeatureIds);
+  }
+
+  Future<void> _loadFeatureToggles() async {
+    final toggles = await syncService.fetchFeatureToggles();
+    if (!mounted) return;
+    setState(() {
+      _enabledFeatures = Map.fromEntries(
+        _allFeatures.entries.where((e) => toggles[e.key] ?? true),
+      );
+      // 移除被关闭的收藏功能
+      _favFeatureIds = _favFeatureIds.where((id) => _enabledFeatures.containsKey(id)).toList();
+    });
+  }
+
+  void _editFavFeatures() {
+    // 临时副本
+    final selected = List<String>.from(_favFeatureIds);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Row(children: [
+                const Text('编辑常用功能', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                Text('${selected.length}/6', style: TextStyle(fontSize: 13, color: selected.length > 6 ? Colors.red : Colors.grey)),
+              ]),
+              const SizedBox(height: 4),
+              const Text('点击添加或移除，最多保留 6 个', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10, runSpacing: 10,
+                children: _enabledFeatures.entries.map((e) {
+                  final on = selected.contains(e.key);
+                  return FilterChip(
+                    avatar: Icon(e.value.icon, size: 18, color: on ? Colors.white : e.value.color),
+                    label: Text(e.value.label),
+                    selected: on,
+                    selectedColor: e.value.color,
+                    labelStyle: TextStyle(color: on ? Colors.white : null, fontWeight: FontWeight.w600, fontSize: 12),
+                    onSelected: (v) {
+                      setSheetState(() {
+                        if (v) { if (selected.length < 6) selected.add(e.key); }
+                        else { selected.remove(e.key); }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+              Row(children: [
+                Expanded(child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('取消'),
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: FilledButton(
+                  onPressed: () {
+                    setState(() => _favFeatureIds = selected);
+                    _saveFavFeatures();
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('保存'),
+                )),
+              ]),
+            ]),
+          );
+        },
+      ),
+    );
+  }
+
   String _greeting() {
     final h = DateTime.now().hour;
     if (h < 6)  return 'こんばんは 🌙';
@@ -128,6 +271,15 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+
+    // 从 dailyGoals 提取数据
+    final totalXp = _dailyGoals?['total_xp'] ?? 0;
+    final streakDays = _dailyGoals?['streak_days'] ?? _user?.streakDays ?? 0;
+    final todayXp = _dailyGoals?['today']?['xp_earned'] ?? 0;
+    final todaySeconds = _dailyGoals?['today']?['study_seconds'] ?? 0;
+    final todayMinutes = (todaySeconds as int) ~/ 60;
+    final goals = _dailyGoals?['goals'] as Map<String, dynamic>?;
+
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
       body: RefreshIndicator(
@@ -135,12 +287,19 @@ class _HomeScreenState extends State<HomeScreen> {
         child: CustomScrollView(
           slivers: [
             // ── App Bar ────────────────────────────────────────────
-            _buildSliverHeader(cs),
+            _buildSliverHeader(cs, totalXp, streakDays, todayXp, todayMinutes),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   const SizedBox(height: 16),
+                  // ── 今日目标 ────────────────────────────────────────
+                  if (!_goalsLoading && goals != null) ...[
+                    _SectionTitle(title: '今日目标', icon: Icons.flag_rounded),
+                    const SizedBox(height: 10),
+                    _DailyGoalsCard(goals: goals),
+                    const SizedBox(height: 20),
+                  ],
                   // ── 搜索栏 ──────────────────────────────────────
                   _SearchBar(),
                   const SizedBox(height: 20),
@@ -162,38 +321,28 @@ class _HomeScreenState extends State<HomeScreen> {
                       onNext: _nextWord,
                     ),
                   const SizedBox(height: 20),
-                  // ── 📚 学习 ────────────────────────────────────
-                  _SectionTitle(title: '学习', icon: Icons.menu_book_rounded),
+                  // ── 快速开始 ────────────────────────────────────────
+                  _SectionTitle(title: '快速开始', icon: Icons.bolt_rounded),
                   const SizedBox(height: 10),
-                  _CategoryGrid(items: const [
-                    (icon: Icons.grid_view_rounded,  label: '五十音',   sub: '基础入门', path: '/gojuon',       color: Color(0xFFE91E63)),
-                    (icon: Icons.menu_book_rounded,  label: '单词学习', sub: '词汇积累', path: '/vocabulary', color: Color(0xFF4CAF50)),
-                    (icon: Icons.school_rounded,     label: '语法学习', sub: '规则掌握', path: '/grammar',    color: Color(0xFF2196F3)),
-                    (icon: Icons.headphones_rounded, label: '听力练习', sub: '提升听力', path: '/listening',  color: Color(0xFF9C27B0)),
-                    (icon: Icons.layers_rounded,     label: 'SRS复习',  sub: '间隔记忆', path: '/srs-review', color: Color(0xFFFF9800)),
-                    (icon: Icons.folder_copy_rounded, label: 'Anki词库', sub: '本地卡片', path: '/local-vocab', color: Color(0xFF00897B)),
-                  ]),
+                  _QuickActions(srsCount: _srsStats?['due_today'] ?? 0),
                   const SizedBox(height: 20),
-                  // ── 🎮 游戏 ────────────────────────────────────
-                  _SectionTitle(title: '游戏', icon: Icons.sports_esports_rounded),
-                  const SizedBox(height: 10),
-                  _GameBanner(),
-                  const SizedBox(height: 20),
-                  // ── 🔧 工具 ────────────────────────────────────
-                  _SectionTitle(title: '工具', icon: Icons.build_rounded),
-                  const SizedBox(height: 10),
-                  _CategoryGrid(items: const [
-                    (icon: Icons.manage_search_rounded, label: '辞书检索', sub: '词典查询', path: '/dictionary',  color: Color(0xFF607D8B)),
-                    (icon: Icons.upload_file_rounded,   label: 'Anki导入', sub: '导入词库', path: '/anki-import', color: Color(0xFF795548)),
+                  // ── 常用功能（可自定义，最多6个）────────────────
+                  Row(children: [
+                    const Expanded(child: _SectionTitle(title: '常用功能', icon: Icons.apps_rounded)),
+                    GestureDetector(
+                      onTap: _editFavFeatures,
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.edit_rounded, size: 14, color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 2),
+                        Text('编辑', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
                   ]),
-                  const SizedBox(height: 20),
-                  // ── ✏️ 测试 ────────────────────────────────────
-                  _SectionTitle(title: '测试', icon: Icons.assignment_rounded),
                   const SizedBox(height: 10),
-                  _CategoryGrid(items: const [
-                    (icon: Icons.quiz_rounded, label: '随机测验', sub: '检验水平', path: '/quiz', color: Color(0xFFFF5722)),
-                    (icon: Icons.map_rounded,  label: '都道府県', sub: '地理测验', path: '/todofuken-quiz', color: Color(0xFFE65100)),
-                  ]),
+                  _CategoryGrid(items: _favFeatureIds
+                      .where((id) => _enabledFeatures.containsKey(id))
+                      .map((id) { final f = _enabledFeatures[id]!; return (icon: f.icon, label: f.label, sub: f.sub, path: f.path, color: f.color); })
+                      .toList()),
                   const SizedBox(height: 8),
                 ]),
               ),
@@ -205,7 +354,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ── Sliver App Bar ─────────────────────────────────────────────────────────
-  Widget _buildSliverHeader(ColorScheme cs) {
+  Widget _buildSliverHeader(ColorScheme cs, int totalXp, int streakDays, int todayXp, int todayMinutes) {
     return SliverAppBar(
       expandedHeight: 130,
       floating: false,
@@ -222,7 +371,7 @@ class _HomeScreenState extends State<HomeScreen> {
       actions: [
         IconButton(
           icon: const Icon(Icons.person_outline, color: Colors.white),
-          onPressed: () => context.go('/profile'),
+          onPressed: () => context.push('/profile'),
         ),
       ],
       flexibleSpace: FlexibleSpaceBar(
@@ -275,13 +424,25 @@ class _HomeScreenState extends State<HomeScreen> {
                       _StatBadge(
                         icon: Icons.local_fire_department,
                         color: Colors.orange,
-                        label: '${_user?.streakDays ?? 0} 天连续',
+                        label: '$streakDays 天连续',
+                      ),
+                      const SizedBox(width: 8),
+                      _StatBadge(
+                        icon: Icons.diamond_rounded,
+                        color: Colors.amberAccent,
+                        label: '$totalXp XP',
+                      ),
+                      const SizedBox(width: 8),
+                      _StatBadge(
+                        icon: Icons.trending_up_rounded,
+                        color: Colors.greenAccent,
+                        label: '+$todayXp 今日',
                       ),
                       const SizedBox(width: 8),
                       _StatBadge(
                         icon: Icons.timer_outlined,
                         color: Colors.lightBlueAccent,
-                        label: '${_user?.totalStudyMinutes ?? 0} 分钟',
+                        label: '$todayMinutes 分钟',
                       ),
                     ]),
                   ),
@@ -597,6 +758,222 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+// ─── XP & 今日统计行 ──────────────────────────────────────────────────────────
+
+class _XpStatsRow extends StatelessWidget {
+  final int totalXp, todayXp, todayMinutes, streakDays;
+  const _XpStatsRow({required this.totalXp, required this.todayXp, required this.todayMinutes, required this.streakDays});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Expanded(child: _MiniStatCard(icon: Icons.diamond_rounded, color: const Color(0xFF7C3AED), label: '总经验', value: '$totalXp XP')),
+        const SizedBox(width: 8),
+        Expanded(child: _MiniStatCard(icon: Icons.trending_up_rounded, color: const Color(0xFF059669), label: '今日XP', value: '+$todayXp')),
+        const SizedBox(width: 8),
+        Expanded(child: _MiniStatCard(icon: Icons.local_fire_department, color: const Color(0xFFEA580C), label: '连续打卡', value: '$streakDays天')),
+        const SizedBox(width: 8),
+        Expanded(child: _MiniStatCard(icon: Icons.schedule_rounded, color: const Color(0xFF2563EB), label: '今日学习', value: '$todayMinutes分')),
+      ],
+    );
+  }
+}
+
+class _MiniStatCard extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label, value;
+  const _MiniStatCard({required this.icon, required this.color, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.15)),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(height: 6),
+        Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: cs.onSurface)),
+        const SizedBox(height: 2),
+        Text(label, style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant), overflow: TextOverflow.ellipsis),
+      ]),
+    );
+  }
+}
+
+// ─── 今日目标卡片 ──────────────────────────────────────────────────────────────
+
+class _DailyGoalsCard extends StatelessWidget {
+  final Map<String, dynamic> goals;
+  const _DailyGoalsCard({required this.goals});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final studyGoal = goals['study_minutes'] as Map<String, dynamic>?;
+    final lessonGoal = goals['lessons'] as Map<String, dynamic>?;
+    final reviewGoal = goals['reviews'] as Map<String, dynamic>?;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outlineVariant),
+        boxShadow: [BoxShadow(color: cs.shadow.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(children: [
+        if (studyGoal != null) ...[
+          _GoalRow(
+            icon: Icons.schedule_rounded,
+            color: const Color(0xFF2563EB),
+            label: '学习 ${studyGoal['target']} 分钟',
+            current: (studyGoal['current'] as int).toDouble(),
+            target: (studyGoal['target'] as int).toDouble(),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (lessonGoal != null) ...[
+          _GoalRow(
+            icon: Icons.menu_book_rounded,
+            color: const Color(0xFF059669),
+            label: '完成 ${lessonGoal['target']} 项活动',
+            current: (lessonGoal['current'] as int).toDouble(),
+            target: (lessonGoal['target'] as int).toDouble(),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (reviewGoal != null)
+          _GoalRow(
+            icon: Icons.layers_rounded,
+            color: const Color(0xFFEA580C),
+            label: '复习 ${reviewGoal['target']} 张卡片',
+            current: (reviewGoal['current'] as int).toDouble(),
+            target: (reviewGoal['target'] as int).toDouble(),
+          ),
+      ]),
+    );
+  }
+}
+
+class _GoalRow extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final double current, target;
+  const _GoalRow({required this.icon, required this.color, required this.label, required this.current, required this.target});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final progress = target > 0 ? (current / target).clamp(0.0, 1.0) : 0.0;
+    final done = progress >= 1.0;
+    return Row(children: [
+      Container(
+        width: 32, height: 32,
+        decoration: BoxDecoration(
+          color: done ? const Color(0xFF059669).withOpacity(0.15) : color.withOpacity(0.12),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(done ? Icons.check_rounded : icon, size: 16, color: done ? const Color(0xFF059669) : color),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text(label, style: TextStyle(fontSize: 12, color: cs.onSurface, fontWeight: FontWeight.w500)),
+            Text('${current.toInt()}/${target.toInt()}', style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
+          ]),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 6,
+              backgroundColor: cs.surfaceContainerHighest,
+              color: done ? const Color(0xFF059669) : color,
+            ),
+          ),
+        ]),
+      ),
+    ]);
+  }
+}
+
+// ─── 快速入口 ──────────────────────────────────────────────────────────────────
+
+class _QuickActions extends StatelessWidget {
+  final int srsCount;
+  const _QuickActions({required this.srsCount});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Expanded(child: _QuickActionBtn(
+        icon: Icons.menu_book_rounded,
+        label: '继续学习',
+        color: const Color(0xFF4CAF50),
+        onTap: () => context.push('/vocabulary'),
+      )),
+      const SizedBox(width: 10),
+      Expanded(child: _QuickActionBtn(
+        icon: Icons.layers_rounded,
+        label: 'SRS复习${srsCount > 0 ? ' ($srsCount)' : ''}',
+        color: const Color(0xFFFF9800),
+        onTap: () => context.push('/srs-review'),
+      )),
+      const SizedBox(width: 10),
+      Expanded(child: _QuickActionBtn(
+        icon: Icons.style_rounded,
+        label: '闪卡练习',
+        color: const Color(0xFF3F51B5),
+        onTap: () => context.push('/flashcard'),
+      )),
+    ]);
+  }
+}
+
+class _QuickActionBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _QuickActionBtn({required this.icon, required this.label, required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [color, color.withOpacity(0.75)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [BoxShadow(color: color.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 3))],
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, color: Colors.white, size: 24),
+          const SizedBox(height: 6),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center, overflow: TextOverflow.ellipsis),
+        ]),
+      ),
+    );
+  }
+}
+
 // ─── Category Grid (可复用的 3 列宫格) ──────────────────────────────────────────
 
 typedef _CatItem = ({IconData icon, String label, String sub, String path, Color color});
@@ -634,6 +1011,7 @@ class _GameBanner extends StatelessWidget {
       _GameCard(
         title: '助词方块',
         subtitle: '趣味闯关 · 助词填空',
+        icon: Icons.extension_rounded,
         color: const Color(0xFFE91E63),
         onTap: () => context.push('/game', extra: 'particles'),
       ),
@@ -641,8 +1019,17 @@ class _GameBanner extends StatelessWidget {
       _GameCard(
         title: '动词方块',
         subtitle: '趣味闯关 · 动词变形',
+        icon: Icons.translate_rounded,
         color: const Color(0xFF9C27B0),
         onTap: () => context.push('/game', extra: 'verbs'),
+      ),
+      const SizedBox(height: 12),
+      _GameCard(
+        title: '闪卡练习',
+        subtitle: '翻转记忆 · 四级评价',
+        icon: Icons.style_rounded,
+        color: const Color(0xFF3F51B5),
+        onTap: () => context.push('/flashcard'),
       ),
     ]);
   }
@@ -651,12 +1038,14 @@ class _GameBanner extends StatelessWidget {
 class _GameCard extends StatelessWidget {
   final String title;
   final String subtitle;
+  final IconData icon;
   final Color color;
   final VoidCallback onTap;
 
   const _GameCard({
     required this.title,
     required this.subtitle,
+    this.icon = Icons.sports_esports_rounded,
     required this.color,
     required this.onTap,
   });
@@ -691,7 +1080,7 @@ class _GameCard extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.sports_esports_rounded, color: Colors.white, size: 28),
+            child: Icon(icon, color: Colors.white, size: 28),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -709,8 +1098,8 @@ class _GameCard extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Text('开始',
-                style: TextStyle(color: Color(0xFFE91E63), fontWeight: FontWeight.bold, fontSize: 13)),
+            child: Text('开始',
+                style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
           ),
         ]),
       ),

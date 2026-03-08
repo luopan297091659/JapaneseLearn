@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
-import '../../services/permission_service.dart';
 import '../../models/models.dart';
 import '../../utils/japanese_text_utils.dart';
+import '../../utils/tts_helper.dart';
 import '../../widgets/audio_player_widget.dart';
 import 'vocab_whiteboard_screen.dart';
 
@@ -36,19 +36,18 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
   late final FlutterTts _tts;
   bool _ttsPlaying = false;
   bool _ttsReady   = false;  // 引擎初始化完成标志
+  late final DateTime _screenOpenTime;
 
   @override
   void initState() {
     super.initState();
+    _screenOpenTime = DateTime.now();
     _initTts();
     _load();
   }
 
   Future<void> _initTts() async {
     _tts = FlutterTts();
-
-    // Android: 非阻塞模式，通过 handler 管理状态
-    await _tts.awaitSpeakCompletion(false);
 
     _tts.setStartHandler(() {
       if (mounted) setState(() => _ttsPlaying = true);
@@ -59,56 +58,24 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
     _tts.setCancelHandler(() {
       if (mounted) setState(() => _ttsPlaying = false);
     });
-    // 错误时重置状态，避免 _ttsPlaying 卡死
     _tts.setErrorHandler((err) {
+      debugPrint('TTS error: $err');
       if (mounted) setState(() => _ttsPlaying = false);
     });
 
-    // ✅ 新增：添加 15 秒超时机制，防止初始化永久卡死
-    Future<void> initWithTimeout() async {
-      try {
-        // 检测日语引擎可用性
-        bool langSet = false;
-        try {
-          final raw   = await _tts.getLanguages;
-          final langs = raw is List ? raw : <dynamic>[];
-          final hasJa = langs.any((l) => l.toString().toLowerCase().startsWith('ja'));
-          if (hasJa) {
-            await _tts.setLanguage('ja-JP');
-            langSet = true;
-          }
-        } catch (_) {}
-        // 引擎未列出 ja-JP 时强制尝试（部分设备不返回列表但实际支持）
-        if (!langSet) {
-          try { await _tts.setLanguage('ja-JP'); } catch (_) {}
-        }
-
-        await _tts.setSpeechRate(0.5);  // 稍慢，更清晰
-        await _tts.setVolume(1.0);
-        await _tts.setPitch(1.0);
-
-        if (mounted) setState(() => _ttsReady = true);
-      } catch (e) {
-        print('TTS 初始化异常: $e');
-        // 初始化失败，也标记为就绪，之后会在使用时提示用户
-        if (mounted) setState(() => _ttsReady = true);
-      }
-    }
-
-    // 带 15 秒超时的初始化（防止某些设备永久卡死）
     try {
-      await initWithTimeout().timeout(
+      await TtsHelper.configureForJapanese(_tts).timeout(
         const Duration(seconds: 15),
         onTimeout: () {
-          print('TTS 初始化超时（15s），标记为就绪以避免卡死');
-          if (mounted) setState(() => _ttsReady = true);
+          debugPrint('TTS 初始化超时（15s）');
+          return false;
         },
       );
+      await _tts.setSpeechRate(0.5);
     } catch (e) {
-      print('TTS 初始化失败: $e');
-      // 确保最终标记为就绪，来自超时或其他异常
-      if (mounted) setState(() => _ttsReady = true);
+      debugPrint('TTS 初始化失败: $e');
     }
+    if (mounted) setState(() => _ttsReady = true);
   }
 
   Future<void> _speak() async {
@@ -133,35 +100,13 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
       return;
     }
 
-    // ✅ 新增：检查麦克风权限（Android 6.0+）
-    final hasMicPermission = await _requestMicrophonePermission();
-    if (!hasMicPermission) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Expanded(child: Text('需要麦克风权限')),
-                TextButton(
-                  onPressed: () => _openSettings(),
-                  child: const Text('打开设置', style: TextStyle(color: Colors.white)),
-                ),
-              ],
-            ),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-      return;
-    }
-
     final text = ttsText(_vocab!.word, _vocab!.reading);
     try {
       setState(() => _ttsPlaying = true); // 乐观更新，按钮立即响应
       
-      // ✅ 新增：设置音量和音频焦点
-      await _tts.setVolume(1.0);  // 确保音量为最大
+      // 每次 speak 前设置语言和音量，防止 Android TTS 丢失设置
+      await _tts.setLanguage('ja-JP');
+      await _tts.setVolume(1.0);
       
       final result = await _tts.speak(text);
       // result == 1 表示成功启动，0 表示引擎拒绝
@@ -189,18 +134,12 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
     }
   }
 
-  /// ✅ 新增：请求麦克风权限
-  Future<bool> _requestMicrophonePermission() async {
-    return await PermissionService.requestMicrophonePermission();
-  }
-
-  /// ✅ 新增：打开应用设置
-  void _openSettings() {
-    PermissionService.openPermissionSettings();
-  }
-
   @override
   void dispose() {
+    final dur = DateTime.now().difference(_screenOpenTime).inSeconds;
+    if (_vocab != null && dur > 2) {
+      apiService.logActivity(activityType: 'vocabulary', refId: widget.id, durationSeconds: dur);
+    }
     _tts.stop();
     super.dispose();
   }
@@ -297,7 +236,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
         leading: IconButton(
           tooltip: '返回',
           icon: const Icon(Icons.arrow_back_ios_rounded),
-          onPressed: () => GoRouter.of(context).go('/vocabulary'),
+          onPressed: () => context.canPop() ? context.pop() : context.go('/vocabulary'),
         ),
         title: Text(_vocab?.word ?? '単詞詳細'),
         actions: [

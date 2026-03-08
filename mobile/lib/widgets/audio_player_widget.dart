@@ -45,12 +45,17 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     });
   }
 
-  /// ✅ 新增：初始化音频焦点（确保音频可以正常播放）
+  /// 初始化音频焦点（确保音频可以正常播放）
   void _initAudioSession() {
     AudioSession.instance.then((session) {
       session.configure(const AudioSessionConfiguration(
         avAudioSessionCategory: AVAudioSessionCategory.playback,
         avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.duckOthers,
+        androidAudioAttributes: AndroidAudioAttributes(
+          contentType: AndroidAudioContentType.music,
+          usage: AndroidAudioUsage.media,
+        ),
+        androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
       )).catchError((e) {
         print('【音频】AudioSession 配置失败: $e');
       });

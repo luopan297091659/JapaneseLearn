@@ -1,20 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'services/api_service.dart';
 import 'services/sync_service.dart';
 import 'router/app_router.dart';
 import 'l10n/app_localizations.dart';
 import 'providers/locale_provider.dart';
+import 'utils/tts_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   apiService.init();
+  apiService.setOnSessionReplaced(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = rootNavigatorKey.currentContext;
+      if (ctx == null) return;
+      GoRouter.of(ctx).go('/login');
+      ScaffoldMessenger.maybeOf(ctx)?.showSnackBar(
+        const SnackBar(
+          content: Text('你的账号已在其他设备登录，请重新登录'),
+          duration: Duration(seconds: 5),
+        ),
+      );
+    });
+  });
   // 启动时读取持久化语言设置
   final container = ProviderContainer();
   await container.read(localeProvider.notifier).init();
   // 后台检测服务端内容版本，有更新则清除缓存
   syncService.checkContentVersion();
+  // 后台拉取功能开关
+  syncService.fetchFeatureToggles();
+  // 预初始化 TTS 引擎诊断
+  TtsHelper.instance.init();
   runApp(UncontrolledProviderScope(container: container, child: const JapaneseLearnApp()));
 }
 

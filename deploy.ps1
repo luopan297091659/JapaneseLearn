@@ -38,7 +38,7 @@ function Remote-Upload-File([string]$Local, [string]$RemoteFile) {
 
 # 步骤 1: 创建远程目录
 Write-Host "[1/4] 创建远程目录..." -ForegroundColor Yellow
-Remote-Run "mkdir -p $RemotePath"
+Remote-Run "mkdir -p $RemotePath/config"
 
 # 步骤 2: 上传代码
 Write-Host "[2/4] 上传文件..." -ForegroundColor Yellow

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import '../../utils/tts_helper.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
@@ -33,38 +34,57 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
   GrammarLessonModel? _lesson;
   bool _loading = true;
   bool _ttsReady = false;
+  late final DateTime _screenOpenTime;
 
   @override
   void initState() {
     super.initState();
+    _screenOpenTime = DateTime.now();
     _initTts();
     _load();
   }
 
   Future<void> _initTts() async {
-    try {
-      await _tts.setLanguage('ja-JP');
-      await _tts.setSpeechRate(0.45);
-      _ttsReady = true;
-    } catch (e) {
-      debugPrint('TTS 初始化失败: $e');
-    }
+    _tts.setErrorHandler((err) => debugPrint('TTS error: $err'));
+    _tts.setStartHandler(() { if (mounted) setState(() {}); });
+    _tts.setCompletionHandler(() { if (mounted) setState(() {}); });
+    _tts.setCancelHandler(() { if (mounted) setState(() {}); });
+    await TtsHelper.configureForJapanese(_tts);
+    if (mounted) setState(() => _ttsReady = true);
   }
 
-  void _speakJa(String text) {
+  Future<void> _speakJa(String text) async {
     if (!_ttsReady) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('语音引擎不可用，请在系统设置中安装日语 TTS 引擎'), duration: Duration(seconds: 3)),
+        const SnackBar(content: Text('语音引擎初始化中，请稍后再试…'), duration: Duration(seconds: 2)),
       );
       return;
     }
-    _tts.speak(text).catchError((e) {
-      debugPrint('TTS 播放失败: $e');
-    });
+    try {
+      try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+      await _tts.setVolume(1.0);
+      final result = await _tts.speak(text);
+      if (result != 1 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('语音引擎不可用，请检查系统TTS设置'), duration: Duration(seconds: 3)),
+        );
+      }
+    } catch (e) {
+      debugPrint('TTS speak error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('朗读出错：$e'), duration: const Duration(seconds: 3)),
+        );
+      }
+    }
   }
 
   @override
   void dispose() {
+    final dur = DateTime.now().difference(_screenOpenTime).inSeconds;
+    if (_lesson != null && dur > 2) {
+      apiService.logActivity(activityType: 'grammar', refId: widget.id, durationSeconds: dur);
+    }
     _tts.stop();
     super.dispose();
   }

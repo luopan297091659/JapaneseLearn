@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import '../../utils/tts_helper.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
@@ -29,7 +30,8 @@ class _NhkDetailScreenState extends State<NhkDetailScreen> {
   }
 
   Future<void> _initTts() async {
-    await _tts.setLanguage('ja-JP');
+    _tts.setErrorHandler((err) => debugPrint('TTS error: $err'));
+    await TtsHelper.configureForJapanese(_tts);
     await _tts.setSpeechRate(0.4);
   }
 
@@ -57,14 +59,23 @@ class _NhkDetailScreenState extends State<NhkDetailScreen> {
         setState(() => _isFav = false);
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已取消收藏'), duration: Duration(seconds: 1)));
       } else {
+        final title = widget.article?.title ?? _plainText(_body);
         await apiService.addNewsFavorite(
-          newsType: 'nhk', newsId: widget.newsId, title: widget.article?.title ?? '',
-          description: widget.article?.body, source: 'NHK', publishedAt: widget.article?.publishedAt,
+          newsType: 'nhk', newsId: widget.newsId,
+          title: title.isNotEmpty ? title : 'NHK Easy News',
+          description: widget.article?.body ?? _plainText(_body),
+          source: 'NHK', publishedAt: widget.article?.publishedAt,
         );
         setState(() => _isFav = true);
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已收藏'), duration: Duration(seconds: 1)));
       }
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('操作失败：$e'), duration: const Duration(seconds: 2)),
+        );
+      }
+    }
   }
 
   // 从 HTML 中提取纯文本，保留 ruby 标注
@@ -131,9 +142,26 @@ class _NhkDetailScreenState extends State<NhkDetailScreen> {
           IconButton(
             icon: const Icon(Icons.volume_up, size: 20),
             tooltip: '朗读',
-            onPressed: () {
+            onPressed: () async {
               final text = _plainText(_body);
-              if (text.isNotEmpty) _tts.speak(text.substring(0, text.length.clamp(0, 500)));
+              if (text.isEmpty) return;
+              try {
+                try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+                await _tts.setVolume(1.0);
+                final result = await _tts.speak(text.substring(0, text.length.clamp(0, 500)));
+                if (result != 1 && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('语音引擎不可用，请检查系统TTS设置'), duration: Duration(seconds: 3)),
+                  );
+                }
+              } catch (e) {
+                debugPrint('TTS speak error: $e');
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('朗读出错：$e'), duration: const Duration(seconds: 3)),
+                  );
+                }
+              }
             },
           ),
           IconButton(

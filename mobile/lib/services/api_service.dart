@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
+import 'package:flutter/foundation.dart' show VoidCallback;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import '../config/app_config.dart';
 import '../models/models.dart';
-import 'permission_service.dart';
 
 // ─── 简单内存缓存 ─────────────────────────────────────────────────────────────
 
@@ -51,6 +51,12 @@ class ApiService {
   Dio get dio => _dio;
   final _cache = _MemCache();
   Completer<bool>? _refreshCompleter;  // 并发刷新锁
+  VoidCallback? _onSessionReplaced;
+
+  /// 设置被其他设备登录顶替时的回调
+  void setOnSessionReplaced(VoidCallback callback) {
+    _onSessionReplaced = callback;
+  }
 
   void init() {
     _dio = Dio(BaseOptions(
@@ -100,6 +106,15 @@ class ApiService {
       },
       onError: (error, handler) async {
         if (error.response?.statusCode == 401) {
+          // 检查是否被其他设备顶替
+          final data = error.response?.data;
+          if (data is Map && data['error'] == 'SESSION_REPLACED') {
+            await _storage.deleteAll();
+            _cache.clear();
+            _onSessionReplaced?.call();
+            handler.next(error);
+            return;
+          }
           final refreshed = await _refreshToken();
           if (refreshed) {
             final token = await _storage.read(key: 'access_token');
@@ -173,12 +188,6 @@ class ApiService {
   /// 支持自动重试：网络失败时最多重试 3 次，指数退避延迟
   /// ✅ 新增：检查存储权限和磁盘空间
   Future<String> downloadToTempFile(String url, {int maxRetries = 3}) async {
-    // ✅ 新增：权限检查（Android 6.0+）
-    final hasStoragePermission = await PermissionService.requestStoragePermission();
-    if (!hasStoragePermission) {
-      throw Exception('存储权限被拒绝，无法缓存音频。请在设置中授予权限。');
-    }
-
     final dir = await getTemporaryDirectory();
     
     // ✅ 改进缓存策略：使用音频 UUID（比使用完整 URL hash 更稳定）
@@ -277,13 +286,14 @@ class ApiService {
       'email': email,
       'password': password,
       'level': level,
+      'platform': 'app',
     });
     await _saveTokens(res.data);
     return res.data;
   }
 
   Future<Map<String, dynamic>> login({required String email, required String password}) async {
-    final res = await _dio.post('/auth/login', data: {'email': email, 'password': password});
+    final res = await _dio.post('/auth/login', data: {'email': email, 'password': password, 'platform': 'app'});
     await _saveTokens(res.data);
     return res.data;
   }
@@ -746,6 +756,15 @@ class ApiService {
   Future<ProgressSummaryModel> getProgressSummary() async {
     final res = await _dio.get('/progress/summary');
     return ProgressSummaryModel.fromJson(res.data);
+  }
+
+  Future<Map<String, dynamic>> getDailyGoals() async {
+    const key = 'progress:daily-goals';
+    final cached = _cache.get(key);
+    if (cached != null) return cached as Map<String, dynamic>;
+    final res = await _dio.get('/progress/daily-goals');
+    _cache.set(key, res.data, AppConfig.cacheTtlShort);
+    return res.data as Map<String, dynamic>;
   }
 }
 

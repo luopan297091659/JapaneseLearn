@@ -23,6 +23,85 @@ async function logActivity(req, res) {
   }
 }
 
+// ── 今日统计 + 目标进度 ──────────────────────────────────────────────────────
+async function getDailyGoals(req, res) {
+  try {
+    const userId = req.user.id;
+    const today = new Date().toISOString().split('T')[0];
+
+    // 今日学习统计
+    const todayStats = await UserProgress.findAll({
+      where: { user_id: userId, studied_at: today },
+      attributes: [
+        [sequelize.fn('SUM', sequelize.col('duration_seconds')), 'total_seconds'],
+        [sequelize.fn('SUM', sequelize.col('xp_earned')), 'total_xp'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'activity_count'],
+      ],
+    });
+
+    // 今日各类型活动计数
+    const todayByType = await UserProgress.findAll({
+      where: { user_id: userId, studied_at: today },
+      attributes: [
+        'activity_type',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+      ],
+      group: ['activity_type'],
+    });
+
+    // 今日测验数
+    const todayQuizCount = await QuizSession.count({
+      where: {
+        user_id: userId,
+        completed_at: { [Op.gte]: new Date(today) },
+      },
+    });
+
+    // 今日 SRS 复习数
+    const todaySrsCount = todayByType.find(t => t.activity_type === 'srs_review');
+
+    // 总 XP
+    const totalXpRow = await UserProgress.findAll({
+      where: { user_id: userId },
+      attributes: [[sequelize.fn('SUM', sequelize.col('xp_earned')), 'total_xp']],
+    });
+
+    const totalXp = parseInt(totalXpRow[0]?.dataValues?.total_xp) || 0;
+    const dailyGoalMinutes = req.user.daily_goal_minutes || 15;
+    const todaySeconds = parseInt(todayStats[0]?.dataValues?.total_seconds) || 0;
+    const todayXp = parseInt(todayStats[0]?.dataValues?.total_xp) || 0;
+    const todayActivities = parseInt(todayStats[0]?.dataValues?.activity_count) || 0;
+
+    // ── 实时计算连续打卡 ──
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const lastStudy = req.user.last_study_date;
+    let realStreak = req.user.streak_days || 0;
+    if (lastStudy && lastStudy !== today && lastStudy !== yesterday) {
+      realStreak = 0;
+    }
+
+    res.json({
+      streak_days: realStreak,
+      total_xp: totalXp,
+      level: req.user.level || 'N5',
+      today: {
+        study_seconds: todaySeconds,
+        xp_earned: todayXp,
+        activity_count: todayActivities,
+        quiz_count: todayQuizCount,
+        srs_review_count: parseInt(todaySrsCount?.dataValues?.count) || 0,
+      },
+      goals: {
+        study_minutes: { target: dailyGoalMinutes, current: Math.floor(todaySeconds / 60) },
+        lessons: { target: 1, current: Math.min(todayActivities, 1) },
+        reviews: { target: 20, current: parseInt(todaySrsCount?.dataValues?.count) || 0 },
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 async function getSummary(req, res) {
   try {
     const userId = req.user.id;
@@ -83,9 +162,18 @@ async function getSummary(req, res) {
       attributes: [[sequelize.fn('SUM', sequelize.col('xp_earned')), 'total_xp']],
     });
 
+    // ── 实时计算连续打卡 ──
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const lastStudy = req.user.last_study_date;
+    let realStreak = req.user.streak_days || 0;
+    if (lastStudy && lastStudy !== today && lastStudy !== yesterday) {
+      realStreak = 0; // 链条已断，实时归零
+    }
+
     res.json({
       user: {
-        streak_days: req.user.streak_days,
+        streak_days: realStreak,
         total_study_minutes: req.user.total_study_minutes,
         level: req.user.level,
         total_xp: parseInt(totalXpRow[0]?.dataValues?.total_xp) || 0,
@@ -127,4 +215,4 @@ async function updateStreak(user) {
   });
 }
 
-module.exports = { logActivity, getSummary };
+module.exports = { logActivity, getSummary, getDailyGoals };

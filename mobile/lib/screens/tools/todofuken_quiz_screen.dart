@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
+import '../../utils/tts_helper.dart';
 
 // ── 47 都道府县数据 ──────────────────────────────────────────────────────────
 class _Prefecture {
@@ -93,8 +94,9 @@ class _TodofukenQuizScreenState extends State<TodofukenQuizScreen> {
   }
 
   Future<void> _initTts() async {
-    await _tts.setLanguage('ja-JP');
-    await _tts.setSpeechRate(0.4);
+    _tts.setErrorHandler((err) => debugPrint('TTS error: $err'));
+    await TtsHelper.configureForJapanese(_tts);
+    await _tts.setSpeechRate(0.4); // 此页面用稍慢的语速
   }
 
   @override
@@ -133,7 +135,14 @@ class _TodofukenQuizScreenState extends State<TodofukenQuizScreen> {
       _answered = true;
       if (isCorrect) _correct++;
     });
-    _tts.speak(_current.hiragana);
+    () async {
+      try {
+        try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+        await _tts.speak(_current.hiragana);
+      } catch (e) {
+        debugPrint('TTS speak error: $e');
+      }
+    }();
     Future.delayed(const Duration(milliseconds: 1200), () {
       if (!mounted) return;
       _qIndex++;

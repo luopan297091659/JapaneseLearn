@@ -460,13 +460,17 @@ ul { list-style: none; }
       <div class="nav-item" data-page="srs" onclick="navigate('srs')"><span class="icon">🗂️</span>SRS 复习</div>
       <div class="nav-item" data-page="listening" onclick="navigate('listening')"><span class="icon">🎧</span>听力</div>
       <div class="nav-item" data-page="pronunciation" onclick="navigate('pronunciation')"><span class="icon">🎤</span>发音练习</div>
+      <div class="nav-item" data-page="gojuon" onclick="navigate('gojuon')"><span class="icon">🔤</span>五十音</div>
+      <div class="nav-item" data-page="flashcard" onclick="navigate('flashcard')"><span class="icon">🃏</span>闪卡练习</div>
       <div class="nav-section">游戏</div>
       <div class="nav-item" data-page="game" onclick="navigate('game')"><span class="icon">🎮</span>助词方块</div>
+      <div class="nav-item" data-page="game-verbs" onclick="navigate('game-verbs')"><span class="icon">🎮</span>动词方块</div>
       <div class="nav-section">工具</div>
       <div class="nav-item" data-page="dictionary" onclick="navigate('dictionary')"><span class="icon">🔍</span>词典</div>
       <div class="nav-item" data-page="news" onclick="navigate('news')"><span class="icon">📰</span>新闻</div>
       <div class="nav-section">测试</div>
       <div class="nav-item" data-page="quiz" onclick="navigate('quiz')"><span class="icon">✏️</span>测验</div>
+      <div class="nav-item" data-page="todofuken" onclick="navigate('todofuken')"><span class="icon">🗾</span>都道府県</div>
       <div class="nav-section">账号</div>
       <div class="nav-item" data-page="profile" onclick="navigate('profile')"><span class="icon">👤</span>我的</div>
       <div class="nav-footer">
@@ -560,14 +564,23 @@ ul { list-style: none; }
             <div class="quick-action" onclick="navigate('srs')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
               <div style="font-size:24px">🗂️</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">SRS复习</div>
             </div>
-            <div class="quick-action" onclick="navigate('quiz')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
-              <div style="font-size:24px">✏️</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">做测验</div>
+            <div class="quick-action" onclick="navigate('flashcard')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
+              <div style="font-size:24px">🃏</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">闪卡练习</div>
+            </div>
+            <div class="quick-action" onclick="navigate('gojuon')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
+              <div style="font-size:24px">🔤</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">五十音</div>
             </div>
             <div class="quick-action" onclick="navigate('game')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
               <div style="font-size:24px">🎮</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">助词游戏</div>
             </div>
-            <div class="quick-action" onclick="navigate('pronunciation')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
-              <div style="font-size:24px">🎤</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">发音练习</div>
+            <div class="quick-action" onclick="navigate('game-verbs')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
+              <div style="font-size:24px">🎮</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">动词方块</div>
+            </div>
+            <div class="quick-action" onclick="navigate('quiz')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
+              <div style="font-size:24px">✏️</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">做测验</div>
+            </div>
+            <div class="quick-action" onclick="navigate('todofuken')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
+              <div style="font-size:24px">🗾</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">都道府県</div>
             </div>
           </div>
         </div>
@@ -787,9 +800,7 @@ ul { list-style: none; }
         <!-- 新闻来源 tab -->
         <div class="chips" id="news-tab-chips" style="margin-bottom:12px">
           <div class="chip active" onclick="switchNewsTab('nhk')">NHK新闻</div>
-          <div class="chip" onclick="switchNewsTab('db')">收录新闻</div>
           <div class="chip" onclick="switchNewsTab('fav')">⭐ 我的收藏</div>
-          <div class="chip" onclick="switchNewsTab('video')">📺 视频新闻</div>
         </div>
         <!-- NHK分类 -->
         <div class="chips" id="nhk-cat-chips">
@@ -801,27 +812,10 @@ ul { list-style: none; }
           <div class="chip" onclick="selectNhkCat('7')">スポーツ</div>
           <div class="chip" onclick="selectNhkCat('3')">科学·文化</div>
         </div>
-        <!-- DB难度 -->
-        <div class="chips" id="news-diff-chips" style="display:none">
-          <div class="chip active" onclick="selectNewsDiff('easy')">easy</div>
-          <div class="chip" onclick="selectNewsDiff('medium')">medium</div>
-          <div class="chip" onclick="selectNewsDiff('hard')">hard</div>
-          <div class="chip" onclick="selectNewsDiff(null)">全部</div>
-        </div>
+
         <div class="grid-2" id="news-list"></div>
         <div id="news-loading" class="loading"><div class="spinner"></div></div>
-        <!-- 视频新闻 iframe -->
-        <div id="news-video-wrap" style="display:none">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <span style="font-size:14px;color:var(--text-hint)">NHK 视频新闻（嵌入页面）</span>
-            <a href="https://www3.nhk.or.jp/news/movie.html" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">↗ 新窗口打开</a>
-          </div>
-          <iframe id="news-video-iframe" style="width:100%;height:calc(100vh - 220px);border:1px solid var(--border);border-radius:12px" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
-          <div id="news-video-fallback" style="display:none;text-align:center;padding:40px 0">
-            <p style="font-size:15px;margin-bottom:16px">⚠️ 该页面不支持嵌入，请在新窗口中查看</p>
-            <a href="https://www3.nhk.or.jp/news/movie.html" target="_blank" rel="noopener noreferrer" class="btn btn-primary">📺 打开 NHK 视频新闻</a>
-          </div>
-        </div>
+
       </div>
 
       <!-- 小游戏页 -->
@@ -832,7 +826,7 @@ ul { list-style: none; }
           <!-- 标题栏 -->
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
             <div>
-              <h2 style="font-size:20px;margin:0">🎮 助词方块</h2>
+              <h2 style="font-size:20px;margin:0" id="g-title">🎮 助词方块</h2>
               <div id="g-max-badge" style="font-size:11px;color:var(--text-hint);margin-top:2px">共 10 关</div>
             </div>
             <div style="display:flex;gap:8px">
@@ -850,9 +844,9 @@ ul { list-style: none; }
                 <span id="g-speed-val" style="font-size:13px;font-weight:800;background:var(--primary);color:#fff;padding:2px 10px;border-radius:12px;min-width:42px;text-align:center">2.0s</span>
               </div>
             </div>
-            <input id="g-speed-slider" type="range" min="300" max="10000" step="100" value="2000" oninput="gameSpeedInput(this)">
+            <input id="g-speed-slider" type="range" min="300" max="20000" step="100" value="2000" oninput="gameSpeedInput(this)">
             <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-hint);margin-top:5px">
-              <span>⚡ 0.3s 极速</span><span>🚶 1.4s 正常</span><span>🐌 10s 超慢</span>
+              <span>⚡ 0.3s 极速</span><span>🚶 1.4s 正常</span><span>🐌 20s 超慢</span>
             </div>
           </div>
           <!-- 关卡网格 -->
@@ -912,6 +906,101 @@ ul { list-style: none; }
           </div>
         </div>
 
+      </div>
+
+      <!-- 闪卡练习页 -->
+      <div class="page" id="page-flashcard">
+        <h2 style="margin-bottom:20px;font-size:22px">🃏 闪卡练习</h2>
+        <!-- 选级阶段 -->
+        <div id="fc-setup">
+          <div class="card" style="text-align:center;padding:30px">
+            <div style="font-size:48px;margin-bottom:16px">🃏</div>
+            <div style="font-size:18px;font-weight:700;margin-bottom:8px">选择词库等级</div>
+            <div style="font-size:13px;color:var(--text-sub);margin-bottom:20px">翻转记忆 · 四级评价 · 科学复习</div>
+            <div class="chips" style="justify-content:center;margin-bottom:20px">
+              <div class="chip active" onclick="selectFcLevel('N5')">N5</div>
+              <div class="chip" onclick="selectFcLevel('N4')">N4</div>
+              <div class="chip" onclick="selectFcLevel('N3')">N3</div>
+              <div class="chip" onclick="selectFcLevel('N2')">N2</div>
+              <div class="chip" onclick="selectFcLevel('N1')">N1</div>
+            </div>
+            <button class="btn btn-primary" onclick="startFlashcard()" style="padding:12px 40px;font-size:16px">开始练习</button>
+          </div>
+        </div>
+        <!-- 卡片阶段 -->
+        <div id="fc-play" style="display:none">
+          <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px">
+            <button class="btn btn-outline btn-sm" onclick="fcBackToSetup()">← 返回</button>
+            <span id="fc-progress" style="font-size:13px;color:var(--text-sub)">1 / 50</span>
+            <div class="progress-bar" style="flex:1"><div id="fc-prog-bar" class="fill" style="width:0%"></div></div>
+          </div>
+          <div class="card" id="fc-card" onclick="fcFlip()" style="min-height:260px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:transform .3s">
+            <div id="fc-front" style="text-align:center">
+              <div id="fc-word" style="font-size:36px;font-weight:900;margin-bottom:8px"></div>
+              <div id="fc-reading" style="font-size:16px;color:var(--text-sub)"></div>
+              <div style="font-size:13px;color:var(--text-hint);margin-top:16px">点击翻转查看释义</div>
+            </div>
+            <div id="fc-back" style="display:none;text-align:center;width:100%">
+              <div id="fc-word2" style="font-size:24px;font-weight:800;margin-bottom:4px"></div>
+              <div id="fc-reading2" style="font-size:14px;color:var(--text-sub);margin-bottom:8px"></div>
+              <div id="fc-meaning" style="font-size:20px;font-weight:700;color:var(--primary);margin-bottom:8px"></div>
+              <div id="fc-example" style="font-size:14px;color:var(--text-sub);background:var(--bg2);padding:10px;border-radius:8px;margin-top:8px"></div>
+            </div>
+          </div>
+          <div id="fc-actions" style="display:none;margin-top:16px">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+              <button class="btn" onclick="fcRate(0)" style="background:#ef4444;color:#fff;padding:12px 4px;border-radius:10px;font-size:13px;font-weight:700">重来<br><span style="font-size:11px;opacity:.7">again</span></button>
+              <button class="btn" onclick="fcRate(1)" style="background:#f59e0b;color:#fff;padding:12px 4px;border-radius:10px;font-size:13px;font-weight:700">困难<br><span style="font-size:11px;opacity:.7">hard</span></button>
+              <button class="btn" onclick="fcRate(3)" style="background:#10b981;color:#fff;padding:12px 4px;border-radius:10px;font-size:13px;font-weight:700">良好<br><span style="font-size:11px;opacity:.7">good</span></button>
+              <button class="btn" onclick="fcRate(5)" style="background:#3b82f6;color:#fff;padding:12px 4px;border-radius:10px;font-size:13px;font-weight:700">简单<br><span style="font-size:11px;opacity:.7">easy</span></button>
+            </div>
+          </div>
+        </div>
+        <!-- 结果阶段 -->
+        <div id="fc-result" style="display:none"></div>
+      </div>
+
+      <!-- 五十音页 -->
+      <div class="page" id="page-gojuon">
+        <h2 style="margin-bottom:20px;font-size:22px">🔤 五十音図</h2>
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+          <button class="btn btn-sm" id="gojuon-mode-btn" onclick="toggleGojuonMode()" style="background:var(--primary);color:#fff">平仮名</button>
+        </div>
+        <div class="chips" id="gojuon-tabs" style="margin-bottom:16px">
+          <div class="chip active" onclick="switchGojuonTab('seion')">清音</div>
+          <div class="chip" onclick="switchGojuonTab('dakuon')">浊音・半浊音</div>
+          <div class="chip" onclick="switchGojuonTab('youon')">拗音</div>
+        </div>
+        <div id="gojuon-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px"></div>
+      </div>
+
+      <!-- 都道府県クイズ -->
+      <div class="page" id="page-todofuken">
+        <h2 style="margin-bottom:20px;font-size:22px">🗾 都道府県クイズ</h2>
+        <!-- 地区选择阶段 -->
+        <div id="tdf-setup">
+          <div class="card" style="text-align:center;padding:30px">
+            <div style="font-size:48px;margin-bottom:16px">🗾</div>
+            <div style="font-size:18px;font-weight:700;margin-bottom:8px">选择地区开始测验</div>
+            <div style="font-size:13px;color:var(--text-sub);margin-bottom:20px">学习 47 个都道府県的读音</div>
+          </div>
+          <div class="grid-2" id="tdf-regions" style="gap:10px;margin-top:16px"></div>
+        </div>
+        <!-- 测验阶段 -->
+        <div id="tdf-play" style="display:none">
+          <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px">
+            <button class="btn btn-outline btn-sm" onclick="tdfBackToSetup()">← 返回</button>
+            <span id="tdf-progress" style="font-size:13px;color:var(--text-sub)">1 / 10</span>
+            <div class="progress-bar" style="flex:1"><div id="tdf-prog-bar" class="fill" style="width:0%"></div></div>
+          </div>
+          <div class="card" style="text-align:center;padding:30px">
+            <div id="tdf-kanji" style="font-size:42px;font-weight:900;margin-bottom:16px"></div>
+            <div style="font-size:14px;color:var(--text-sub);margin-bottom:20px">この都道府県の読み方は？</div>
+            <div id="tdf-options" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+          </div>
+        </div>
+        <!-- 结果 -->
+        <div id="tdf-result" style="display:none"></div>
       </div>
 
       <!-- 个人页 -->
@@ -989,6 +1078,16 @@ async function request(method, path, body = null, opts = {}, _retryCount = 0) {
   // 登录/注册接口的 401 直接走通用错误处理，展示服务器返回的具体原因
   const isAuthPath = path.startsWith('/auth/login') || path.startsWith('/auth/register');
   if (res.status === 401 && !isAuthPath && !_isRefreshing) {
+    // 检查是否被其他设备顶替
+    try {
+      const errBody = await res.clone().json();
+      if (errBody.error === 'SESSION_REPLACED') {
+        clearTokens();
+        showAuth();
+        toast('你的账号已在其他设备登录，请重新登录', 5000);
+        throw new Error('你的账号已在其他设备登录');
+      }
+    } catch(e) { if (e.message.includes('其他设备')) throw e; }
     _isRefreshing = true;
     try {
       const rt = localStorage.getItem('refresh_token');
@@ -1003,6 +1102,17 @@ async function request(method, path, body = null, opts = {}, _retryCount = 0) {
           _isRefreshing = false;
           return request(method, path, body, opts, 0);
         }
+        // 刷新也返回 SESSION_REPLACED
+        try {
+          const err = await r.json();
+          if (err.error === 'SESSION_REPLACED') {
+            _isRefreshing = false;
+            clearTokens();
+            showAuth();
+            toast('你的账号已在其他设备登录，请重新登录', 5000);
+            throw new Error('你的账号已在其他设备登录');
+          }
+        } catch(e) { if (e.message.includes('其他设备')) throw e; }
       }
     } finally {
       _isRefreshing = false;
@@ -1059,9 +1169,15 @@ function closeModalOutside(e) { if (e.target === document.getElementById('modal-
 //  NAVIGATION
 // ══════════════════════════════════════════════════════════════════
 function navigate(page) {
+  // 检查功能开关
+  if (page !== 'home' && page !== 'profile' && !isFeatureEnabled(page)) {
+    toast('该功能暂未开放'); return;
+  }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('#sidebar .nav-item').forEach(i => i.classList.remove('active'));
-  const pg = document.getElementById('page-' + page);
+  // game-verbs reuses the same game page
+  const pageId = page === 'game-verbs' ? 'game' : page;
+  const pg = document.getElementById('page-' + pageId);
   if (pg) pg.classList.add('active');
   const ni = document.querySelector(`[data-page="${page}"]`);
   if (ni) ni.classList.add('active');
@@ -1080,8 +1196,12 @@ function navigate(page) {
     case 'listening': if (!listenLoaded) loadListening(); break;
     case 'news': if (newsTab === 'nhk') { if (!nhkLoaded) loadNhkNews(); } else if (newsTab === 'fav') { loadFavNews(); } else { if (!newsLoaded) loadNews(); } break;
     case 'profile': loadProfile(); break;
-    case 'game': gamePageInit(); break;
+    case 'game': gamePageInit('particles'); break;
+    case 'game-verbs': gamePageInit('verbs'); break;
     case 'pronunciation': loadPronunciation(); break;
+    case 'flashcard': loadFlashcardSetup(); break;
+    case 'gojuon': loadGojuon(); break;
+    case 'todofuken': loadTodofuken(); break;
   }
 }
 
@@ -1123,7 +1243,7 @@ async function doLogin() {
   errEl.style.display = 'none';
   if (!email || !pwd) { errEl.textContent = '请填写邮箱和密码'; errEl.style.display = ''; return; }
   try {
-    const res = await POST('/auth/login', { email, password: pwd });
+    const res = await POST('/auth/login', { email, password: pwd, platform: 'web' });
     setToken(res.accessToken, res.refreshToken);
     showApp();
     loadHome();
@@ -1145,7 +1265,7 @@ async function doRegister() {
   if (!/^[a-zA-Z0-9_]+$/.test(name)) { errEl.textContent = '用户名只能包含英文字母、数字和下划线'; errEl.style.display = ''; return; }
   if (name.length < 3 || name.length > 50) { errEl.textContent = '用户名长度需在 3-50 个字符之间'; errEl.style.display = ''; return; }
   try {
-    const res = await POST('/auth/register', { username: name, email, password: pwd, level });
+    const res = await POST('/auth/register', { username: name, email, password: pwd, level, platform: 'web' });
     setToken(res.accessToken, res.refreshToken);
     showApp();
     loadHome();
@@ -1175,15 +1295,20 @@ let _wodPool = []; let _wodIdx = 0;
 const FREQUENT_KEY = 'kotabi_frequent_funcs';
 const FREQUENT_MAX = 6;
 const PAGE_META = {
-  vocabulary: { icon: '📖', name: '单词学习' },
-  grammar:    { icon: '📝', name: '语法课程' },
-  srs:        { icon: '🗂️', name: 'SRS 复习' },
-  quiz:       { icon: '✏️', name: '随堂测验' },
-  game:       { icon: '🎮', name: '助词方块' },
-  dictionary: { icon: '🔍', name: '词典查询' },
-  listening:  { icon: '🎧', name: '听力练习' },
-  news:       { icon: '📰', name: '日语新闻' },
-  profile:    { icon: '👤', name: '我的' },
+  vocabulary:    { icon: '📖', name: '单词学习' },
+  grammar:       { icon: '📝', name: '语法课程' },
+  srs:           { icon: '🗂️', name: 'SRS 复习' },
+  quiz:          { icon: '✏️', name: '随堂测验' },
+  game:          { icon: '🎮', name: '助词方块' },
+  'game-verbs':  { icon: '🎮', name: '动词方块' },
+  dictionary:    { icon: '🔍', name: '词典查询' },
+  listening:     { icon: '🎧', name: '听力练习' },
+  news:          { icon: '📰', name: '日语新闻' },
+  profile:       { icon: '👤', name: '我的' },
+  pronunciation: { icon: '🎤', name: '发音练习' },
+  flashcard:     { icon: '🃏', name: '闪卡练习' },
+  gojuon:        { icon: '🔤', name: '五十音' },
+  todofuken:     { icon: '🗾', name: '都道府県' },
 };
 
 function getFrequentFuncs() {
@@ -2102,33 +2227,15 @@ let newsTab = 'nhk', nhkCat = '0', nhkLoaded = false;
 function switchNewsTab(tab) {
   newsTab = tab;
   document.querySelectorAll('#news-tab-chips .chip').forEach((c, i) => {
-    c.classList.toggle('active', ['nhk','db','fav','video'][i] === tab);
+    c.classList.toggle('active', ['nhk','fav'][i] === tab);
   });
   document.getElementById('nhk-cat-chips').style.display = tab === 'nhk' ? '' : 'none';
-  document.getElementById('news-diff-chips').style.display = tab === 'db' ? '' : 'none';
-  const videoWrap = document.getElementById('news-video-wrap');
   const newsList = document.getElementById('news-list');
   const newsLoading = document.getElementById('news-loading');
-  if (tab === 'video') {
-    newsList.style.display = 'none';
-    newsLoading.style.display = 'none';
-    videoWrap.style.display = '';
-    const iframe = document.getElementById('news-video-iframe');
-    if (!iframe.src) {
-      iframe.src = 'https://www3.nhk.or.jp/news/movie.html';
-      iframe.onerror = () => {
-        iframe.style.display = 'none';
-        document.getElementById('news-video-fallback').style.display = '';
-      };
-    }
-  } else {
-    videoWrap.style.display = 'none';
-    newsList.style.display = '';
-    newsList.innerHTML = '';
-    if (tab === 'nhk') { nhkLoaded = false; loadNhkNews(); }
-    else if (tab === 'fav') { loadFavNews(); }
-    else { newsLoaded = false; loadNews(); }
-  }
+  newsList.style.display = '';
+  newsList.innerHTML = '';
+  if (tab === 'nhk') { nhkLoaded = false; loadNhkNews(); }
+  else if (tab === 'fav') { loadFavNews(); }
 }
 
 function selectNhkCat(cat) {
@@ -2391,8 +2498,356 @@ async function updateProfile() {
   } catch(e) { toast('保存失败: ' + e.message); }
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  FLASHCARD
+// ══════════════════════════════════════════════════════════════════
+let _fcLevel = 'N5', _fcCards = [], _fcIdx = 0, _fcFlipped = false;
+let _fcStats = { total: 0, again: 0, hard: 0, good: 0, easy: 0 };
+
+function selectFcLevel(level) {
+  _fcLevel = level;
+  document.querySelectorAll('#fc-setup .chip').forEach(c => {
+    c.classList.toggle('active', c.textContent.trim() === level);
+  });
+}
+
+function loadFlashcardSetup() {
+  document.getElementById('fc-setup').style.display = '';
+  document.getElementById('fc-play').style.display = 'none';
+  document.getElementById('fc-result').style.display = 'none';
+}
+
+async function startFlashcard() {
+  try {
+    const res = await GET(`/vocabulary?level=${_fcLevel}&limit=50&page=1`);
+    _fcCards = (res.data || []).slice();
+    // shuffle
+    for (let i = _fcCards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [_fcCards[i], _fcCards[j]] = [_fcCards[j], _fcCards[i]];
+    }
+    if (_fcCards.length === 0) { toast('暂无词汇数据'); return; }
+    _fcIdx = 0; _fcFlipped = false;
+    _fcStats = { total: 0, again: 0, hard: 0, good: 0, easy: 0 };
+    document.getElementById('fc-setup').style.display = 'none';
+    document.getElementById('fc-play').style.display = '';
+    document.getElementById('fc-result').style.display = 'none';
+    renderFcCard();
+  } catch(e) { toast('加载失败: ' + e.message); }
+}
+
+function renderFcCard() {
+  if (_fcIdx >= _fcCards.length) { showFcResult(); return; }
+  const w = _fcCards[_fcIdx];
+  _fcFlipped = false;
+  document.getElementById('fc-front').style.display = '';
+  document.getElementById('fc-back').style.display = 'none';
+  document.getElementById('fc-actions').style.display = 'none';
+  document.getElementById('fc-word').textContent = cleanWord(w.word) || '--';
+  document.getElementById('fc-reading').textContent = cleanReading(w.reading) || '';
+  document.getElementById('fc-progress').textContent = `${_fcIdx + 1} / ${_fcCards.length}`;
+  document.getElementById('fc-prog-bar').style.width = `${(_fcIdx + 1) / _fcCards.length * 100}%`;
+}
+
+function fcFlip() {
+  if (_fcFlipped) return;
+  _fcFlipped = true;
+  const w = _fcCards[_fcIdx];
+  document.getElementById('fc-front').style.display = 'none';
+  document.getElementById('fc-back').style.display = '';
+  document.getElementById('fc-actions').style.display = '';
+  document.getElementById('fc-word2').textContent = cleanWord(w.word) || '--';
+  document.getElementById('fc-reading2').textContent = cleanReading(w.reading) || '';
+  document.getElementById('fc-meaning').textContent = w.meaning_zh || w.meaningZh || '';
+  const ex = w.example_sentence;
+  const exEl = document.getElementById('fc-example');
+  if (ex) {
+    exEl.style.display = '';
+    exEl.innerHTML = `<div>${escHtml(ex)}</div>${w.example_meaning_zh ? `<div style="font-size:12px;color:var(--text-hint);margin-top:4px">${escHtml(w.example_meaning_zh)}</div>` : ''}`;
+  } else {
+    exEl.style.display = 'none';
+  }
+}
+
+function fcRate(quality) {
+  _fcStats.total++;
+  if (quality === 0) _fcStats.again++;
+  else if (quality === 1) _fcStats.hard++;
+  else if (quality === 3) _fcStats.good++;
+  else if (quality === 5) _fcStats.easy++;
+  _fcIdx++;
+  renderFcCard();
+}
+
+function showFcResult() {
+  document.getElementById('fc-play').style.display = 'none';
+  document.getElementById('fc-result').style.display = '';
+  const t = _fcStats.total;
+  const goodPct = t > 0 ? Math.round((_fcStats.good + _fcStats.easy) / t * 100) : 0;
+  document.getElementById('fc-result').innerHTML = `
+    <div class="card" style="text-align:center;padding:40px">
+      <div style="font-size:64px;margin-bottom:16px">🎉</div>
+      <div style="font-size:22px;font-weight:800;margin-bottom:8px">闪卡练习完成！</div>
+      <div style="font-size:16px;color:var(--text-sub);margin-bottom:16px">共复习 ${t} 张卡片</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:24px">
+        <div style="background:#fee2e2;padding:12px;border-radius:8px"><div style="font-size:20px;font-weight:800;color:#ef4444">${_fcStats.again}</div><div style="font-size:11px;color:var(--text-sub)">重来</div></div>
+        <div style="background:#fef3c7;padding:12px;border-radius:8px"><div style="font-size:20px;font-weight:800;color:#f59e0b">${_fcStats.hard}</div><div style="font-size:11px;color:var(--text-sub)">困难</div></div>
+        <div style="background:#d1fae5;padding:12px;border-radius:8px"><div style="font-size:20px;font-weight:800;color:#10b981">${_fcStats.good}</div><div style="font-size:11px;color:var(--text-sub)">良好</div></div>
+        <div style="background:#dbeafe;padding:12px;border-radius:8px"><div style="font-size:20px;font-weight:800;color:#3b82f6">${_fcStats.easy}</div><div style="font-size:11px;color:var(--text-sub)">简单</div></div>
+      </div>
+      <div style="font-size:36px;font-weight:800;color:${goodPct>=80?'var(--success)':goodPct>=60?'var(--warning)':'var(--danger)'}">${goodPct}%</div>
+      <div style="font-size:13px;color:var(--text-sub);margin-bottom:24px">掌握率（良好+简单）</div>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button class="btn btn-outline" onclick="loadFlashcardSetup()">重新选择</button>
+        <button class="btn btn-primary" onclick="startFlashcard()">再练一次</button>
+      </div>
+    </div>`;
+  // log activity
+  try { POST('/progress/log', { activity_type: 'flashcard', duration_seconds: 0, score: goodPct }); } catch(_){}
+}
+
+function fcBackToSetup() {
+  document.getElementById('fc-play').style.display = 'none';
+  document.getElementById('fc-setup').style.display = '';
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  GOJUON (五十音)
+// ══════════════════════════════════════════════════════════════════
+let _gojuonMode = 'hiragana'; // 'hiragana' or 'katakana'
+let _gojuonTab = 'seion';
+
+const GOJUON_DATA = {
+  seion: [
+    // vowels
+    ['a','あ','ア'],['i','い','イ'],['u','う','ウ'],['e','え','エ'],['o','お','オ'],
+    // ka
+    ['ka','か','カ'],['ki','き','キ'],['ku','く','ク'],['ke','け','ケ'],['ko','こ','コ'],
+    // sa
+    ['sa','さ','サ'],['si','し','シ'],['su','す','ス'],['se','せ','セ'],['so','そ','ソ'],
+    // ta
+    ['ta','た','タ'],['ti','ち','チ'],['tu','つ','ツ'],['te','て','テ'],['to','と','ト'],
+    // na
+    ['na','な','ナ'],['ni','に','ニ'],['nu','ぬ','ヌ'],['ne','ね','ネ'],['no','の','ノ'],
+    // ha
+    ['ha','は','ハ'],['hi','ひ','ヒ'],['hu','ふ','フ'],['he','へ','ヘ'],['ho','ほ','ホ'],
+    // ma
+    ['ma','ま','マ'],['mi','み','ミ'],['mu','む','ム'],['me','め','メ'],['mo','も','モ'],
+    // ya
+    ['ya','や','ヤ'],['','',''],['yu','ゆ','ユ'],['','',''],['yo','よ','ヨ'],
+    // ra
+    ['ra','ら','ラ'],['ri','り','リ'],['ru','る','ル'],['re','れ','レ'],['ro','ろ','ロ'],
+    // wa
+    ['wa','わ','ワ'],['','',''],['','',''],['','',''],['wo','を','ヲ'],
+    // n
+    ['n','ん','ン'],['','',''],['','',''],['','',''],['','',''],
+  ],
+  dakuon: [
+    ['ga','が','ガ'],['gi','ぎ','ギ'],['gu','ぐ','グ'],['ge','げ','ゲ'],['go','ご','ゴ'],
+    ['za','ざ','ザ'],['zi','じ','ジ'],['zu','ず','ズ'],['ze','ぜ','ゼ'],['zo','ぞ','ゾ'],
+    ['da','だ','ダ'],['di','ぢ','ヂ'],['du','づ','ヅ'],['de','で','デ'],['do','ど','ド'],
+    ['ba','ば','バ'],['bi','び','ビ'],['bu','ぶ','ブ'],['be','べ','ベ'],['bo','ぼ','ボ'],
+    ['pa','ぱ','パ'],['pi','ぴ','ピ'],['pu','ぷ','プ'],['pe','ぺ','ペ'],['po','ぽ','ポ'],
+  ],
+  youon: [
+    ['kya','きゃ','キャ'],['kyu','きゅ','キュ'],['kyo','きょ','キョ'],
+    ['sha','しゃ','シャ'],['shu','しゅ','シュ'],['sho','しょ','ショ'],
+    ['cha','ちゃ','チャ'],['chu','ちゅ','チュ'],['cho','ちょ','チョ'],
+    ['nya','にゃ','ニャ'],['nyu','にゅ','ニュ'],['nyo','にょ','ニョ'],
+    ['hya','ひゃ','ヒャ'],['hyu','ひゅ','ヒュ'],['hyo','ひょ','ヒョ'],
+    ['mya','みゃ','ミャ'],['myu','みゅ','ミュ'],['myo','みょ','ミョ'],
+    ['rya','りゃ','リャ'],['ryu','りゅ','リュ'],['ryo','りょ','リョ'],
+    ['gya','ぎゃ','ギャ'],['gyu','ぎゅ','ギュ'],['gyo','ぎょ','ギョ'],
+    ['ja','じゃ','ジャ'],['ju','じゅ','ジュ'],['jo','じょ','ジョ'],
+    ['bya','びゃ','ビャ'],['byu','びゅ','ビュ'],['byo','びょ','ビョ'],
+    ['pya','ぴゃ','ピャ'],['pyu','ぴゅ','ピュ'],['pyo','ぴょ','ピョ'],
+  ],
+};
+
+function loadGojuon() {
+  renderGojuonGrid();
+}
+
+function toggleGojuonMode() {
+  _gojuonMode = _gojuonMode === 'hiragana' ? 'katakana' : 'hiragana';
+  document.getElementById('gojuon-mode-btn').textContent = _gojuonMode === 'hiragana' ? '平仮名' : '片仮名';
+  renderGojuonGrid();
+}
+
+function switchGojuonTab(tab) {
+  _gojuonTab = tab;
+  document.querySelectorAll('#gojuon-tabs .chip').forEach(c => {
+    const t = c.getAttribute('onclick').match(/'(\w+)'/)[1];
+    c.classList.toggle('active', t === tab);
+  });
+  const grid = document.getElementById('gojuon-grid');
+  grid.style.gridTemplateColumns = tab === 'youon' ? 'repeat(3,1fr)' : 'repeat(5,1fr)';
+  renderGojuonGrid();
+}
+
+function renderGojuonGrid() {
+  const data = GOJUON_DATA[_gojuonTab] || [];
+  const isKata = _gojuonMode === 'katakana';
+  const grid = document.getElementById('gojuon-grid');
+  grid.innerHTML = data.map(item => {
+    const [romaji, hira, kata] = item;
+    if (!romaji) return '<div></div>';
+    const kana = isKata ? kata : hira;
+    return `<div onclick="speakJa('${escHtml(kana)}')" style="background:var(--bg2);border-radius:10px;padding:14px 8px;text-align:center;cursor:pointer;transition:transform .15s;user-select:none" onmouseenter="this.style.transform='scale(1.06)'" onmouseleave="this.style.transform=''">
+      <div style="font-size:28px;font-weight:800;margin-bottom:4px">${escHtml(kana)}</div>
+      <div style="font-size:11px;color:var(--text-hint)">${escHtml(romaji)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  TODOFUKEN QUIZ (都道府県)
+// ══════════════════════════════════════════════════════════════════
+const TDF_DATA = [
+  {k:'北海道',h:'ほっかいどう',r:'hokkaido',region:'北海道'},
+  {k:'青森県',h:'あおもりけん',r:'aomori',region:'東北'},
+  {k:'岩手県',h:'いわてけん',r:'iwate',region:'東北'},
+  {k:'宮城県',h:'みやぎけん',r:'miyagi',region:'東北'},
+  {k:'秋田県',h:'あきたけん',r:'akita',region:'東北'},
+  {k:'山形県',h:'やまがたけん',r:'yamagata',region:'東北'},
+  {k:'福島県',h:'ふくしまけん',r:'fukushima',region:'東北'},
+  {k:'茨城県',h:'いばらきけん',r:'ibaraki',region:'関東'},
+  {k:'栃木県',h:'とちぎけん',r:'tochigi',region:'関東'},
+  {k:'群馬県',h:'ぐんまけん',r:'gunma',region:'関東'},
+  {k:'埼玉県',h:'さいたまけん',r:'saitama',region:'関東'},
+  {k:'千葉県',h:'ちばけん',r:'chiba',region:'関東'},
+  {k:'東京都',h:'とうきょうと',r:'tokyo',region:'関東'},
+  {k:'神奈川県',h:'かながわけん',r:'kanagawa',region:'関東'},
+  {k:'新潟県',h:'にいがたけん',r:'niigata',region:'中部'},
+  {k:'富山県',h:'とやまけん',r:'toyama',region:'中部'},
+  {k:'石川県',h:'いしかわけん',r:'ishikawa',region:'中部'},
+  {k:'福井県',h:'ふくいけん',r:'fukui',region:'中部'},
+  {k:'山梨県',h:'やまなしけん',r:'yamanashi',region:'中部'},
+  {k:'長野県',h:'ながのけん',r:'nagano',region:'中部'},
+  {k:'岐阜県',h:'ぎふけん',r:'gifu',region:'中部'},
+  {k:'静岡県',h:'しずおかけん',r:'shizuoka',region:'中部'},
+  {k:'愛知県',h:'あいちけん',r:'aichi',region:'中部'},
+  {k:'三重県',h:'みえけん',r:'mie',region:'近畿'},
+  {k:'滋賀県',h:'しがけん',r:'shiga',region:'近畿'},
+  {k:'京都府',h:'きょうとふ',r:'kyoto',region:'近畿'},
+  {k:'大阪府',h:'おおさかふ',r:'osaka',region:'近畿'},
+  {k:'兵庫県',h:'ひょうごけん',r:'hyogo',region:'近畿'},
+  {k:'奈良県',h:'ならけん',r:'nara',region:'近畿'},
+  {k:'和歌山県',h:'わかやまけん',r:'wakayama',region:'近畿'},
+  {k:'鳥取県',h:'とっとりけん',r:'tottori',region:'中国'},
+  {k:'島根県',h:'しまねけん',r:'shimane',region:'中国'},
+  {k:'岡山県',h:'おかやまけん',r:'okayama',region:'中国'},
+  {k:'広島県',h:'ひろしまけん',r:'hiroshima',region:'中国'},
+  {k:'山口県',h:'やまぐちけん',r:'yamaguchi',region:'中国'},
+  {k:'徳島県',h:'とくしまけん',r:'tokushima',region:'四国'},
+  {k:'香川県',h:'かがわけん',r:'kagawa',region:'四国'},
+  {k:'愛媛県',h:'えひめけん',r:'ehime',region:'四国'},
+  {k:'高知県',h:'こうちけん',r:'kochi',region:'四国'},
+  {k:'福岡県',h:'ふくおかけん',r:'fukuoka',region:'九州'},
+  {k:'佐賀県',h:'さがけん',r:'saga',region:'九州'},
+  {k:'長崎県',h:'ながさきけん',r:'nagasaki',region:'九州'},
+  {k:'熊本県',h:'くまもとけん',r:'kumamoto',region:'九州'},
+  {k:'大分県',h:'おおいたけん',r:'oita',region:'九州'},
+  {k:'宮崎県',h:'みやざきけん',r:'miyazaki',region:'九州'},
+  {k:'鹿児島県',h:'かごしまけん',r:'kagoshima',region:'九州'},
+  {k:'沖縄県',h:'おきなわけん',r:'okinawa',region:'九州'},
+];
+const TDF_REGIONS = ['北海道','東北','関東','中部','近畿','中国','四国','九州'];
+const TDF_REGION_COLORS = ['#E91E63','#9C27B0','#2196F3','#4CAF50','#FF9800','#00BCD4','#795548','#F44336'];
+
+let _tdfQuestions = [], _tdfIdx = 0, _tdfCorrect = 0, _tdfAnswered = false;
+
+function loadTodofuken() {
+  document.getElementById('tdf-setup').style.display = '';
+  document.getElementById('tdf-play').style.display = 'none';
+  document.getElementById('tdf-result').style.display = 'none';
+  const el = document.getElementById('tdf-regions');
+  el.innerHTML = TDF_REGIONS.map((r, i) => {
+    const count = TDF_DATA.filter(d => d.region === r).length;
+    return `<div class="card" onclick="startTodofuken('${escHtml(r)}')" style="cursor:pointer;text-align:center;margin:0;transition:transform .15s" onmouseenter="this.style.transform='scale(1.03)'" onmouseleave="this.style.transform=''">
+      <div style="font-size:24px;font-weight:800;color:${TDF_REGION_COLORS[i]}">${escHtml(r)}</div>
+      <div style="font-size:12px;color:var(--text-sub);margin-top:4px">${count} 都道府県</div>
+    </div>`;
+  }).join('');
+}
+
+function startTodofuken(region) {
+  const pool = TDF_DATA.filter(d => d.region === region);
+  // shuffle and take up to 10
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  _tdfQuestions = pool.slice(0, 10);
+  _tdfIdx = 0; _tdfCorrect = 0;
+  document.getElementById('tdf-setup').style.display = 'none';
+  document.getElementById('tdf-play').style.display = '';
+  document.getElementById('tdf-result').style.display = 'none';
+  renderTdfQuestion();
+}
+
+function renderTdfQuestion() {
+  if (_tdfIdx >= _tdfQuestions.length) { showTdfResult(); return; }
+  _tdfAnswered = false;
+  const q = _tdfQuestions[_tdfIdx];
+  document.getElementById('tdf-kanji').textContent = q.k;
+  document.getElementById('tdf-progress').textContent = `${_tdfIdx + 1} / ${_tdfQuestions.length}`;
+  document.getElementById('tdf-prog-bar').style.width = `${(_tdfIdx + 1) / _tdfQuestions.length * 100}%`;
+  // generate 4 options: correct + 3 random wrong
+  const wrong = TDF_DATA.filter(d => d.h !== q.h).sort(() => Math.random() - 0.5).slice(0, 3);
+  const opts = [q, ...wrong].sort(() => Math.random() - 0.5);
+  document.getElementById('tdf-options').innerHTML = opts.map((o, i) =>
+    `<div id="tdf-opt-${i}" class="quiz-option" onclick="tdfAnswer('${escHtml(o.h)}',${i})" style="padding:14px;font-size:16px;font-weight:700;cursor:pointer;border:2px solid var(--border);border-radius:10px;text-align:center;transition:all .15s">${escHtml(o.h)}</div>`
+  ).join('');
+}
+
+function tdfAnswer(answer, idx) {
+  if (_tdfAnswered) return;
+  _tdfAnswered = true;
+  const q = _tdfQuestions[_tdfIdx];
+  const isCorrect = answer === q.h;
+  if (isCorrect) _tdfCorrect++;
+  // highlight correct/wrong
+  document.querySelectorAll('#tdf-options > div').forEach((el, i) => {
+    const text = el.textContent.trim();
+    if (text === q.h) {
+      el.style.background = '#dcfce7'; el.style.borderColor = '#16a34a'; el.style.color = '#15803d';
+    } else if (i === idx && !isCorrect) {
+      el.style.background = '#fee2e2'; el.style.borderColor = '#dc2626'; el.style.color = '#b91c1c';
+    }
+  });
+  // TTS read correct answer
+  speakJa(q.h);
+  // auto next after 1.2s
+  setTimeout(() => { _tdfIdx++; renderTdfQuestion(); }, 1200);
+}
+
+function showTdfResult() {
+  document.getElementById('tdf-play').style.display = 'none';
+  document.getElementById('tdf-result').style.display = '';
+  const t = _tdfQuestions.length;
+  const pct = t > 0 ? Math.round(_tdfCorrect / t * 100) : 0;
+  document.getElementById('tdf-result').innerHTML = `
+    <div class="card" style="text-align:center;padding:40px">
+      <div style="font-size:64px;margin-bottom:16px">${pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '💪'}</div>
+      <div style="font-size:22px;font-weight:800;margin-bottom:8px">测验完成！</div>
+      <div style="font-size:16px;color:var(--text-sub);margin-bottom:6px">答对 ${_tdfCorrect} / ${t} 题</div>
+      <div style="font-size:36px;font-weight:800;color:${pct>=80?'var(--success)':pct>=60?'var(--warning)':'var(--danger)'}">${pct}%</div>
+      <div style="font-size:13px;color:var(--text-sub);margin-bottom:24px">正确率</div>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button class="btn btn-outline" onclick="loadTodofuken()">重新选择</button>
+        <button class="btn btn-primary" onclick="navigate('home')">返回首页</button>
+      </div>
+    </div>`;
+}
+
+function tdfBackToSetup() {
+  document.getElementById('tdf-play').style.display = 'none';
+  document.getElementById('tdf-setup').style.display = '';
+}
+
 </script>
-<script src="/app/game_v3.js"></script>
+<script src="/app/game_v3.js?v=20260308"></script>
 <script>
 //  AUDIO
 // ══════════════════════════════════════════════════════════════════
@@ -2402,6 +2857,45 @@ function playAudio(url) {
   if (_audioEl) { _audioEl.pause(); _audioEl = null; }
   _audioEl = new Audio(url);
   _audioEl.play().catch(() => toast('音频播放失败，请检查浏览器设置'));
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  FEATURE TOGGLES
+// ══════════════════════════════════════════════════════════════════
+let _featureToggles = {}; // id -> bool
+
+async function loadFeatureToggles() {
+  try {
+    const res = await fetch('/api/v1/sync/features?platform=web');
+    const data = await res.json();
+    if (data.ok && data.features) {
+      _featureToggles = data.features;
+      applyFeatureToggles();
+    }
+  } catch(_) { /* features all open by default */ }
+}
+
+function isFeatureEnabled(featureId) {
+  // if not in toggles map, default to enabled
+  return _featureToggles[featureId] !== false;
+}
+
+function applyFeatureToggles() {
+  // hide/show sidebar items
+  document.querySelectorAll('#sidebar [data-page]').forEach(el => {
+    const page = el.getAttribute('data-page');
+    if (page && _featureToggles.hasOwnProperty(page)) {
+      el.style.display = _featureToggles[page] ? '' : 'none';
+    }
+  });
+  // hide/show quick actions on home page
+  document.querySelectorAll('.quick-action').forEach(el => {
+    const onclick = el.getAttribute('onclick') || '';
+    const m = onclick.match(/navigate\('([^']+)'\)/);
+    if (m && m[1] && _featureToggles.hasOwnProperty(m[1])) {
+      el.style.display = _featureToggles[m[1]] ? '' : 'none';
+    }
+  });
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -2426,6 +2920,7 @@ function escHtml(str) {
       // token 无效时 request() 会自动调 showAuth()
       return;
     }
+    loadFeatureToggles();
     loadHome();
   } else {
     showAuth();

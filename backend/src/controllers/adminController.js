@@ -298,6 +298,19 @@ async function deleteGrammar(req, res) {
   }
 }
 
+async function bulkDeleteGrammar(req, res) {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids 不能为空' });
+  try {
+    await GrammarExample.destroy({ where: { grammar_lesson_id: { [Op.in]: ids } } });
+    const count = await GrammarLesson.destroy({ where: { id: { [Op.in]: ids } } });
+    await bumpVersion('grammar_version');
+    res.json({ deleted: count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 // ─── 听力管理 ─────────────────────────────────────────────────────────────────
 async function listTracks(req, res) {
   const { level, q, page = 1, limit = 30 } = req.query;
@@ -649,9 +662,127 @@ async function getBehaviorStats(req, res) {
   }
 }
 
+// ─── 功能使用频率分析（按功能/时长统计）──────────────────────────────────────
+async function getFeatureUsage(req, res) {
+  try {
+    const { grain, start, end } = resolveRange(req.query);
+    const fmt = grainFormat(grain);
+
+    // 各功能总使用次数 + 总时长 + 独立用户数
+    const featureSummary = await sequelize.query(
+      `SELECT activity_type,
+              COUNT(*) AS usage_count,
+              COUNT(DISTINCT user_id) AS unique_users,
+              COALESCE(SUM(duration_seconds), 0) AS total_seconds,
+              ROUND(COALESCE(AVG(duration_seconds), 0), 1) AS avg_seconds
+       FROM user_progress
+       WHERE created_at BETWEEN :start AND :end
+       GROUP BY activity_type
+       ORDER BY usage_count DESC`,
+      { replacements: { start, end }, type: sequelize.QueryTypes.SELECT }
+    );
+
+    // 各功能使用趋势
+    const featureTrend = await sequelize.query(
+      `SELECT DATE_FORMAT(created_at, :fmt) AS period,
+              activity_type,
+              COUNT(*) AS count
+       FROM user_progress
+       WHERE created_at BETWEEN :start AND :end
+       GROUP BY period, activity_type
+       ORDER BY period ASC`,
+      { replacements: { fmt, start, end }, type: sequelize.QueryTypes.SELECT }
+    );
+
+    // 用户维度：每个用户最常用功能 Top10
+    const userTopFeatures = await sequelize.query(
+      `SELECT u.username, up.activity_type, COUNT(*) AS cnt,
+              COALESCE(SUM(up.duration_seconds), 0) AS total_sec
+       FROM user_progress up
+       JOIN users u ON u.id = up.user_id
+       WHERE up.created_at BETWEEN :start AND :end
+       GROUP BY u.username, up.activity_type
+       ORDER BY cnt DESC
+       LIMIT 30`,
+      { replacements: { start, end }, type: sequelize.QueryTypes.SELECT }
+    );
+
+    // 时段分布（小时维度）
+    const hourlyDist = await sequelize.query(
+      `SELECT HOUR(created_at) AS hour, COUNT(*) AS count
+       FROM user_progress
+       WHERE created_at BETWEEN :start AND :end
+       GROUP BY hour
+       ORDER BY hour ASC`,
+      { replacements: { start, end }, type: sequelize.QueryTypes.SELECT }
+    );
+
+    res.json({ grain, start, end, featureSummary, featureTrend, userTopFeatures, hourlyDist });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 // ─── 会员套餐配置（存储于 backend/config/membership.json）────────────────────
 const PLANS_FILE = path.join(__dirname, '../../config/membership.json');
+// ─── 功能开关配置（存储于 backend/config/feature_toggles.json）────────────
+const TOGGLES_FILE = path.join(__dirname, '../../config/feature_toggles.json');
 
+const DEFAULT_FEATURE_TOGGLES = {
+  features: [
+    { id: 'vocabulary',    name: '单词学习', icon: '📖', web: true,  mobile: true  },
+    { id: 'grammar',       name: '语法学习', icon: '📝', web: true,  mobile: true  },
+    { id: 'listening',     name: '听力练习', icon: '🎧', web: true,  mobile: true  },
+    { id: 'srs',           name: 'SRS复习',  icon: '🗂️', web: true,  mobile: true  },
+    { id: 'flashcard',     name: '闪卡练习', icon: '🃏', web: true,  mobile: true  },
+    { id: 'gojuon',        name: '五十音',   icon: '🔤', web: true,  mobile: true  },
+    { id: 'pronunciation', name: 'AI发音',   icon: '🎤', web: true,  mobile: true  },
+    { id: 'game',          name: '助词方块', icon: '🎮', web: true,  mobile: true  },
+    { id: 'game-verbs',    name: '动词方块', icon: '🎮', web: true,  mobile: true  },
+    { id: 'quiz',          name: '随机测验', icon: '✏️', web: true,  mobile: true  },
+    { id: 'todofuken',     name: '都道府県', icon: '🗾', web: true,  mobile: true  },
+    { id: 'dictionary',    name: '辞书检索', icon: '🔍', web: true,  mobile: true  },
+    { id: 'news',          name: 'NHK新闻',  icon: '📰', web: true,  mobile: true  },
+    { id: 'anki',          name: 'Anki导入', icon: '📥', web: true,  mobile: true  },
+  ],
+  updated_at: null,
+};
+
+function readFeatureToggles() {
+  try {
+    if (fs.existsSync(TOGGLES_FILE)) {
+      return JSON.parse(fs.readFileSync(TOGGLES_FILE, 'utf8'));
+    }
+  } catch { /* ignore */ }
+  return JSON.parse(JSON.stringify(DEFAULT_FEATURE_TOGGLES));
+}
+
+async function getFeatureToggles(req, res) {
+  res.json({ ok: true, ...readFeatureToggles() });
+}
+
+async function saveFeatureToggles(req, res) {
+  try {
+    const current = readFeatureToggles();
+    const { features } = req.body;
+    if (Array.isArray(features)) {
+      current.features = features.map(f => ({
+        id: String(f.id || ''),
+        name: String(f.name || ''),
+        icon: String(f.icon || ''),
+        web: !!f.web,
+        mobile: !!f.mobile,
+      }));
+    }
+    current.updated_at = new Date().toISOString();
+    const dir = path.dirname(TOGGLES_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(TOGGLES_FILE, JSON.stringify(current, null, 2), 'utf8');
+    res.json({ ok: true, ...current });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
 const DEFAULT_MEMBERSHIP = {
   plans: [
     { id: 'free',     name: '免费版',   price: 0,   period: 'forever', description: '基础学习功能，适合入门用户',   features: ['词汇浏览 (每天50词)', '文法课程', '每日限制50道练习题'], enabled: true  },
@@ -735,17 +866,36 @@ async function downloadApp(req, res) {
   res.redirect(app.file_url);
 }
 
+// ─── 删除 App 版本 ─────────────────────────────────────────────────────────
+async function deleteAppRelease(req, res) {
+  try {
+    const app = await AppRelease.findByPk(req.params.id);
+    if (!app) return res.status(404).json({ error: '未找到该版本' });
+    // 删除磁盘文件
+    if (app.file_url) {
+      const filePath = path.join(__dirname, '../../', app.file_url);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+    await app.destroy();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 module.exports = {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab,
   importVocab, importVocabFile,
-  listGrammar, createGrammar, updateGrammar, deleteGrammar,
+  listGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar,
   listTracks, createTrack, updateTrack, deleteTrack,
   listUsers, updateUser,
   getContentVersion, publishContent,
-  getTrafficStats, getUserStats, getBehaviorStats,
+  getTrafficStats, getUserStats, getBehaviorStats, getFeatureUsage,
   getMembershipConfig, saveMembershipConfig,
+  getFeatureToggles, saveFeatureToggles,
   uploadApp,
   listAppReleases,
   downloadApp,
+  deleteAppRelease,
 };

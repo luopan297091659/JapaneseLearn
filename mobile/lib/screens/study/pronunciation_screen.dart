@@ -5,6 +5,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../utils/japanese_text_utils.dart';
+import '../../utils/tts_helper.dart';
 
 class PronunciationScreen extends StatefulWidget {
   const PronunciationScreen({super.key});
@@ -38,8 +39,8 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
   }
 
   Future<void> _initTts() async {
-    await _tts.setLanguage('ja-JP');
-    await _tts.setSpeechRate(0.45);
+    _tts.setErrorHandler((err) => debugPrint('TTS error: $err'));
+    await TtsHelper.configureForJapanese(_tts);
   }
 
   Future<void> _initSpeech() async {
@@ -83,7 +84,23 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
 
   Future<void> _playAudio() async {
     if (_words.isEmpty) return;
-    await _tts.speak(_ttsText(_words[_index]));
+    try {
+      try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+      await _tts.setVolume(1.0);
+      final result = await _tts.speak(_ttsText(_words[_index]));
+      if (result != 1 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('语音引擎不可用，请检查系统TTS设置'), duration: Duration(seconds: 3)),
+        );
+      }
+    } catch (e) {
+      debugPrint('TTS speak error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('朗读出错：$e'), duration: const Duration(seconds: 3)),
+        );
+      }
+    }
   }
 
   Future<void> _toggleRecord() async {
