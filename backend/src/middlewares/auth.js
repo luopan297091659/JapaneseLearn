@@ -14,6 +14,14 @@ async function authenticate(req, res, next) {
     if (!user || !user.is_active) {
       return res.status(401).json({ error: 'User not found or inactive' });
     }
+    // 多端登录校验：检查 JWT 中的 loginToken 是否与数据库一致
+    if (decoded.loginToken) {
+      const platform = decoded.platform || 'web';
+      const field = platform === 'app' ? 'app_login_token' : 'web_login_token';
+      if (user[field] !== decoded.loginToken) {
+        return res.status(401).json({ error: 'SESSION_REPLACED', message: '你的账号已在其他设备登录' });
+      }
+    }
     req.user = user;
     next();
   } catch (err) {

@@ -19,6 +19,8 @@ const User = sequelize.define('User', {
   role: { type: DataTypes.ENUM('user', 'admin'), defaultValue: 'user' },
   notification_enabled: { type: DataTypes.BOOLEAN, defaultValue: true },
   daily_goal_minutes: { type: DataTypes.INTEGER, defaultValue: 15 },
+  web_login_token: { type: DataTypes.STRING(36), allowNull: true },
+  app_login_token: { type: DataTypes.STRING(36), allowNull: true },
 }, {
   tableName: 'users',
   hooks: {

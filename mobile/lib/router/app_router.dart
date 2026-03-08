@@ -21,6 +21,7 @@ import '../screens/vocabulary/dictionary_screen.dart';
 import '../screens/vocabulary/anki_import_screen.dart';
 import '../screens/vocabulary/local_vocab_screen.dart';
 import '../screens/game/tetris_grammar_game.dart';
+import '../screens/game/flashcard_screen.dart';
 import '../screens/tabs/study_tab.dart';
 import '../screens/tabs/game_tab.dart';
 import '../screens/tabs/test_tab.dart';
@@ -33,8 +34,11 @@ import '../screens/news/nhk_detail_screen.dart';
 import '../screens/tools/todofuken_quiz_screen.dart';
 import '../models/models.dart';
 
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/home',
     redirect: (context, state) async {
       const storage = FlutterSecureStorage();
@@ -99,6 +103,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               gameType: (state.extra as String?) ?? 'particles',
             ),
           ),
+          GoRoute(path: '/flashcard', builder: (_, __) => const FlashcardScreen()),
           GoRoute(path: '/gojuon', builder: (_, __) => const GojuonScreen()),
           GoRoute(path: '/pronunciation', builder: (_, __) => const PronunciationScreen()),
           GoRoute(path: '/news', builder: (_, __) => const NewsListScreen()),
@@ -152,11 +157,12 @@ class _MainShellState extends State<MainShell> {
           location.startsWith('/listening') ||
           location.startsWith('/srs-review') ||
           location.startsWith('/gojuon') ||
+          location.startsWith('/flashcard') ||
           location.startsWith('/news') ||
           location.startsWith('/nhk-news')) {
         idx = 1; // 学习
       } else if (location.startsWith('/game')) {
-        idx = 2; // 游戏 (covers /game and /games)
+        idx = 2; // 游戏 (covers /game, /games)
       } else if (location.startsWith('/quiz')) {
         idx = 3; // 测试
       } else if (location.startsWith('/dictionary') ||

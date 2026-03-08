@@ -65,6 +65,14 @@ class StudyTab extends StatelessWidget {
             color: const Color(0xFFE91E63),
             onTap: () => context.push('/gojuon'),
           ),
+          const SizedBox(height: 12),
+          _StudyCard(
+            icon: Icons.style_rounded,
+            title: '闪卡练习',
+            subtitle: '翻转记忆 · 四级评价·支持等级词库',
+            color: const Color(0xFF3F51B5),
+            onTap: () => context.push('/flashcard'),
+          ),
         ],
       ),
     );

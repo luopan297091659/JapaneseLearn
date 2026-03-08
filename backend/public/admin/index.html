@@ -229,11 +229,12 @@ tbody tr:hover td{background:#f8faff}
   <div class="sidebar-section">数据分析</div>
   <div class="nav-item" onclick="nav('stat-users')"    id="nav-stat-users">   <span class="icon">📈</span>用户统计</div>
   <div class="nav-item" onclick="nav('stat-traffic')"  id="nav-stat-traffic"> <span class="icon">🌐</span>流量监控</div>
-  <div class="nav-item" onclick="nav('stat-behavior')" id="nav-stat-behavior"><span class="icon">🎯</span>行为分析</div>
+  <div class="nav-item" onclick="nav('stat-feature')" id="nav-stat-feature"><span class="icon">📊</span>功能频率</div>
   <div class="sidebar-section">运营</div>
   <div class="nav-item" onclick="nav('membership')" id="nav-membership"><span class="icon">👑</span>会员配置</div>
   <div class="nav-item" onclick="nav('import')" id="nav-import"><span class="icon">📥</span>内容导入</div>
   <div class="sidebar-section">系统</div>
+  <div class="nav-item" onclick="nav('feature-toggles')" id="nav-feature-toggles"><span class="icon">🔀</span>功能开关</div>
   <div class="nav-item" onclick="nav('sync')" id="nav-sync"><span class="icon">🔄</span>全局同步</div>
   <div class="nav-item" onclick="nav('app')" id="nav-app"><span class="icon">📱</span>App管理</div>
   <div class="sidebar-footer"><div class="sidebar-footer-txt">言旅 · JapaneseLearn v1.0</div></div>
@@ -418,6 +419,19 @@ async function api(method, path, body=null, isForm=false){
   return data;
 }
 
+// ── API 缓存，避免频繁调用同一接口 ──
+const _apiCache = {};
+const API_CACHE_TTL = 30000; // 30秒缓存
+function cachedApi(method, path, ttl) {
+  const key = method + ':' + path;
+  const now = Date.now();
+  if (_apiCache[key] && now - _apiCache[key].ts < (ttl || API_CACHE_TTL)) return Promise.resolve(_apiCache[key].data);
+  return api(method, path).then(d => { _apiCache[key] = { data: d, ts: now }; return d; });
+}
+function invalidateCache(prefix) {
+  Object.keys(_apiCache).forEach(k => { if (k.includes(prefix)) delete _apiCache[k]; });
+}
+
 function destroyChart(name){ if(charts[name]){ charts[name].destroy(); delete charts[name]; } }
 function mkChart(id, cfg, name){
   destroyChart(name||id);
@@ -431,6 +445,8 @@ function monthStart(){ const d=new Date(); d.setDate(1); return d.toISOString().
 function yearStart() { return new Date().getFullYear()+'-01-01' }
 function qs(obj)    { return '?'+Object.entries(obj).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&') }
 const PALETTE = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#f97316','#84cc16','#3b82f6'];
+const ACT_NAME = {vocabulary:'📚 词汇学习',grammar:'📖 语法学习',srs_review:'🔄 SRS复习',quiz:'📝 测验',flashcard:'🃏 闪卡',news:'📰 新闻阅读',listening:'🎧 听力练习',game:'🎮 游戏',reading:'📖 阅读'};
+function actName(t){ return ACT_NAME[t]||t; }
 
 /* ───────────────────────────────── AUTH ──────────────────────────────────── */
 async function doLogin(){
@@ -466,23 +482,26 @@ function showApp(){
 const PAGE_TITLES = {
   dashboard:'仪表板', vocab:'词汇管理', grammar:'文法管理',
   tracks:'听力管理', users:'用户管理',
-  'stat-users':'用户统计', 'stat-traffic':'流量监控', 'stat-behavior':'行为分析',
+  'stat-users':'用户统计', 'stat-traffic':'流量监控',
+  'stat-feature':'功能频率',
   membership:'会员配置', import:'内容导入', sync:'全局同步',
-  app:'App管理'
+  app:'App管理', 'feature-toggles':'功能开关'
 };
 const PAGE_ICONS = {
   dashboard:'📊', vocab:'📚', grammar:'📖',
   tracks:'🎧', users:'👥',
-  'stat-users':'📈', 'stat-traffic':'🌐', 'stat-behavior':'🎯',
+  'stat-users':'📈', 'stat-traffic':'🌐',
+  'stat-feature':'📊',
   membership:'👑', import:'📥', sync:'🔄',
-  app:'📱'
+  app:'📱', 'feature-toggles':'🔀'
 };
 const PAGE_DESCS = {
   vocab:'管理词汇条目', grammar:'管理文法条目',
   tracks:'管理听力素材', users:'查看管理用户',
-  'stat-users':'用户数据分析', 'stat-traffic':'API流量监控', 'stat-behavior':'学习行为分析',
+  'stat-users':'用户数据分析', 'stat-traffic':'API流量监控',
+  'stat-feature':'功能使用频率分析',
   membership:'会员套餐管理', import:'Anki/CSV导入', sync:'内容版本发布',
-  app:'App上传下载'
+  app:'App上传下载', 'feature-toggles':'控制功能开放'
 };
 
 /* ─── Recent Nav Tracking ─── */
@@ -509,10 +528,89 @@ function getFrequentNav(limit){
 const PAGE_FNS = {
   dashboard: renderDashboard, vocab: renderVocab, grammar: renderGrammar,
   tracks: renderTracks, users: renderUsers,
-  'stat-users': renderStatUsers, 'stat-traffic': renderStatTraffic, 'stat-behavior': renderStatBehavior,
+  'stat-users': renderStatUsers, 'stat-traffic': renderStatTraffic,
+  'stat-feature': renderStatFeature,
   membership: renderMembership, import: renderImport, sync: renderSync,
-  app: renderAppManage,
+  app: renderAppManage, 'feature-toggles': renderFeatureToggles,
 };
+/* ─────────────────────────── 功能开关 ───────────────────────────────────── */
+let _ftData = null;
+async function renderFeatureToggles() {
+  document.getElementById('content').innerHTML = '<p style="color:#aaa;padding:40px;text-align:center">加载中…</p>';
+  try {
+    const res = await api('GET', '/admin/feature-toggles');
+    _ftData = res.features || [];
+    renderFtTable();
+  } catch(e) {
+    document.getElementById('content').innerHTML = `<div class="panel"><p style="color:#e74c3c">加载失败: ${esc(e.message)}</p></div>`;
+  }
+}
+function renderFtTable() {
+  const rows = _ftData.map((f, i) => `
+    <tr>
+      <td style="padding:10px;font-size:20px;text-align:center;width:40px">${esc(f.icon)}</td>
+      <td style="padding:10px;font-weight:600">${esc(f.name)}<div style="font-size:11px;color:#999">${esc(f.id)}</div></td>
+      <td style="padding:10px;text-align:center">
+        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
+          <input type="checkbox" ${f.web?'checked':''} onchange="_ftData[${i}].web=this.checked;_ftDirty=true;renderFtTable()" style="opacity:0;width:0;height:0">
+          <span style="position:absolute;inset:0;background:${f.web?'#6366f1':'#d1d5db'};border-radius:12px;transition:.3s"></span>
+          <span style="position:absolute;top:2px;left:${f.web?'22px':'2px'};width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span>
+        </label>
+      </td>
+      <td style="padding:10px;text-align:center">
+        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
+          <input type="checkbox" ${f.mobile?'checked':''} onchange="_ftData[${i}].mobile=this.checked;_ftDirty=true;renderFtTable()" style="opacity:0;width:0;height:0">
+          <span style="position:absolute;inset:0;background:${f.mobile?'#6366f1':'#d1d5db'};border-radius:12px;transition:.3s"></span>
+          <span style="position:absolute;top:2px;left:${f.mobile?'22px':'2px'};width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span>
+        </label>
+      </td>
+    </tr>
+  `).join('');
+  document.getElementById('content').innerHTML = `
+    <div class="panel" style="max-width:800px">
+      <div class="panel-header">
+        <h3>🔀 功能开关管理</h3>
+        <span style="font-size:12px;color:var(--text-muted)">分别控制 Web 前端和手机 App 端的功能开放/关闭</span>
+      </div>
+      <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm" style="background:#6366f1;color:#fff" onclick="ftToggleAll('web',true)">Web 全开</button>
+        <button class="btn btn-sm btn-ghost" onclick="ftToggleAll('web',false)">Web 全关</button>
+        <button class="btn btn-sm" style="background:#6366f1;color:#fff" onclick="ftToggleAll('mobile',true)">Mobile 全开</button>
+        <button class="btn btn-sm btn-ghost" onclick="ftToggleAll('mobile',false)">Mobile 全关</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="border-bottom:2px solid var(--border);color:var(--text-muted);font-size:13px">
+            <th style="padding:8px;width:40px"></th>
+            <th style="padding:8px;text-align:left">功能名称</th>
+            <th style="padding:8px;text-align:center;width:100px">🌐 Web端</th>
+            <th style="padding:8px;text-align:center;width:100px">📱 手机端</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="renderFeatureToggles()">取消</button>
+        <button class="btn" style="background:#6366f1;color:#fff" onclick="ftSave()">保存设置</button>
+      </div>
+    </div>`;
+}
+let _ftDirty = false;
+function ftToggleAll(platform, val) {
+  _ftData.forEach(f => f[platform] = val);
+  _ftDirty = true;
+  renderFtTable();
+}
+async function ftSave() {
+  try {
+    await api('POST', '/admin/feature-toggles', { features: _ftData });
+    toast('功能开关已保存 ✓', 'success');
+    _ftDirty = false;
+  } catch(e) {
+    toast('保存失败: ' + e.message, 'error');
+  }
+}
+
 /* ─────────────────────────── APP 管理 ───────────────────────────────────── */
 async function renderAppManage() {
   document.getElementById('content').innerHTML = `
@@ -655,6 +753,7 @@ async function loadAppList() {
         </td>
         <td>
           <a class="btn btn-ghost btn-sm" href="/api/v1/admin/downloadApp/${r.id}" target="_blank">下载</a>
+          <button class="btn btn-danger btn-sm" onclick="deleteAppRelease('${r.id}')">删除</button>
         </td>
       </tr>
     `).join('');
@@ -662,6 +761,10 @@ async function loadAppList() {
   } catch(e) {
     document.getElementById('app-list-body').innerHTML = `<tr><td colspan="6" style="color:#e74c3c;text-align:center">${esc(e.message)}</td></tr>`;
   }
+}
+async function deleteAppRelease(id) {
+  if (!confirm('确认删除该版本？磁盘文件也会被清理。')) return;
+  try { await api('DELETE', `/admin/app/${id}`); toast('已删除'); loadAppList(); } catch(e) { toast(e.message, true); }
 }
 function nav(page){
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
@@ -746,7 +849,7 @@ function toggleAllFeatures(){
 
 async function renderDashboard(){
   try{
-    const d = await api('GET','/admin/dashboard');
+    const d = await cachedApi('GET','/admin/dashboard', 60000);
     document.getElementById('content').innerHTML = buildQuickAccessHTML() + `
     <div class="cards-row">
       <div class="stat-card">
@@ -800,11 +903,19 @@ async function renderDashboard(){
 }
 
 /* ───────────────────────────────── VOCAB ─────────────────────────────────── */
-let vState = {page:1, limit:20, search:'', total:0};
+let vState = {page:1, limit:20, search:'', level:'', total:0};
 async function renderVocab(){
   document.getElementById('content').innerHTML = `
   <div class="toolbar">
     <input type="text" id="v-search" placeholder="搜索单词/意思…" value="${esc(vState.search)}" onkeydown="if(event.key==='Enter')vocabSearch()" />
+    <select id="v-level" onchange="vocabFilterLevel()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;background:#fff">
+      <option value="">全部级别</option>
+      <option value="N5" ${vState.level==='N5'?'selected':''}>N5</option>
+      <option value="N4" ${vState.level==='N4'?'selected':''}>N4</option>
+      <option value="N3" ${vState.level==='N3'?'selected':''}>N3</option>
+      <option value="N2" ${vState.level==='N2'?'selected':''}>N2</option>
+      <option value="N1" ${vState.level==='N1'?'selected':''}>N1</option>
+    </select>
     <button class="btn btn-primary" onclick="vocabSearch()">搜索</button>
     <button class="btn btn-ghost" onclick="openVocabModal()">＋ 添加</button>
     <button class="btn btn-ghost" onclick="openModal('modal-import')">📥 导入</button>
@@ -821,7 +932,8 @@ async function renderVocab(){
 }
 async function loadVocab(){
   try{
-    const d = await api('GET',`/admin/vocabulary?page=${vState.page}&limit=${vState.limit}&q=${encodeURIComponent(vState.search)}`);
+    const levelParam = vState.level ? `&level=${vState.level}` : '';
+    const d = await api('GET',`/admin/vocabulary?page=${vState.page}&limit=${vState.limit}&q=${encodeURIComponent(vState.search)}${levelParam}`);
     vState.total = d.total||0;
     document.getElementById('vt-body').innerHTML = (d.data||[]).map(v=>`
       <tr>
@@ -838,6 +950,7 @@ async function loadVocab(){
   }catch(e){ toast(e.message,true) }
 }
 function vocabSearch(){ vState.page=1; vState.search=document.getElementById('v-search').value; loadVocab(); }
+function vocabFilterLevel(){ vState.page=1; vState.level=document.getElementById('v-level').value; loadVocab(); }
 function updateDelBtn(){ document.getElementById('v-del-btn').style.display=document.querySelectorAll('.v-cb:checked').length>0?'':'none'; }
 function toggleAllVocab(cb){ document.querySelectorAll('.v-cb').forEach(c=>c.checked=cb.checked); updateDelBtn(); }
 function openVocabModal(v=null){
@@ -903,16 +1016,27 @@ async function doImport(){
 }
 
 /* ───────────────────────────────── GRAMMAR ───────────────────────────────── */
-let gState = {page:1, limit:20, search:'', total:0};
+let gState = {page:1, limit:20, search:'', level:'', total:0};
 async function renderGrammar(){
   document.getElementById('content').innerHTML = `
   <div class="toolbar">
     <input type="text" id="gr-search" placeholder="搜索文法标题…" onkeydown="if(event.key==='Enter')grammarSearch()" />
+    <select id="gr-level" onchange="grammarFilterLevel()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;background:#fff">
+      <option value="">全部级别</option>
+      <option value="N5" ${gState.level==='N5'?'selected':''}>N5</option>
+      <option value="N4" ${gState.level==='N4'?'selected':''}>N4</option>
+      <option value="N3" ${gState.level==='N3'?'selected':''}>N3</option>
+      <option value="N2" ${gState.level==='N2'?'selected':''}>N2</option>
+      <option value="N1" ${gState.level==='N1'?'selected':''}>N1</option>
+    </select>
     <button class="btn btn-primary" onclick="grammarSearch()">搜索</button>
     <button class="btn btn-ghost" onclick="openGrammarModal()">＋ 添加</button>
+    <button class="btn btn-danger btn-sm" id="gr-del-btn" style="display:none" onclick="bulkDeleteGrammar()">删除选中</button>
   </div>
   <div class="panel" style="padding:0">
-    <table><thead><tr><th>ID</th><th>标题</th><th>级别</th><th>例句数</th><th>操作</th></tr></thead>
+    <table><thead><tr>
+      <th><input type="checkbox" onchange="toggleAllGrammar(this)" /></th>
+      <th>ID</th><th>标题</th><th>级别</th><th>例句数</th><th>操作</th></tr></thead>
     <tbody id="gr-body"></tbody></table>
     <div style="padding:12px 16px" id="gr-pager"></div>
   </div>`;
@@ -920,10 +1044,12 @@ async function renderGrammar(){
 }
 async function loadGrammar(){
   try{
-    const d=await api('GET',`/admin/grammar?page=${gState.page}&limit=${gState.limit}&q=${encodeURIComponent(gState.search)}`);
+    const levelParam = gState.level ? `&level=${gState.level}` : '';
+    const d=await api('GET',`/admin/grammar?page=${gState.page}&limit=${gState.limit}&q=${encodeURIComponent(gState.search)}${levelParam}`);
     gState.total=d.total||0;
     document.getElementById('gr-body').innerHTML=(d.data||[]).map(g=>`
       <tr>
+        <td><input type="checkbox" class="gr-cb" value="${g.id}" onchange="updateGrDelBtn()" /></td>
         <td>${g.id}</td><td>${esc(g.title||g.pattern)}</td>
         <td><span class="badge badge-orange">${esc(g.jlpt_level)}</span></td>
         <td>${g.examples?.length||0}</td>
@@ -936,6 +1062,14 @@ async function loadGrammar(){
   }catch(e){ toast(e.message,true) }
 }
 function grammarSearch(){ gState.page=1; gState.search=document.getElementById('gr-search').value; loadGrammar(); }
+function grammarFilterLevel(){ gState.page=1; gState.level=document.getElementById('gr-level').value; loadGrammar(); }
+function updateGrDelBtn(){ document.getElementById('gr-del-btn').style.display=document.querySelectorAll('.gr-cb:checked').length>0?'':'none'; }
+function toggleAllGrammar(cb){ document.querySelectorAll('.gr-cb').forEach(c=>c.checked=cb.checked); updateGrDelBtn(); }
+async function bulkDeleteGrammar(){
+  const ids=[...(document.querySelectorAll('.gr-cb:checked'))].map(c=>c.value);
+  if(!ids.length || !confirm(`确认删除 ${ids.length} 条文法？`)) return;
+  try{ await api('POST','/admin/grammar/bulk-delete',{ids}); toast('已批量删除'); loadGrammar(); }catch(e){ toast(e.message,true) }
+}
 function openGrammarModal(g=null){
   document.getElementById('mg-id').value=g?.id||'';
   document.getElementById('mg-title-input').value=g?.title||g?.pattern||'';
@@ -1193,52 +1327,64 @@ async function loadUserCharts(){
   }catch(e){ toast(e.message,true) }
 }
 
-/* ─────────────────────────── STAT: BEHAVIOR ──────────────────────────────── */
-async function renderStatBehavior(){
+/* ─────────────────────────── STAT: FEATURE USAGE ─────────────────────────── */
+async function renderStatFeature(){
   document.getElementById('content').innerHTML =
-    rangeBarHTML('bh','loadBehaviorCharts()') +
+    rangeBarHTML('fu','loadFeatureCharts()') +
     `<div class="charts-grid">
-      <div class="chart-card" style="grid-column:1/-1"><h4>📚 活动类型趋势（堆叠面积）</h4><canvas id="bh-act-c" style="max-height:300px"></canvas></div>
-      <div class="chart-card"><h4>🧪 测验平均得分趋势</h4><canvas id="bh-quiz-c"></canvas></div>
-      <div class="chart-card"><h4>🃏 SRS 复习量趋势</h4><canvas id="bh-srs-c"></canvas></div>
-      <div class="chart-card"><h4>⏰ 日均学习时长（分钟）</h4><canvas id="bh-daily-c"></canvas></div>
-      <div class="chart-card"><h4>🎯 行为占比分布</h4><canvas id="bh-dist-c"></canvas></div>
+      <div class="chart-card" style="grid-column:1/-1">
+        <h4>📊 功能使用次数排行</h4>
+        <div id="fu-table-wrap"></div>
+      </div>
+      <div class="chart-card" style="grid-column:1/-1"><h4>📈 功能使用趋势</h4><canvas id="fu-trend-c" style="max-height:300px"></canvas></div>
+      <div class="chart-card"><h4>⏰ 使用时段分布（小时）</h4><canvas id="fu-hour-c"></canvas></div>
+      <div class="chart-card"><h4>👤 用户功能偏好 Top30</h4><div id="fu-user-wrap" style="max-height:360px;overflow-y:auto"></div></div>
     </div>`;
-  await loadBehaviorCharts();
+  await loadFeatureCharts();
 }
-async function loadBehaviorCharts(){
-  const r=getRange('bh');
+async function loadFeatureCharts(){
+  const r=getRange('fu');
   try{
-    const d=await api('GET','/admin/stats/behavior'+qs(r));
+    const d=await api('GET','/admin/stats/feature-usage'+qs(r));
 
-    // stacked area
-    const atRaw=d.activityTrend||[];
-    const atLabels=[...new Set(atRaw.map(x=>x.period))].sort();
-    const atTypes=[...new Set(atRaw.map(x=>x.activity_type))];
-    const atMap={};
-    atRaw.forEach(x=>{ (atMap[x.activity_type]=atMap[x.activity_type]||{})[x.period]=x.count; });
-    destroyChart('bh-act');
-    const bCtx=document.getElementById('bh-act-c');
-    if(bCtx) charts['bh-act']=new Chart(bCtx,{
+    // 功能汇总表格
+    const wrap=document.getElementById('fu-table-wrap');
+    if(wrap && d.featureSummary && d.featureSummary.length){
+      wrap.innerHTML=`<table><thead><tr><th>功能</th><th>使用次数</th><th>独立用户</th><th>总时长(分钟)</th><th>平均时长(秒)</th></tr></thead><tbody>`+
+        d.featureSummary.map(r=>`<tr><td><b>${esc(actName(r.activity_type))}</b></td><td>${r.usage_count}</td><td>${r.unique_users}</td><td>${Math.round(r.total_seconds/60)}</td><td>${r.avg_seconds}</td></tr>`).join('')+
+        `</tbody></table>`;
+    } else if(wrap) { wrap.innerHTML='<p style="color:#aaa;text-align:center;padding:20px">暂无数据</p>'; }
+
+    // 功能趋势（堆叠面积图）
+    const ftRaw=d.featureTrend||[];
+    const ftLabels=[...new Set(ftRaw.map(x=>x.period))].sort();
+    const ftTypes=[...new Set(ftRaw.map(x=>x.activity_type))];
+    const ftMap={};
+    ftRaw.forEach(x=>{ (ftMap[x.activity_type]=ftMap[x.activity_type]||{})[x.period]=x.count; });
+    destroyChart('fu-trend');
+    const ftCtx=document.getElementById('fu-trend-c');
+    if(ftCtx) charts['fu-trend']=new Chart(ftCtx,{
       type:'line',
-      data:{ labels:atLabels, datasets:atTypes.map((t,i)=>({
-        label:t, data:atLabels.map(l=>atMap[t]?.[l]||0), fill:true,
+      data:{ labels:ftLabels, datasets:ftTypes.map((t,i)=>({
+        label:actName(t), data:ftLabels.map(l=>ftMap[t]?.[l]||0), fill:true,
         borderColor:PALETTE[i%PALETTE.length], backgroundColor:PALETTE[i%PALETTE.length]+'55', tension:.3, pointRadius:2
       }))},
       options:{responsive:true, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true,stacked:true}}}
     });
 
-    const qLabels=(d.quizTrend||[]).map(x=>x.period);
-    mkChart('bh-quiz-c', lineCfg(qLabels,[{label:'平均得分', data:(d.quizTrend||[]).map(x=>+(+x.avg_score||0).toFixed(1))}]),'bh-quiz');
+    // 时段分布（柱状图）
+    const hours=Array.from({length:24},(_,i)=>i);
+    const hourMap={};
+    (d.hourlyDist||[]).forEach(x=>{ hourMap[x.hour]=x.count; });
+    mkChart('fu-hour-c', barCfg(hours.map(h=>`${h}:00`), [{label:'使用次数', data:hours.map(h=>hourMap[h]||0)}]), 'fu-hour');
 
-    const sLabels=(d.srsTrend||[]).map(x=>x.period);
-    mkChart('bh-srs-c', barCfg(sLabels,[{label:'SRS复习', data:(d.srsTrend||[]).map(x=>x.reviews)}]),'bh-srs');
-
-    const dlLabels=(d.dailyStudy||[]).map(x=>x.period);
-    mkChart('bh-daily-c', barCfg(dlLabels,[{label:'日均(分钟)', data:(d.dailyStudy||[]).map(x=>+(+x.avg_min||0).toFixed(1))}]),'bh-daily');
-
-    const dist=d.activityDist||[];
-    mkChart('bh-dist-c', pieCfg(dist.map(x=>x.activity_type||'其他'),dist.map(x=>x.count),'pie'),'bh-dist');
+    // 用户功能偏好
+    const uw=document.getElementById('fu-user-wrap');
+    if(uw && d.userTopFeatures && d.userTopFeatures.length){
+      uw.innerHTML=`<table><thead><tr><th>用户</th><th>功能</th><th>次数</th><th>时长(分)</th></tr></thead><tbody>`+
+        d.userTopFeatures.map(r=>`<tr><td>${esc(r.username)}</td><td>${esc(actName(r.activity_type))}</td><td>${r.cnt}</td><td>${Math.round(r.total_sec/60)}</td></tr>`).join('')+
+        `</tbody></table>`;
+    } else if(uw) { uw.innerHTML='<p style="color:#aaa;text-align:center">暂无数据</p>'; }
   }catch(e){ toast(e.message,true) }
 }
 

@@ -7,13 +7,14 @@ const {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab,
   importVocab, importVocabFile,
-  listGrammar, createGrammar, updateGrammar, deleteGrammar,
+  listGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar,
   listTracks, createTrack, updateTrack, deleteTrack,
   listUsers, updateUser,
   getContentVersion, publishContent,
-  getTrafficStats, getUserStats, getBehaviorStats,
+  getTrafficStats, getUserStats, getBehaviorStats, getFeatureUsage,
   getMembershipConfig, saveMembershipConfig,
-  uploadApp, listAppReleases, downloadApp,
+  getFeatureToggles, saveFeatureToggles,
+  uploadApp, listAppReleases, downloadApp, deleteAppRelease,
 } = require('../controllers/adminController');
 
 const upload = multer({
@@ -54,6 +55,7 @@ router.get('/dashboard', asyncHandler(getDashboard));
 router.get('/stats/traffic',  asyncHandler(getTrafficStats));
 router.get('/stats/users',    asyncHandler(getUserStats));
 router.get('/stats/behavior', asyncHandler(getBehaviorStats));
+router.get('/stats/feature-usage', asyncHandler(getFeatureUsage));
 
 // 词汇管理
 router.get('/vocabulary',              asyncHandler(listVocab));
@@ -69,6 +71,7 @@ router.get('/grammar',        asyncHandler(listGrammar));
 router.post('/grammar',       asyncHandler(createGrammar));
 router.put('/grammar/:id',    asyncHandler(updateGrammar));
 router.delete('/grammar/:id', asyncHandler(deleteGrammar));
+router.post('/grammar/bulk-delete', asyncHandler(bulkDeleteGrammar));
 
 // 听力管理
 router.get('/tracks',        asyncHandler(listTracks));
@@ -88,8 +91,13 @@ router.post('/content-version/publish', asyncHandler(publishContent));
 router.get('/membership',  asyncHandler(getMembershipConfig));
 router.post('/membership', asyncHandler(saveMembershipConfig));
 
+// 功能开关配置
+router.get('/feature-toggles',  asyncHandler(getFeatureToggles));
+router.post('/feature-toggles', asyncHandler(saveFeatureToggles));
+
 // App 管理
 router.post('/uploadApp', appUpload.single('file'), asyncHandler(uploadApp));
 router.get('/listAppReleases', asyncHandler(listAppReleases));
+router.delete('/app/:id', asyncHandler(deleteAppRelease));
 
 module.exports = router;

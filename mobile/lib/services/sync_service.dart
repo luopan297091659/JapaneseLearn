@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'local_db.dart';
 import 'api_service.dart';
@@ -11,6 +12,42 @@ class SyncService {
   SyncService._internal();
 
   bool _syncing = false;
+
+  // ── 功能开关缓存 ──
+  Map<String, bool>? _featureToggles;
+
+  /// 从服务端拉取移动端功能开关，缓存到 SharedPreferences。
+  /// 返回 {featureId: enabled}，离线时使用上次缓存结果。
+  Future<Map<String, bool>> fetchFeatureToggles({bool force = false}) async {
+    if (_featureToggles != null && !force) return _featureToggles!;
+    final prefs = await SharedPreferences.getInstance();
+    try {
+      final resp = await apiService.get('/sync/features?platform=mobile');
+      final features = resp['features'] as Map<String, dynamic>? ?? {};
+      final map = features.map((k, v) => MapEntry(k, v == true));
+      _featureToggles = map;
+      await prefs.setString('feature_toggles', jsonEncode(map));
+      return map;
+    } catch (_) {
+      // 离线则读本地缓存
+      final cached = prefs.getString('feature_toggles');
+      if (cached != null) {
+        final map = (jsonDecode(cached) as Map<String, dynamic>)
+            .map((k, v) => MapEntry(k, v == true));
+        _featureToggles = map;
+        return map;
+      }
+      return _featureToggles = {};
+    }
+  }
+
+  /// 判断某功能是否启用，未配置的默认启用
+  bool isFeatureEnabled(String featureId) {
+    if (_featureToggles == null || !_featureToggles!.containsKey(featureId)) {
+      return true; // 未拉取或未配置的功能默认开启
+    }
+    return _featureToggles![featureId]!;
+  }
 
   /// 将本地待同步词汇上传到服务器
   ///

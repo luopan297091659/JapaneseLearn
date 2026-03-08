@@ -1,10 +1,14 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/locale_provider.dart';
+import '../../utils/tts_helper.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -17,9 +21,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   ProgressSummaryModel? _progress;
   bool _loading = true;
   bool? _notifOverride; // 乐观更新开关状态
+  Map<String, bool> _permissions = {};
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() { super.initState(); _load(); _checkPermissions(); }
 
   Future<void> _load() async {
     try {
@@ -33,6 +38,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _loading = false;
       });
     } catch (_) { setState(() => _loading = false); }
+  }
+
+  Future<void> _checkPermissions() async {
+    if (!Platform.isAndroid) return;
+    final mic = await Permission.microphone.status;
+    final camera = await Permission.camera.status;
+    final notification = await Permission.notification.status;
+    final storage = await Permission.storage.status;
+    if (mounted) {
+      setState(() {
+        _permissions = {
+          'microphone': mic.isGranted,
+          'camera': camera.isGranted,
+          'notification': notification.isGranted,
+          'storage': storage.isGranted,
+        };
+      });
+    }
   }
 
   Future<void> _logout() async {
@@ -243,6 +266,94 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   // ── 修改密码 ───────────────────────────────────────────────────
+  Future<void> _testTts() async {
+    final tts = FlutterTts();
+    final diag = StringBuffer();
+    bool speakSuccess = false;
+
+    try {
+      // 1. 检测引擎
+      try {
+        final engines = await tts.getEngines;
+        final list = engines is List ? engines : [];
+        diag.writeln('可用引擎: ${list.isEmpty ? "无" : list.join(", ")}');
+        if (list.any((e) => e.toString().contains('google'))) {
+          await tts.setEngine(list.firstWhere((e) => e.toString().contains('google')).toString());
+          diag.writeln('已选引擎: Google TTS');
+        }
+      } catch (e) {
+        diag.writeln('引擎检测失败: $e');
+      }
+
+      // 2. 检测语言
+      try {
+        final raw = await tts.getLanguages;
+        final langs = raw is List ? raw.map((l) => l.toString()).toList() : <String>[];
+        final jaLangs = langs.where((l) => l.toLowerCase().startsWith('ja')).toList();
+        diag.writeln('可用语言总数: ${langs.length}');
+        diag.writeln('日语支持: ${jaLangs.isEmpty ? "❌ 无" : "✅ ${jaLangs.join(", ")}"}');
+
+        // 也检测中文
+        final zhLangs = langs.where((l) => l.toLowerCase().startsWith('zh') || l.toLowerCase().contains('chinese')).toList();
+        diag.writeln('中文变体: ${zhLangs.isEmpty ? "无" : zhLangs.join(", ")}');
+      } catch (e) {
+        diag.writeln('语言检测失败: $e');
+      }
+
+      // 3. 配置并测试
+      await tts.awaitSpeakCompletion(false);
+      try { await tts.setLanguage('ja-JP'); } catch (_) {}
+      await tts.setVolume(1.0);
+      await tts.setSpeechRate(0.45);
+      await tts.setPitch(1.0);
+
+      final result = await tts.speak('こんにちは');
+      diag.writeln('speak() 结果: $result (1=成功, 0=失败)');
+      speakSuccess = result == 1;
+    } catch (e) {
+      diag.writeln('测试异常: $e');
+    }
+
+    // 加上全局诊断
+    diag.writeln('\n--- 全局诊断 ---');
+    diag.writeln(TtsHelper.instance.diagnosticInfo);
+
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Row(children: [
+            Icon(speakSuccess ? Icons.check_circle : Icons.error,
+                color: speakSuccess ? Colors.green : Colors.red),
+            const SizedBox(width: 8),
+            Text(speakSuccess ? 'TTS 正常' : 'TTS 异常'),
+          ]),
+          content: SingleChildScrollView(
+            child: SelectableText(diag.toString(), style: const TextStyle(fontSize: 13, fontFamily: 'monospace')),
+          ),
+          actions: [
+            if (!speakSuccess)
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('请前往手机设置 → 系统 → 语言和输入 → 文字转语音 → 安装 Google TTS 并下载日语数据'),
+                      duration: Duration(seconds: 8),
+                    ),
+                  );
+                },
+                child: const Text('如何修复'),
+              ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('关闭')),
+          ],
+        ),
+      );
+    }
+
+    tts.stop();
+  }
+
   Future<void> _changePassword() async {
     final currentCtrl = TextEditingController();
     final newCtrl     = TextEditingController();
@@ -490,9 +601,60 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   // Settings section
                   Text(s.settings, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 8),
+                  // ── 权限状态栏 ──
+                  if (Platform.isAndroid && _permissions.isNotEmpty) ...[
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.security_rounded, size: 20),
+                                const SizedBox(width: 8),
+                                const Expanded(child: Text('权限管理', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                                TextButton.icon(
+                                  onPressed: () async {
+                                    await openAppSettings();
+                                    // 返回后刷新权限状态
+                                    Future.delayed(const Duration(milliseconds: 500), _checkPermissions);
+                                  },
+                                  icon: const Icon(Icons.settings, size: 16),
+                                  label: const Text('设置', style: TextStyle(fontSize: 13)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _PermChip(icon: Icons.mic, label: '麦克风', granted: _permissions['microphone'] ?? false),
+                                _PermChip(icon: Icons.volume_up, label: '扬声器', granted: true),
+                                _PermChip(icon: Icons.camera_alt, label: '相机', granted: _permissions['camera'] ?? false),
+                                _PermChip(icon: Icons.photo_library, label: '存储/相册', granted: _permissions['storage'] ?? false),
+                                _PermChip(icon: Icons.notifications, label: '通知', granted: _permissions['notification'] ?? false),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   Card(
                     child: Column(
                       children: [
+                        // TTS 语音测试（放在最前面方便找到）
+                        ListTile(
+                          leading: const Icon(Icons.record_voice_over_rounded),
+                          title: const Text('TTS 语音测试'),
+                          subtitle: const Text('检测语音引擎是否可用'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: _testTts,
+                        ),
+                        const Divider(height: 1, indent: 56),
                         // Language switcher
                         ListTile(
                           leading: const Icon(Icons.language_rounded),
@@ -618,4 +780,37 @@ class _SrsStatItem extends StatelessWidget {
     Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
     Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
   ]);
+}
+
+class _PermChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool granted;
+  const _PermChip({required this.icon, required this.label, required this.granted});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: granted ? Colors.green.withValues(alpha: 0.1) : cs.errorContainer.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: granted ? Colors.green.withValues(alpha: 0.4) : cs.error.withValues(alpha: 0.4),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: granted ? Colors.green : cs.error),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(fontSize: 12, color: granted ? Colors.green.shade700 : cs.error)),
+          const SizedBox(width: 4),
+          Icon(granted ? Icons.check_circle : Icons.cancel, size: 14, color: granted ? Colors.green : cs.error),
+        ],
+      ),
+    );
+  }
 }
