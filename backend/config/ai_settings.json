@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "provider": "deepseek",
+  "api_key": "",
+  "base_url": "https://api.deepseek.com/v1",
+  "model": "deepseek-chat",
+  "daily_limit": 1000,
+  "alert_threshold": 80,
+  "usage": {
+    "today_count": 0,
+    "today_date": "",
+    "total_count": 0,
+    "history": []
+  }
+}

@@ -727,6 +727,8 @@ async function getFeatureUsage(req, res) {
 const PLANS_FILE = path.join(__dirname, '../../config/membership.json');
 // ─── 功能开关配置（存储于 backend/config/feature_toggles.json）────────────
 const TOGGLES_FILE = path.join(__dirname, '../../config/feature_toggles.json');
+// ─── AI 设置配置（存储于 backend/config/ai_settings.json）────────────────────
+const AI_SETTINGS_FILE = path.join(__dirname, '../../config/ai_settings.json');
 
 const DEFAULT_FEATURE_TOGGLES = {
   features: [
@@ -883,6 +885,106 @@ async function deleteAppRelease(req, res) {
   }
 }
 
+// ─── AI 设置 ──────────────────────────────────────────────────────────────
+const DEFAULT_AI_SETTINGS = {
+  enabled: true,
+  provider: 'deepseek',
+  api_key: '',
+  base_url: 'https://api.deepseek.com/v1',
+  model: 'deepseek-chat',
+  daily_limit: 1000,
+  alert_threshold: 80,
+  usage: { today_count: 0, today_date: '', total_count: 0, history: [] },
+  updated_at: null,
+};
+
+function readAiSettings() {
+  try {
+    if (fs.existsSync(AI_SETTINGS_FILE)) {
+      return JSON.parse(fs.readFileSync(AI_SETTINGS_FILE, 'utf8'));
+    }
+  } catch { /* ignore */ }
+  return JSON.parse(JSON.stringify(DEFAULT_AI_SETTINGS));
+}
+
+function saveAiSettingsFile(data) {
+  const dir = path.dirname(AI_SETTINGS_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(AI_SETTINGS_FILE, JSON.stringify(data, null, 2), 'utf8');
+}
+
+async function getAiSettings(req, res) {
+  const settings = readAiSettings();
+  // 遮掩 API key（仅返回末尾 4 位）
+  const rawKey = settings.api_key || settings.gemini_api_key || '';
+  if (rawKey) {
+    settings.api_key_masked = rawKey.length > 4 ? '****' + rawKey.slice(-4) : '****';
+    settings.has_key = true;
+  } else {
+    settings.api_key_masked = '';
+    settings.has_key = false;
+  }
+  delete settings.api_key;
+  delete settings.gemini_api_key; // 不返回原始 key
+  // 检查用量告警
+  const usage = settings.usage || {};
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayCount = usage.today_date === todayStr ? usage.today_count : 0;
+  const pct = settings.daily_limit > 0 ? Math.round(todayCount / settings.daily_limit * 100) : 0;
+  settings.usage_percent = pct;
+  settings.alert = pct >= (settings.alert_threshold || 80);
+  settings.today_count = todayCount;
+  res.json({ ok: true, ...settings });
+}
+
+async function saveAiSettings(req, res) {
+  try {
+    const current = readAiSettings();
+    const { enabled, api_key, provider, base_url, model, daily_limit, alert_threshold } = req.body;
+    if (typeof enabled === 'boolean') current.enabled = enabled;
+    if (api_key !== undefined && api_key !== '') current.api_key = String(api_key);
+    if (provider) current.provider = String(provider);
+    if (base_url) current.base_url = String(base_url);
+    if (model) current.model = String(model);
+    if (daily_limit !== undefined) current.daily_limit = Math.max(0, parseInt(daily_limit, 10) || 0);
+    if (alert_threshold !== undefined) current.alert_threshold = Math.min(100, Math.max(0, parseInt(alert_threshold, 10) || 80));
+    current.updated_at = new Date().toISOString();
+    saveAiSettingsFile(current);
+    res.json({ ok: true, message: 'AI 设置已保存' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+async function getAiUsage(req, res) {
+  const settings = readAiSettings();
+  const usage = settings.usage || {};
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayCount = usage.today_date === todayStr ? usage.today_count : 0;
+  const pct = settings.daily_limit > 0 ? Math.round(todayCount / settings.daily_limit * 100) : 0;
+  res.json({
+    ok: true,
+    today_count: todayCount,
+    daily_limit: settings.daily_limit,
+    total_count: usage.total_count || 0,
+    usage_percent: pct,
+    alert: pct >= (settings.alert_threshold || 80),
+    history: (usage.history || []).slice(-30), // 最近 30 天
+  });
+}
+
+async function resetAiUsage(req, res) {
+  try {
+    const current = readAiSettings();
+    current.usage = { today_count: 0, today_date: '', total_count: 0, history: [] };
+    current.updated_at = new Date().toISOString();
+    saveAiSettingsFile(current);
+    res.json({ ok: true, message: '用量计数已重置' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 module.exports = {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab,
@@ -898,4 +1000,5 @@ module.exports = {
   listAppReleases,
   downloadApp,
   deleteAppRelease,
+  getAiSettings, saveAiSettings, getAiUsage, resetAiUsage, readAiSettings, saveAiSettingsFile,
 };
