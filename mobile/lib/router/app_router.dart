@@ -32,6 +32,7 @@ import '../screens/news/news_list_screen.dart';
 import '../screens/news/news_detail_screen.dart';
 import '../screens/news/nhk_detail_screen.dart';
 import '../screens/tools/todofuken_quiz_screen.dart';
+import '../screens/tools/translate_screen.dart';
 import '../models/models.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -119,6 +120,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(path: '/todofuken-quiz', builder: (_, __) => const TodofukenQuizScreen()),
+          GoRoute(path: '/translate', builder: (_, __) => const TranslateScreen()),
         ],
       ),
     ],

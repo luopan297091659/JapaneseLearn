@@ -15,6 +15,7 @@ const {
   getMembershipConfig, saveMembershipConfig,
   getFeatureToggles, saveFeatureToggles,
   uploadApp, listAppReleases, downloadApp, deleteAppRelease,
+  getAiSettings, saveAiSettings, getAiUsage, resetAiUsage,
 } = require('../controllers/adminController');
 
 const upload = multer({
@@ -99,5 +100,11 @@ router.post('/feature-toggles', asyncHandler(saveFeatureToggles));
 router.post('/uploadApp', appUpload.single('file'), asyncHandler(uploadApp));
 router.get('/listAppReleases', asyncHandler(listAppReleases));
 router.delete('/app/:id', asyncHandler(deleteAppRelease));
+
+// AI 设置
+router.get('/ai-settings',       asyncHandler(getAiSettings));
+router.post('/ai-settings',      asyncHandler(saveAiSettings));
+router.get('/ai-usage',          asyncHandler(getAiUsage));
+router.post('/ai-usage/reset',   asyncHandler(resetAiUsage));
 
 module.exports = router;
