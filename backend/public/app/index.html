@@ -345,6 +345,18 @@ ul { list-style: none; }
 .profile-info h2 { font-size: 22px; font-weight: 700; }
 .profile-info p { color: var(--text-sub); }
 
+/* ─── Sidebar 折叠（桌面端）───────────────────────────────────── */
+.sidebar-collapse-btn { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 8px; cursor: pointer; color: var(--text-sub); font-size: 13px; border-radius: var(--radius-sm); transition: all .15s; user-select: none; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+.sidebar-collapse-btn:hover { background: var(--primary-light); color: var(--primary); }
+.sidebar-collapse-btn .collapse-icon { font-size: 16px; font-weight: bold; transition: transform .25s; }
+#main.sidebar-collapsed #sidebar { width: 60px; padding: 16px 6px; }
+#main.sidebar-collapsed #sidebar .nav-section { display: none; }
+#main.sidebar-collapsed #sidebar .nav-item { justify-content: center; padding: 10px 0; font-size: 0; gap: 0; }
+#main.sidebar-collapsed #sidebar .nav-item .icon { font-size: 20px; width: auto; }
+#main.sidebar-collapsed #sidebar .sidebar-collapse-btn { justify-content: center; font-size: 0; gap: 0; padding: 8px 0 12px; }
+#main.sidebar-collapsed #sidebar .sidebar-collapse-btn .collapse-icon { font-size: 16px; transform: scaleX(-1); }
+#main.sidebar-collapsed #content { margin-left: 60px; }
+
 /* ─── 响应式 ─────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   :root { --sidebar-w: 0px; }
@@ -355,6 +367,9 @@ ul { list-style: none; }
   .home-grid { grid-template-columns: 1fr; }
   .srs-actions { grid-template-columns: repeat(2, 1fr); }
   #topbar .hamburger { display: flex !important; }
+  .sidebar-collapse-btn { display: none !important; }
+  #main.sidebar-collapsed #sidebar { width: 220px; }
+  #main.sidebar-collapsed #content { margin-left: 0; }
 }
 #topbar .hamburger { display: none; flex-direction: column; gap: 4px; padding: 8px; cursor: pointer; }
 #topbar .hamburger span { width: 20px; height: 2px; background: var(--text); border-radius: 1px; }
@@ -390,8 +405,8 @@ ul { list-style: none; }
     </div>
     <p class="subtitle">每天进步一点点</p>
     <div class="auth-tabs">
-      <div class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">登录</div>
-      <div class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">注册</div>
+      <div class="auth-tab active" id="tab-login">登录</div>
+      <div class="auth-tab" id="tab-register">注册</div>
     </div>
     <!-- 登录表单 -->
     <div id="login-form">
@@ -404,7 +419,7 @@ ul { list-style: none; }
         <input class="input" id="login-pwd" type="password" placeholder="请输入密码" autocomplete="current-password">
       </div>
       <div id="login-err" style="color:var(--danger);font-size:13px;margin-bottom:10px;display:none"></div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doLogin()">登录</button>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" id="btn-login">登录</button>
     </div>
     <!-- 注册表单 -->
     <div id="register-form" style="display:none">
@@ -427,7 +442,7 @@ ul { list-style: none; }
         </select>
       </div>
       <div id="reg-err" style="color:var(--danger);font-size:13px;margin-bottom:10px;display:none"></div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doRegister()">注册并登录</button>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" id="btn-register">注册并登录</button>
     </div>
   </div>
 </div>
@@ -453,15 +468,18 @@ ul { list-style: none; }
   <div id="main">
     <!-- 侧边栏 -->
     <div id="sidebar">
+      <div class="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="折叠/展开侧栏">
+        <span class="collapse-icon">«</span><span class="collapse-label">收起</span>
+      </div>
       <div class="nav-item active" data-page="home" onclick="navigate('home')"><span class="icon">🏠</span>首页</div>
       <div class="nav-section">学习</div>
+      <div class="nav-item" data-page="gojuon" onclick="navigate('gojuon')"><span class="icon">🔤</span>五十音</div>
       <div class="nav-item" data-page="vocabulary" onclick="navigate('vocabulary')"><span class="icon">📖</span>单词</div>
       <div class="nav-item" data-page="grammar" onclick="navigate('grammar')"><span class="icon">📝</span>语法</div>
-      <div class="nav-item" data-page="srs" onclick="navigate('srs')"><span class="icon">🗂️</span>SRS 复习</div>
       <div class="nav-item" data-page="listening" onclick="navigate('listening')"><span class="icon">🎧</span>听力</div>
       <div class="nav-item" data-page="pronunciation" onclick="navigate('pronunciation')"><span class="icon">🎤</span>发音练习</div>
-      <div class="nav-item" data-page="gojuon" onclick="navigate('gojuon')"><span class="icon">🔤</span>五十音</div>
       <div class="nav-item" data-page="flashcard" onclick="navigate('flashcard')"><span class="icon">🃏</span>闪卡练习</div>
+      <div class="nav-item" data-page="srs" onclick="navigate('srs')"><span class="icon">🗂️</span>SRS 复习</div>
       <div class="nav-section">游戏</div>
       <div class="nav-item" data-page="game" onclick="navigate('game')"><span class="icon">🎮</span>助词方块</div>
       <div class="nav-item" data-page="game-verbs" onclick="navigate('game-verbs')"><span class="icon">🎮</span>动词方块</div>
@@ -516,26 +534,31 @@ ul { list-style: none; }
           </div>
         </div>
 
-        <!-- 本周学习统计 -->
+        <!-- 今日学习 -->
         <div class="card" style="margin-bottom:20px">
-          <div class="card-title">📊 本周学习统计</div>
-          <div class="grid-2" style="gap:12px">
+          <div class="card-title">📊 今日学习</div>
+          <div class="grid-2" style="gap:12px;margin-bottom:16px">
             <div style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center">
-              <div style="font-size:24px;font-weight:800;color:var(--primary)" id="week-xp">0</div>
-              <div style="font-size:12px;color:var(--text-hint)">获得 XP</div>
+              <div style="font-size:24px;font-weight:800;color:var(--primary)" id="today-xp">0</div>
+              <div style="font-size:12px;color:var(--text-hint)">今日 XP</div>
             </div>
             <div style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center">
-              <div style="font-size:24px;font-weight:800;color:#10b981" id="week-time">0</div>
+              <div style="font-size:24px;font-weight:800;color:#10b981" id="today-time">0</div>
               <div style="font-size:12px;color:var(--text-hint)">学习分钟</div>
             </div>
             <div style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center">
-              <div style="font-size:24px;font-weight:800;color:#f59e0b" id="week-activities">0</div>
+              <div style="font-size:24px;font-weight:800;color:#f59e0b" id="today-activities">0</div>
               <div style="font-size:12px;color:var(--text-hint)">学习活动</div>
             </div>
             <div style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center">
-              <div style="font-size:24px;font-weight:800;color:#8b5cf6" id="week-accuracy">-</div>
-              <div style="font-size:12px;color:var(--text-hint)">测验准确率</div>
+              <div style="font-size:24px;font-weight:800;color:#8b5cf6" id="today-total-xp">0</div>
+              <div style="font-size:12px;color:var(--text-hint)">总 XP</div>
             </div>
+          </div>
+          <!-- 每日目标 -->
+          <div style="border-top:1px solid var(--border);padding-top:14px">
+            <div style="font-size:13px;font-weight:600;margin-bottom:10px">🎯 每日目标</div>
+            <div id="daily-goals-list"></div>
           </div>
         </div>
 
@@ -598,10 +621,14 @@ ul { list-style: none; }
         <!-- 今日一词 -->
         <div class="card word-of-day" id="word-of-day" style="margin-bottom:20px">
           <div class="card-title" style="color:#fff;opacity:.8">✨ 每日一词</div>
+          <div id="wod-level-badge" style="text-align:center;margin-bottom:4px"><span style="background:rgba(255,255,255,.25);padding:2px 10px;border-radius:8px;font-size:12px;font-weight:700"></span></div>
           <div class="word" id="wod-word">　</div>
           <div class="reading" id="wod-reading">　</div>
-          <div class="meaning" id="wod-meaning">　</div>
-          <div style="text-align:center;margin-top:8px">
+          <div id="wod-meaning-wrap" style="text-align:center;margin-top:8px">
+            <button class="btn btn-sm" id="wod-reveal-btn" style="background:rgba(255,255,255,.15);color:#fff;border:none;font-size:13px" onclick="revealWod()">👁️ 点击查看释义</button>
+            <div class="meaning" id="wod-meaning" style="display:none">　</div>
+          </div>
+          <div id="wod-next-wrap" style="text-align:center;margin-top:8px;display:none">
             <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border:none" onclick="nextWod()">换一个 →</button>
           </div>
         </div>
@@ -1216,6 +1243,11 @@ function closeSidebar() {
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('overlay-bg').classList.remove('show');
 }
+function toggleSidebarCollapse() {
+  const m = document.getElementById('main');
+  const collapsed = m.classList.toggle('sidebar-collapsed');
+  try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : ''); } catch(e) {}
+}
 
 // ══════════════════════════════════════════════════════════════════
 //  AUTH (login / register)
@@ -1283,13 +1315,19 @@ async function doLogout() {
   toast('已退出登录');
 }
 
-// Enter 键登录
+// 登录按钮 & Enter 键登录
+document.getElementById('btn-login').addEventListener('click', () => doLogin());
 document.getElementById('login-pwd').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+// 注册按钮
+document.getElementById('btn-register').addEventListener('click', () => doRegister());
+// 登录/注册 Tab 切换
+document.getElementById('tab-login').addEventListener('click', () => switchAuthTab('login'));
+document.getElementById('tab-register').addEventListener('click', () => switchAuthTab('register'));
 
 // ══════════════════════════════════════════════════════════════════
 //  HOME
 // ══════════════════════════════════════════════════════════════════
-let _wodPool = []; let _wodIdx = 0;
+let _wodPool = []; let _wodIdx = 0; let _wodRevealed = false; let _wodUserLevel = 'N5';
 
 // ── 常用功能配置 ──
 const FREQUENT_KEY = 'kotabi_frequent_funcs';
@@ -1418,23 +1456,44 @@ async function loadHome() {
   // 常用功能
   renderFrequentFuncs();
 
-  // word of day
+  // word of day — 使用用户等级 + 日期种子，与 App 保持一致
+  try {
+    const me2 = await GET('/auth/me').catch(() => null);
+    if (me2) _wodUserLevel = (me2.user || me2).level || 'N5';
+  } catch(_) {}
   if (_wodPool.length === 0) {
     try {
-      const r = await GET('/vocabulary?level=N5&limit=30&page=1');
+      const r = await GET(`/vocabulary?level=${_wodUserLevel}&limit=20&page=1`);
       _wodPool = (r && r.data) || [];
-      _wodIdx = Math.floor(Math.random() * Math.max(1, _wodPool.length));
+      // 日期种子算法，同一天得到相同初始索引
+      const now = new Date();
+      const todayStr = now.toISOString().slice(0, 10);
+      const savedDate = localStorage.getItem('wod_date');
+      const savedIdx = localStorage.getItem('wod_index');
+      const savedLevel = localStorage.getItem('wod_level');
+      if (savedDate === todayStr && savedIdx !== null && savedLevel === _wodUserLevel) {
+        _wodIdx = parseInt(savedIdx, 10) % Math.max(1, _wodPool.length);
+      } else {
+        const seed = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+        // 简单確定性随机 (mulberry32)
+        let t = seed | 0; t = Math.imul(t ^ (t >>> 16), 0x45d9f3b); t = Math.imul(t ^ (t >>> 13), 0x45d9f3b); t = (t ^ (t >>> 16)) >>> 0;
+        _wodIdx = t % Math.max(1, _wodPool.length);
+        localStorage.setItem('wod_date', todayStr);
+        localStorage.setItem('wod_index', String(_wodIdx));
+        localStorage.setItem('wod_level', _wodUserLevel);
+      }
+      _wodRevealed = false;
     } catch(_){ errorCount++; }
   }
   showWod();
 
   // ── Dashboard 数据 ──
   try {
-    const summary = await GET('/progress/summary');
-    if (!summary) throw new Error('empty response');
+    const dg = await GET('/progress/daily-goals');
+    if (!dg) throw new Error('empty response');
     // 等级 + XP
-    const level = summary.user?.level || 'N5';
-    const totalXp = summary.user?.total_xp || 0;
+    const level = dg.level || 'N5';
+    const totalXp = dg.total_xp || 0;
     const levelThresholds = { N5: 500, N4: 1500, N3: 3500, N2: 7000, N1: 15000 };
     const levelOrder = ['N5','N4','N3','N2','N1'];
     const curIdx = levelOrder.indexOf(level);
@@ -1453,22 +1512,37 @@ async function loadHome() {
     document.getElementById('home-level-xp-max').textContent = xpNeeded;
 
     // 连续打卡
-    document.getElementById('home-streak').textContent = summary.user?.streak_days || 0;
+    document.getElementById('home-streak').textContent = dg.streak_days || 0;
 
-    // 本周统计
-    const ws = summary.weekly_stats || {};
-    document.getElementById('week-xp').textContent = ws.xp || 0;
-    document.getElementById('week-time').textContent = Math.round((ws.study_seconds || 0) / 60);
-    document.getElementById('week-activities').textContent = ws.activities || 0;
-    document.getElementById('week-accuracy').textContent = ws.quiz_avg_score ? ws.quiz_avg_score + '%' : '-';
+    // 今日统计
+    const td = dg.today || {};
+    document.getElementById('today-xp').textContent = td.xp_earned || 0;
+    document.getElementById('today-time').textContent = Math.round((td.study_seconds || 0) / 60);
+    document.getElementById('today-activities').textContent = td.activity_count || 0;
+    document.getElementById('today-total-xp').textContent = totalXp;
 
-    // SRS
-    const srs = summary.srs_stats;
-    const dueToday = srs?.due_today ?? 0;
-    if (dueToday > 0) {
-      document.getElementById('home-srs-banner').style.display = '';
-      document.getElementById('home-srs-due').textContent = dueToday;
+    // 每日目标
+    const goals = dg.goals || {};
+    let goalsHtml = '';
+    const goalItems = [
+      { label: '学习分钟', data: goals.study_minutes, color: 'var(--primary)' },
+      { label: '完成课程', data: goals.lessons, color: '#10b981' },
+      { label: 'SRS 复习', data: goals.reviews, color: '#f59e0b' },
+    ];
+    for (const g of goalItems) {
+      const cur = g.data?.current || 0;
+      const tgt = g.data?.target || 1;
+      const pctG = Math.min(100, Math.round(cur / tgt * 100));
+      goalsHtml += `<div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-sub);margin-bottom:3px">
+          <span>${g.label}</span><span>${cur} / ${tgt}</span>
+        </div>
+        <div style="background:var(--bg3);border-radius:6px;height:6px;overflow:hidden">
+          <div style="background:${g.color};height:100%;width:${pctG}%;border-radius:6px;transition:width .6s"></div>
+        </div>
+      </div>`;
     }
+    document.getElementById('daily-goals-list').innerHTML = goalsHtml;
   } catch(_) { errorCount++; }
 
   // SRS stats (due_today from separate endpoint for accuracy)
@@ -1494,9 +1568,26 @@ function showWod() {
   document.getElementById('wod-word').textContent = w.word || '--';
   document.getElementById('wod-reading').textContent = w.reading ? `【${w.reading}】` : '';
   document.getElementById('wod-meaning').textContent = w.meaning_zh || w.meaningZh || '';
+  // 等级标签
+  const badge = document.querySelector('#wod-level-badge span');
+  if (badge) badge.textContent = w.jlpt_level || _wodUserLevel;
+  // 释义逎罩状态
+  document.getElementById('wod-reveal-btn').style.display = _wodRevealed ? 'none' : '';
+  document.getElementById('wod-meaning').style.display = _wodRevealed ? '' : 'none';
+  document.getElementById('wod-next-wrap').style.display = _wodRevealed ? '' : 'none';
 }
 
-function nextWod() { _wodIdx++; showWod(); }
+function revealWod() {
+  _wodRevealed = true;
+  showWod();
+}
+
+function nextWod() {
+  _wodIdx = (_wodIdx + 1) % Math.max(1, _wodPool.length);
+  _wodRevealed = false;
+  localStorage.setItem('wod_index', String(_wodIdx));
+  showWod();
+}
 
 // ══════════════════════════════════════════════════════════════════
 //  VOCABULARY
@@ -2913,6 +3004,8 @@ function escHtml(str) {
   const token = getToken();
   if (token) {
     showApp();
+    // 恢复侧栏折叠状态
+    try { if (localStorage.getItem('sidebar-collapsed') === '1' && window.innerWidth > 768) document.getElementById('main').classList.add('sidebar-collapsed'); } catch(e) {}
     // 先验证 token 有效性，失败则直接返回登录页，避免空白首页闪烁
     try {
       await GET('/auth/me');

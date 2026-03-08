@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
 
@@ -24,7 +25,21 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
   bool _loading = true;
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() { super.initState(); _restoreLevel(); }
+
+  Future<void> _restoreLevel() async {
+    final p = await SharedPreferences.getInstance();
+    final saved = p.getString('grammar_selected_level');
+    if (saved != null && ['N5','N4','N3','N2','N1'].contains(saved)) {
+      _selectedLevel = saved;
+    }
+    _load();
+  }
+
+  Future<void> _saveLevel(String level) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString('grammar_selected_level', level);
+  }
 
   Future<void> _load() async {
     setState(() => _loading = true);
@@ -69,7 +84,7 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
                     side: _selectedLevel == l
                         ? BorderSide(color: color, width: 1.5)
                         : null,
-                    onSelected: (_) { setState(() => _selectedLevel = l); _load(); },
+                    onSelected: (_) { setState(() => _selectedLevel = l); _saveLevel(l); _load(); },
                   ),
                 );
               }).toList()),

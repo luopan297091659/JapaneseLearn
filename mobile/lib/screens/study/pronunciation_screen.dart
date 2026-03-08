@@ -103,10 +103,17 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
     }
   }
 
+  String _lastRecognized = '';
+
   Future<void> _toggleRecord() async {
     if (_listening) {
       await _speech.stop();
-      setState(() => _listening = false);
+      // Process whatever was recognized so far (stop() may not trigger finalResult on Android)
+      if (_score == null && _lastRecognized.isNotEmpty) {
+        _processResult(_lastRecognized);
+      } else {
+        setState(() => _listening = false);
+      }
       return;
     }
     if (!_speechAvailable) {
@@ -115,17 +122,30 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
       );
       return;
     }
+    _lastRecognized = '';
     setState(() { _listening = true; _score = null; _recognized = ''; _feedback = ''; });
     await _speech.listen(
       localeId: 'ja_JP',
       onResult: (result) {
+        _lastRecognized = result.recognizedWords;
         if (result.finalResult) {
           _processResult(result.recognizedWords);
         }
       },
       listenFor: const Duration(seconds: 5),
       pauseFor: const Duration(seconds: 2),
+      onSoundLevelChange: null,
     );
+    // Handle speech recognition ending without finalResult (timeout etc.)
+    _speech.statusListener = (status) {
+      if (status == 'done' || status == 'notListening') {
+        if (mounted && _listening && _score == null && _lastRecognized.isNotEmpty) {
+          _processResult(_lastRecognized);
+        } else if (mounted && _listening) {
+          setState(() => _listening = false);
+        }
+      }
+    };
   }
 
   void _processResult(String recognized) {

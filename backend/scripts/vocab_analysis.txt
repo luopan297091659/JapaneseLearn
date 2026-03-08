@@ -1,0 +1,130 @@
+=== 总词汇数: 31115 ===
+
+按级别:
+  N5: 6279
+  N4: 485
+  N3: 18851
+  N2: 2500
+  N1: 3000
+
+=== 重复分析 ===
+重复组数: 3041
+可删除行数: 8319
+
+重复样例 (前15):
+  [2352x] word=名 | reading=名 | N3
+  [454x] word=動Ⅰ | reading=動Ⅰ | N3
+  [260x] word=動Ⅱ | reading=動Ⅱ | N3
+  [190x] word=副 | reading=副 | N3
+  [178x] word=動Ⅲ | reading=動Ⅲ | N3
+  [162x] word=イ形 | reading=イ形 | N3
+  [100x] word=ナ形 | reading=ナ形 | N3
+  [62x] word=連語 | reading=連語 | N3
+  [40x] word=感 | reading=感 | N3
+  [40x] word=助数 | reading=助数 | N3
+  [30x] word=接 | reading=接 | N3
+  [28x] word=助 | reading=助 | N3
+  [24x] word=接辞 | reading=接辞 | N3
+  [22x] word=接尾 | reading=接尾 | N3
+  [20x] word=連体 | reading=連体 | N3
+
+=== 中日文颠倒检测 ===
+meaning_zh含假名记录数: 254
+
+样例 (前30):
+  word=つぼ | reading=つぼ | meaning_zh=つぼ[名]瓶，坛，罐，缸
+  word=得到、收到（「もらいます」的谦逊语） | reading=いただきます | meaning_zh=得到、收到（「もらいます」的谦逊语）
+  word=嗯（比「はい」随意） | reading=うん | meaning_zh=嗯（比「はい」随意）
+  word=私[わたくし] | reading=私[わたくし] | meaning_zh=我（「わたし」的谦逊语）
+  word=こっち | reading=こっち | meaning_zh=这边（比「こちら」随意）
+  word=棟 | reading=むね | meaning_zh=むね（棟）[名]屋脊，房顶；大梁，脊檩
+  word=感 | reading=感 | meaning_zh=不（比いいえ随意）
+  word=名 | reading=名 | meaning_zh=这（「これ」的礼貌用语）
+  word=～けど | reading=～けど | meaning_zh=～，但是（比「が」随意）
+  word=動Ⅰ | reading=動Ⅰ | meaning_zh=说、叫（「いいます」的谦逊语）
+  word=～ 様[さま] | reading=～ 様[さま] | meaning_zh=～先生、～女士（「～さん」的尊敬语）
+  word=動Ⅰ | reading=動Ⅰ | meaning_zh=吃、喝、得到（「たべます」「のみます」「もらいます」的谦逊语）
+  word=そっち | reading=そっち | meaning_zh=那边（指离听话人近的场所，比「そちら」随意）
+  word=伺[うかが]います | reading=伺[うかが]います | meaning_zh=寻找、听、访问（「ききます」「いきます」的谦逊语）
+  word=那边（指离听话人近的场所，比「そちら」随意） | reading=そっち | meaning_zh=那边（指离听话人近的场所，比「そちら」随意）
+  word=副 | reading=副 | meaning_zh=见面（「あいます」的谦逊语）
+  word=方[かた] | reading=方[かた] | meaning_zh=人（「ひと」的尊敬语）
+  word=なさいます | reading=なさいます | meaning_zh=做（「します」的尊敬语）
+  word=いらっしゃいます | reading=いらっしゃいます | meaning_zh=在、去、来（「います」「いきます」「きます」的尊敬语）
+  word=见面（「あいます」的谦逊语） | reading=お 目[め]にかかります | meaning_zh=见面（「あいます」的谦逊语）
+  word=君[きみ] | reading=君[きみ] | meaning_zh=你（用于同辈、部下、晚辈，比「あなた」随意）
+  word=動Ⅰ | reading=動Ⅰ | meaning_zh=说、叫（「いいます」的尊敬语）
+  word=そっち | reading=そっち | meaning_zh=那边（指离听话人近的场所，比「そちら」随意）
+  word=前～ | reading=ぜん～ | meaning_zh=ぜん～（前～）前～
+  word=こちら | reading=こちら | meaning_zh=这（「これ」的礼貌用语）
+  word=つぼ | reading=つぼ | meaning_zh=つぼ[名]瓶，坛，罐，缸
+  word=動Ⅰ | reading=動Ⅰ | meaning_zh=做（「します」的尊敬语）
+  word=名 | reading=名 | meaning_zh=那边（指离说话人、听话人都远的场所，比「あちら」随意）
+  word=私[わたくし] | reading=私[わたくし] | meaning_zh=我（「わたし」的谦逊语）
+  word=スーパー | reading=スーパー | meaning_zh=超市（「スーパーマーケット」的略称）
+
+强疑似颠倒(word无假名+meaning_zh有假名): 83
+样例:
+  word=棟 | meaning_zh=むね（棟）[名]屋脊，房顶；大梁，脊檩
+  word=感 | meaning_zh=不（比いいえ随意）
+  word=名 | meaning_zh=这（「これ」的礼貌用语）
+  word=動Ⅰ | meaning_zh=说、叫（「いいます」的谦逊语）
+  word=動Ⅰ | meaning_zh=吃、喝、得到（「たべます」「のみます」「もらいます」的谦逊语）
+  word=副 | meaning_zh=见面（「あいます」的谦逊语）
+  word=動Ⅰ | meaning_zh=说、叫（「いいます」的尊敬语）
+  word=前～ | meaning_zh=ぜん～（前～）前～
+  word=動Ⅰ | meaning_zh=做（「します」的尊敬语）
+  word=名 | meaning_zh=那边（指离说话人、听话人都远的场所，比「あちら」随意）
+  word=接尾 | meaning_zh=代替「～さん」接在小孩子名字后面的接尾词
+  word=名 | meaning_zh=人（「ひと」的尊敬语）
+  word=動Ⅰ | meaning_zh=寻找、听、访问（「ききます」「いきます」的谦逊语）
+  word=動Ⅱ | meaning_zh=知道（「しります」的谦逊语）
+  word=動Ⅰ | meaning_zh=寻找、听、访问（「ききます」「いきます」的谦逊语）
+  word=動Ⅰ | meaning_zh=来（「きます」的尊敬用语）
+  word=名 | meaning_zh=府上（「うち」和「いえ」的尊敬语）
+  word=名 | meaning_zh=你（用于同辈、部下、晚辈，比「あなた」随意）
+  word=名 | meaning_zh=那边（指离说话人、听话人都远的场所，比「あちら」随意）
+  word=動Ⅰ | meaning_zh=有、在（「います」的敬语）
+
+reading含纯中文(无假名): 3844
+
+=== 垃圾数据(word=词性标签) ===
+  名: 2353
+  動Ⅰ: 454
+  動Ⅱ: 260
+  副: 190
+  動Ⅲ: 178
+  イ形: 162
+  ナ形: 100
+  連語: 62
+  助数: 40
+  感: 40
+  接: 30
+  助: 28
+  接辞: 24
+  接尾: 22
+  連体: 20
+  造語: 12
+合计: 3975
+
+=== 真实重复(排除词性标签, 前20) ===
+  [16x] 出[で]ます | 出[で]ます | N3
+  [9x] 飲[の]みます | 飲[の]みます | N3
+  [9x] 入[はい]ります | 入[はい]ります | N3
+  [8x] いらっしゃいます | いらっしゃいます | N3
+  [8x] 又[また] | 又[また] | N3
+  [8x] あります | あります | N3
+  [7x] ビザ | ビザ | N3
+  [7x] 取[と]ります | 取[と]ります | N3
+  [7x] します | します | N3
+  [7x] 出[だ]します | 出[だ]します | N3
+  [7x] こちら | こちら | N3
+  [6x] ペット | ペット | N3
+  [6x] 教[おし]えます | 教[おし]えます | N3
+  [6x] 喉[のど] | 喉[のど] | N3
+  [6x] 補動 | 補動 | N3
+  [6x] それから | それから | N3
+  [6x] ずっと | ずっと | N3
+  [6x] どちら | どちら | N3
+  [6x] 色々[いろいろ] | 色々[いろいろ] | N3
+  [6x] ～から | ～から | N3

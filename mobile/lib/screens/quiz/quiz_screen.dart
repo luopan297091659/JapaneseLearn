@@ -347,14 +347,14 @@ class _QuizScreenState extends State<QuizScreen> {
           tooltip: '退出测验',
           onPressed: () => showDialog(
             context: context,
-            builder: (_) => AlertDialog(
+            builder: (dialogCtx) => AlertDialog(
               title: const Text('退出测验'),
               content: const Text('确定要退出当前测验吗？进度不会保存。'),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('继续测验')),
+                TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('继续测验')),
                 FilledButton(
                   onPressed: () {
-                    Navigator.pop(context);
+                    Navigator.pop(dialogCtx);
                     setState(() { _started = false; _questions = []; _error = null; });
                   },
                   child: const Text('退出'),

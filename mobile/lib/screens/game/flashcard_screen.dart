@@ -235,14 +235,14 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
     }
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: const Text('退出练习'),
         content: Text('已复习 $_totalReviewed 张卡片，确定退出吗？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('继续')),
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('继续')),
           FilledButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(dialogCtx);
               _finishSession();
             },
             child: const Text('结束并保存'),

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:android_intent_plus/android_intent.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../l10n/app_localizations.dart';
@@ -329,22 +331,60 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             Text(speakSuccess ? 'TTS 正常' : 'TTS 异常'),
           ]),
           content: SingleChildScrollView(
-            child: SelectableText(diag.toString(), style: const TextStyle(fontSize: 13, fontFamily: 'monospace')),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SelectableText(diag.toString(), style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
+                if (!speakSuccess) ...[
+                  const Divider(height: 24),
+                  const Text('修复步骤：', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 8),
+                  const Text('1. 安装「Google 文字转语音」引擎', style: TextStyle(fontSize: 13)),
+                  const SizedBox(height: 4),
+                  const Text('2. 在 Google TTS 中下载日语语音包', style: TextStyle(fontSize: 13)),
+                  const SizedBox(height: 4),
+                  const Text('3. 将默认 TTS 引擎切换为 Google', style: TextStyle(fontSize: 13)),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(child: OutlinedButton.icon(
+                      icon: const Icon(Icons.shop, size: 16),
+                      label: const Text('安装Google TTS', style: TextStyle(fontSize: 12)),
+                      onPressed: () => launchUrl(
+                        Uri.parse('https://play.google.com/store/apps/details?id=com.google.android.tts'),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                    )),
+                    const SizedBox(width: 8),
+                    Expanded(child: OutlinedButton.icon(
+                      icon: const Icon(Icons.settings, size: 16),
+                      label: const Text('TTS设置', style: TextStyle(fontSize: 12)),
+                      onPressed: () async {
+                        try {
+                          if (Platform.isAndroid) {
+                            const intent = AndroidIntent(
+                              action: 'com.android.settings.TTS_SETTINGS',
+                            );
+                            await intent.launch();
+                          }
+                        } catch (_) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('请手动打开：设置 → 系统 → 语言 → 文字转语音'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                    )),
+                  ]),
+                ],
+              ],
+            ),
           ),
           actions: [
-            if (!speakSuccess)
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('请前往手机设置 → 系统 → 语言和输入 → 文字转语音 → 安装 Google TTS 并下载日语数据'),
-                      duration: Duration(seconds: 8),
-                    ),
-                  );
-                },
-                child: const Text('如何修复'),
-              ),
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('关闭')),
           ],
         ),
@@ -564,7 +604,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         label: s.totalMinutes, value: '${_progress?.totalStudyMinutes ?? 0}${s.minute}'),
                     const SizedBox(width: 8),
                     _StatCard(icon: Icons.quiz, color: Colors.purple,
-                        label: s.avgScore, value: '${(_progress?.quizStats?.avgScore ?? 0).round()}%'),
+                        label: s.avgScore, value: '${(_progress?.quizStats?.avgScore ?? 0).toStringAsFixed(0)}%'),
                   ]),
                   const SizedBox(height: 16),
                   // SRS stats

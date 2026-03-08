@@ -14,6 +14,12 @@ class ToolsTab extends StatelessWidget {
         backgroundColor: cs.primary,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person_outline),
+            onPressed: () => context.push('/profile'),
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -29,7 +35,7 @@ class ToolsTab extends StatelessWidget {
             _ToolCard(
               icon: Icons.translate_rounded,
               title: '翻译/解析',
-              subtitle: 'OCR图像识别 · 整句翻译 · TTS朗读',
+              subtitle: 'AI翻译 · 句子分析 · TTS朗读',
               color: const Color(0xFF3949AB),
               onTap: () => context.push('/translate'),
             ),

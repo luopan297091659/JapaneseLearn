@@ -70,14 +70,28 @@ async function callAI(prompt, maxTokens = 2048) {
     temperature: 0.3,
   };
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000); // 60秒超时
+
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (fetchErr) {
+    clearTimeout(timeout);
+    if (fetchErr.name === 'AbortError') {
+      throw Object.assign(new Error('AI 请求超时，请稍后重试'), { status: 504 });
+    }
+    throw Object.assign(new Error('AI 服务连接失败: ' + fetchErr.message), { status: 502 });
+  }
+  clearTimeout(timeout);
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -104,11 +118,25 @@ async function callAI(prompt, maxTokens = 2048) {
   return text;
 }
 
-// 从 AI 回复中提取 JSON
+// 从 AI 回复中提取 JSON（兼容各种 AI 返回格式）
 function extractJson(text) {
-  const match = text.match(/```json\s*([\s\S]*?)```/);
-  const raw = match ? match[1].trim() : text.trim();
-  return JSON.parse(raw);
+  // 1. 尝试匹配 ```json ... ``` 或 ``` ... ```
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    return JSON.parse(fenceMatch[1].trim());
+  }
+  // 2. 尝试找到第一个 [ 或 { 开始的 JSON
+  const jsonStart = text.search(/[\[{]/);
+  if (jsonStart >= 0) {
+    const candidate = text.slice(jsonStart);
+    // 从末尾找到最后一个 ] 或 }
+    const lastBracket = Math.max(candidate.lastIndexOf(']'), candidate.lastIndexOf('}'));
+    if (lastBracket >= 0) {
+      return JSON.parse(candidate.slice(0, lastBracket + 1));
+    }
+  }
+  // 3. 直接尝试解析
+  return JSON.parse(text.trim());
 }
 
 // ── POST /api/v1/ai/translate ─────────────────────────────────────────────────
@@ -154,14 +182,17 @@ async function analyze(req, res) {
 句子：${text.trim()}`;
 
     const result = await callAI(prompt, 4096);
-    const tokens = extractJson(result);
+    let tokens;
+    try {
+      tokens = extractJson(result);
+    } catch (parseErr) {
+      logger.error('AI analyze JSON parse failed, raw:', result.substring(0, 500));
+      return res.status(502).json({ error: 'AI 返回格式异常，请重试' });
+    }
     res.json({ tokens });
   } catch (err) {
     const msg = err?.message || 'AI 分析服务异常';
     logger.error('AI analyze error: ' + msg);
-    if (err instanceof SyntaxError) {
-      return res.status(502).json({ error: 'AI 返回格式异常，请重试' });
-    }
     res.status(err?.status || 500).json({ error: msg });
   }
 }
@@ -186,14 +217,17 @@ async function wordDetail(req, res) {
 只返回JSON对象，不要markdown包裹。`;
 
     const result = await callAI(prompt, 2048);
-    const detail = extractJson(result);
+    let detail;
+    try {
+      detail = extractJson(result);
+    } catch (parseErr) {
+      logger.error('AI word-detail JSON parse failed, raw:', result.substring(0, 500));
+      return res.status(502).json({ error: 'AI 返回格式异常，请重试' });
+    }
     res.json(detail);
   } catch (err) {
     const msg = err?.message || 'AI 词汇服务异常';
     logger.error('AI word-detail error: ' + msg);
-    if (err instanceof SyntaxError) {
-      return res.status(502).json({ error: 'AI 返回格式异常，请重试' });
-    }
     res.status(err?.status || 500).json({ error: msg });
   }
 }

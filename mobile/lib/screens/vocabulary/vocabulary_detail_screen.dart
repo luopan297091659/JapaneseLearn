@@ -11,7 +11,8 @@ import 'vocab_whiteboard_screen.dart';
 
 class VocabularyDetailScreen extends StatefulWidget {
   final String id;
-  const VocabularyDetailScreen({super.key, required this.id});
+  final List<String>? wordIds;
+  const VocabularyDetailScreen({super.key, required this.id, this.wordIds});
   @override
   State<VocabularyDetailScreen> createState() => _VocabularyDetailScreenState();
 }
@@ -21,6 +22,9 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
   bool _loading = true;
   String? _error;
   bool _addedToSrs = false;
+
+  // 当前单词 ID（支持翻页后切换）
+  late String _currentId;
 
   // 闪卡模式
   bool _showAnswer = false;
@@ -41,6 +45,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _currentId = widget.id;
     _screenOpenTime = DateTime.now();
     _initTts();
     _load();
@@ -138,7 +143,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
   void dispose() {
     final dur = DateTime.now().difference(_screenOpenTime).inSeconds;
     if (_vocab != null && dur > 2) {
-      apiService.logActivity(activityType: 'vocabulary', refId: widget.id, durationSeconds: dur);
+      apiService.logActivity(activityType: 'vocabulary', refId: _currentId, durationSeconds: dur);
     }
     _tts.stop();
     super.dispose();
@@ -146,7 +151,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
 
   Future<void> _load() async {
     try {
-      final vocab = await apiService.getVocabularyById(widget.id);
+      final vocab = await apiService.getVocabularyById(_currentId);
       if (mounted) setState(() { _vocab = vocab; _loading = false; });
       // 异步查询 SRS 卡片状态
       _loadSrsCard();
@@ -157,7 +162,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
 
   Future<void> _loadSrsCard() async {
     try {
-      final card = await apiService.getSrsCardByRef(widget.id);
+      final card = await apiService.getSrsCardByRef(_currentId);
       if (mounted) setState(() {
         _srsCardId       = card?['id']?.toString();
         _addedToSrs      = card != null;
@@ -216,7 +221,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
 
   Future<void> _addToSrs() async {
     try {
-      await apiService.addSrsCard(widget.id);
+      await apiService.addSrsCard(_currentId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('已加入间隔复习！'), backgroundColor: Colors.green,
@@ -225,6 +230,26 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
       // 加入后立即获取 card_id，底部显示难度按钮
       _loadSrsCard();
     } catch (_) {}
+  }
+
+  // ── 上一个 / 下一个 ─────────────────────────────────────────────────
+  int get _currentIndex => widget.wordIds?.indexOf(_currentId) ?? -1;
+  bool get _hasPrev => widget.wordIds != null && _currentIndex > 0;
+  bool get _hasNext => widget.wordIds != null && _currentIndex >= 0 && _currentIndex < widget.wordIds!.length - 1;
+
+  void _goToWord(String id) {
+    setState(() {
+      _currentId = id;
+      _loading = true;
+      _error = null;
+      _showAnswer = false;
+      _addedToSrs = false;
+      _srsCardId = null;
+      _srsRepetitions = 0;
+      _srsEaseFactor = 2.5;
+      _srsIntervalDays = 0;
+    });
+    _load();
   }
 
   @override
@@ -300,6 +325,37 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
               : Column(
                   children: [
                     Expanded(child: _buildContent(cs)),
+                    // ── 上一个 / 下一个 导航栏 ────────────────────
+                    if (widget.wordIds != null && widget.wordIds!.length > 1)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                        ),
+                        child: Row(
+                          children: [
+                            TextButton.icon(
+                              onPressed: _hasPrev
+                                  ? () => _goToWord(widget.wordIds![_currentIndex - 1])
+                                  : null,
+                              icon: const Icon(Icons.arrow_back_ios_rounded, size: 16),
+                              label: const Text('上一个'),
+                            ),
+                            const Spacer(),
+                            Text('${_currentIndex + 1} / ${widget.wordIds!.length}',
+                                style: TextStyle(color: cs.outline, fontSize: 13)),
+                            const Spacer(),
+                            TextButton.icon(
+                              onPressed: _hasNext
+                                  ? () => _goToWord(widget.wordIds![_currentIndex + 1])
+                                  : null,
+                              icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                              label: const Text('下一个'),
+                              iconAlignment: IconAlignment.end,
+                            ),
+                          ],
+                        ),
+                      ),
                     // ── 底部闪卡控制栏 ────────────────────────────
                     if (_showAnswer && _srsCardId != null)
                       _AnkiRatingBar(

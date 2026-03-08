@@ -768,28 +768,36 @@ class ApiService {
   }
 
   // ─── AI (Translation / Analysis) ─────────────────────────────────────────
+  static const _aiTimeout = Duration(seconds: 90);
+
   /// 翻译日语文本
   Future<String> aiTranslate(String text, {String targetLang = 'zh'}) async {
-    final res = await _dio.post('/ai/translate', data: {
-      'text': text,
-      'targetLang': targetLang,
-    });
+    final res = await _dio.post('/ai/translate',
+      data: {'text': text, 'targetLang': targetLang},
+      options: Options(receiveTimeout: _aiTimeout),
+    );
     return res.data['translation'] as String;
   }
 
   /// 日语句子词法分析
   Future<List<Map<String, dynamic>>> aiAnalyze(String text) async {
-    final res = await _dio.post('/ai/analyze', data: {'text': text});
+    final res = await _dio.post('/ai/analyze',
+      data: {'text': text},
+      options: Options(receiveTimeout: _aiTimeout),
+    );
     return (res.data['tokens'] as List).cast<Map<String, dynamic>>();
   }
 
   /// 单词详解
   Future<Map<String, dynamic>> aiWordDetail(String word, {String? pos, String? sentence}) async {
-    final res = await _dio.post('/ai/word-detail', data: {
-      'word': word,
-      if (pos != null) 'pos': pos,
-      if (sentence != null) 'sentence': sentence,
-    });
+    final res = await _dio.post('/ai/word-detail',
+      data: {
+        'word': word,
+        if (pos != null) 'pos': pos,
+        if (sentence != null) 'sentence': sentence,
+      },
+      options: Options(receiveTimeout: _aiTimeout),
+    );
     return res.data as Map<String, dynamic>;
   }
 }

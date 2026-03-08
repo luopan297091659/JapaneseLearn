@@ -1,0 +1,96 @@
+=== Phase A: 分析剩余19组重复 ===
+
+
+
+=== Phase B: 分析66条meaning_zh含假名 ===
+
+[KANA] id=6ee664e0-ccc4-4166-acc9-29fe65db3a69 word="空(あ)き缶(かん)" reading="あきかん" meaning="あきかん（空き缶）[名]空罐" level=N5
+[KANA] id=7e665c0e-e2e6-4cc9-9bed-5011763bb29d word="地平線(ちへいせん)" reading="ちへいせん" meaning="ちへいせん（地平線）[名]地平线" level=N5
+[KANA] id=890b2262-15cd-4c2f-accb-a7c0481e6fe3 word="棟(むね)" reading="むね" meaning="むね（棟）[名]屋脊，房顶；大梁，脊檩" level=N5
+[KANA] id=b7cf65a7-934d-4de2-ae0f-00b57243419d word="前(ぜん)～" reading="ぜん～" meaning="ぜん～（前～）前～" level=N5
+[KANA] id=e5528439-8239-47fb-a457-8f5dde62fc66 word="致す" reading="いたす" meaning="(する的自谦语）做" level=N5
+[KANA] id=033e33ac-97d9-46d0-bc7b-a833da76aab2 word="いただきます" reading="いただきます" meaning="得到、收到（「もらいます」的谦逊语）" level=N3
+[KANA] id=0650edb7-c2a4-4f84-a97d-4d60845a03fd word="うん" reading="うん" meaning="嗯（比「はい」随意）" level=N3
+[KANA] id=06644c39-b3c5-4e8a-8855-e020dd0d683f word="私[わたくし]" reading="私[わたくし]" meaning="我（「わたし」的谦逊语）" level=N3
+[KANA] id=06aa78b1-cf4a-42a6-bb2a-989cbb3eb862 word="こっち" reading="こっち" meaning="这边（比「こちら」随意）" level=N3
+[KANA] id=06cf39ad-ba1a-44ac-ab37-9628d59f5fe4 word="棟" reading="むね" meaning="むね（棟）[名]屋脊，房顶；大梁，脊檩" level=N3
+[KANA] id=06dabc7f-4dd6-416e-a75b-d36e310c9182 word="ううん" reading="ううん" meaning="不（比いいえ随意）" level=N3
+[KANA] id=070fabce-284e-47c3-b452-a820bf603401 word="～けど" reading="～けど" meaning="～，但是（比「が」随意）" level=N3
+[KANA] id=07bf19a9-6782-42eb-b509-5b56942a0aa4 word="～ 様[さま]" reading="～ 様[さま]" meaning="～先生、～女士（「～さん」的尊敬语）" level=N3
+[KANA] id=0aff1c57-51b7-47e4-949e-1f9d3213ba10 word="そっち" reading="そっち" meaning="那边（指离听话人近的场所，比「そちら」随意）" level=N3
+[KANA] id=0b0a92f9-1c4d-4510-8a68-ce6934d38b93 word="伺[うかが]います" reading="伺[うかが]います" meaning="寻找、听、访问（「ききます」「いきます」的谦逊语）" level=N3
+[KANA] id=0f987556-ec35-4ac4-a477-62f2b9fe73ca word="方[かた]" reading="方[かた]" meaning="人（「ひと」的尊敬语）" level=N3
+[KANA] id=100ef6fb-eaf9-4dae-b441-f3161380cde8 word="なさいます" reading="なさいます" meaning="做（「します」的尊敬语）" level=N3
+[KANA] id=102afea0-53e8-4800-aff1-db98fbfd6f1a word="いらっしゃいます" reading="いらっしゃいます" meaning="在、去、来（「います」「いきます」「きます」的尊敬语）" level=N3
+[KANA] id=10ee6046-596c-404a-9c6f-051028e92073 word="お 目[め]にかかります" reading="お 目[め]にかかります" meaning="见面（「あいます」的谦逊语）" level=N3
+[KANA] id=10f62699-3d82-4cbb-bebf-760e843820ae word="君[きみ]" reading="君[きみ]" meaning="你（用于同辈、部下、晚辈，比「あなた」随意）" level=N3
+[KANA] id=14e3cc66-43e8-468e-b8d0-cc6dcfe64e87 word="こちら" reading="こちら" meaning="这（「これ」的礼貌用语）" level=N3
+[KANA] id=16a44ccb-3807-4155-a27d-03f57a5fd473 word="あっち" reading="あっち" meaning="那边（指离说话人、听话人都远的场所，比「あちら」随意）" level=N3
+[KANA] id=19563496-c17a-42cc-97e1-f74df50349d0 word="おっしゃいます" reading="おっしゃいます" meaning="说、叫（「いいます」的尊敬语）" level=N3
+[KANA] id=1aed195b-d88b-412e-a8dc-29c46bf81e22 word="方[かた]" reading="かた" meaning="人（「ひと」的尊敬语）" level=N3
+[KANA] id=1af1736f-3ae2-46f3-b507-831759ef65cf word="こちらこそ、どうもよろしくお 願[ねが]いします。" reading="こちらこそ、どうもよろしくお 願[ねが]いします。" meaning="也要请你们多多关照。（对「どうぞよろしくお願いします」的回答。）" level=N3
+[KANA] id=1b9357c0-9ed0-4d4c-8b92-f94eb1122d24 word="くださいます" reading="くださいます" meaning="给我（「くれます」的尊敬语）" level=N3
+[KANA] id=1cfd8140-2471-407b-bc70-2cc8d25d5f6d word="どなたでも" reading="どなたでも" meaning="任何一位都（「だれでも」的尊敬语）" level=N3
+[KANA] id=22617a03-87e0-4071-b475-135850fa605c word="参[まい]ります" reading="参[まい]ります" meaning="去、来（「いきます」「きます」的谦逊语）" level=N3
+[KANA] id=26de2ba7-24d8-40fd-9508-1da91f9eb7f9 word="どちら" reading="どちら" meaning="哪里（「どこ」的礼貌用语）" level=N3
+[KANA] id=281c3b2c-40ba-4eae-acf2-afeeb8c8fce2 word="お 宅[たく]" reading="お 宅[たく]" meaning="府上（「うち」和「いえ」的尊敬语）" level=N3
+[KANA] id=291affeb-cfd4-4a1a-8445-6933dfa791ca word="～でございます。" reading="～でございます。" meaning="「です」的礼貌用语" level=N3
+[KANA] id=2ac75273-664b-40ef-8d30-5c57f1016853 word="～ 君[くん]" reading="～ 君[くん]" meaning="～君（用于同辈、部下、晚辈，有时在叫男孩名字时使用，比「さん」随意）" level=N3
+[KANA] id=2c88baae-ea1d-4465-9f87-ef44e8ec0a04 word="伺[うかが]います" reading="うかがいます" meaning="寻找、听、访问（「ききます」「いきます」的谦逊语）" level=N3
+[KANA] id=2f1b4053-2437-4be8-b42d-1ed084c57648 word="お 宅[たく]" reading="たく" meaning="府上（「うち」和「いえ」的尊敬语）" level=N3
+[KANA] id=2f282c5d-7d11-4afc-b1e5-41eb69f202a9 word="君[きみ]" reading="きみ" meaning="你（用于同辈、部下、晚辈，比「あなた」随意）" level=N3
+[KANA] id=30488bb3-e0bd-4cc3-a29c-9d474e60020b word="～ちゃん" reading="～ちゃん" meaning="代替「～さん」接在小孩子名字后面的接尾词" level=N3
+[KANA] id=3370db78-52e3-4b9b-972e-141544c16788 word="召[め]し 上[あ]がります" reading="召[め]し 上[あ]がります" meaning="吃、喝（「たべます」「のみます」的尊敬语）" level=N3
+[KANA] id=3f558534-aa6a-4061-9530-a91d026b0655 word="どうでしょうか。" reading="どうでしょうか。" meaning="怎么样？（「どうですか」的礼貌用语）" level=N3
+[KANA] id=3fe64dac-4e2a-44f0-a06c-0a1b8ad3311e word="いたします" reading="いたします" meaning="做（「します」的谦逊语）" level=N3
+[KANA] id=42ef609e-8c68-453a-a3c9-f0ded9a8b2f6 word="ご 存[ぞん]知[じ]です" reading="ご 存[ぞん]知[じ]です" meaning="知道（「しっています」的尊敬语）" level=N3
+[KANA] id=4de6d111-e922-4f45-8cff-3230dbc3732d word="申[もう]します" reading="もうします" meaning="说、叫（「いいます」的谦逊语）" level=N3
+[KANA] id=4ea7bc80-dd57-4532-befc-b01daeb0c7a2 word="失[しつ]礼[れい]いたします。" reading="失[しつ]礼[れい]いたします。" meaning="告辞了。（「しつれいします」的谦逊语）" level=N3
+[KANA] id=53753c60-e531-4d5f-89dc-b1b62d4b0f87 word="亡[な]くなります" reading="亡[な]くなります" meaning="去世（「しにます」的婉转说法）" level=N3
+[KANA] id=55f674ec-c40c-43da-858c-350fa71c4005 word="ご 覧[らん]になります" reading="ご 覧[らん]になります" meaning="看（「みます」的尊敬语）" level=N3
+[KANA] id=588ab747-455b-47e6-a19f-a415b3fff6c7 word="ご 覧[らん]になります" reading="らんになります" meaning="看（「みます」的尊敬语）" level=N3
+[KANA] id=5d3c765d-fe6c-42cb-b303-fc14a6f72af4 word="申[もう]します" reading="申[もう]します" meaning="说、叫（「いいます」的谦逊语）" level=N3
+[KANA] id=5d64b34a-f17a-404a-a9c6-8fb6d10e4d98 word="僕[ぼく]" reading="僕[ぼく]" meaning="我（男子用语，比「わたし」随意）" level=N3
+[KANA] id=663a419f-7775-4b93-9b45-1ca028707f1d word="ちょっと～まで。" reading="ちょっと～まで。" meaning="到～去一下。（对 「お出かけですか。」的回答）" level=N3
+[KANA] id=68558998-8d3f-4a74-89b0-836dcbaf5e39 word="お 元[げん]気[き]でいらっしゃいますか。" reading="お 元[げん]気[き]でいらっしゃいますか。" meaning="（您）身体好吗？（「おげんきですか」的尊敬语）" level=N3
+[KANA] id=6e454f6a-4549-47fb-ada4-1f6e5ba337a2 word="拝[はい]見[けん]します" reading="拝[はい]見[けん]します" meaning="看（「みます」的谦逊语）" level=N3
+[KANA] id=755c631e-c48f-4fb6-aed1-6ecd0ccb90bb word="拝[はい]見[けん]します" reading="はいけんします" meaning="看（「みます」的谦逊语）" level=N3
+[KANA] id=7677ece6-4a2e-4d09-951e-0f2dd9d6c1d6 word="あちら" reading="あちら" meaning="那边（「あそこ」的礼貌用语）" level=N3
+[KANA] id=773b98b2-99b4-4f4f-aabb-827ce786bb7e word="空き缶" reading="あきかん" meaning="あきかん（空き缶）[名]空罐" level=N3
+[KANA] id=8acc0021-39c6-4a75-9b14-c30e6d4747ec word="存[ぞん]じます" reading="ぞんじます" meaning="知道（「しります」的谦逊语）" level=N3
+[KANA] id=9390e318-76a3-46bc-a7a0-c3915505a515 word="奥[おく]様[さま]" reading="奥[おく]様[さま]" meaning="（别人的）夫人（「おくさん」的尊敬语）" level=N3
+[KANA] id=a208af22-1677-4695-bbb1-9d9e5228b89f word="亡[な]くなります" reading="なくなります" meaning="去世（「しにます」的婉转说法）" level=N3
+[KANA] id=af980013-e68e-44d2-8389-ea754de7b43b word="参[まい]ります" reading="まいります" meaning="去、来（「いきます」「きます」的谦逊语）" level=N3
+[KANA] id=b1d55244-a572-4d25-812f-5f5bd9d40655 word="お 目[め]にかかります" reading="めにかかります" meaning="见面（「あいます」的谦逊语）" level=N3
+[KANA] id=bbf61a99-cd87-492c-8fd8-c59f2cb8263d word="～ 君[くん]" reading="くん" meaning="～君（用于同辈、部下、晚辈，有时在叫男孩名字时使用，比「さん」随意）" level=N3
+[KANA] id=c7155e1d-928c-4069-86d6-ac70f6a0b835 word="存[ぞん]じます" reading="存[ぞん]じます" meaning="知道（「しります」的谦逊语）" level=N3
+[KANA] id=d37a6544-7db8-4cb1-8299-535a14dbf760 word="奥[おく]様[さま]" reading="おくさま" meaning="（别人的）夫人（「おくさん」的尊敬语）" level=N3
+[KANA] id=d4e5fcc9-bfc5-4460-8786-3e1dccaad4b7 word="僕[ぼく]" reading="ぼく" meaning="我（男子用语，比「わたし」随意）" level=N3
+[KANA] id=df8b3230-3abf-48af-885d-6e1c82ee920a word="召[め]し 上[あ]がります" reading="めあがります" meaning="吃、喝（「たべます」「のみます」的尊敬语）" level=N3
+[KANA] id=e835f0f1-834c-4508-a321-af29201d0a94 word="～ 様[さま]" reading="さま" meaning="～先生、～女士（「～さん」的尊敬语）" level=N3
+[KANA] id=fbb21958-22ce-4abe-a2f4-39f721971e08 word="私[わたくし]" reading="わたくし" meaning="我（「わたし」的谦逊语）" level=N3
+[KANA] id=c6ccf78a-b6c6-4151-a8de-9e9d7d52fd9a word="コンタクト" reading="contact" meaning="接触，联络；“コンタクトレンズ”（隐形眼镜）的缩略语" level=N1
+
+
+=== Phase C: 修复剩余重复（保留meaning_zh最长的） ===
+
+去重删除: 0 条
+
+=== Phase D: 修复meaning_zh含假名 ===
+
+修复(meaning纯假名,word中文→交换): 1 条
+修复(去假名前缀): 6 条
+修复(去假名[词性]前缀): 2 条
+
+========================================
+  最终结果
+========================================
+  词汇总数: 21448
+  按级别:
+    N5: 6102
+    N4: 485
+    N3: 9575
+    N2: 2373
+    N1: 2913
+  剩余重复组: 0
+  meaning_zh仍含假名: 62
