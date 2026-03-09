@@ -25,7 +25,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   int _page = 1;
   bool _hasMore = true;
 
-  // 解释语言：'zh'=中文（默认）/ 'en'=英文
+  // 释义语言：'zh'=中文 / 'en'=英文
   String _lang = 'zh';
 
   // Recent search history (in-memory)
@@ -42,6 +42,13 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadLangPref() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_kLangPrefKey) ?? 'zh';
@@ -52,15 +59,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kLangPrefKey, lang);
     setState(() => _lang = lang);
-    // 已有搜索结果时重新拉取
     if (_hasSearched && _searchCtrl.text.trim().isNotEmpty) _search();
-  }
-
-  @override
-  void dispose() {
-    _scrollCtrl.dispose();
-    _searchCtrl.dispose();
-    super.dispose();
   }
 
   void _onScroll() {
@@ -128,13 +127,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         ),
         actions: [
           // 语言切换按钮
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: _LangToggle(
-              lang: _lang,
-              onChanged: _setLang,
-            ),
-          ),
+          _LangToggle(lang: _lang, onChanged: _setLang),
+          const SizedBox(width: 4),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: '刷新',
@@ -589,7 +583,7 @@ class _MeaningRow extends StatelessWidget {
                             fontStyle: FontStyle.italic)),
                   ),
                 // Definitions
-                Text(defs.join('；'), style: const TextStyle(fontSize: 15)),
+                Text(defs.join(lang == 'zh' ? '；' : '; '), style: const TextStyle(fontSize: 15)),
                 // Additional info
                 if (meaning.info.isNotEmpty)
                   Text(meaning.info.join(', '),
