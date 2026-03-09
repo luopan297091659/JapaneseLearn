@@ -32,6 +32,18 @@ workflows:
           cd ios
           pod install
       - name: Build iOS (no codesign)
-        script: flutter build ios --release --no-codesign
+        script: |
+          flutter build ios --release --no-codesign --config-only
+          cd ios
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination generic/platform=iOS \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            EXPANDED_CODE_SIGN_IDENTITY="" \
+            build
     artifacts:
       - mobile/build/ios/iphoneos/*.app
