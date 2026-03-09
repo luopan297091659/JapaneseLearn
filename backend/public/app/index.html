@@ -611,25 +611,24 @@ ul { list-style: none; }
         <!-- 辞书 -->
         <div class="card" style="margin-bottom:20px">
           <div class="card-title">🔍 辞書（词典）</div>
-          <div style="display:flex;gap:10px">
+          <div style="display:flex;gap:10px;align-items:center">
             <input class="input" id="home-dict-input" placeholder="输入日文、汉字或中文…" style="flex:1" onkeydown="if(event.key==='Enter')homeSearchDict()">
             <button class="btn btn-primary" onclick="homeSearchDict()">搜索</button>
+            <button class="btn btn-sm" id="home-dict-lang-btn" onclick="toggleDictLang()" style="white-space:nowrap;min-width:56px;border-radius:20px"></button>
           </div>
           <div id="home-dict-results" style="margin-top:12px"></div>
         </div>
 
         <!-- 今日一词 -->
-        <div class="card word-of-day" id="word-of-day" style="margin-bottom:20px">
+        <div class="card word-of-day" id="word-of-day" style="margin-bottom:20px;position:relative">
           <div class="card-title" style="color:#fff;opacity:.8">✨ 每日一词</div>
+          <button class="btn btn-sm" style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,.2);color:#fff;border:none;font-size:12px;padding:4px 10px" onclick="nextWod()">🔄 换一词</button>
           <div id="wod-level-badge" style="text-align:center;margin-bottom:4px"><span style="background:rgba(255,255,255,.25);padding:2px 10px;border-radius:8px;font-size:12px;font-weight:700"></span></div>
           <div class="word" id="wod-word">　</div>
           <div class="reading" id="wod-reading">　</div>
           <div id="wod-meaning-wrap" style="text-align:center;margin-top:8px">
             <button class="btn btn-sm" id="wod-reveal-btn" style="background:rgba(255,255,255,.15);color:#fff;border:none;font-size:13px" onclick="revealWod()">👁️ 点击查看释义</button>
             <div class="meaning" id="wod-meaning" style="display:none">　</div>
-          </div>
-          <div id="wod-next-wrap" style="text-align:center;margin-top:8px;display:none">
-            <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border:none" onclick="nextWod()">换一个 →</button>
           </div>
         </div>
       </div>
@@ -740,9 +739,10 @@ ul { list-style: none; }
       <!-- 词典页 -->
       <div class="page" id="page-dictionary">
         <h2 style="margin-bottom:20px;font-size:22px">🔍 词典</h2>
-        <div style="display:flex;gap:10px;margin-bottom:20px">
+        <div style="display:flex;gap:10px;margin-bottom:20px;align-items:center">
           <input class="input" id="dict-input" placeholder="输入日文、汉字或中文…" style="flex:1" onkeydown="if(event.key==='Enter')searchDict()">
           <button class="btn btn-primary" onclick="searchDict()">搜索</button>
+          <button class="btn btn-sm" id="dict-lang-btn" onclick="toggleDictLang()" style="white-space:nowrap;min-width:56px;border-radius:20px"></button>
         </div>
         <div id="dict-results"></div>
       </div>
@@ -771,6 +771,8 @@ ul { list-style: none; }
           <div class="chip active" onclick="selectPronLevel('N5')">N5</div>
           <div class="chip" onclick="selectPronLevel('N4')">N4</div>
           <div class="chip" onclick="selectPronLevel('N3')">N3</div>
+          <div class="chip" onclick="selectPronLevel('N2')">N2</div>
+          <div class="chip" onclick="selectPronLevel('N1')">N1</div>
         </div>
 
         <!-- 练习主体 -->
@@ -1402,6 +1404,25 @@ function updateWelcomeGreeting(username) {
   document.getElementById('welcome-sub').textContent = username ? `${username}，每天进步一点点` : '每天进步一点点';
 }
 
+// ── 辞书语言切换 ──
+let dictLang = localStorage.getItem('dict_lang') || 'zh';
+function updateDictLangBtns() {
+  const label = dictLang === 'zh' ? '中文' : 'EN';
+  const bg = dictLang === 'zh' ? '#fef2f2' : '#eff6ff';
+  const color = dictLang === 'zh' ? '#b91c1c' : '#1d4ed8';
+  const border = dictLang === 'zh' ? '#fca5a5' : '#93c5fd';
+  const style = `background:${bg};color:${color};border:1.5px solid ${border}`;
+  ['dict-lang-btn','home-dict-lang-btn'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) { btn.textContent = label; btn.setAttribute('style', btn.getAttribute('style').replace(/background:[^;]*;color:[^;]*;border:[^;]*/,'') + ';' + style); }
+  });
+}
+function toggleDictLang() {
+  dictLang = dictLang === 'zh' ? 'en' : 'zh';
+  localStorage.setItem('dict_lang', dictLang);
+  updateDictLangBtns();
+}
+
 // ── 主页辞书 ──
 async function homeSearchDict() {
   const q = document.getElementById('home-dict-input').value.trim();
@@ -1409,7 +1430,7 @@ async function homeSearchDict() {
   const el = document.getElementById('home-dict-results');
   el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   try {
-    const res = await GET(`/dictionary/search?q=${encodeURIComponent(q)}&lang=zh`);
+    const res = await GET(`/dictionary/search?q=${encodeURIComponent(q)}&lang=${dictLang}`);
     const data = res.data || [];
     if (data.length === 0) {
       el.innerHTML = '<div style="text-align:center;color:var(--text-sub);padding:12px">没有找到相关词条</div>';
@@ -1419,14 +1440,16 @@ async function homeSearchDict() {
       const word = e.word || (e.japanese && e.japanese[0] && (e.japanese[0].word || e.japanese[0].reading)) || e.slug;
       const reading = e.reading || (e.japanese && e.japanese[0] && e.japanese[0].reading) || '';
       const meanings = e.meanings || [];
-      const defs = meanings.slice(0, 2).map(m => {
-        const d = (m.chinese_definitions && m.chinese_definitions.length ? m.chinese_definitions : m.english_definitions) || [];
-        return escHtml(d.join('；'));
-      }).join('；');
+      const defsHtml = meanings.slice(0, 2).map(m => {
+        const defs = dictLang === 'zh'
+          ? ((m.chinese_definitions && m.chinese_definitions.length) ? m.chinese_definitions.join('；') : (m.english_definitions||[]).join('; '))
+          : ((m.english_definitions && m.english_definitions.length) ? m.english_definitions.join('; ') : '');
+        return defs ? escHtml(defs) : '';
+      }).filter(Boolean).join('<br>');
       return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
         <span style="font-size:18px;font-weight:700">${escHtml(word)}</span>
         <span style="font-size:12px;color:var(--text-sub);margin-left:6px">${escHtml(reading)}</span>
-        <div style="font-size:13px;color:var(--text-sub);margin-top:2px">${defs}</div>
+        <div style="font-size:13px;margin-top:4px;line-height:1.6">${defsHtml}</div>
       </div>`;
     }).join('') + `<div style="text-align:center;margin-top:8px">
       <button class="btn btn-sm btn-outline" onclick="navigate('dictionary');document.getElementById('dict-input').value='${escHtml(q)}';searchDict()">查看更多结果 →</button>
@@ -1454,7 +1477,7 @@ async function loadHome() {
   }
 
   // 常用功能
-  renderFrequentFuncs();
+  try { renderFrequentFuncs(); } catch(e) { console.error('[FreqFuncs] render error:', e); }
 
   // word of day — 使用用户等级 + 日期种子，与 App 保持一致
   try {
@@ -1463,8 +1486,15 @@ async function loadHome() {
   } catch(_) {}
   if (_wodPool.length === 0) {
     try {
-      const r = await GET(`/vocabulary?level=${_wodUserLevel}&limit=20&page=1`);
-      _wodPool = (r && r.data) || [];
+      let r;
+      try { r = await GET(`/vocabulary?level=${_wodUserLevel}&limit=100&page=1`); } catch(_e) { r = null; }
+      _wodPool = (r && r.data) || (Array.isArray(r) ? r : []);
+      if (_wodPool.length === 0) {
+        // fallback: 不带 level 参数获取任何词汇
+        let r2;
+        try { r2 = await GET('/vocabulary?limit=100&page=1'); } catch(_e) { r2 = null; }
+        _wodPool = (r2 && r2.data) || (Array.isArray(r2) ? r2 : []);
+      }
       // 日期种子算法，同一天得到相同初始索引
       const now = new Date();
       const todayStr = now.toISOString().slice(0, 10);
@@ -1483,9 +1513,9 @@ async function loadHome() {
         localStorage.setItem('wod_level', _wodUserLevel);
       }
       _wodRevealed = false;
-    } catch(_){ errorCount++; }
+    } catch(wodErr){ console.error('[WOD] load error:', wodErr); errorCount++; }
   }
-  showWod();
+  try { showWod(); } catch(e) { console.error('[WOD] showWod error:', e); }
 
   // ── Dashboard 数据 ──
   try {
@@ -1563,7 +1593,12 @@ async function loadHome() {
 }
 
 function showWod() {
-  if (_wodPool.length === 0) return;
+  if (_wodPool.length === 0) {
+    document.getElementById('wod-word').textContent = '暂无数据';
+    document.getElementById('wod-reading').textContent = '';
+    document.getElementById('wod-meaning').textContent = '';
+    return;
+  }
   const w = _wodPool[_wodIdx % _wodPool.length];
   document.getElementById('wod-word').textContent = w.word || '--';
   document.getElementById('wod-reading').textContent = w.reading ? `【${w.reading}】` : '';
@@ -1571,10 +1606,9 @@ function showWod() {
   // 等级标签
   const badge = document.querySelector('#wod-level-badge span');
   if (badge) badge.textContent = w.jlpt_level || _wodUserLevel;
-  // 释义逎罩状态
+  // 释义隐藏状态
   document.getElementById('wod-reveal-btn').style.display = _wodRevealed ? 'none' : '';
   document.getElementById('wod-meaning').style.display = _wodRevealed ? '' : 'none';
-  document.getElementById('wod-next-wrap').style.display = _wodRevealed ? '' : 'none';
 }
 
 function revealWod() {
@@ -1993,7 +2027,7 @@ async function searchDict() {
   const el = document.getElementById('dict-results');
   el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   try {
-    const res = await GET(`/dictionary/search?q=${encodeURIComponent(q)}&lang=zh`);
+    const res = await GET(`/dictionary/search?q=${encodeURIComponent(q)}&lang=${dictLang}`);
     const data = res.data || [];
     if (data.length === 0) {
       el.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><p>没有找到相关词条</p></div>';
@@ -2004,9 +2038,13 @@ async function searchDict() {
       const reading = e.reading || (e.japanese && e.japanese[0] && e.japanese[0].reading) || '';
       const meanings = e.meanings || [];
       const defsHtml = meanings.slice(0, 3).map(m => {
-        const defs = (m.chinese_definitions && m.chinese_definitions.length ? m.chinese_definitions : m.english_definitions) || [];
         const pos = m.parts_of_speech && m.parts_of_speech[0] || '';
-        return `<div>${pos ? `<span class="dict-pos">${escHtml(pos)}</span> ` : ''}${escHtml(defs.join('；'))}</div>`;
+        const defs = dictLang === 'zh'
+          ? ((m.chinese_definitions && m.chinese_definitions.length) ? m.chinese_definitions.join('；') : (m.english_definitions||[]).join('; '))
+          : ((m.english_definitions && m.english_definitions.length) ? m.english_definitions.join('; ') : '');
+        let s = pos ? `<span class="dict-pos">${escHtml(pos)}</span> ` : '';
+        if (defs) s += escHtml(defs);
+        return `<div style="margin-bottom:6px">${s}</div>`;
       }).join('');
       const jlpt = e.jlpt && e.jlpt.length ? `<span class="badge badge-${e.jlpt[0].toLowerCase().replace('-','')}">${e.jlpt[0]}</span>` : '';
       return `<div class="dict-entry">
@@ -3015,6 +3053,7 @@ function escHtml(str) {
     }
     loadFeatureToggles();
     loadHome();
+    updateDictLangBtns();
   } else {
     showAuth();
   }

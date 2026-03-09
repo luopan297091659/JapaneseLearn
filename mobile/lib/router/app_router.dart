@@ -107,6 +107,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               gameType: (state.extra as String?) ?? 'particles',
             ),
           ),
+          GoRoute(
+            path: '/game-verbs',
+            builder: (_, __) => const TetrisGrammarGame(gameType: 'verbs'),
+          ),
           GoRoute(path: '/flashcard', builder: (_, __) => const FlashcardScreen()),
           GoRoute(path: '/gojuon', builder: (_, __) => const GojuonScreen()),
           GoRoute(path: '/pronunciation', builder: (_, __) => const PronunciationScreen()),

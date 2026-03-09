@@ -20,7 +20,7 @@ async function lookupChineseFromDb(word, reading) {
     const placeholders = targets.map(() => '?').join(',');
     const [rows] = await sequelize.query(
       `SELECT word, reading, meaning_zh, meaning_en, part_of_speech
-       FROM vocabularies
+       FROM vocabulary
        WHERE word IN (${placeholders}) OR reading IN (${placeholders})
        LIMIT 5`,
       { replacements: [...targets, ...targets] }
@@ -61,8 +61,8 @@ async function search(req, res) {
     const jishoData = await fetchJisho(jishoUrl);
     let results = (jishoData.data || []).map(normalizeJishoEntry);
 
-    // 如果请求中文，尝试从本地词库注入 chinese_definitions
-    if (lang === 'zh' && results.length > 0) {
+    // 始终从本地词库注入 chinese_definitions，让前端同时显示中英文释义
+    if (results.length > 0) {
       results = await Promise.all(results.map(async (entry) => {
         const zhSenses = await lookupChineseFromDb(entry.word, entry.reading);
         if (!zhSenses) return entry;

@@ -246,8 +246,10 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
   }
 
   Widget _buildLevelChips(ColorScheme cs) {
-    return Row(
-      children: ['N5', 'N4', 'N3'].map((l) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+      children: ['N5', 'N4', 'N3', 'N2', 'N1'].map((l) {
         final active = l == _level;
         return Padding(
           padding: const EdgeInsets.only(right: 8),
@@ -263,7 +265,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
           ),
         );
       }).toList(),
-    );
+    ));
   }
 
   Widget _buildWordCard(ColorScheme cs) {

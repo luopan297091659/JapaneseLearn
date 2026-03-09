@@ -119,7 +119,7 @@ const UserProgress = sequelize.define('UserProgress', {
   id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
   user_id: { type: DataTypes.UUID, allowNull: false },
   activity_type: {
-    type: DataTypes.ENUM('vocabulary','grammar','listening','quiz','news','srs_review'),
+    type: DataTypes.ENUM('vocabulary','grammar','listening','quiz','news','srs_review','flashcard','game','game_verbs','pronunciation','gojuon','dictionary','translate','todofuken'),
     allowNull: false,
   },
   ref_id: { type: DataTypes.UUID, allowNull: true },

@@ -21,6 +21,7 @@ const _allFeatures = <String, ({IconData icon, String label, String sub, String 
   'quiz':          (icon: Icons.quiz_rounded,           label: '随机测验',   sub: '检验水平', path: '/quiz',           color: Color(0xFFFF5722)),
   'news':          (icon: Icons.article_rounded,        label: 'NHK新闻',   sub: '阅读训练', path: '/news',           color: Color(0xFF00897B)),
   'game':          (icon: Icons.extension_rounded,      label: '助词游戏',   sub: '趣味闯关', path: '/game',           color: Color(0xFFE91E63)),
+  'game-verbs':    (icon: Icons.sports_esports_rounded, label: '动词游戏',   sub: '动词活用', path: '/game-verbs',     color: Color(0xFFAD1457)),
   'todofuken':     (icon: Icons.map_rounded,            label: '都道府県',   sub: '地理测验', path: '/todofuken-quiz', color: Color(0xFFE65100)),
   'anki':          (icon: Icons.upload_file_rounded,    label: 'Anki导入',  sub: '导入词库', path: '/anki-import',    color: Color(0xFF795548)),
   'localvocab':    (icon: Icons.folder_copy_rounded,    label: 'Anki词库',  sub: '本地浏览', path: '/local-vocab',    color: Color(0xFF00897B)),
@@ -554,44 +555,75 @@ class _StatBadge extends StatelessWidget {
 
 // ─── Search Bar ──────────────────────────────────────────────────────────────
 
-class _SearchBar extends StatelessWidget {
+class _SearchBar extends StatefulWidget {
+  @override
+  State<_SearchBar> createState() => _SearchBarState();
+}
+
+class _SearchBarState extends State<_SearchBar> {
+  final _ctrl = TextEditingController();
+
+  void _doSearch() {
+    final q = _ctrl.text.trim();
+    if (q.isEmpty) return;
+    context.push('/dictionary?q=${Uri.encodeComponent(q)}');
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: () => context.push('/dictionary'),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: cs.outlineVariant),
-          boxShadow: [
-            BoxShadow(
-              color: cs.shadow.withValues(alpha: 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(children: [
-          Icon(Icons.search_rounded, color: cs.primary, size: 22),
-          const SizedBox(width: 10),
-          Text(
-            '输入日语、中文或罗马字搜索…',
-            style: TextStyle(color: cs.outline, fontSize: 14),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: cs.primaryContainer,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text('辞书', style: TextStyle(color: cs.primary, fontSize: 12, fontWeight: FontWeight.bold)),
-          ),
-        ]),
+        ],
       ),
+      child: Row(children: [
+        Icon(Icons.search_rounded, color: cs.primary, size: 22),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextField(
+            controller: _ctrl,
+            style: const TextStyle(color: Color(0xFF333333), fontSize: 15),
+            decoration: const InputDecoration(
+              hintText: '输入日语、中文或罗马字搜索…',
+              hintStyle: TextStyle(color: Color(0xFF999999), fontSize: 13),
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(vertical: 8),
+              border: InputBorder.none,
+            ),
+            onSubmitted: (_) => _doSearch(),
+          ),
+        ),
+        const SizedBox(width: 6),
+        SizedBox(
+          height: 34,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: cs.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
+            ),
+            onPressed: _doSearch,
+            child: const Text('搜索', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
+        ),
+      ]),
     );
   }
 }
@@ -686,6 +718,21 @@ class _WordOfDayCard extends StatelessWidget {
                   style: TextStyle(color: cs.tertiary, fontSize: 11, fontWeight: FontWeight.bold)),
             ),
             const Spacer(),
+            GestureDetector(
+              onTap: onNext,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.refresh_rounded, size: 14, color: cs.primary),
+                  const SizedBox(width: 4),
+                  Text('换一词', style: TextStyle(color: cs.primary, fontSize: 12, fontWeight: FontWeight.w500)),
+                ]),
+              ),
+            ),
           ]),
           const SizedBox(height: 14),
           Text(word.word,
@@ -734,25 +781,6 @@ class _WordOfDayCard extends StatelessWidget {
                     ),
             ),
           ),
-          // 换一词按钮（揭开后显示）
-          if (revealed) ...[
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: onNext,
-                icon: Icon(Icons.refresh_rounded, size: 16, color: cs.primary),
-                label: Text('换一词', style: TextStyle(color: cs.primary, fontSize: 13)),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  backgroundColor: cs.primary.withValues(alpha: 0.08),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ),
-            ),
-          ],
         ]),
       ),
     );
