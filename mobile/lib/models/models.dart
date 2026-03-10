@@ -48,10 +48,12 @@ class VocabularyModel {
   final String meaningZh;
   final String? meaningEn;
   final String partOfSpeech;
+  final String? partOfSpeechRaw;
   final String jlptLevel;
   final String? exampleSentence;
   final String? exampleReading;
   final String? exampleMeaningZh;
+  final String? exampleAudioUrl;
   final String? audioUrl;
   final String? imageUrl;
   final String? category;
@@ -63,10 +65,12 @@ class VocabularyModel {
     required this.meaningZh,
     this.meaningEn,
     required this.partOfSpeech,
+    this.partOfSpeechRaw,
     required this.jlptLevel,
     this.exampleSentence,
     this.exampleReading,
     this.exampleMeaningZh,
+    this.exampleAudioUrl,
     this.audioUrl,
     this.imageUrl,
     this.category,
@@ -79,10 +83,12 @@ class VocabularyModel {
         meaningZh: json['meaning_zh'],
         meaningEn: json['meaning_en'],
         partOfSpeech: json['part_of_speech'] ?? 'noun',
+        partOfSpeechRaw: json['part_of_speech_raw'],
         jlptLevel: json['jlpt_level'],
         exampleSentence: json['example_sentence'],
         exampleReading: json['example_reading'],
         exampleMeaningZh: json['example_meaning_zh'],
+        exampleAudioUrl: json['example_audio_url'],
         audioUrl: json['audio_url'],
         imageUrl: json['image_url'],
         category: json['category'],
