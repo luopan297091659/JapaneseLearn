@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_tts/flutter_tts.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../utils/japanese_text_utils.dart';
-import '../../utils/tts_helper.dart';
-import '../../widgets/audio_player_widget.dart';
+import '../../config/app_config.dart';
 import 'vocab_whiteboard_screen.dart';
 
 class VocabularyDetailScreen extends StatefulWidget {
@@ -36,10 +35,13 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
   int    _srsIntervalDays = 0;
   bool   _srsSubmitting   = false;
 
-  // ── TTS ──────────────────────────────────────────────────────────────────
-  late final FlutterTts _tts;
-  bool _ttsPlaying = false;
-  bool _ttsReady   = false;  // 引擎初始化完成标志
+  // ── 音频播放器 ──────────────────────────────────────────────────────
+  AudioPlayer? _wordPlayer;
+  AudioPlayer? _examplePlayer;
+  bool _wordPlaying = false;
+  bool _examplePlaying = false;
+  bool _wordLoading = false;
+  bool _exampleLoading = false;
   late final DateTime _screenOpenTime;
 
   @override
@@ -47,95 +49,67 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
     super.initState();
     _currentId = widget.id;
     _screenOpenTime = DateTime.now();
-    _initTts();
     _load();
   }
 
-  Future<void> _initTts() async {
-    _tts = FlutterTts();
+  /// 播放音频：首次点击播放，再次点击重新播放
+  Future<void> _playAudio({required bool isExample}) async {
+    final url = isExample ? _vocab?.exampleAudioUrl : _vocab?.audioUrl;
+    if (url == null) return;
 
-    _tts.setStartHandler(() {
-      if (mounted) setState(() => _ttsPlaying = true);
-    });
-    _tts.setCompletionHandler(() {
-      if (mounted) setState(() => _ttsPlaying = false);
-    });
-    _tts.setCancelHandler(() {
-      if (mounted) setState(() => _ttsPlaying = false);
-    });
-    _tts.setErrorHandler((err) {
-      debugPrint('TTS error: $err');
-      if (mounted) setState(() => _ttsPlaying = false);
+    // 获取或创建对应的播放器
+    if (isExample) {
+      _examplePlayer ??= AudioPlayer();
+    } else {
+      _wordPlayer ??= AudioPlayer();
+    }
+    final player = isExample ? _examplePlayer! : _wordPlayer!;
+
+    // 设置 loading 状态
+    if (mounted) setState(() {
+      if (isExample) _exampleLoading = true; else _wordLoading = true;
     });
 
     try {
-      await TtsHelper.configureForJapanese(_tts).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () {
-          debugPrint('TTS 初始化超时（15s）');
-          return false;
-        },
-      );
-      await _tts.setSpeechRate(0.5);
-    } catch (e) {
-      debugPrint('TTS 初始化失败: $e');
-    }
-    if (mounted) setState(() => _ttsReady = true);
-  }
-
-  Future<void> _speak() async {
-    if (_vocab == null) return;
-
-    // 引擎尚未就绪时提示用户
-    if (!_ttsReady) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('语音引擎初始化中，请稍后再试…'),
-          duration: Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    // 已在播放 → 停止，并重置标志防止卡死
-    if (_ttsPlaying) {
-      await _tts.stop();
-      setState(() => _ttsPlaying = false);
-      return;
-    }
-
-    final text = ttsText(_vocab!.word, _vocab!.reading);
-    try {
-      setState(() => _ttsPlaying = true); // 乐观更新，按钮立即响应
-      
-      // 每次 speak 前设置语言和音量，防止 Android TTS 丢失设置
-      await _tts.setLanguage('ja-JP');
-      await _tts.setVolume(1.0);
-      
-      final result = await _tts.speak(text);
-      // result == 1 表示成功启动，0 表示引擎拒绝
-      if (result != 1 && mounted) {
-        setState(() => _ttsPlaying = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('语音引擎不可用，请在系统设置中安装日语 TTS 引擎'),
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 4),
-          ),
-        );
+      // 停止另一个播放器
+      if (isExample) {
+        await _wordPlayer?.stop();
+        if (mounted) setState(() => _wordPlaying = false);
+      } else {
+        await _examplePlayer?.stop();
+        if (mounted) setState(() => _examplePlaying = false);
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _ttsPlaying = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('朗读出错：$e'),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+
+      // 重新 seek 到开头并播放
+      await player.stop();
+
+      // 加载音频
+      if (url.startsWith('/uploads/')) {
+        final fullUrl = AppConfig.serverRoot + url;
+        final localPath = await apiService.downloadToTempFile(fullUrl);
+        await player.setFilePath(localPath);
+      } else {
+        await player.setUrl(url);
       }
+
+      await player.setVolume(1.0);
+      if (mounted) setState(() {
+        if (isExample) { _exampleLoading = false; _examplePlaying = true; }
+        else { _wordLoading = false; _wordPlaying = true; }
+      });
+
+      await player.play();
+
+      // 播放结束后重置状态
+      if (mounted) setState(() {
+        if (isExample) _examplePlaying = false; else _wordPlaying = false;
+      });
+    } catch (e) {
+      debugPrint('音频播放出错: $e');
+      if (mounted) setState(() {
+        if (isExample) { _exampleLoading = false; _examplePlaying = false; }
+        else { _wordLoading = false; _wordPlaying = false; }
+      });
     }
   }
 
@@ -145,7 +119,10 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
     if (_vocab != null && dur > 2) {
       apiService.logActivity(activityType: 'vocabulary', refId: _currentId, durationSeconds: dur);
     }
-    _tts.stop();
+    _wordPlayer?.stop();
+    _wordPlayer?.dispose();
+    _examplePlayer?.stop();
+    _examplePlayer?.dispose();
     super.dispose();
   }
 
@@ -238,6 +215,9 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
   bool get _hasNext => widget.wordIds != null && _currentIndex >= 0 && _currentIndex < widget.wordIds!.length - 1;
 
   void _goToWord(String id) {
+    // 停止所有音频播放
+    _wordPlayer?.stop();
+    _examplePlayer?.stop();
     setState(() {
       _currentId = id;
       _loading = true;
@@ -248,6 +228,8 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
       _srsRepetitions = 0;
       _srsEaseFactor = 2.5;
       _srsIntervalDays = 0;
+      _wordPlaying = false;
+      _examplePlaying = false;
     });
     _load();
   }
@@ -265,25 +247,6 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
         ),
         title: Text(_vocab?.word ?? '単詞詳細'),
         actions: [
-          // ── TTS 朗读按钮 ────────────────────────────────────────────
-          if (_vocab != null)
-            IconButton(
-              tooltip: _ttsReady ? '朗读' : '语音引擎加载中…',
-              icon: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: !_ttsReady
-                    ? const SizedBox(
-                        width: 20, height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                        key: ValueKey('loading'),
-                      )
-                    : Icon(
-                        _ttsPlaying ? Icons.stop_circle_rounded : Icons.volume_up_rounded,
-                        key: ValueKey(_ttsPlaying),
-                      ),
-              ),
-              onPressed: _speak,
-            ),
           // ── 白板练习按钮 ────────────────────────────────────────────
           if (_vocab != null)
             IconButton(
@@ -409,10 +372,18 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                       style: TextStyle(fontSize: 24, color: cs.secondary, fontWeight: FontWeight.w500)),
                 ],
                 const SizedBox(height: 12),
+                // ── 级别 + 喇叭按钮 ──
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                   _chip(v.jlptLevel, cs.primary),
-                  const SizedBox(width: 8),
-                  _chip(v.partOfSpeech, cs.tertiary),
+                  if (v.audioUrl != null) ...[
+                    const SizedBox(width: 12),
+                    _audioButton(
+                      isExample: false,
+                      playing: _wordPlaying,
+                      loading: _wordLoading,
+                      cs: cs,
+                    ),
+                  ],
                 ]),
               ],
             ),
@@ -431,18 +402,6 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
 
           if (_showAnswer) ...[
 
-          // ── Audio / TTS ───────────────────────────────────────────────
-          // 有远程音频时显示播放卡片，TTS已在右上角AppBar提供
-          if (v.audioUrl != null) ...[
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: AudioPlayerWidget(audioUrl: v.audioUrl, compact: false),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-
           // ── Meanings ──────────────────────────────────────────────────
           Card(
             child: Padding(
@@ -456,8 +415,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                     const Text('释义', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   ]),
                   const Divider(height: 16),
-                  // Chinese meaning
-                  _meaningRow('中文', v.meaningZh, cs),
+                  _meaningRow('中文', '[${v.partOfSpeechRaw ?? _posLabel(v.partOfSpeech)}] ${v.meaningZh}', cs),
                   if (v.meaningEn != null) _meaningRow('English', v.meaningEn!, cs),
                 ],
               ),
@@ -480,15 +438,42 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                       const Text('例文', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ]),
                     const Divider(height: 16),
-                    Text(v.exampleSentence!, style: const TextStyle(fontSize: 18, height: 1.6)),
-                    if (v.exampleReading != null)
-                      Text(v.exampleReading!,
-                          style: TextStyle(fontSize: 14, color: cs.primary, height: 1.4)),
-                    if (v.exampleMeaningZh != null) ...[
-                      const SizedBox(height: 4),
-                      Text(v.exampleMeaningZh!,
-                          style: const TextStyle(fontSize: 15, color: Colors.grey)),
-                    ],
+                    // 例句 + 喇叭按钮
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(v.exampleSentence!, 
+                                  style: const TextStyle(fontSize: 18, height: 1.6)),
+                              if (v.exampleReading != null)
+                                Text(v.exampleReading!,
+                                    style: TextStyle(fontSize: 14, color: cs.primary, height: 1.4)),
+                              if (v.exampleMeaningZh != null) ...[
+                                const SizedBox(height: 4),
+                                Text(v.exampleMeaningZh!,
+                                    style: const TextStyle(fontSize: 15, color: Colors.grey)),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (v.exampleAudioUrl != null) ...[
+                          const SizedBox(width: 8),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: _audioButton(
+                              isExample: true,
+                              playing: _examplePlaying,
+                              loading: _exampleLoading,
+                              cs: cs,
+                              size: 36,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -518,6 +503,50 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
           const SizedBox(height: 16),
           ], // end if (_showAnswer)
         ],
+      ),
+    );
+  }
+
+  static String _posLabel(String pos) {
+    const map = {
+      'noun': '名',
+      'verb': '动',
+      'adjective': '形',
+      'adverb': '副',
+      'particle': '助',
+      'conjunction': '接',
+      'interjection': '感',
+      'other': '他',
+    };
+    return map[pos] ?? pos;
+  }
+
+  Widget _audioButton({
+    required bool isExample,
+    required bool playing,
+    required bool loading,
+    required ColorScheme cs,
+    double size = 28,
+  }) {
+    return GestureDetector(
+      onTap: loading ? null : () => _playAudio(isExample: isExample),
+      child: Container(
+        width: size + 8,
+        height: size + 8,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: playing ? cs.primary.withValues(alpha: 0.15) : Colors.transparent,
+        ),
+        child: loading
+            ? Center(child: SizedBox(
+                width: size * 0.6, height: size * 0.6,
+                child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+              ))
+            : Icon(
+                playing ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+                color: cs.primary,
+                size: size,
+              ),
       ),
     );
   }
