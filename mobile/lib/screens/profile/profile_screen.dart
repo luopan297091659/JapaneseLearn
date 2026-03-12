@@ -790,7 +790,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                         const Divider(height: 1, indent: 56),
                         ListTile(
-                          leading: const Text('🐌', style: TextStyle(fontSize: 22)),
+                          leading: Icon(Icons.slow_motion_video_rounded, color: Theme.of(context).colorScheme.primary),
                           title: const Text('慢放速度'),
                           subtitle: Row(
                             children: [
