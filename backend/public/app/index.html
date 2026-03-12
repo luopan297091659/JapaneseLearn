@@ -494,6 +494,7 @@ ul { list-style: none; }
       <div class="nav-item" data-page="news" onclick="navigate('news')"><span class="icon">📰</span>新闻</div>
       <div class="nav-section">测试</div>
       <div class="nav-item" data-page="quiz" onclick="navigate('quiz')"><span class="icon">✏️</span>测验</div>
+      <div class="nav-item" data-page="kana-test" onclick="navigate('kana-test')"><span class="icon">✍️</span>50音书写测试</div>
       <div class="nav-item" data-page="todofuken" onclick="navigate('todofuken')"><span class="icon">🗾</span>都道府県</div>
       <div class="nav-section">账号</div>
       <div class="nav-item" data-page="profile" onclick="navigate('profile')"><span class="icon">👤</span>我的</div>
@@ -784,6 +785,12 @@ ul { list-style: none; }
           <div class="chip" onclick="selectPronLevel('N2')">N2</div>
           <div class="chip" onclick="selectPronLevel('N1')">N1</div>
         </div>
+        <!-- 练习数量 -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+          <span style="font-size:14px;color:var(--text-sub)">练习数量</span>
+          <input id="pron-count" type="number" min="5" max="100" value="20"
+            style="width:70px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;text-align:center;font-size:15px;font-weight:700">
+        </div>
 
         <!-- 练习主体 -->
         <div class="card" id="pron-card" style="text-align:center;padding:30px 20px;margin-bottom:20px">
@@ -1015,6 +1022,12 @@ ul { list-style: none; }
           <div class="chip" onclick="switchGojuonTab('youon')">拗音</div>
         </div>
         <div id="gojuon-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px"></div>
+      </div>
+
+      <!-- 50音書写テスト -->
+      <div class="page" id="page-kana-test">
+        <h2 style="margin-bottom:20px;font-size:22px">✍️ 50音书写测试</h2>
+        <div id="kana-test-content"></div>
       </div>
 
       <!-- 都道府県クイズ -->
@@ -1257,6 +1270,7 @@ function navigate(page) {
     case 'pronunciation': loadPronunciation(); break;
     case 'flashcard': loadFlashcardSetup(); break;
     case 'gojuon': loadGojuon(); break;
+    case 'kana-test': loadKanaTest(); break;
     case 'todofuken': loadTodofuken(); break;
   }
 }
@@ -2200,14 +2214,15 @@ function selectPronLevel(level) {
 async function loadPronunciation() {
   if (_pronWords.length > 0) { renderPronWord(); return; }
   try {
+    const pronCount = Math.max(5, Math.min(100, parseInt(document.getElementById('pron-count')?.value) || 10));
     const res = await GET(`/vocabulary/level/${_pronLevel}`);
     const words = Array.isArray(res) ? res : (res.data || res);
-    // shuffle and take 10
+    // shuffle and take pronCount
     for (let i = words.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [words[i], words[j]] = [words[j], words[i]];
     }
-    _pronWords = words.slice(0, 10);
+    _pronWords = words.slice(0, pronCount);
     _pronIdx = 0; _pronScores = [];
     renderPronWord();
     updatePronStats();
@@ -2912,11 +2927,873 @@ function renderGojuonGrid() {
     const [romaji, hira, kata] = item;
     if (!romaji) return '<div></div>';
     const kana = isKata ? kata : hira;
-    return `<div onclick="speakJa('${escHtml(kana)}')" style="background:var(--bg2);border-radius:10px;padding:14px 8px;text-align:center;cursor:pointer;transition:transform .15s;user-select:none" onmouseenter="this.style.transform='scale(1.06)'" onmouseleave="this.style.transform=''">
+    return `<div onclick="showKanaPractice('${escHtml(romaji)}','${escHtml(hira)}','${escHtml(kata)}')" style="background:var(--bg2);border-radius:10px;padding:14px 8px;text-align:center;cursor:pointer;transition:transform .15s;user-select:none" onmouseenter="this.style.transform='scale(1.06)'" onmouseleave="this.style.transform=''">
       <div style="font-size:28px;font-weight:800;margin-bottom:4px">${escHtml(kana)}</div>
       <div style="font-size:11px;color:var(--text-hint)">${escHtml(romaji)}</div>
     </div>`;
   }).join('');
+}
+
+// ── 假名书写练习 ──
+let _kanaPracticeCanvas = null;
+let _kanaPracticeCtx = null;
+let _kanaPracticeStrokes = [];
+let _kanaPracticeCurrentStroke = [];
+let _kanaPracticeDrawing = false;
+let _kanaSvgAnimId = 0; // animation request id
+let _kanaPracticeChars = []; // [{char, svgUrl}] for multi-char support
+let _kanaPracticeActiveIdx = 0;
+
+function showKanaPractice(romaji, hira, kata) {
+  const isKata = _gojuonMode === 'katakana';
+  const displayKana = isKata ? kata : hira;
+  const otherKana = isKata ? hira : kata;
+  const otherLabel = isKata ? '平仮名' : '片仮名';
+  const svgFolder = isKata ? 'katakana' : 'hiragana';
+
+  // Split into individual characters for SVG lookup
+  const chars = [...displayKana];
+  _kanaPracticeChars = chars.map(ch => ({
+    char: ch,
+    svgUrl: `svg/kana/${svgFolder}/${encodeURIComponent(ch)}.svg`
+  }));
+  _kanaPracticeActiveIdx = 0;
+  const isMulti = chars.length > 1;
+
+  speakJa(hira);
+
+  // Build SVG animation area(s) for info view
+  let svgAnimHtml;
+  if (isMulti) {
+    svgAnimHtml = `<div style="display:flex;gap:8px;justify-content:center;margin-top:16px">` +
+      chars.map((ch, i) => `<div style="text-align:center"><div style="font-size:12px;color:var(--text-hint);margin-bottom:4px">${escHtml(ch)}</div><div id="kana-stroke-anim-area-${i}" style="position:relative;width:140px;height:140px;background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden"></div></div>`).join('') + `</div>`;
+  } else {
+    svgAnimHtml = `<div id="kana-stroke-anim-area-0" style="margin-top:16px;position:relative;width:200px;height:200px;margin-left:auto;margin-right:auto;background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden"></div>`;
+  }
+
+  // Build character selector for practice view (multi-char)
+  const charSelectorHtml = isMulti
+    ? `<div id="kana-char-selector" style="display:flex;gap:6px;margin-left:8px">` +
+      chars.map((ch, i) => `<span onclick="selectPracticeChar(${i})" id="kana-char-btn-${i}" style="cursor:pointer;font-size:18px;font-weight:700;padding:2px 8px;border-radius:8px;${i === 0 ? 'background:var(--primary);color:#fff' : 'background:var(--bg2);color:var(--text-secondary)'}">${escHtml(ch)}</span>`).join('') + `</div>`
+    : '';
+
+  const html = `
+    <div id="kana-practice-info" style="text-align:center">
+      <div style="font-size:88px;font-weight:900;color:var(--primary);line-height:1.1">${escHtml(displayKana)}</div>
+      <div style="font-size:20px;font-weight:600;color:var(--text-secondary);margin:4px 0">${escHtml(romaji)}</div>
+      <div style="display:inline-block;background:var(--primary-bg);color:var(--primary);padding:4px 12px;border-radius:8px;font-size:14px;margin-bottom:20px">${escHtml(otherLabel)}: ${escHtml(otherKana)}</div>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:8px">
+        <button class="btn btn-sm" onclick="speakJa('${escHtml(hira)}')" style="padding:8px 20px;border-radius:14px">🔊 发音</button>
+        <button class="btn btn-sm" onclick="playKanaStrokeAnim()" style="padding:8px 20px;border-radius:14px" id="kana-anim-btn">▶ 笔顺</button>
+        <button class="btn btn-sm" onclick="startKanaPractice()" style="background:var(--primary);color:#fff;padding:8px 20px;border-radius:14px">✏️ 书写练习</button>
+      </div>
+      ${svgAnimHtml}
+    </div>
+    <div id="kana-practice-canvas-area" style="display:none">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span onclick="exitKanaPractice()" style="cursor:pointer;font-size:18px">←</span>
+        <span style="font-size:24px;font-weight:800;color:var(--primary)">${escHtml(displayKana)}</span>
+        <span style="font-size:14px;color:var(--text-secondary)">${escHtml(romaji)}</span>
+        ${charSelectorHtml}
+        <span style="flex:1"></span>
+        <span onclick="speakJa('${escHtml(hira)}')" style="cursor:pointer;font-size:18px" title="发音">🔊</span>
+        <span onclick="replayKanaPracticeAnim()" style="cursor:pointer;font-size:18px" title="笔顺">▶</span>
+        <span onclick="toggleKanaRef()" style="cursor:pointer;font-size:18px" title="参考" id="kana-ref-toggle">👁</span>
+        <span onclick="undoKanaStroke()" style="cursor:pointer;font-size:18px" title="撤销">↩</span>
+        <span onclick="clearKanaCanvas()" style="cursor:pointer;font-size:18px" title="清除">🗑</span>
+      </div>
+      <div style="position:relative;width:100%;padding-top:100%;background:#fff;border-radius:16px;border:1px solid var(--border);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+        <canvas id="kana-practice-cvs" style="position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none;z-index:2"></canvas>
+        <div id="kana-practice-svg-ref" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1"></div>
+      </div>
+    </div>`;
+
+  openModal(displayKana + ' - 五十音', html);
+  // Load SVG(s) for stroke animation in info area
+  _kanaPracticeChars.forEach((c, i) => {
+    _loadKanaSvg(c.svgUrl, 'kana-stroke-anim-area-' + i, true);
+  });
+}
+
+let _currentKanaSvgUrl = '';
+
+function _loadKanaSvg(svgUrl, containerId, autoPlay) {
+  _currentKanaSvgUrl = svgUrl;
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  fetch(svgUrl)
+    .then(r => r.text())
+    .then(svgText => {
+      container.innerHTML = svgText;
+      const svg = container.querySelector('svg');
+      if (!svg) return;
+      svg.style.width = '100%';
+      svg.style.height = '100%';
+      svg.style.display = 'block';
+      // Set shadow to light grey
+      svg.querySelector('[data-strokesvg="shadows"]')?.setAttribute('style', 'fill:rgba(0,0,0,0.08)');
+      // Setup stroke animation
+      _setupStrokeAnim(svg, autoPlay);
+    })
+    .catch(() => { container.textContent = ''; });
+}
+
+function _setupStrokeAnim(svg, autoPlay) {
+  const strokesG = svg.querySelector('[data-strokesvg="strokes"]');
+  if (!strokesG) return;
+  // Set strokes style
+  strokesG.setAttribute('style', 'stroke:#1a1a2e;fill:none;stroke-width:80;stroke-linecap:round');
+  // Collect all stroke paths with their --i index
+  const strokePaths = [];
+  for (const child of strokesG.children) {
+    const style = child.getAttribute('style') || '';
+    const im = style.match(/--i\s*:\s*(\d+)/);
+    const idx = im ? parseInt(im[1]) : strokePaths.length;
+    if (child.tagName === 'path') {
+      strokePaths.push({ idx, paths: [child] });
+    } else if (child.tagName === 'g') {
+      const paths = [...child.querySelectorAll('path')];
+      if (paths.length) strokePaths.push({ idx, paths });
+    }
+  }
+  strokePaths.sort((a, b) => a.idx - b.idx);
+
+  // Measure path lengths and set initial state
+  for (const s of strokePaths) {
+    for (const p of s.paths) {
+      const len = p.getTotalLength();
+      p.setAttribute('stroke-dasharray', len);
+      p.setAttribute('stroke-dashoffset', len);
+      p._totalLen = len;
+    }
+  }
+
+  svg._strokePaths = strokePaths;
+  svg._animState = 'idle';
+
+  if (autoPlay) _animateStrokes(svg);
+}
+
+function _animateStrokes(svg) {
+  if (!svg || !svg._strokePaths) return;
+  const strokePaths = svg._strokePaths;
+  if (strokePaths.length === 0) return;
+
+  // Reset all strokes
+  for (const s of strokePaths) {
+    for (const p of s.paths) {
+      p.setAttribute('stroke-dashoffset', p._totalLen);
+    }
+  }
+
+  cancelAnimationFrame(_kanaSvgAnimId);
+  svg._animState = 'playing';
+
+  const totalStrokes = strokePaths.length;
+  const msPerStroke = 500;
+  const totalMs = msPerStroke * totalStrokes + 200;
+  const startTime = performance.now();
+
+  function tick(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / totalMs, 1);
+
+    for (let i = 0; i < totalStrokes; i++) {
+      const strokeStart = i / totalStrokes;
+      const strokeEnd = (i + 1) / totalStrokes;
+      let frac;
+      if (progress >= strokeEnd) frac = 1;
+      else if (progress <= strokeStart) frac = 0;
+      else frac = (progress - strokeStart) / (strokeEnd - strokeStart);
+
+      for (const p of strokePaths[i].paths) {
+        const offset = p._totalLen * (1 - frac);
+        p.setAttribute('stroke-dashoffset', offset);
+      }
+    }
+
+    if (progress < 1) {
+      _kanaSvgAnimId = requestAnimationFrame(tick);
+    } else {
+      svg._animState = 'done';
+    }
+  }
+
+  _kanaSvgAnimId = requestAnimationFrame(tick);
+}
+
+function playKanaStrokeAnim() {
+  _kanaPracticeChars.forEach((c, i) => {
+    const area = document.getElementById('kana-stroke-anim-area-' + i);
+    if (!area) return;
+    const svg = area.querySelector('svg');
+    if (svg) _animateStrokes(svg);
+  });
+}
+
+function startKanaPractice() {
+  cancelAnimationFrame(_kanaSvgAnimId);
+  _kanaPracticeActiveIdx = 0;
+  document.getElementById('kana-practice-info').style.display = 'none';
+  document.getElementById('kana-practice-canvas-area').style.display = 'block';
+  // Load SVG reference for active character
+  const active = _kanaPracticeChars[0];
+  if (active) _loadKanaSvg(active.svgUrl, 'kana-practice-svg-ref', true);
+  _updateCharSelectorUI();
+  initKanaCanvas();
+}
+
+function selectPracticeChar(idx) {
+  if (idx === _kanaPracticeActiveIdx) return;
+  _kanaPracticeActiveIdx = idx;
+  _kanaPracticeStrokes = [];
+  _kanaPracticeCurrentStroke = [];
+  const active = _kanaPracticeChars[idx];
+  if (active) _loadKanaSvg(active.svgUrl, 'kana-practice-svg-ref', true);
+  _updateCharSelectorUI();
+  redrawKanaCanvas();
+}
+
+function _updateCharSelectorUI() {
+  _kanaPracticeChars.forEach((c, i) => {
+    const btn = document.getElementById('kana-char-btn-' + i);
+    if (!btn) return;
+    if (i === _kanaPracticeActiveIdx) {
+      btn.style.background = 'var(--primary)';
+      btn.style.color = '#fff';
+    } else {
+      btn.style.background = 'var(--bg2)';
+      btn.style.color = 'var(--text-secondary)';
+    }
+  });
+}
+
+function replayKanaPracticeAnim() {
+  const ref = document.getElementById('kana-practice-svg-ref');
+  if (!ref) return;
+  const svg = ref.querySelector('svg');
+  if (svg) _animateStrokes(svg);
+}
+
+function exitKanaPractice() {
+  cancelAnimationFrame(_kanaSvgAnimId);
+  document.getElementById('kana-practice-info').style.display = '';
+  document.getElementById('kana-practice-canvas-area').style.display = 'none';
+  _kanaPracticeStrokes = [];
+  _kanaPracticeCurrentStroke = [];
+  // Reload info area SVGs
+  _kanaPracticeChars.forEach((c, i) => {
+    const area = document.getElementById('kana-stroke-anim-area-' + i);
+    if (area) _loadKanaSvg(c.svgUrl, 'kana-stroke-anim-area-' + i, false);
+  });
+}
+
+function initKanaCanvas() {
+  const cvs = document.getElementById('kana-practice-cvs');
+  if (!cvs) return;
+  const rect = cvs.parentElement.getBoundingClientRect();
+  cvs.width = rect.width;
+  cvs.height = rect.height;
+  _kanaPracticeCanvas = cvs;
+  _kanaPracticeCtx = cvs.getContext('2d');
+  _kanaPracticeStrokes = [];
+  _kanaPracticeCurrentStroke = [];
+  _kanaPracticeDrawing = false;
+
+  drawKanaGrid();
+
+  const getPos = (e) => {
+    const r = cvs.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return { x: (t.clientX - r.left) * (cvs.width / r.width), y: (t.clientY - r.top) * (cvs.height / r.height) };
+  };
+
+  cvs.onpointerdown = (e) => {
+    _kanaPracticeDrawing = true;
+    const p = getPos(e);
+    _kanaPracticeCurrentStroke = [p];
+    cvs.setPointerCapture(e.pointerId);
+  };
+  cvs.onpointermove = (e) => {
+    if (!_kanaPracticeDrawing) return;
+    _kanaPracticeCurrentStroke.push(getPos(e));
+    redrawKanaCanvas();
+  };
+  cvs.onpointerup = cvs.onpointercancel = () => {
+    if (_kanaPracticeDrawing && _kanaPracticeCurrentStroke.length > 0) {
+      _kanaPracticeStrokes.push([..._kanaPracticeCurrentStroke]);
+    }
+    _kanaPracticeDrawing = false;
+    _kanaPracticeCurrentStroke = [];
+    redrawKanaCanvas();
+  };
+}
+
+function drawKanaGrid() {
+  const ctx = _kanaPracticeCtx;
+  if (!ctx) return;
+  const w = _kanaPracticeCanvas.width, h = _kanaPracticeCanvas.height;
+  ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h);
+  ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function redrawKanaCanvas() {
+  const ctx = _kanaPracticeCtx;
+  if (!ctx) return;
+  const w = _kanaPracticeCanvas.width, h = _kanaPracticeCanvas.height;
+  ctx.clearRect(0, 0, w, h);
+  drawKanaGrid();
+
+  ctx.strokeStyle = '#222';
+  ctx.lineWidth = Math.max(4, w * 0.018);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const drawStroke = (points) => {
+    if (points.length === 0) return;
+    if (points.length === 1) {
+      ctx.beginPath();
+      ctx.arc(points[0].x, points[0].y, 2, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length - 1; i++) {
+      const mx = (points[i].x + points[i + 1].x) / 2;
+      const my = (points[i].y + points[i + 1].y) / 2;
+      ctx.quadraticCurveTo(points[i].x, points[i].y, mx, my);
+    }
+    ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+    ctx.stroke();
+  };
+
+  for (const s of _kanaPracticeStrokes) drawStroke(s);
+  if (_kanaPracticeCurrentStroke.length > 0) drawStroke(_kanaPracticeCurrentStroke);
+}
+
+function undoKanaStroke() {
+  _kanaPracticeStrokes.pop();
+  redrawKanaCanvas();
+}
+
+function clearKanaCanvas() {
+  _kanaPracticeStrokes = [];
+  _kanaPracticeCurrentStroke = [];
+  redrawKanaCanvas();
+}
+
+function toggleKanaRef() {
+  const ref = document.getElementById('kana-practice-svg-ref');
+  if (!ref) return;
+  const visible = ref.style.opacity !== '0';
+  ref.style.opacity = visible ? '0' : '1';
+  document.getElementById('kana-ref-toggle').textContent = visible ? '🚫' : '👁';
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  KANA WRITING TEST (50音書写テスト)
+// ══════════════════════════════════════════════════════════════════
+let _ktCategory = 'hiragana'; // hiragana, katakana, mixed
+let _ktRange = 'seion';       // seion, dakuon, all
+let _ktCount = 10;
+let _ktQuestions = [];         // [{kana, romaji, isKatakana}]
+let _ktCurrent = 0;
+let _ktScores = [];
+let _ktScored = false;
+let _ktCurrentScore = null;
+let _ktFinished = false;
+let _ktStartTime = null;
+// canvas state for test
+let _ktCanvas = null;
+let _ktCtx = null;
+let _ktStrokes = [];
+let _ktCurrentStroke = [];
+let _ktDrawing = false;
+let _ktSvgAnimId = 0;
+
+function loadKanaTest() {
+  _ktRenderSetup();
+}
+
+function _ktRenderSetup() {
+  _ktFinished = false;
+  _ktScored = false;
+  _ktCurrentScore = null;
+  _ktScores = [];
+  const container = document.getElementById('kana-test-content');
+  container.innerHTML = `
+    <div style="max-width:500px;margin:0 auto">
+      <div style="background:var(--bg2);border-radius:16px;padding:24px;margin-bottom:16px">
+        <div style="font-weight:700;margin-bottom:12px">假名类型</div>
+        <div class="chips" id="kt-category-chips">
+          <div class="chip ${_ktCategory==='hiragana'?'active':''}" onclick="_ktSetCategory('hiragana')">平仮名</div>
+          <div class="chip ${_ktCategory==='katakana'?'active':''}" onclick="_ktSetCategory('katakana')">片仮名</div>
+          <div class="chip ${_ktCategory==='mixed'?'active':''}" onclick="_ktSetCategory('mixed')">混合</div>
+        </div>
+      </div>
+      <div style="background:var(--bg2);border-radius:16px;padding:24px;margin-bottom:16px">
+        <div style="font-weight:700;margin-bottom:12px">范围</div>
+        <div class="chips" id="kt-range-chips">
+          <div class="chip ${_ktRange==='seion'?'active':''}" onclick="_ktSetRange('seion')">清音</div>
+          <div class="chip ${_ktRange==='dakuon'?'active':''}" onclick="_ktSetRange('dakuon')">浊音</div>
+          <div class="chip ${_ktRange==='all'?'active':''}" onclick="_ktSetRange('all')">全部</div>
+        </div>
+      </div>
+      <div style="background:var(--bg2);border-radius:16px;padding:24px;margin-bottom:24px">
+        <div style="font-weight:700;margin-bottom:12px">题数</div>
+        <div class="chips" id="kt-count-chips">
+          ${[5,10,15,20].map(n => `<div class="chip ${_ktCount===n?'active':''}" onclick="_ktSetCount(${n})">${n}</div>`).join('')}
+        </div>
+      </div>
+      <button class="btn" onclick="_ktStart()" style="width:100%;padding:14px;font-size:16px;font-weight:700;background:var(--primary);color:#fff;border-radius:14px">开始测试</button>
+    </div>`;
+}
+
+function _ktSetCategory(cat) {
+  _ktCategory = cat;
+  document.querySelectorAll('#kt-category-chips .chip').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+}
+function _ktSetRange(range) {
+  _ktRange = range;
+  document.querySelectorAll('#kt-range-chips .chip').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+}
+function _ktSetCount(count) {
+  _ktCount = count;
+  document.querySelectorAll('#kt-count-chips .chip').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function _ktGenerateQuestions() {
+  const allKana = [];
+  function addFromData(data) {
+    for (const item of data) {
+      const [romaji, hira, kata] = item;
+      if (!romaji || hira.length > 1) continue; // skip empty and multi-char
+      if (_ktCategory === 'hiragana' || _ktCategory === 'mixed') {
+        allKana.push({kana: hira, romaji, isKatakana: false});
+      }
+      if (_ktCategory === 'katakana' || _ktCategory === 'mixed') {
+        allKana.push({kana: kata, romaji, isKatakana: false});
+      }
+    }
+  }
+  if (_ktRange === 'seion' || _ktRange === 'all') addFromData(GOJUON_DATA.seion);
+  if (_ktRange === 'dakuon' || _ktRange === 'all') addFromData(GOJUON_DATA.dakuon);
+
+  // shuffle
+  for (let i = allKana.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allKana[i], allKana[j]] = [allKana[j], allKana[i]];
+  }
+  _ktQuestions = allKana.slice(0, _ktCount);
+}
+
+function _ktStart() {
+  _ktGenerateQuestions();
+  if (_ktQuestions.length === 0) { toast('没有可用的题目'); return; }
+  _ktCurrent = 0;
+  _ktScores = [];
+  _ktScored = false;
+  _ktCurrentScore = null;
+  _ktFinished = false;
+  _ktStartTime = Date.now();
+  _ktRenderQuestion();
+}
+
+function _ktRenderQuestion() {
+  const q = _ktQuestions[_ktCurrent];
+  const svgFolder = _isKatakana(q.kana) ? 'katakana' : 'hiragana';
+  const svgUrl = `svg/kana/${svgFolder}/${encodeURIComponent(q.kana)}.svg`;
+  const container = document.getElementById('kana-test-content');
+  container.innerHTML = `
+    <div style="max-width:500px;margin:0 auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <span style="font-size:14px;color:var(--text-secondary)">${_ktCurrent+1} / ${_ktQuestions.length}</span>
+        <div style="flex:1;margin:0 12px;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden">
+          <div style="height:100%;background:var(--primary);border-radius:3px;width:${(_ktCurrent/_ktQuestions.length)*100}%;transition:width .3s"></div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:14px;color:var(--text-hint);margin-bottom:4px">请写出这个假名</div>
+        <div style="font-size:48px;font-weight:900;color:var(--primary)">${escHtml(q.romaji)}</div>
+        <button class="btn btn-sm" onclick="_ktPlayPrompt()" style="margin-top:8px;padding:6px 16px;border-radius:12px">🔊 发音</button>
+      </div>
+      <div id="kt-canvas-area" style="position:relative;width:100%;max-width:360px;margin:0 auto">
+        <div style="position:relative;width:100%;padding-top:100%;background:#fff;border-radius:16px;border:1px solid var(--border);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+          <canvas id="kt-cvs" style="position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none;z-index:2"></canvas>
+          <div id="kt-svg-ref" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;opacity:0"></div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+          <button class="btn btn-sm" onclick="_ktUndo()" style="border-radius:12px">↩ 撤销</button>
+          <button class="btn btn-sm" onclick="_ktClear()" style="border-radius:12px">🗑 清除</button>
+          <button class="btn btn-sm" onclick="_ktToggleRef()" id="kt-ref-btn" style="border-radius:12px">👁 参考</button>
+        </div>
+      </div>
+      <div id="kt-score-area" style="display:none;text-align:center;margin-top:16px">
+        <div id="kt-score-display"></div>
+        <div id="kt-correct-anim" style="margin-top:12px;position:relative;width:200px;height:200px;margin-left:auto;margin-right:auto;background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden"></div>
+      </div>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:20px" id="kt-action-btns">
+        <button class="btn" id="kt-submit-btn" onclick="_ktSubmit()" style="padding:12px 32px;font-size:15px;font-weight:700;background:var(--primary);color:#fff;border-radius:14px">提交</button>
+      </div>
+    </div>`;
+
+  // Load SVG reference (hidden by default)
+  _ktLoadSvgRef(svgUrl);
+  // Init canvas
+  setTimeout(() => _ktInitCanvas(), 50);
+}
+
+function _isKatakana(char) {
+  const code = char.charCodeAt(0);
+  return code >= 0x30A0 && code <= 0x30FF;
+}
+
+function _ktPlayPrompt() {
+  if (_ktQuestions.length === 0) return;
+  speakJa(_ktQuestions[_ktCurrent].kana);
+}
+
+function _ktLoadSvgRef(svgUrl) {
+  const container = document.getElementById('kt-svg-ref');
+  if (!container) return;
+  fetch(svgUrl)
+    .then(r => r.text())
+    .then(svgText => {
+      container.innerHTML = svgText;
+      const svg = container.querySelector('svg');
+      if (!svg) return;
+      svg.style.width = '100%';
+      svg.style.height = '100%';
+      svg.style.display = 'block';
+      svg.querySelector('[data-strokesvg="shadows"]')?.setAttribute('style', 'fill:rgba(0,0,0,0.08)');
+      _setupStrokeAnim(svg, false);
+      // Store SVG element for scoring
+      container._svg = svg;
+    })
+    .catch(() => {});
+}
+
+function _ktInitCanvas() {
+  const cvs = document.getElementById('kt-cvs');
+  if (!cvs) return;
+  const rect = cvs.parentElement.getBoundingClientRect();
+  cvs.width = rect.width;
+  cvs.height = rect.height;
+  _ktCanvas = cvs;
+  _ktCtx = cvs.getContext('2d');
+  _ktStrokes = [];
+  _ktCurrentStroke = [];
+  _ktDrawing = false;
+  _ktDrawGrid();
+
+  const getPos = (e) => {
+    const r = cvs.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return {x: (t.clientX - r.left) * (cvs.width / r.width), y: (t.clientY - r.top) * (cvs.height / r.height)};
+  };
+  cvs.onpointerdown = (e) => {
+    if (_ktScored) return;
+    _ktDrawing = true;
+    _ktCurrentStroke = [getPos(e)];
+    cvs.setPointerCapture(e.pointerId);
+  };
+  cvs.onpointermove = (e) => {
+    if (!_ktDrawing) return;
+    _ktCurrentStroke.push(getPos(e));
+    _ktRedraw();
+  };
+  cvs.onpointerup = cvs.onpointercancel = () => {
+    if (_ktDrawing && _ktCurrentStroke.length > 0) {
+      _ktStrokes.push([..._ktCurrentStroke]);
+    }
+    _ktDrawing = false;
+    _ktCurrentStroke = [];
+    _ktRedraw();
+  };
+}
+
+function _ktDrawGrid() {
+  if (!_ktCtx) return;
+  const w = _ktCanvas.width, h = _ktCanvas.height;
+  _ktCtx.strokeStyle = 'rgba(0,0,0,0.08)';
+  _ktCtx.lineWidth = 1;
+  _ktCtx.setLineDash([6, 4]);
+  _ktCtx.beginPath();
+  _ktCtx.moveTo(w/2, 0); _ktCtx.lineTo(w/2, h);
+  _ktCtx.moveTo(0, h/2); _ktCtx.lineTo(w, h/2);
+  _ktCtx.stroke();
+  _ktCtx.setLineDash([]);
+}
+
+function _ktRedraw() {
+  if (!_ktCtx) return;
+  const w = _ktCanvas.width, h = _ktCanvas.height;
+  _ktCtx.clearRect(0, 0, w, h);
+  _ktDrawGrid();
+  _ktCtx.strokeStyle = '#222';
+  _ktCtx.lineWidth = Math.max(4, w * 0.018);
+  _ktCtx.lineCap = 'round';
+  _ktCtx.lineJoin = 'round';
+  const draw = (points) => {
+    if (points.length === 0) return;
+    if (points.length === 1) { _ktCtx.beginPath(); _ktCtx.arc(points[0].x, points[0].y, 2, 0, Math.PI*2); _ktCtx.fill(); return; }
+    _ktCtx.beginPath();
+    _ktCtx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length - 1; i++) {
+      const mx = (points[i].x + points[i+1].x)/2, my = (points[i].y + points[i+1].y)/2;
+      _ktCtx.quadraticCurveTo(points[i].x, points[i].y, mx, my);
+    }
+    _ktCtx.lineTo(points[points.length-1].x, points[points.length-1].y);
+    _ktCtx.stroke();
+  };
+  _ktStrokes.forEach(s => draw(s));
+  if (_ktCurrentStroke.length > 0) draw(_ktCurrentStroke);
+}
+
+function _ktUndo() {
+  if (_ktScored) return;
+  _ktStrokes.pop();
+  _ktRedraw();
+}
+function _ktClear() {
+  if (_ktScored) return;
+  _ktStrokes = [];
+  _ktCurrentStroke = [];
+  _ktRedraw();
+}
+function _ktToggleRef() {
+  const ref = document.getElementById('kt-svg-ref');
+  if (!ref) return;
+  const visible = ref.style.opacity !== '0';
+  ref.style.opacity = visible ? '0' : '1';
+  document.getElementById('kt-ref-btn').textContent = visible ? '🚫 参考' : '👁 参考';
+}
+
+function _ktSubmit() {
+  if (_ktStrokes.length === 0) { toast('请先书写假名'); return; }
+  const score = _ktCalcScore();
+  _ktCurrentScore = score;
+  _ktScores.push(score);
+  _ktScored = true;
+
+  // Show score
+  const emoji = score >= 80 ? '🎉' : score >= 50 ? '👍' : '💪';
+  const color = score >= 80 ? '#4caf50' : score >= 50 ? '#ff9800' : '#f44336';
+  document.getElementById('kt-score-display').innerHTML = `
+    <div style="font-size:48px">${emoji}</div>
+    <div style="font-size:36px;font-weight:900;color:${color}">${score}<span style="font-size:18px">分</span></div>`;
+  document.getElementById('kt-score-area').style.display = 'block';
+
+  // Show correct stroke animation
+  const q = _ktQuestions[_ktCurrent];
+  const svgFolder = _isKatakana(q.kana) ? 'katakana' : 'hiragana';
+  const svgUrl = `svg/kana/${svgFolder}/${encodeURIComponent(q.kana)}.svg`;
+  _loadKanaSvg(svgUrl, 'kt-correct-anim', true);
+
+  // Replace submit button with next/finish
+  const isLast = _ktCurrent + 1 >= _ktQuestions.length;
+  document.getElementById('kt-action-btns').innerHTML = `
+    <button class="btn" onclick="${isLast ? '_ktShowResult()' : '_ktNext()'}" style="padding:12px 32px;font-size:15px;font-weight:700;background:var(--primary);color:#fff;border-radius:14px">${isLast ? '查看结果' : '下一题 →'}</button>`;
+}
+
+function _ktNext() {
+  _ktCurrent++;
+  _ktScored = false;
+  _ktCurrentScore = null;
+  _ktRenderQuestion();
+}
+
+function _ktShowResult() {
+  const total = _ktScores.length;
+  const avg = total > 0 ? Math.round(_ktScores.reduce((a,b)=>a+b,0)/total) : 0;
+  const excellent = _ktScores.filter(s => s >= 80).length;
+  const elapsed = _ktStartTime ? Math.round((Date.now() - _ktStartTime)/1000) : 0;
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = elapsed % 60;
+  const timeStr = minutes > 0 ? `${minutes}分${seconds}秒` : `${seconds}秒`;
+  const emoji = avg >= 80 ? '🎉' : avg >= 50 ? '👍' : '💪';
+  const color = avg >= 80 ? '#4caf50' : avg >= 50 ? '#ff9800' : '#f44336';
+
+  const container = document.getElementById('kana-test-content');
+  container.innerHTML = `
+    <div style="max-width:500px;margin:0 auto;text-align:center">
+      <div style="font-size:64px;margin-bottom:8px">${emoji}</div>
+      <div style="font-size:42px;font-weight:900;color:${color};margin-bottom:4px">${avg}<span style="font-size:20px">分</span></div>
+      <div style="font-size:14px;color:var(--text-hint);margin-bottom:20px">平均得分</div>
+      <div style="display:flex;justify-content:center;gap:24px;margin-bottom:24px">
+        <div><div style="font-size:24px;font-weight:800">${total}</div><div style="font-size:12px;color:var(--text-hint)">总题数</div></div>
+        <div><div style="font-size:24px;font-weight:800;color:#4caf50">${excellent}</div><div style="font-size:12px;color:var(--text-hint)">优秀(≥80)</div></div>
+        <div><div style="font-size:24px;font-weight:800">${timeStr}</div><div style="font-size:12px;color:var(--text-hint)">用时</div></div>
+      </div>
+      <div style="text-align:left;margin-bottom:24px">
+        <div style="font-weight:700;margin-bottom:10px">逐题得分</div>
+        ${_ktQuestions.map((q, i) => {
+          const s = _ktScores[i] || 0;
+          const c = s >= 80 ? '#4caf50' : s >= 50 ? '#ff9800' : '#f44336';
+          return `<div style="display:flex;align-items:center;padding:8px 12px;background:var(--bg2);border-radius:10px;margin-bottom:6px">
+            <span style="width:28px;font-size:13px;color:var(--text-hint)">${i+1}</span>
+            <span style="font-size:20px;font-weight:700;width:40px">${escHtml(q.kana)}</span>
+            <span style="font-size:13px;color:var(--text-secondary);flex:1">${escHtml(q.romaji)}</span>
+            <span style="font-size:16px;font-weight:800;color:${c}">${s}</span>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:12px;justify-content:center">
+        <button class="btn" onclick="_ktRenderSetup()" style="padding:12px 28px;font-size:15px;border-radius:14px">重新开始</button>
+      </div>
+    </div>`;
+}
+
+// ── Scoring Algorithm (ported from Flutter) ──
+
+function _ktCalcScore() {
+  // Get reference SVG stroke paths
+  const ref = document.getElementById('kt-svg-ref');
+  if (!ref || !ref._svg) return 0;
+  const svg = ref._svg;
+  if (!svg._strokePaths) return 0;
+
+  const refPaths = svg._strokePaths;
+  const userStrokes = _ktStrokes;
+  if (userStrokes.length === 0) return 0;
+
+  const canvasW = _ktCanvas.width;
+
+  // 1. Stroke count score (max 25)
+  const expectedCount = refPaths.length;
+  const actualCount = userStrokes.length;
+  const countDiff = Math.abs(actualCount - expectedCount);
+  const countScore = countDiff === 0 ? 25 : countDiff === 1 ? 18 : countDiff === 2 ? 10 : 0;
+
+  // 2. Sample reference strokes to normalized points
+  const refSampled = [];
+  for (const sp of refPaths) {
+    refSampled.push(_ktSampleSvgPath(sp));
+  }
+
+  // 3. Normalize user strokes to 0-1 range (canvas coords → normalized)
+  const userNorm = [];
+  for (const stroke of userStrokes) {
+    const pts = stroke.map(p => ({x: p.x / canvasW, y: p.y / canvasW}));
+    userNorm.push(pts);
+  }
+
+  // 4. Greedy bipartite matching + similarity (max 75)
+  let totalSim = 0;
+  let matched = 0;
+  const usedRef = new Set();
+  const matchCount = Math.min(userNorm.length, refSampled.length);
+
+  for (let i = 0; i < matchCount; i++) {
+    let bestSim = 0, bestJ = -1;
+    for (let j = 0; j < refSampled.length; j++) {
+      if (usedRef.has(j)) continue;
+      const sim = _ktStrokeSimilarity(refSampled[j], userNorm[i]);
+      if (sim > bestSim) { bestSim = sim; bestJ = j; }
+    }
+    if (bestJ >= 0) {
+      usedRef.add(bestJ);
+      totalSim += bestSim;
+      matched++;
+    }
+  }
+
+  const avgSim = matched > 0 ? totalSim / Math.max(matched, refPaths.length) : 0;
+  const matchScore = Math.round(75 * avgSim);
+
+  return Math.max(0, Math.min(100, countScore + matchScore));
+}
+
+function _ktSampleSvgPath(strokeInfo, numSamples) {
+  numSamples = numSamples || 20;
+  const points = [];
+  // Collect all sub-paths and their lengths
+  let totalLen = 0;
+  const segments = [];
+  for (const p of strokeInfo.paths) {
+    const len = p._totalLen || p.getTotalLength();
+    segments.push({path: p, len});
+    totalLen += len;
+  }
+  if (totalLen <= 0) return points;
+
+  for (let i = 0; i <= numSamples; i++) {
+    const t = i / numSamples;
+    let remaining = t * totalLen;
+    for (const seg of segments) {
+      if (remaining <= seg.len) {
+        const pt = seg.path.getPointAtLength(remaining);
+        points.push({x: pt.x / 1024, y: pt.y / 1024}); // normalize to 0-1
+        break;
+      }
+      remaining -= seg.len;
+    }
+  }
+  return points;
+}
+
+function _ktStrokeSimilarity(ref, user) {
+  if (ref.length === 0 || user.length === 0) return 0;
+  const userResampled = _ktResamplePoints(user, ref.length);
+  let totalDist = 0;
+  for (let i = 0; i < ref.length; i++) {
+    const dx = ref[i].x - userResampled[i].x;
+    const dy = ref[i].y - userResampled[i].y;
+    totalDist += Math.sqrt(dx * dx + dy * dy);
+  }
+  const avgDist = totalDist / ref.length;
+  return Math.max(0, Math.min(1, 1 - avgDist / 0.3));
+}
+
+function _ktResamplePoints(points, count) {
+  if (points.length === 0) return Array.from({length: count}, () => ({x:0, y:0}));
+  if (points.length === 1) return Array.from({length: count}, () => ({...points[0]}));
+  if (count <= 1) return [{...points[0]}];
+
+  let totalLen = 0;
+  for (let i = 1; i < points.length; i++) {
+    const dx = points[i].x - points[i-1].x, dy = points[i].y - points[i-1].y;
+    totalLen += Math.sqrt(dx*dx + dy*dy);
+  }
+  if (totalLen === 0) return Array.from({length: count}, () => ({...points[0]}));
+
+  const result = [{...points[0]}];
+  const segLen = totalLen / (count - 1);
+  let accumulated = 0;
+  let srcIdx = 1;
+
+  for (let i = 1; i < count - 1; i++) {
+    const target = segLen * i;
+    while (srcIdx < points.length) {
+      const dx = points[srcIdx].x - points[srcIdx-1].x;
+      const dy = points[srcIdx].y - points[srcIdx-1].y;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      if (accumulated + d >= target) break;
+      accumulated += d;
+      srcIdx++;
+    }
+    if (srcIdx >= points.length) { result.push({...points[points.length-1]}); continue; }
+    const dx = points[srcIdx].x - points[srcIdx-1].x;
+    const dy = points[srcIdx].y - points[srcIdx-1].y;
+    const segDist = Math.sqrt(dx*dx + dy*dy);
+    if (segDist === 0) { result.push({...points[srcIdx]}); }
+    else {
+      const t = (target - accumulated) / segDist;
+      result.push({x: points[srcIdx-1].x + dx*t, y: points[srcIdx-1].y + dy*t});
+    }
+  }
+  result.push({...points[points.length-1]});
+  return result;
 }
 
 // ══════════════════════════════════════════════════════════════════
