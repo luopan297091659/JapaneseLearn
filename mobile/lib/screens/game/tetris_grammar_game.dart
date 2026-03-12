@@ -235,14 +235,15 @@ class TetrisGrammarGame extends StatefulWidget {
 }
 
 class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
-  // ── 速度档位 ──
+  // ── 速度档位（与web侧一致） ──
   static const _speedOptions = [
-    {'label': '慢速', 'ms': 3500, 'icon': '🐢'},
-    {'label': '普通', 'ms': 2000, 'icon': '▶️'},
-    {'label': '快速', 'ms': 1200, 'icon': '⚡'},
-    {'label': '极速', 'ms': 700,  'icon': '🔥'},
+    {'label': '慢速', 'ms': 20000, 'icon': '🐢'},
+    {'label': '较慢', 'ms': 15000, 'icon': '🐢'},
+    {'label': '正常', 'ms': 10000, 'icon': '🚶'},
+    {'label': '快速', 'ms': 4000,  'icon': '🏃'},
+    {'label': '极速', 'ms': 1500,  'icon': '⚡'},
   ];
-  int _speedIdx = 1; // 默认普通
+  int _speedIdx = 2; // 默认正常（居中）
 
   // ── 关卡全局 ──
   _Phase _phase     = _Phase.select;
@@ -298,8 +299,8 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
   Future<void> _loadLocal() async {
     final p = await SharedPreferences.getInstance();
     _unlockedTo = p.getInt(_keyUnlocked) ?? 1;
-    _speedIdx   = p.getInt('g_speed_idx') ?? 1;
-    if (_speedIdx < 0 || _speedIdx >= _speedOptions.length) _speedIdx = 1;
+    _speedIdx   = p.getInt('g_speed_idx') ?? 2;
+    if (_speedIdx < 0 || _speedIdx >= _speedOptions.length) _speedIdx = 2;
     final js = p.getString(_keyScores);
     if (js != null) {
       final raw = jsonDecode(js) as Map<String, dynamic>;

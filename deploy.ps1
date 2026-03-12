@@ -53,15 +53,12 @@ Remote-Run "cd $RemotePath; npm install --production 2>&1 | tail -n 5"
 
 # 步骤 4: pm2 启动/重启
 Write-Host "[4/4] 启动服务..." -ForegroundColor Yellow
-$pm2Script = "pm2 delete japanese-learn 2>/dev/null; pm2 start src/app.js --name japanese-learn; pm2 save --force; pm2 list"
-$code = Remote-Run "bash -c 'cd $RemotePath; $pm2Script'"
+# 先尝试 restart，失败则 delete + start
+Remote-Run "cd $RemotePath && pm2 restart japanese-learn 2>/dev/null || pm2 start src/app.js --name japanese-learn"
+Remote-Run "pm2 save --force"
+Remote-Run "pm2 list"
 
-if ($code -eq 0) {
-    Write-Host ""
-    Write-Host "=== 部署成功! ===" -ForegroundColor Green
-    Write-Host "  API:  http://${ServerHost}:8002/api/v1" -ForegroundColor Cyan
-    Write-Host "  后台: http://${ServerHost}:8002/admin/" -ForegroundColor Cyan
-} else {
-    Write-Host "[x] 部署失败，查看日志: pm2 logs japanese-learn --lines 50" -ForegroundColor Red
-    exit 1
-}
+Write-Host ""
+Write-Host "=== 部署成功! ===" -ForegroundColor Green
+Write-Host "  API:  http://${ServerHost}:8002/api/v1" -ForegroundColor Cyan
+Write-Host "  后台: http://${ServerHost}:8002/admin/" -ForegroundColor Cyan

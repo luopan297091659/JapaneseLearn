@@ -300,7 +300,7 @@ let gGameType = 'particles'; // 'particles' or 'verbs'
 let gBoard = null, gBoardTxt = null, gBoardClr = null;
 let gScore = 0, gCombo = 0, gMaxCombo = 0, gWrong = 0, gWrongLog = [];
 let gCurQ = null, gSelected = 1, gDropCol = 0;
-let gBaseMs = 2000, gDropMs = 2000;
+let gBaseMs = 10000, gDropMs = 10000;
 let gTimerIv = null, gTimeElapsed = 0, gRunning = false;
 // 闯关状态
 let gPhase        = 'select';
@@ -984,13 +984,10 @@ function gameSpeedInput(input) {
   const secs = (ms / 1000).toFixed(1);
   document.getElementById('g-speed-val').textContent = secs + 's';
   let emoji = '⚡', label = '极速';
-  if      (ms >= 15000) { emoji = '🐌'; label = '超慢'; }
-  else if (ms >= 10000) { emoji = '🐌'; label = '很慢'; }
-  else if (ms >= 6000)  { emoji = '🐢'; label = '慢速'; }
-  else if (ms >= 3000)  { emoji = '🐢'; label = '较慢'; }
-  else if (ms >= 2000)  { emoji = '🚶'; label = '正常'; }
-  else if (ms >= 1200)  { emoji = '🏃'; label = '快速'; }
-  else if (ms >= 700)   { emoji = '💨'; label = '冲刺'; }
+  if      (ms >= 15000) { emoji = '🐢'; label = '慢速'; }
+  else if (ms >= 8000)  { emoji = '🚶'; label = '正常'; }
+  else if (ms >= 4000)  { emoji = '🏃'; label = '快速'; }
+  else if (ms >= 1500)  { emoji = '💨'; label = '冲刺'; }
   document.getElementById('g-speed-emoji').textContent = emoji;
   document.getElementById('g-speed-label').textContent = label;
 }

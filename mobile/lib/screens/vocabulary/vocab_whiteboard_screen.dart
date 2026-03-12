@@ -52,14 +52,7 @@ class _VocabWhiteboardScreenState extends State<VocabWhiteboardScreen> {
                     fontSize: 12, color: cs.primary, fontWeight: FontWeight.w400)),
           ],
         ),
-        actions: [
-          _RefModeButton(current: _refMode, onChanged: (m) => setState(() => _refMode = m)),
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_rounded),
-            onPressed: () => context.go('/home'),
-          ),
-          const SizedBox(width: 4),
-        ],
+        actions: const [SizedBox(width: 4)],
       ),
       body: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -93,7 +86,7 @@ class _VocabWhiteboardScreenState extends State<VocabWhiteboardScreen> {
 
             // —— 提示文字 ————————————————————————————————————————————————
             Text(
-              '在上方画布中练习书写  •  右上角可切换参考显示模式',
+              '在上方画布中练习书写',
               style: TextStyle(fontSize: 11, color: cs.outline),
               textAlign: TextAlign.center,
             ),

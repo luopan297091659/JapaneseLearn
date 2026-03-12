@@ -177,48 +177,75 @@ class _WhiteboardWidgetState extends State<WhiteboardWidget> {
 
   Widget _buildToolbar(ColorScheme cs) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
-          ..._colors.map((c) => _ColorDot(
-                color: c,
-                selected: !_isEraser && _penColor == c,
-                onTap: () => setState(() { _penColor = c; _isEraser = false; }),
-              )),
-          const SizedBox(width: 6),
-          Container(width: 1, height: 24, color: cs.outline.withValues(alpha: 0.3)),
-          const SizedBox(width: 6),
-          ..._widths.map((w) => _WidthDot(
-                width: w,
-                color: _isEraser ? Colors.grey : _penColor,
-                selected: !_isEraser && _penWidth == w,
-                onTap: () => setState(() { _penWidth = w; _isEraser = false; }),
-              )),
-          const Spacer(),
-          IconButton(
-            tooltip: '橡皮擦',
-            icon: Icon(Icons.auto_fix_high_rounded,
-                color: _isEraser ? cs.primary : cs.onSurface),
-            onPressed: () => setState(() => _isEraser = !_isEraser),
+          // 颜色 + 笔宽 + 橡皮擦（可滚动）
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ..._colors.map((c) => _ColorDot(
+                        color: c,
+                        selected: !_isEraser && _penColor == c,
+                        onTap: () => setState(() { _penColor = c; _isEraser = false; }),
+                      )),
+                  const SizedBox(width: 4),
+                  Container(width: 1, height: 22, color: cs.outline.withValues(alpha: 0.3)),
+                  const SizedBox(width: 4),
+                  ..._widths.map((w) => _WidthDot(
+                        width: w,
+                        color: _isEraser ? Colors.grey : _penColor,
+                        selected: !_isEraser && _penWidth == w,
+                        onTap: () => setState(() { _penWidth = w; _isEraser = false; }),
+                      )),
+                  const SizedBox(width: 4),
+                  Container(width: 1, height: 22, color: cs.outline.withValues(alpha: 0.3)),
+                  const SizedBox(width: 2),
+                  SizedBox(
+                    width: 36, height: 36,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      tooltip: '橡皮擦',
+                      icon: Icon(Icons.auto_fix_high_rounded, size: 20,
+                          color: _isEraser ? cs.primary : cs.onSurface),
+                      onPressed: () => setState(() => _isEraser = !_isEraser),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
+          // 撤销 + 清除（始终可见）
+          Container(width: 1, height: 22, color: cs.outline.withValues(alpha: 0.3)),
           ListenableBuilder(
             listenable: _notifier,
-            builder: (_, __) => IconButton(
-              tooltip: '撤销',
-              icon: const Icon(Icons.undo_rounded),
-              onPressed: _notifier.isEmpty ? null : _undo,
+            builder: (_, __) => SizedBox(
+              width: 36, height: 36,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                tooltip: '撤销',
+                icon: Icon(Icons.undo_rounded, size: 20),
+                onPressed: _notifier.isEmpty ? null : _undo,
+              ),
             ),
           ),
           ListenableBuilder(
             listenable: _notifier,
-            builder: (_, __) => IconButton(
-              tooltip: '清除',
-              icon: const Icon(Icons.delete_sweep_rounded),
-              onPressed: _notifier.isEmpty ? null : _clear,
+            builder: (_, __) => SizedBox(
+              width: 36, height: 36,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                tooltip: '清除',
+                icon: Icon(Icons.delete_sweep_rounded, size: 20),
+                onPressed: _notifier.isEmpty ? null : _clear,
+              ),
             ),
           ),
         ],

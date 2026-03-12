@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../utils/japanese_text_utils.dart';
 import '../../utils/tts_helper.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PronunciationScreen extends StatefulWidget {
   const PronunciationScreen({super.key});
@@ -103,6 +104,27 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
     }
   }
 
+  Future<void> _playAudioSlow() async {
+    if (_words.isEmpty) return;
+    try {
+      try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+      await _tts.setVolume(1.0);
+      final prefs = await SharedPreferences.getInstance();
+      final slowRate = prefs.getDouble('slow_speed') ?? 0.5;
+      await _tts.setSpeechRate(slowRate * 0.5);
+      final result = await _tts.speak(_ttsText(_words[_index]));
+      await _tts.setSpeechRate(0.5);
+      if (result != 1 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('语音引擎不可用，请检查系统TTS设置'), duration: Duration(seconds: 3)),
+        );
+      }
+    } catch (e) {
+      await _tts.setSpeechRate(0.5);
+      debugPrint('TTS speak error: $e');
+    }
+  }
+
   String _lastRecognized = '';
 
   Future<void> _toggleRecord() async {
@@ -132,8 +154,8 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
           _processResult(result.recognizedWords);
         }
       },
-      listenFor: const Duration(seconds: 5),
-      pauseFor: const Duration(seconds: 2),
+      listenFor: const Duration(seconds: 10),
+      pauseFor: const Duration(seconds: 3),
       onSoundLevelChange: null,
     );
     // Handle speech recognition ending without finalResult (timeout etc.)
@@ -289,15 +311,29 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
         const SizedBox(height: 24),
 
         // Play button
-        OutlinedButton.icon(
-          onPressed: _playAudio,
-          icon: const Icon(Icons.volume_up_rounded),
-          label: const Text('听原生发音'),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          OutlinedButton.icon(
+            onPressed: _playAudio,
+            icon: const Icon(Icons.volume_up_rounded),
+            label: const Text('发音'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
           ),
-        ),
+          const SizedBox(width: 10),
+          OutlinedButton.icon(
+            onPressed: _playAudioSlow,
+            icon: const Text('🐌', style: TextStyle(fontSize: 16)),
+            label: const Text('慢速'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              foregroundColor: Colors.orange,
+              side: const BorderSide(color: Colors.orange),
+            ),
+          ),
+        ]),
         const SizedBox(height: 12),
 
         // Record button

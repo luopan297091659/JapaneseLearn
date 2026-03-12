@@ -5,6 +5,51 @@ const logger = require('../utils/logger');
 // 简单内存缓存：避免相同词重复查库 / 重复翻译
 const _zhCache = new Map(); // key: word, value: [{chinese_definitions, parts_of_speech}]
 
+// 判断是否为纯中文查询（含CJK汉字，不含假名）
+function isChinese(str) {
+  const hasCJK = /[\u4e00-\u9fff]/.test(str);
+  const hasKana = /[\u3040-\u309f\u30a0-\u30ff]/.test(str);
+  return hasCJK && !hasKana;
+}
+
+/**
+ * 通过中文释义搜索本地词库
+ */
+async function searchByChineseFromDb(query, limit = 20) {
+  try {
+    const [rows] = await sequelize.query(
+      `SELECT word, reading, meaning_zh, meaning_en, part_of_speech, part_of_speech_raw,
+              example_sentence, example_reading, example_meaning
+       FROM vocabulary
+       WHERE meaning_zh LIKE ?
+       LIMIT ?`,
+      { replacements: [`%${query}%`, limit] }
+    );
+    if (!rows || rows.length === 0) return [];
+    return rows.map(r => ({
+      slug: r.word,
+      url: '',
+      is_common: false,
+      tags: [],
+      jlpt: [],
+      japanese: [{ word: r.word, reading: r.reading }],
+      word: r.word,
+      reading: r.reading || '',
+      meanings: [{
+        parts_of_speech: r.part_of_speech_raw ? [r.part_of_speech_raw] : (r.part_of_speech ? [r.part_of_speech] : []),
+        english_definitions: r.meaning_en ? [r.meaning_en] : [],
+        chinese_definitions: r.meaning_zh ? [r.meaning_zh] : [],
+        tags: [], restrictions: [], antonyms: [], source: [], info: [], links: [],
+      }],
+      attribution: {},
+      source: 'local',
+    }));
+  } catch (err) {
+    logger.warn('Chinese search DB error:', err.message);
+    return [];
+  }
+}
+
 /**
  * 从本地词库查找中文释义
  * 匹配逻辑：word 或 reading 精确匹配 (slug 兜底)
@@ -58,15 +103,41 @@ async function search(req, res) {
   const jishoUrl = `https://jisho.org/api/v1/search/words?keyword=${keyword}&page=${page}`;
 
   try {
-    const jishoData = await fetchJisho(jishoUrl);
-    let results = (jishoData.data || []).map(normalizeJishoEntry);
+    // 如果是中文查询，先从本地词库按 meaning_zh 搜索
+    let localResults = [];
+    if (isChinese(q.trim())) {
+      localResults = await searchByChineseFromDb(q.trim());
+    }
 
-    // 始终从本地词库注入 chinese_definitions，让前端同时显示中英文释义
+    // 同时查询 Jisho（中文查询可能也会返回一些结果）
+    let jishoResults = [];
+    try {
+      const jishoData = await fetchJisho(jishoUrl);
+      jishoResults = (jishoData.data || []).map(normalizeJishoEntry);
+    } catch (jishoErr) {
+      // 如果有本地结果，Jisho 失败也无关紧要
+      if (localResults.length === 0) throw jishoErr;
+      logger.warn('Jisho fetch failed, using local results only:', jishoErr.message);
+    }
+
+    // 合并：本地结果优先，去重
+    const seenWords = new Set(localResults.map(r => r.word));
+    const merged = [...localResults];
+    for (const entry of jishoResults) {
+      if (!seenWords.has(entry.word)) {
+        merged.push(entry);
+        seenWords.add(entry.word);
+      }
+    }
+
+    let results = merged;
+
+    // 为 Jisho 来源的结果注入中文释义
     if (results.length > 0) {
       results = await Promise.all(results.map(async (entry) => {
+        if (entry.source === 'local') return entry; // 本地结果已有中文
         const zhSenses = await lookupChineseFromDb(entry.word, entry.reading);
         if (!zhSenses) return entry;
-        // 将中文释义合并到 meanings 对应位置（索引对齐，超出部分忽略）
         const mergedMeanings = entry.meanings.map((m, i) => ({
           ...m,
           chinese_definitions: (zhSenses[i] ?? zhSenses[0]).chinese_definitions,
@@ -75,7 +146,7 @@ async function search(req, res) {
       }));
     }
 
-    res.json({ total: results.length, data: results, source: 'jisho' });
+    res.json({ total: results.length, data: results, source: localResults.length > 0 ? 'local+jisho' : 'jisho' });
   } catch (err) {
     logger.error('Dictionary search error:', err.message);
     res.status(503).json({ error: 'Dictionary service unavailable', detail: err.message });

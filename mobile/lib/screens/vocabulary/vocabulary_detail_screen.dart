@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../utils/japanese_text_utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/app_config.dart';
 import 'vocab_whiteboard_screen.dart';
 
@@ -53,7 +54,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
   }
 
   /// 播放音频：首次点击播放，再次点击重新播放
-  Future<void> _playAudio({required bool isExample}) async {
+  Future<void> _playAudio({required bool isExample, bool slow = false}) async {
     final url = isExample ? _vocab?.exampleAudioUrl : _vocab?.audioUrl;
     if (url == null) return;
 
@@ -90,6 +91,15 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
         await player.setFilePath(localPath);
       } else {
         await player.setUrl(url);
+      }
+
+      // 慢速播放
+      if (slow) {
+        final prefs = await SharedPreferences.getInstance();
+        final slowSpeed = prefs.getDouble('slow_speed') ?? 0.5;
+        await player.setSpeed(slowSpeed);
+      } else {
+        await player.setSpeed(1.0);
       }
 
       await player.setVolume(1.0);
@@ -288,6 +298,10 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
               : Column(
                   children: [
                     Expanded(child: _buildContent(cs)),
+
+                    if (!_showAnswer)
+                      _ShowAnswerBar(onShow: () => setState(() => _showAnswer = true)),
+
                     // ── 上一个 / 下一个 导航栏 ────────────────────
                     if (widget.wordIds != null && widget.wordIds!.length > 1)
                       Container(
@@ -319,15 +333,6 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                           ],
                         ),
                       ),
-                    // ── 底部闪卡控制栏 ────────────────────────────
-                    if (_showAnswer && _srsCardId != null)
-                      _AnkiRatingBar(
-                        intervals: _srsIntervals,
-                        submitting: _srsSubmitting,
-                        onRate: _submitSrsDifficulty,
-                      ),
-                    if (!_showAnswer)
-                      _ShowAnswerBar(onShow: () => setState(() => _showAnswer = true)),
                   ],
                 ),
     );
@@ -372,9 +377,13 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                       style: TextStyle(fontSize: 24, color: cs.secondary, fontWeight: FontWeight.w500)),
                 ],
                 const SizedBox(height: 12),
-                // ── 级别 + 喇叭按钮 ──
+                // ── 级别 + 词性 + 喇叭按钮 ──
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                   _chip(v.jlptLevel, cs.primary),
+                  if (v.partOfSpeechRaw != null) ...[
+                    const SizedBox(width: 8),
+                    _chip(_formatPosRaw(v.partOfSpeechRaw!), cs.secondary),
+                  ],
                   if (v.audioUrl != null) ...[
                     const SizedBox(width: 12),
                     _audioButton(
@@ -383,6 +392,8 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                       loading: _wordLoading,
                       cs: cs,
                     ),
+                    const SizedBox(width: 4),
+                    _slowAudioButton(isExample: false, cs: cs),
                   ],
                 ]),
               ],
@@ -415,7 +426,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                     const Text('释义', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   ]),
                   const Divider(height: 16),
-                  _meaningRow('中文', '[${v.partOfSpeechRaw ?? _posLabel(v.partOfSpeech)}] ${v.meaningZh}', cs),
+                  _meaningRow('中文', '[${v.partOfSpeechRaw != null ? _formatPosRaw(v.partOfSpeechRaw!) : _posLabel(v.partOfSpeech)}] ${v.meaningZh}', cs),
                   if (v.meaningEn != null) _meaningRow('English', v.meaningEn!, cs),
                 ],
               ),
@@ -463,13 +474,17 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                           const SizedBox(width: 8),
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
-                            child: _audioButton(
-                              isExample: true,
-                              playing: _examplePlaying,
-                              loading: _exampleLoading,
-                              cs: cs,
-                              size: 36,
-                            ),
+                            child: Column(children: [
+                              _audioButton(
+                                isExample: true,
+                                playing: _examplePlaying,
+                                loading: _exampleLoading,
+                                cs: cs,
+                                size: 36,
+                              ),
+                              const SizedBox(height: 2),
+                              _slowAudioButton(isExample: true, cs: cs, size: 28),
+                            ]),
                           ),
                         ],
                       ],
@@ -479,27 +494,6 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
               ),
             ),
 
-          const SizedBox(height: 20),
-
-          // ── SRS add button ────────────────────────────────────────────
-          if (!_addedToSrs)
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _addToSrs,
-                icon: const Icon(Icons.add_card),
-                label: const Text('加入间隔复习 (SRS)'),
-              ),
-            )
-          else
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: null,
-                icon: const Icon(Icons.check),
-                label: const Text('已加入SRS'),
-              ),
-            ),
           const SizedBox(height: 16),
           ], // end if (_showAnswer)
         ],
@@ -509,16 +503,24 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
 
   static String _posLabel(String pos) {
     const map = {
-      'noun': '名',
-      'verb': '动',
-      'adjective': '形',
-      'adverb': '副',
-      'particle': '助',
-      'conjunction': '接',
-      'interjection': '感',
-      'other': '他',
+      'noun': '名词',
+      'verb': '动词',
+      'adjective': '形容词',
+      'adverb': '副词',
+      'particle': '助词',
+      'conjunction': '接续词',
+      'interjection': '感叹词',
+      'other': '其他',
     };
     return map[pos] ?? pos;
+  }
+
+  /// 格式化原始词性：自動1→自動詞1, 他動3→他動詞3, 自他動2→自他動詞2
+  static String _formatPosRaw(String raw) {
+    return raw.replaceFirstMapped(
+      RegExp(r'^(自他動|自動|他動|補動)(\d*)'),
+      (m) => '${m[1]}詞${m[2] ?? ""}',
+    );
   }
 
   Widget _audioButton({
@@ -547,6 +549,21 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                 color: cs.primary,
                 size: size,
               ),
+      ),
+    );
+  }
+
+  Widget _slowAudioButton({required bool isExample, required ColorScheme cs, double size = 24}) {
+    return GestureDetector(
+      onTap: () => _playAudio(isExample: isExample, slow: true),
+      child: Container(
+        width: size + 8,
+        height: size + 8,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.orange.withValues(alpha: 0.1),
+        ),
+        child: Center(child: Text('🐌', style: TextStyle(fontSize: size * 0.55))),
       ),
     );
   }

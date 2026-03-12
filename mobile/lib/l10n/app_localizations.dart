@@ -72,7 +72,7 @@ class S {
   String get homeGreeting  => isZh ? '今日も頑張ろう！' : "Let's study today!";
   String get homeStudyStreak => isZh ? '连续学习' : 'Streak';
   String get homeSubVocab    => isZh ? '词汇积累' : 'Vocabulary';
-  String get homeSubGrammar  => isZh ? '语法学习' : 'Grammar';
+  String get homeSubGrammar  => isZh ? '文法学习' : 'Grammar';
   String get homeSubListen   => isZh ? '听力练习' : 'Listening';
   String get homeSubQuiz     => isZh ? '随机测验' : 'Quiz';
   String get homeSubNews     => isZh ? '日语新闻' : 'JP News';
@@ -94,8 +94,8 @@ class S {
   String get allLevels        => isZh ? '全部等级' : 'All Levels';
 
   // ── Grammar ──────────────────────────────────────────────────────────────
-  String get grammar       => isZh ? '语法' : 'Grammar';
-  String get grammarDetail => isZh ? '语法详情' : 'Grammar Detail';
+  String get grammar       => isZh ? '文法' : 'Grammar';
+  String get grammarDetail => isZh ? '文法详情' : 'Grammar Detail';
   String get pattern       => isZh ? '句型' : 'Pattern';
   String get explanation   => isZh ? '说明' : 'Explanation';
   String get usageNotes    => isZh ? '用法注意' : 'Usage Notes';

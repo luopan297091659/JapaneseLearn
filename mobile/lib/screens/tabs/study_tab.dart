@@ -42,8 +42,8 @@ class StudyTab extends StatelessWidget {
           const SizedBox(height: 12),
           _StudyCard(
             icon: Icons.school_rounded,
-            title: '语法学习',
-            subtitle: '规则掌握 · 系统学习日语语法',
+            title: '文法学习',
+            subtitle: '规则掌握 · 系统学习日语文法',
             color: const Color(0xFF2196F3),
             onTap: () => context.push('/grammar'),
           ),
