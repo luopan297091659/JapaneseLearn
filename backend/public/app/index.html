@@ -281,6 +281,12 @@ ul { list-style: none; }
 .grammar-card .title { font-size: 14px; font-weight: 600; margin-top: 4px; }
 .grammar-card .title-zh { font-size: 12px; color: var(--text-sub); }
 .grammar-card .footer { display: flex; gap: 8px; margin-top: 10px; }
+.grammar-pager { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:20px; padding:12px 0; flex-wrap:wrap; }
+.grammar-pager button { min-width:36px; height:36px; border-radius:8px; border:1px solid var(--outline); background:var(--surface); color:var(--text); font-size:14px; cursor:pointer; transition:all .15s; display:flex; align-items:center; justify-content:center; }
+.grammar-pager button:hover { background:var(--primary); color:#fff; border-color:var(--primary); }
+.grammar-pager button.active { background:var(--primary); color:#fff; border-color:var(--primary); font-weight:700; }
+.grammar-pager button:disabled { opacity:.4; cursor:default; }
+.grammar-pager .page-info { font-size:13px; color:var(--text-sub); }
 
 .grammar-detail .pattern-big { font-size: 36px; font-weight: 900; color: var(--primary); }
 .grammar-detail .explanation { background: var(--surface2); padding: 14px; border-radius: var(--radius-sm); font-size: 14px; line-height: 1.7; }
@@ -475,7 +481,7 @@ ul { list-style: none; }
       <div class="nav-section">学习</div>
       <div class="nav-item" data-page="gojuon" onclick="navigate('gojuon')"><span class="icon">🔤</span>五十音</div>
       <div class="nav-item" data-page="vocabulary" onclick="navigate('vocabulary')"><span class="icon">📖</span>单词</div>
-      <div class="nav-item" data-page="grammar" onclick="navigate('grammar')"><span class="icon">📝</span>语法</div>
+      <div class="nav-item" data-page="grammar" onclick="navigate('grammar')"><span class="icon">📝</span>文法</div>
       <div class="nav-item" data-page="listening" onclick="navigate('listening')"><span class="icon">🎧</span>听力</div>
       <div class="nav-item" data-page="pronunciation" onclick="navigate('pronunciation')"><span class="icon">🎤</span>发音练习</div>
       <div class="nav-item" data-page="flashcard" onclick="navigate('flashcard')"><span class="icon">🃏</span>闪卡练习</div>
@@ -582,7 +588,7 @@ ul { list-style: none; }
               <div style="font-size:24px">📖</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">背单词</div>
             </div>
             <div class="quick-action" onclick="navigate('grammar')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
-              <div style="font-size:24px">📝</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">学语法</div>
+              <div style="font-size:24px">📝</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">学文法</div>
             </div>
             <div class="quick-action" onclick="navigate('srs')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
               <div style="font-size:24px">🗂️</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">SRS复习</div>
@@ -623,7 +629,10 @@ ul { list-style: none; }
         <div class="card word-of-day" id="word-of-day" style="margin-bottom:20px;position:relative">
           <div class="card-title" style="color:#fff;opacity:.8">✨ 每日一词</div>
           <button class="btn btn-sm" style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,.2);color:#fff;border:none;font-size:12px;padding:4px 10px" onclick="nextWod()">🔄 换一词</button>
-          <div id="wod-level-badge" style="text-align:center;margin-bottom:4px"><span style="background:rgba(255,255,255,.25);padding:2px 10px;border-radius:8px;font-size:12px;font-weight:700"></span></div>
+          <div style="text-align:center;margin-bottom:4px;display:flex;justify-content:center;gap:6px">
+            <span id="wod-level-badge" style="background:rgba(255,255,255,.25);padding:2px 10px;border-radius:8px;font-size:12px;font-weight:700"></span>
+            <span id="wod-pos" style="background:rgba(255,255,255,.18);padding:2px 10px;border-radius:8px;font-size:12px;font-weight:600"></span>
+          </div>
           <div class="word" id="wod-word">　</div>
           <div class="reading" id="wod-reading">　</div>
           <div id="wod-meaning-wrap" style="text-align:center;margin-top:8px">
@@ -656,7 +665,7 @@ ul { list-style: none; }
         </div>
       </div>
 
-      <!-- 语法页 -->
+      <!-- 文法页 -->
       <div class="page" id="page-grammar">
         <h2 style="margin-bottom:20px;font-size:22px">📝 文法課程</h2>
         <div class="chips" id="grammar-level-chips">
@@ -667,6 +676,7 @@ ul { list-style: none; }
           <div class="chip" onclick="selectGrammarLevel('N1')">N1</div>
         </div>
         <div class="grid-2" id="grammar-list"></div>
+        <div id="grammar-pager" class="grammar-pager"></div>
         <div id="grammar-loading" class="loading"><div class="spinner"></div></div>
       </div>
 
@@ -868,14 +878,14 @@ ul { list-style: none; }
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
               <div style="font-size:11px;font-weight:700;color:var(--text-hint);letter-spacing:.5px">⚡ 下落速度</div>
               <div style="display:flex;align-items:center;gap:8px">
-                <span id="g-speed-emoji" style="font-size:18px">🐢</span>
-                <span id="g-speed-label" style="font-size:13px;font-weight:700;color:var(--primary)">慢速</span>
-                <span id="g-speed-val" style="font-size:13px;font-weight:800;background:var(--primary);color:#fff;padding:2px 10px;border-radius:12px;min-width:42px;text-align:center">2.0s</span>
+                <span id="g-speed-emoji" style="font-size:18px">�</span>
+                <span id="g-speed-label" style="font-size:13px;font-weight:700;color:var(--primary)">正常</span>
+                <span id="g-speed-val" style="font-size:13px;font-weight:800;background:var(--primary);color:#fff;padding:2px 10px;border-radius:12px;min-width:42px;text-align:center">10.0s</span>
               </div>
             </div>
-            <input id="g-speed-slider" type="range" min="300" max="20000" step="100" value="2000" oninput="gameSpeedInput(this)">
+            <input id="g-speed-slider" type="range" min="300" max="20000" step="100" value="10000" oninput="gameSpeedInput(this)">
             <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-hint);margin-top:5px">
-              <span>⚡ 0.3s 极速</span><span>🚶 1.4s 正常</span><span>🐌 20s 超慢</span>
+              <span>⚡ 0.3s 极速</span><span>🚶 10s 正常</span><span>🐢 20s 慢速</span>
             </div>
           </div>
           <!-- 关卡网格 -->
@@ -952,6 +962,10 @@ ul { list-style: none; }
               <div class="chip" onclick="selectFcLevel('N3')">N3</div>
               <div class="chip" onclick="selectFcLevel('N2')">N2</div>
               <div class="chip" onclick="selectFcLevel('N1')">N1</div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:20px">
+              <span style="font-size:14px;color:var(--text-sub)">卡片数量</span>
+              <input id="fc-count" type="number" min="5" max="200" value="50" style="width:70px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;text-align:center;font-size:15px;font-weight:700">
             </div>
             <button class="btn btn-primary" onclick="startFlashcard()" style="padding:12px 40px;font-size:16px">开始练习</button>
           </div>
@@ -1159,9 +1173,22 @@ async function request(method, path, body = null, opts = {}, _retryCount = 0) {
     return request(method, path, body, opts, _retryCount + 1);
   }
   if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try { const e = await res.json(); msg = e.message || e.error || msg; } catch(_) {}
-    throw new Error(msg);
+    let msg = `请求失败`;
+    let code = '';
+    try {
+      const e = await res.json();
+      msg = e.error || e.message || msg;
+      code = e.code || '';
+      if (e.details && Array.isArray(e.details)) msg += ': ' + e.details.join('; ');
+    } catch(_) {}
+    if (res.status === 403) msg = '权限不足: ' + msg;
+    if (res.status === 404) msg = '资源不存在';
+    if (res.status === 413) msg = '文件大小超出限制';
+    if (res.status === 429) msg = '请求过于频繁，请稍后再试';
+    const err = new Error(msg);
+    err.status = res.status;
+    err.code = code;
+    throw err;
   }
   const ct = res.headers.get('content-type') || '';
   if (ct.includes('application/json')) return res.json();
@@ -1336,7 +1363,7 @@ const FREQUENT_KEY = 'kotabi_frequent_funcs';
 const FREQUENT_MAX = 6;
 const PAGE_META = {
   vocabulary:    { icon: '📖', name: '单词学习' },
-  grammar:       { icon: '📝', name: '语法课程' },
+  grammar:       { icon: '📝', name: '文法课程' },
   srs:           { icon: '🗂️', name: 'SRS 复习' },
   quiz:          { icon: '✏️', name: '随堂测验' },
   game:          { icon: '🎮', name: '助词方块' },
@@ -1601,10 +1628,13 @@ function showWod() {
   }
   const w = _wodPool[_wodIdx % _wodPool.length];
   document.getElementById('wod-word').textContent = w.word || '--';
-  document.getElementById('wod-reading').textContent = w.reading ? `【${w.reading}】` : '';
+  document.getElementById('wod-reading').textContent = w.reading ? `【${cleanReading(w.reading)}】` : '';
+  // 词性标签
+  const posEl = document.getElementById('wod-pos');
+  if (posEl) posEl.textContent = w.part_of_speech_raw || w.partOfSpeechRaw || posLabelZh(w.part_of_speech || w.partOfSpeech || '') || '';
   document.getElementById('wod-meaning').textContent = w.meaning_zh || w.meaningZh || '';
   // 等级标签
-  const badge = document.querySelector('#wod-level-badge span');
+  const badge = document.getElementById('wod-level-badge');
   if (badge) badge.textContent = w.jlpt_level || _wodUserLevel;
   // 释义隐藏状态
   document.getElementById('wod-reveal-btn').style.display = _wodRevealed ? 'none' : '';
@@ -1696,7 +1726,7 @@ function renderVocabList() {
       <div class="vocab-card meaning">${escHtml(w.meaning_zh || w.meaningZh || '')}</div>
       <div class="vocab-card footer">
         ${levelBadge(w.jlpt_level || w.jlptLevel || vocabLevel)}
-        <span style="font-size:12px;color:var(--text-hint)">${escHtml(w.part_of_speech || w.partOfSpeech || '')}</span>
+        <span style="font-size:12px;color:var(--text-hint)">${escHtml(w.part_of_speech_raw || w.part_of_speech || '')}</span>
       </div>
     </div>
   `).join('');
@@ -1709,25 +1739,30 @@ async function showVocabDetail(id) {
     const srsCard = await (async () => {
       try { const r = await GET(`/srs/card/${id}`); return r; } catch(_) { return null; }
     })();
-    const audioHtml = w.audio_url ? `<button class="btn btn-sm btn-outline" onclick="playAudio('${escHtml(w.audio_url)}')">🔊 发音</button>` : '';
+    const audioHtml = w.audio_url ? `<button class="btn btn-sm btn-outline" onclick="playAudio('${escHtml(w.audio_url)}')">🔊 发音</button><button class="btn btn-sm btn-outline" onclick="playAudioSlow('${escHtml(w.audio_url)}')" style="color:var(--warning);border-color:var(--warning)">🐌 慢速</button>` : '';
     const srsHtml = srsCard
       ? `<button class="btn btn-sm btn-outline" style="color:var(--success);border-color:var(--success)" disabled>✓ 已加入 SRS</button>`
       : `<button class="btn btn-sm btn-primary" onclick="addToSrs('${escHtml(w.id)}')">+ 加入 SRS 复习</button>`;
+    const posRaw = w.part_of_speech_raw || w.part_of_speech || '';
+    const exAudioHtml = w.example_audio_url ? `<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();playAudio('${escHtml(w.example_audio_url)}')" title="正常速度">🔊</button><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();playAudioSlow('${escHtml(w.example_audio_url)}')" title="慢速" style="color:var(--warning);border-color:var(--warning);font-size:10px">🐌</button></div>` : '';
     document.getElementById('modal-body').innerHTML = `
       <div class="vocab-detail">
         <div class="word-big">${escHtml(cleanWord(w.word))}</div>
         <div class="reading-big">${escHtml(cleanReading(w.reading) || ttsText(w))}</div>
-        <div class="meaning-big">${escHtml(w.meaning_zh || '')}</div>
+        <div style="text-align:center;margin:8px 0">${levelBadge(w.jlpt_level)}${posRaw ? ` <span class="badge" style="background:var(--secondary,#e8d5c4);color:#6d4c41;font-size:12px;padding:2px 8px;border-radius:12px">${escHtml(posRaw)}</span>` : ''}</div>
+        <div class="meaning-big">[${escHtml(posRaw)}] ${escHtml(w.meaning_zh || '')}</div>
         ${w.meaning_en ? `<div style="text-align:center;color:var(--text-sub);font-size:13px;margin-bottom:12px">${escHtml(w.meaning_en)}</div>` : ''}
         ${w.example_sentence ? `
-          <div class="example">
-            <div class="jp">${escHtml(w.example_sentence)}</div>
-            ${w.example_reading ? `<div style="font-size:12px;color:var(--text-sub)">${escHtml(w.example_reading)}</div>` : ''}
-            ${w.example_meaning_zh ? `<div class="zh">${escHtml(w.example_meaning_zh)}</div>` : ''}
+          <div class="example" style="display:flex;align-items:flex-start;gap:8px">
+            <div style="flex:1">
+              <div class="jp">${escHtml(w.example_sentence)}</div>
+              ${w.example_reading ? `<div style="font-size:12px;color:var(--text-sub)">${escHtml(w.example_reading)}</div>` : ''}
+              ${w.example_meaning_zh ? `<div class="zh">${escHtml(w.example_meaning_zh)}</div>` : ''}
+            </div>
+            ${exAudioHtml}
           </div>` : ''}
         <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap">
           ${audioHtml}
-          <button class="btn btn-sm btn-outline" onclick="event.stopPropagation();speakJa('${escHtml(ttsText(w))}')">🔊 朗读</button>
           <button class="btn btn-sm btn-primary" onclick="event.stopPropagation();startPronPractice('${escHtml(ttsText(w))}','vocab-pron-result')">🎤 跟读练习</button>
           ${srsHtml}
         </div>
@@ -1749,10 +1784,10 @@ async function addToSrs(refId) {
 // ══════════════════════════════════════════════════════════════════
 //  GRAMMAR
 // ══════════════════════════════════════════════════════════════════
-let grammarLoaded = false, grammarLevel = 'N5';
+let grammarLoaded = false, grammarLevel = 'N5', grammarPage = 1, grammarTotal = 0, grammarLimit = 20;
 
 function selectGrammarLevel(l) {
-  grammarLevel = l; grammarLoaded = false;
+  grammarLevel = l; grammarPage = 1; grammarLoaded = false;
   document.querySelectorAll('#grammar-level-chips .chip').forEach((c,i) => {
     c.classList.toggle('active', ['N5','N4','N3','N2','N1'][i] === l);
   });
@@ -1762,25 +1797,58 @@ function selectGrammarLevel(l) {
 async function loadGrammar() {
   document.getElementById('grammar-loading').style.display = '';
   document.getElementById('grammar-list').innerHTML = '';
+  document.getElementById('grammar-pager').innerHTML = '';
   try {
-    const res = await GET(`/grammar?level=${grammarLevel}&page=1`);
+    const res = await GET(`/grammar?level=${grammarLevel}&page=${grammarPage}&limit=${grammarLimit}`);
     const lessons = res.data || [];
+    grammarTotal = res.total || 0;
     grammarLoaded = true;
     const el = document.getElementById('grammar-list');
     if (lessons.length === 0) {
-      el.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>暂无语法内容</p></div>';
+      el.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>暂无文法内容</p></div>';
     } else {
-      el.innerHTML = lessons.map(g => `
+      const startIdx = (grammarPage - 1) * grammarLimit;
+      el.innerHTML = lessons.map((g, i) => `
         <div class="grammar-card" onclick="showGrammarDetail('${escHtml(g.id)}')">
-          <div class="grammar-card pattern">${escHtml(g.pattern)}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;color:var(--text-sub);min-width:24px">${startIdx + i + 1}</span>
+            <span class="pattern" style="font-size:20px;font-weight:800;color:var(--primary)">${escHtml(g.pattern)}</span>
+          </div>
           <div class="grammar-card title">${escHtml(g.title)}</div>
           ${g.title_zh ? `<div class="grammar-card title-zh">${escHtml(g.title_zh)}</div>` : ''}
-          <div class="grammar-card footer">${levelBadge(g.jlpt_level || grammarLevel)}</div>
+          ${g.explanation_zh ? `<div style="font-size:12px;color:var(--text-sub);margin-top:6px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escHtml(g.explanation_zh)}</div>` : ''}
         </div>
       `).join('');
     }
-  } catch(e) { toast('语法加载失败: ' + e.message); }
+    renderGrammarPager();
+  } catch(e) { toast('文法加载失败: ' + e.message); }
   document.getElementById('grammar-loading').style.display = 'none';
+}
+
+function renderGrammarPager() {
+  const totalPages = Math.ceil(grammarTotal / grammarLimit);
+  if (totalPages <= 1) { document.getElementById('grammar-pager').innerHTML = ''; return; }
+  let html = `<button ${grammarPage <= 1 ? 'disabled' : ''} onclick="grammarGoPage(${grammarPage - 1})">‹</button>`;
+  const range = [];
+  for (let p = 1; p <= totalPages; p++) {
+    if (p === 1 || p === totalPages || (p >= grammarPage - 2 && p <= grammarPage + 2)) range.push(p);
+    else if (range[range.length - 1] !== '...') range.push('...');
+  }
+  range.forEach(p => {
+    if (p === '...') { html += `<span class="page-info">…</span>`; }
+    else { html += `<button class="${p === grammarPage ? 'active' : ''}" onclick="grammarGoPage(${p})">${p}</button>`; }
+  });
+  html += `<button ${grammarPage >= totalPages ? 'disabled' : ''} onclick="grammarGoPage(${grammarPage + 1})">›</button>`;
+  html += `<span class="page-info">${grammarTotal} 条</span>`;
+  document.getElementById('grammar-pager').innerHTML = html;
+}
+
+function grammarGoPage(p) {
+  const totalPages = Math.ceil(grammarTotal / grammarLimit);
+  if (p < 1 || p > totalPages) return;
+  grammarPage = p;
+  loadGrammar();
+  document.getElementById('page-grammar').scrollIntoView({ behavior: 'smooth' });
 }
 
 async function showGrammarDetail(id) {
@@ -1792,11 +1860,10 @@ async function showGrammarDetail(id) {
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <div style="font-size:15px;font-weight:600;flex:1">${escHtml(ex.sentence)}</div>
           <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();speakJa('${escHtml(ex.sentence)}')">🔊</button>
-          <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();startPronPractice('${escHtml(ex.reading || ex.sentence)}','grammar-pron-${idx}')">🎤</button>
+          <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px;color:var(--warning);border-color:var(--warning)" onclick="event.stopPropagation();speakJaSlow('${escHtml(ex.sentence)}')">🐌</button>
         </div>
         ${ex.reading ? `<div style="font-size:12px;color:var(--text-sub)">${escHtml(ex.reading)}</div>` : ''}
         <div style="font-size:13px;color:var(--text-sub);margin-top:4px">${escHtml(ex.meaning_zh)}</div>
-        <div id="grammar-pron-${idx}" style="margin-top:6px"></div>
       </div>
     `).join('');
     document.getElementById('modal-body').innerHTML = `
@@ -1863,7 +1930,7 @@ function renderSrsCard() {
       <div class="srs-front">
         <div class="srs-front word">${escHtml(word)}</div>
         <div class="srs-front hint" id="srs-hint">点击翻转查看答案</div>
-        ${audioUrl ? `<button class="btn btn-sm btn-outline" style="margin-top:8px" onclick="event.stopPropagation();playAudio('${escHtml(audioUrl)}')">🔊 发音</button>` : ''}
+        ${audioUrl ? `<div style="display:flex;gap:6px;justify-content:center;margin-top:8px"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();playAudio('${escHtml(audioUrl)}')">🔊 发音</button><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();playAudioSlow('${escHtml(audioUrl)}')" style="color:var(--warning);border-color:var(--warning)">🐌 慢速</button></div>` : ''}
       </div>
       <div class="srs-back" id="srs-back" style="display:none">
         <div style="text-align:center;font-size:14px;color:var(--text-sub)">${escHtml(reading)}</div>
@@ -2156,6 +2223,10 @@ function cleanReading(raw) {
   if (!raw) return '';
   return raw.replace(/!/g, '').replace(/@\d+/g, '').replace(/\[[^\]]*\]/g, '').replace(/[（(][^)）]*[)）]/g, '').trim();
 }
+function posLabelZh(pos) {
+  const map = {noun:'名词',verb:'动词',adjective:'形容词',adverb:'副词',particle:'助词',conjunction:'接续词',interjection:'感叹词',other:'其他'};
+  return map[pos] || pos;
+}
 function ttsText(w) {
   const cr = cleanReading(w.reading);
   if (cr) return cr;
@@ -2189,6 +2260,10 @@ function speakJa(text, rate = 0.8) {
   speechSynthesis.speak(utter);
 }
 
+function speakJaSlow(text) {
+  speakJa(text, _slowSpeed * 0.8);
+}
+
 // 通用跟读练习（嵌入到任意容器）
 function startPronPractice(targetText, containerId) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2208,6 +2283,7 @@ function startPronPractice(targetText, containerId) {
   window._inlinePronRecog = recog;
 
   recog.onresult = (event) => {
+    clearTimeout(window._inlinePronTimer);
     const results = event.results[0];
     let bestScore = 0, recognized = '';
     for (let i = 0; i < results.length; i++) {
@@ -2229,12 +2305,14 @@ function startPronPractice(targetText, containerId) {
   };
 
   recog.onerror = (e) => {
+    clearTimeout(window._inlinePronTimer);
     if (e.error === 'no-speech') container.innerHTML = '<div style="text-align:center;font-size:12px;color:var(--text-sub);padding:8px">未检测到语音，请重试</div>';
     else container.innerHTML = `<div style="text-align:center;font-size:12px;color:var(--danger);padding:8px">识别出错: ${e.error}</div>`;
   };
 
-  recog.onend = () => { window._inlinePronRecog = null; };
+  recog.onend = () => { clearTimeout(window._inlinePronTimer); window._inlinePronRecog = null; };
   recog.start();
+  window._inlinePronTimer = setTimeout(() => { if (window._inlinePronRecog) window._inlinePronRecog.stop(); }, 10000);
 }
 function stopInlinePron() { if (window._inlinePronRecog) window._inlinePronRecog.stop(); }
 
@@ -2291,9 +2369,11 @@ function pronToggleRecord() {
   _pronRecording = true;
   document.getElementById('pron-rec-btn').textContent = '⏹ 停止录音';
   document.getElementById('pron-recording-hint').style.display = '';
+  window._pronRecTimer = setTimeout(() => { pronStopRecord(); }, 10000);
 }
 
 function pronStopRecord() {
+  clearTimeout(window._pronRecTimer);
   if (_pronRecognition) _pronRecognition.stop();
 }
 
@@ -2614,6 +2694,15 @@ async function loadProfile() {
         <select class="input" id="prof-level" onchange="updateProfile()">
           ${['N5','N4','N3','N2','N1'].map(l => `<option value="${l}"${u.level===l?' selected':''}>${l}</option>`).join('')}
         </select>
+      </div>
+      <div class="input-group">
+        <label>🐌 慢放速度</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:11px;color:var(--text-sub)">0.2x</span>
+          <input type="range" id="slow-speed-slider" min="0.2" max="0.8" step="0.05" value="${_slowSpeed}" oninput="setSlowSpeed(parseFloat(this.value))" style="flex:1;accent-color:var(--primary)">
+          <span style="font-size:11px;color:var(--text-sub)">0.8x</span>
+          <span id="slow-speed-label" style="font-size:13px;font-weight:700;color:var(--primary);min-width:36px;text-align:center">${_slowSpeed}x</span>
+        </div>
       </div>`;
   } catch(e) { el.innerHTML = `<p style="color:var(--danger)">加载失败: ${escHtml(e.message)}</p>`; }
 }
@@ -2648,7 +2737,8 @@ function loadFlashcardSetup() {
 
 async function startFlashcard() {
   try {
-    const res = await GET(`/vocabulary?level=${_fcLevel}&limit=50&page=1`);
+    const fcCount = Math.max(5, Math.min(200, parseInt(document.getElementById('fc-count')?.value) || 50));
+    const res = await GET(`/vocabulary?level=${_fcLevel}&limit=${fcCount}&page=1`);
     _fcCards = (res.data || []).slice();
     // shuffle
     for (let i = _fcCards.length - 1; i > 0; i--) {
@@ -2981,11 +3071,30 @@ function tdfBackToSetup() {
 //  AUDIO
 // ══════════════════════════════════════════════════════════════════
 let _audioEl = null;
+let _audioSpeed = 1.0;
+let _slowSpeed = parseFloat(localStorage.getItem('slow_speed') || '0.5');
+
 function playAudio(url) {
   if (!url) return;
   if (_audioEl) { _audioEl.pause(); _audioEl = null; }
   _audioEl = new Audio(url);
+  _audioEl.playbackRate = 1.0;
   _audioEl.play().catch(() => toast('音频播放失败，请检查浏览器设置'));
+}
+
+function playAudioSlow(url) {
+  if (!url) return;
+  if (_audioEl) { _audioEl.pause(); _audioEl = null; }
+  _audioEl = new Audio(url);
+  _audioEl.playbackRate = _slowSpeed;
+  _audioEl.play().catch(() => toast('音频播放失败，请检查浏览器设置'));
+}
+
+function setSlowSpeed(speed) {
+  _slowSpeed = Math.round(speed * 100) / 100;
+  localStorage.setItem('slow_speed', _slowSpeed.toString());
+  const label = document.getElementById('slow-speed-label');
+  if (label) label.textContent = _slowSpeed + 'x';
 }
 
 // ══════════════════════════════════════════════════════════════════

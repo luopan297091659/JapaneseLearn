@@ -29,42 +29,41 @@ async function getDailyGoals(req, res) {
     const userId = req.user.id;
     const today = new Date().toISOString().split('T')[0];
 
-    // 今日学习统计
-    const todayStats = await UserProgress.findAll({
-      where: { user_id: userId, studied_at: today },
-      attributes: [
-        [sequelize.fn('SUM', sequelize.col('duration_seconds')), 'total_seconds'],
-        [sequelize.fn('SUM', sequelize.col('xp_earned')), 'total_xp'],
-        [sequelize.fn('COUNT', sequelize.col('id')), 'activity_count'],
-      ],
-    });
-
-    // 今日各类型活动计数
-    const todayByType = await UserProgress.findAll({
-      where: { user_id: userId, studied_at: today },
-      attributes: [
-        'activity_type',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      ],
-      group: ['activity_type'],
-    });
-
-    // 今日测验数
-    const todayQuizCount = await QuizSession.count({
-      where: {
-        user_id: userId,
-        completed_at: { [Op.gte]: new Date(today) },
-      },
-    });
+    // 合并查询：今日统计 + 今日 SRS 复习数 + 总 XP + 测验数并行执行
+    const [todayStats, todayByType, totalXpRow, todayQuizCount, srsDueCount] = await Promise.all([
+      UserProgress.findAll({
+        where: { user_id: userId, studied_at: today },
+        attributes: [
+          [sequelize.fn('SUM', sequelize.col('duration_seconds')), 'total_seconds'],
+          [sequelize.fn('SUM', sequelize.col('xp_earned')), 'total_xp'],
+          [sequelize.fn('COUNT', sequelize.col('id')), 'activity_count'],
+        ],
+      }),
+      UserProgress.findAll({
+        where: { user_id: userId, studied_at: today },
+        attributes: [
+          'activity_type',
+          [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        ],
+        group: ['activity_type'],
+      }),
+      UserProgress.findAll({
+        where: { user_id: userId },
+        attributes: [[sequelize.fn('SUM', sequelize.col('xp_earned')), 'total_xp']],
+      }),
+      QuizSession.count({
+        where: {
+          user_id: userId,
+          completed_at: { [Op.gte]: new Date(today) },
+        },
+      }),
+      SrsCard.count({
+        where: { user_id: userId, due_date: { [Op.lte]: today } },
+      }),
+    ]);
 
     // 今日 SRS 复习数
     const todaySrsCount = todayByType.find(t => t.activity_type === 'srs_review');
-
-    // 总 XP
-    const totalXpRow = await UserProgress.findAll({
-      where: { user_id: userId },
-      attributes: [[sequelize.fn('SUM', sequelize.col('xp_earned')), 'total_xp']],
-    });
 
     const totalXp = parseInt(totalXpRow[0]?.dataValues?.total_xp) || 0;
     const dailyGoalMinutes = req.user.daily_goal_minutes || 15;
@@ -94,7 +93,7 @@ async function getDailyGoals(req, res) {
       goals: {
         study_minutes: { target: dailyGoalMinutes, current: Math.floor(todaySeconds / 60) },
         lessons: { target: 1, current: Math.min(todayActivities, 1) },
-        reviews: { target: 20, current: parseInt(todaySrsCount?.dataValues?.count) || 0 },
+        reviews: { target: Math.max(srsDueCount + (parseInt(todaySrsCount?.dataValues?.count) || 0), 1), current: parseInt(todaySrsCount?.dataValues?.count) || 0 },
       },
     });
   } catch (err) {

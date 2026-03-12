@@ -194,6 +194,19 @@ const NewsFavorite = sequelize.define('NewsFavorite', {
 GrammarLesson.hasMany(GrammarExample, { foreignKey: 'grammar_lesson_id', as: 'examples' });
 GrammarExample.belongsTo(GrammarLesson, { foreignKey: 'grammar_lesson_id' });
 
+// ────────── MembershipPlan (会员套餐持久化) ──────────
+const MembershipPlan = sequelize.define('MembershipPlan', {
+  plan_id:         { type: DataTypes.STRING(50), primaryKey: true },
+  name:            { type: DataTypes.STRING(100), allowNull: false },
+  price:           { type: DataTypes.FLOAT, defaultValue: 0 },
+  period:          { type: DataTypes.STRING(20), defaultValue: 'month' },
+  description:     { type: DataTypes.TEXT, allowNull: true },
+  features:        { type: DataTypes.JSON, allowNull: true, comment: '功能描述列表' },
+  bound_features:  { type: DataTypes.JSON, allowNull: true, comment: '绑定的功能ID列表' },
+  enabled:         { type: DataTypes.BOOLEAN, defaultValue: true },
+  sort_order:      { type: DataTypes.INTEGER, defaultValue: 0 },
+}, { tableName: 'membership_plans' });
+
 const AppRelease = require('./AppRelease');
 
 module.exports = {
@@ -212,4 +225,5 @@ module.exports = {
   AppRelease,
   GameScore,
   GameConfig,
+  MembershipPlan,
 };

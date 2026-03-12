@@ -6,12 +6,13 @@ import '../../services/api_service.dart';
 import '../../services/sync_service.dart';
 import '../../models/models.dart';
 import '../../l10n/app_localizations.dart';
+import '../../utils/japanese_text_utils.dart';
 
 // ── 全部可选功能（ID → 元数据） ──
 const _allFeatures = <String, ({IconData icon, String label, String sub, String path, Color color})>{
   'gojuon':        (icon: Icons.grid_view_rounded,      label: '五十音',     sub: '基础入门', path: '/gojuon',          color: Color(0xFFE91E63)),
   'vocabulary':    (icon: Icons.menu_book_rounded,      label: '单词学习',   sub: '词汇积累', path: '/vocabulary',      color: Color(0xFF4CAF50)),
-  'grammar':       (icon: Icons.school_rounded,         label: '语法学习',   sub: '规则掌握', path: '/grammar',         color: Color(0xFF2196F3)),
+  'grammar':       (icon: Icons.school_rounded,         label: '文法学习',   sub: '规则掌握', path: '/grammar',         color: Color(0xFF2196F3)),
   'listening':     (icon: Icons.headphones_rounded,     label: '听力练习',   sub: '提升听力', path: '/listening',       color: Color(0xFF9C27B0)),
   'pronunciation': (icon: Icons.mic_rounded,            label: '发音练习',   sub: 'AI智能纠正', path: '/pronunciation',  color: Color(0xFF00BCD4)),
   'srs':           (icon: Icons.layers_rounded,         label: 'SRS复习',    sub: '间隔记忆', path: '/srs-review',     color: Color(0xFFFF9800)),
@@ -105,12 +106,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       setState(() => _refreshing = true);
     }
     // 先加载用户信息，获取 JLPT 等级后再加载今日一词
-    await _loadUser();
+    // SRS 和每日目标不依赖用户等级，可与用户加载并行
     await Future.wait([
+      _loadUser(),
       _loadSrs(),
-      _loadWordOfDay(),
       _loadDailyGoals(),
     ]);
+    await _loadWordOfDay();
     if (mounted) setState(() => _refreshing = false);
   }
 
@@ -714,7 +716,7 @@ class _WordOfDayCard extends StatelessWidget {
                 color: cs.tertiary.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(word.partOfSpeech,
+              child: Text(word.partOfSpeechRaw != null ? _formatPosRaw(word.partOfSpeechRaw!) : _posLabel(word.partOfSpeech),
                   style: TextStyle(color: cs.tertiary, fontSize: 11, fontWeight: FontWeight.bold)),
             ),
             const Spacer(),
@@ -738,7 +740,7 @@ class _WordOfDayCard extends StatelessWidget {
           Text(word.word,
               style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: cs.primary, height: 1.1)),
           const SizedBox(height: 4),
-          Text(word.reading,
+          Text(cleanReading(word.reading),
               style: TextStyle(fontSize: 18, color: cs.secondary, fontWeight: FontWeight.w500)),
           const SizedBox(height: 14),
           // 意思遮挡翻转
@@ -783,6 +785,27 @@ class _WordOfDayCard extends StatelessWidget {
           ),
         ]),
       ),
+    );
+  }
+
+  static String _posLabel(String pos) {
+    const map = {
+      'noun': '名词',
+      'verb': '动词',
+      'adjective': '形容词',
+      'adverb': '副词',
+      'particle': '助词',
+      'conjunction': '接续词',
+      'interjection': '感叹词',
+      'other': '其他',
+    };
+    return map[pos] ?? pos;
+  }
+
+  static String _formatPosRaw(String raw) {
+    return raw.replaceFirstMapped(
+      RegExp(r'^(自他動|自動|他動|補動)(\d*)'),
+      (m) => '${m[1]}詞${m[2] ?? ""}',
     );
   }
 }

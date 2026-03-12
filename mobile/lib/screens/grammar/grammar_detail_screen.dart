@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/tts_helper.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
@@ -24,7 +25,8 @@ class _SectionHeader extends StatelessWidget {
 
 class GrammarDetailScreen extends StatefulWidget {
   final String id;
-  const GrammarDetailScreen({super.key, required this.id});
+  final List<String>? lessonIds;
+  const GrammarDetailScreen({super.key, required this.id, this.lessonIds});
   @override
   State<GrammarDetailScreen> createState() => _GrammarDetailScreenState();
 }
@@ -36,11 +38,27 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
   bool _ttsReady = false;
   late final DateTime _screenOpenTime;
 
+  late String _currentId;
+
   @override
   void initState() {
     super.initState();
+    _currentId = widget.id;
     _screenOpenTime = DateTime.now();
     _initTts();
+    _load();
+  }
+
+  // ── 上一个 / 下一个 ─────────────────────────────────────────────
+  int get _currentIndex => widget.lessonIds?.indexOf(_currentId) ?? -1;
+  bool get _hasPrev => widget.lessonIds != null && _currentIndex > 0;
+  bool get _hasNext => widget.lessonIds != null && _currentIndex >= 0 && _currentIndex < widget.lessonIds!.length - 1;
+
+  void _goToLesson(String id) {
+    setState(() {
+      _currentId = id;
+      _loading = true;
+    });
     _load();
   }
 
@@ -79,11 +97,42 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
     }
   }
 
+  Future<void> _speakJaSlow(String text) async {
+    if (!_ttsReady) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('语音引擎初始化中，请稍后再试…'), duration: Duration(seconds: 2)),
+      );
+      return;
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final slowRate = prefs.getDouble('slow_speed') ?? 0.5;
+      try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+      await _tts.setVolume(1.0);
+      await _tts.setSpeechRate(slowRate * 0.5);
+      final result = await _tts.speak(text);
+      await _tts.setSpeechRate(0.5);
+      if (result != 1 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('语音引擎不可用，请检查系统TTS设置'), duration: Duration(seconds: 3)),
+        );
+      }
+    } catch (e) {
+      debugPrint('TTS speak error: $e');
+      await _tts.setSpeechRate(0.5);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('朗读出错：$e'), duration: const Duration(seconds: 3)),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     final dur = DateTime.now().difference(_screenOpenTime).inSeconds;
     if (_lesson != null && dur > 2) {
-      apiService.logActivity(activityType: 'grammar', refId: widget.id, durationSeconds: dur);
+      apiService.logActivity(activityType: 'grammar', refId: _currentId, durationSeconds: dur);
     }
     _tts.stop();
     super.dispose();
@@ -91,7 +140,7 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
 
   Future<void> _load() async {
     try {
-      final lesson = await apiService.getGrammarLesson(widget.id);
+      final lesson = await apiService.getGrammarLesson(_currentId);
       setState(() { _lesson = lesson; _loading = false; });
     } catch (_) { setState(() => _loading = false); }
   }
@@ -113,7 +162,10 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _lesson == null
               ? const Center(child: Text('加载失败'))
-              : ListView(
+              : Column(
+                  children: [
+                    Expanded(
+                      child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
                     // Pattern header
@@ -147,7 +199,7 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
                     const SizedBox(height: 8),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: Text(_lesson!.explanationZh ?? _lesson!.explanation,
+                      child: Text(_lesson!.explanationZh ?? _lesson!.explanation ?? '',
                           style: TextStyle(fontSize: 14.5, height: 1.6, color: cs.onSurface)),
                     ),
                     if (_lesson!.usageNotes != null) ...[
@@ -205,12 +257,27 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
                                     children: [
                                       Expanded(child: Text(e.sentence, style: const TextStyle(fontSize: 15, height: 1.4))),
                                       const SizedBox(width: 4),
-                                      InkWell(
+                                      GestureDetector(
                                         onTap: () => _speakJa(e.sentence),
-                                        borderRadius: BorderRadius.circular(14),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(4),
+                                        child: Container(
+                                          width: 30, height: 30,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: Colors.transparent,
+                                          ),
                                           child: Icon(Icons.volume_up_rounded, size: 20, color: cs.primary),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 2),
+                                      GestureDetector(
+                                        onTap: () => _speakJaSlow(e.sentence),
+                                        child: Container(
+                                          width: 30, height: 30,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: Colors.orange.withValues(alpha: 0.1),
+                                          ),
+                                          child: const Center(child: Text('🐌', style: TextStyle(fontSize: 14))),
                                         ),
                                       ),
                                     ],
@@ -234,6 +301,40 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
                       );
                     }),
                     const SizedBox(height: 8),
+                  ],
+                ),
+                    ),
+                    // ── 上一个 / 下一个 导航栏 ────────────────────
+                    if (widget.lessonIds != null && widget.lessonIds!.length > 1)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                        ),
+                        child: Row(
+                          children: [
+                            TextButton.icon(
+                              onPressed: _hasPrev
+                                  ? () => _goToLesson(widget.lessonIds![_currentIndex - 1])
+                                  : null,
+                              icon: const Icon(Icons.arrow_back_ios_rounded, size: 16),
+                              label: const Text('上一个'),
+                            ),
+                            const Spacer(),
+                            Text('${_currentIndex + 1} / ${widget.lessonIds!.length}',
+                                style: TextStyle(color: cs.outline, fontSize: 13)),
+                            const Spacer(),
+                            TextButton.icon(
+                              onPressed: _hasNext
+                                  ? () => _goToLesson(widget.lessonIds![_currentIndex + 1])
+                                  : null,
+                              icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                              label: const Text('下一个'),
+                              iconAlignment: IconAlignment.end,
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
     );

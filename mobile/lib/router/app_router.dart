@@ -81,7 +81,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/grammar', builder: (_, __) => const GrammarListScreen()),
           GoRoute(
             path: '/grammar/:id',
-            builder: (_, state) => GrammarDetailScreen(id: state.pathParameters['id']!),
+            builder: (_, state) {
+              final ids = state.extra as List<String>?;
+              return GrammarDetailScreen(id: state.pathParameters['id']!, lessonIds: ids);
+            },
           ),
           GoRoute(path: '/listening', builder: (_, __) => const ListeningScreen()),
           GoRoute(path: '/quiz', builder: (_, __) => const QuizScreen()),

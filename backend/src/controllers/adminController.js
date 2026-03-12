@@ -12,10 +12,18 @@ const {
   Vocabulary, GrammarLesson, GrammarExample,
   ListeningTrack, UserProgress, ContentVersion, ApiLog,
   QuizSession, SrsCard,
-  AppRelease,
+  AppRelease, MembershipPlan,
 } = require('../models');
 // utilities used across controllers
 const { stripHtml } = require('../services/ankiService');
+
+/** 创建带状态码的错误 */
+function apiError(message, status = 400, code) {
+  const err = new Error(message);
+  err.status = status;
+  if (code) err.code = code;
+  return err;
+}
 
 // ─── 工具：版本号递增 ─────────────────────────────────────────────────────────
 async function bumpVersion(field = 'version') {
@@ -393,6 +401,81 @@ async function updateUser(req, res) {
     if (daily_goal_minutes !== undefined) updates.daily_goal_minutes = daily_goal_minutes;
     await user.update(updates);
     res.json({ id: user.id, username: user.username, email: user.email, role: user.role, is_active: user.is_active });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+// ─── 给用户绑定/修改会员 ────────────────────────────────────────────────────
+async function updateUserMembership(req, res) {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ error: '用户不存在' });
+    const { membership_plan, membership_expire } = req.body;
+    const updates = {};
+    if (membership_plan !== undefined) updates.membership_plan = membership_plan || null;
+    if (membership_expire !== undefined) updates.membership_expire = membership_expire || null;
+    await user.update(updates);
+    res.json({ ok: true, id: user.id, username: user.username, membership_plan: user.membership_plan, membership_expire: user.membership_expire });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+// ─── 管理员权限管理 ──────────────────────────────────────────────────────────
+const ADMIN_PERMISSIONS = [
+  { key: 'vocabulary', name: '词汇管理', icon: '📚' },
+  { key: 'grammar', name: '文法管理', icon: '📖' },
+  { key: 'tracks', name: '听力管理', icon: '🎧' },
+  { key: 'users', name: '用户管理', icon: '👥' },
+  { key: 'stats', name: '数据分析', icon: '📈' },
+  { key: 'membership', name: '会员配置', icon: '👑' },
+  { key: 'sync', name: '内容同步', icon: '🔄' },
+];
+
+async function getAdminInfo(req, res) {
+  const user = req.user;
+  const isSuperAdmin = user.admin_level === 'super_admin';
+  let permissions = null;
+  try { permissions = user.permissions ? JSON.parse(user.permissions) : null; } catch { permissions = null; }
+  res.json({
+    ok: true,
+    admin_level: user.admin_level || 'admin',
+    is_super_admin: isSuperAdmin,
+    permissions: isSuperAdmin ? ADMIN_PERMISSIONS.map(p => p.key) : (permissions || []),
+    all_permissions: ADMIN_PERMISSIONS,
+  });
+}
+
+async function listAdmins(req, res) {
+  try {
+    const admins = await User.findAll({
+      where: { role: 'admin' },
+      attributes: { exclude: ['password_hash'] },
+      order: [['createdAt', 'ASC']],
+    });
+    res.json({ data: admins.map(a => ({ ...a.toJSON(), permissions_parsed: (() => { try { return a.permissions ? JSON.parse(a.permissions) : []; } catch { return []; } })() })), all_permissions: ADMIN_PERMISSIONS });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+async function updateAdminPermissions(req, res) {
+  try {
+    const admin = await User.findByPk(req.params.id);
+    if (!admin) return res.status(404).json({ error: '管理员不存在' });
+    if (admin.role !== 'admin') return res.status(400).json({ error: '该用户不是管理员' });
+    if (admin.admin_level === 'super_admin') return res.status(400).json({ error: '不能修改高级管理员的权限' });
+    const { permissions, admin_level } = req.body;
+    const updates = {};
+    if (Array.isArray(permissions)) {
+      const validKeys = ADMIN_PERMISSIONS.map(p => p.key);
+      const filtered = permissions.filter(p => validKeys.includes(p));
+      updates.permissions = JSON.stringify(filtered);
+    }
+    if (admin_level !== undefined) updates.admin_level = admin_level;
+    await admin.update(updates);
+    res.json({ ok: true, id: admin.id, username: admin.username, admin_level: admin.admin_level, permissions: updates.permissions || admin.permissions });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -814,7 +897,22 @@ function readMembershipConfig() {
 }
 
 async function getMembershipConfig(req, res) {
-  res.json(readMembershipConfig());
+  const config = readMembershipConfig();
+  // 如果数据库有数据，补充 bound_features
+  try {
+    await MembershipPlan.sync();
+    const dbPlans = await MembershipPlan.findAll({ order: [['sort_order', 'ASC']] });
+    if (dbPlans.length) {
+      const dbMap = {};
+      dbPlans.forEach(p => { dbMap[p.plan_id] = p; });
+      config.plans.forEach(p => {
+        if (dbMap[p.id]) {
+          p.bound_features = dbMap[p.id].bound_features || [];
+        }
+      });
+    }
+  } catch { /* table may not exist yet */ }
+  res.json(config);
 }
 
 async function saveMembershipConfig(req, res) {
@@ -827,6 +925,32 @@ async function saveMembershipConfig(req, res) {
     const dir = path.dirname(PLANS_FILE);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(PLANS_FILE, JSON.stringify(current, null, 2), 'utf8');
+
+    // 同步到数据库
+    if (Array.isArray(plans)) {
+      await MembershipPlan.sync();
+      const existingIds = (await MembershipPlan.findAll({ attributes: ['plan_id'] })).map(r => r.plan_id);
+      const newIds = plans.map(p => String(p.id));
+      // 删除数据库中已被移除的套餐
+      const toDelete = existingIds.filter(id => !newIds.includes(id));
+      if (toDelete.length) await MembershipPlan.destroy({ where: { plan_id: toDelete } });
+      // upsert 所有套餐
+      for (let i = 0; i < plans.length; i++) {
+        const p = plans[i];
+        await MembershipPlan.upsert({
+          plan_id: String(p.id),
+          name: String(p.name || ''),
+          price: parseFloat(p.price) || 0,
+          period: String(p.period || 'month'),
+          description: String(p.description || ''),
+          features: p.features || [],
+          bound_features: p.bound_features || [],
+          enabled: !!p.enabled,
+          sort_order: i,
+        });
+      }
+    }
+
     res.json({ ok: true, ...current });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -991,7 +1115,7 @@ module.exports = {
   importVocab, importVocabFile,
   listGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar,
   listTracks, createTrack, updateTrack, deleteTrack,
-  listUsers, updateUser,
+  listUsers, updateUser, updateUserMembership,
   getContentVersion, publishContent,
   getTrafficStats, getUserStats, getBehaviorStats, getFeatureUsage,
   getMembershipConfig, saveMembershipConfig,
@@ -1001,4 +1125,5 @@ module.exports = {
   downloadApp,
   deleteAppRelease,
   getAiSettings, saveAiSettings, getAiUsage, resetAiUsage, readAiSettings, saveAiSettingsFile,
+  listAdmins, updateAdminPermissions, getAdminInfo,
 };

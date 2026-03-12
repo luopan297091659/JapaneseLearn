@@ -14,16 +14,24 @@ async function getDueCards(req, res) {
       limit: parseInt(req.query.limit) || 20,
     });
 
-    // Enrich with actual content
-    const enriched = await Promise.all(cards.map(async (card) => {
-      let content = null;
-      if (card.card_type === 'vocabulary') {
-        content = await Vocabulary.findByPk(card.ref_id);
-      } else {
-        content = await GrammarLesson.findByPk(card.ref_id);
-      }
+    // Batch lookup instead of N+1
+    const vocabIds = cards.filter(c => c.card_type === 'vocabulary').map(c => c.ref_id);
+    const grammarIds = cards.filter(c => c.card_type !== 'vocabulary').map(c => c.ref_id);
+
+    const [vocabs, grammars] = await Promise.all([
+      vocabIds.length > 0 ? Vocabulary.findAll({ where: { id: vocabIds } }) : [],
+      grammarIds.length > 0 ? GrammarLesson.findAll({ where: { id: grammarIds } }) : [],
+    ]);
+
+    const vocabMap = new Map(vocabs.map(v => [v.id, v]));
+    const grammarMap = new Map(grammars.map(g => [g.id, g]));
+
+    const enriched = cards.map(card => {
+      const content = card.card_type === 'vocabulary'
+        ? vocabMap.get(card.ref_id) || null
+        : grammarMap.get(card.ref_id) || null;
       return { ...card.toJSON(), content };
-    }));
+    });
 
     res.json({ due_count: enriched.length, cards: enriched });
   } catch (err) {

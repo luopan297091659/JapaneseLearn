@@ -17,6 +17,7 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
   bool _isFlipped = false;
   String _selectedLevel = 'N5'; // 当前词库等级
   bool _levelChosen = false; // 是否已选择等级
+  int _cardCount = 50; // 卡片数量（可编辑）
 
   // 学习统计
   int _totalReviewed = 0;
@@ -33,7 +34,7 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
   Future<void> _loadCards() async {
     setState(() => _loading = true);
     try {
-      final res = await apiService.getVocabulary(level: _selectedLevel, limit: 50, page: 1);
+      final res = await apiService.getVocabulary(level: _selectedLevel, limit: _cardCount, page: 1);
       final words = res['data'] as List<VocabularyModel>;
       // 随机打乱
       words.shuffle(Random());
@@ -128,7 +129,32 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
                 const Text('选择词库等级', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Text('将同步对应等级的词汇进行练习', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
+                // 卡片数量选择
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('卡片数量  ', style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
+                    SizedBox(
+                      width: 80,
+                      child: TextField(
+                        textAlign: TextAlign.center,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          isDense: true,
+                        ),
+                        controller: TextEditingController(text: '$_cardCount'),
+                        onChanged: (v) {
+                          final n = int.tryParse(v);
+                          if (n != null && n >= 5 && n <= 200) _cardCount = n;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
                 ...['N5', 'N4', 'N3', 'N2', 'N1'].map((level) => Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: SizedBox(

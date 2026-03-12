@@ -115,18 +115,50 @@ app.get('/health', (req, res) => {
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+  res.status(404).json({ error: 'Route not found', code: 'NOT_FOUND', path: req.originalUrl });
 });
 
 // Global error handler
 app.use((err, req, res, next) => {
-  logger.error(err.stack);
-  const status = err.status || 500;
-  // 4xx 错误属于客户端错误，始终返回具体信息；5xx 在生产环境隐藏详情
+  logger.error(`[${req.method} ${req.originalUrl}] ${err.stack || err.message}`);
+
+  // Sequelize validation errors
+  if (err.name === 'SequelizeValidationError' || err.name === 'SequelizeUniqueConstraintError') {
+    const messages = (err.errors || []).map(e => e.message);
+    return res.status(400).json({
+      error: messages.join('; ') || '数据验证失败',
+      code: 'VALIDATION_ERROR',
+      details: messages,
+    });
+  }
+
+  // Multer file upload errors
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: '文件大小超出限制', code: 'FILE_TOO_LARGE' });
+  }
+  if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+    return res.status(400).json({ error: '不支持的文件字段', code: 'UNEXPECTED_FILE' });
+  }
+
+  // JWT / Auth errors
+  if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+    return res.status(401).json({ error: '令牌无效或已过期', code: 'TOKEN_INVALID' });
+  }
+
+  // SyntaxError (bad JSON body)
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ error: '请求体 JSON 格式错误', code: 'BAD_JSON' });
+  }
+
+  const status = err.status || err.statusCode || 500;
   const message = status < 500 ? err.message : (
     process.env.NODE_ENV === 'production' ? '服务器内部错误，请稍后重试' : err.message
   );
-  res.status(status).json({ error: message });
+  res.status(status).json({
+    error: message,
+    code: status < 500 ? 'CLIENT_ERROR' : 'SERVER_ERROR',
+    ...(process.env.NODE_ENV !== 'production' && status >= 500 ? { stack: err.stack } : {}),
+  });
 });
 
 // Start server

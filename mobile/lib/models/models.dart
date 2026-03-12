@@ -102,7 +102,7 @@ class GrammarLessonModel {
   final String? titleZh;
   final String jlptLevel;
   final String pattern;
-  final String explanation;
+  final String? explanation;
   final String? explanationZh;
   final String? usageNotes;
   final List<GrammarExampleModel> examples;
@@ -113,7 +113,7 @@ class GrammarLessonModel {
     this.titleZh,
     required this.jlptLevel,
     required this.pattern,
-    required this.explanation,
+    this.explanation,
     this.explanationZh,
     this.usageNotes,
     required this.examples,
@@ -125,7 +125,7 @@ class GrammarLessonModel {
         titleZh: json['title_zh'],
         jlptLevel: json['jlpt_level'],
         pattern: json['pattern'],
-        explanation: json['explanation'],
+        explanation: json['explanation'] ?? '',
         explanationZh: json['explanation_zh'],
         usageNotes: json['usage_notes'],
         examples: (json['examples'] as List<dynamic>?)

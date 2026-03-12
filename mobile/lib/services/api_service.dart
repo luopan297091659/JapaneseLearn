@@ -388,6 +388,16 @@ class ApiService {
     return (res.data as List).map((e) => VocabularyModel.fromJson(e)).toList();
   }
 
+  Future<List<String>> getVocabularyIdsByLevel(String level) async {
+    final key = 'vocab_ids:$level';
+    final cached = _cache.get(key);
+    if (cached != null) return (cached as List).cast<String>();
+    final res = await _dio.get('/vocabulary/level/$level/ids');
+    final ids = (res.data as List).cast<String>();
+    _cache.set(key, ids, AppConfig.cacheTtlMedium);
+    return ids;
+  }
+
   Future<VocabularyModel> getVocabularyById(String id) async {
     final res = await _dio.get('/vocabulary/$id');
     return VocabularyModel.fromJson(res.data);
@@ -445,13 +455,14 @@ class ApiService {
   }
 
   // ─── Grammar ─────────────────────────────────────────────────────────────
-  Future<Map<String, dynamic>> getGrammarLessons({String? level, int page = 1}) async {
-    final key = 'grammar:${level}:$page';
+  Future<Map<String, dynamic>> getGrammarLessons({String? level, int page = 1, int limit = 20}) async {
+    final key = 'grammar:${level}:$page:$limit';
     final cached = _cache.get(key);
     if (cached != null) return cached as Map<String, dynamic>;
     final res = await _dio.get('/grammar', queryParameters: {
       if (level != null) 'level': level,
       'page': page,
+      'limit': limit,
     });
     final result = {
       'total': res.data['total'],
@@ -499,11 +510,13 @@ class ApiService {
   Future<void> submitSrsReview(String cardId, int quality) async {
     await _dio.post('/srs/review', data: {'card_id': cardId, 'quality': quality});
     _cache.invalidate('srs:');
+    _cache.invalidate('progress:');
   }
 
   Future<void> addSrsCard(String refId, {String cardType = 'vocabulary'}) async {
     await _dio.post('/srs/add', data: {'ref_id': refId, 'card_type': cardType});
     _cache.invalidate('srs:');
+    _cache.invalidate('progress:');
   }
 
   // ─── Quiz ─────────────────────────────────────────────────────────────────

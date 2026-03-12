@@ -1,6 +1,9 @@
-const { Op } = require('sequelize');
+const { Op, Sequelize } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
 const { Vocabulary } = require('../models');
+
+// 每日更新的随机种子，保证分页一致性
+const _dailySeed = () => Math.floor(Date.now() / 86400000);
 
 async function list(req, res) {
   const { level, category, q, part_of_speech, page = 1, limit = 20 } = req.query;
@@ -19,8 +22,12 @@ async function list(req, res) {
 
   const offset = (parseInt(page) - 1) * parseInt(limit);
   try {
+    // 有搜索时按字母序，无搜索时按每日随机序（避免接头接尾词聚集在前面）
+    const order = q
+      ? [['jlpt_level', 'ASC'], ['word', 'ASC']]
+      : [['jlpt_level', 'ASC'], Sequelize.literal(`RAND(${_dailySeed()})`)];
     const { count, rows } = await Vocabulary.findAndCountAll({
-      where, limit: parseInt(limit), offset, order: [['jlpt_level', 'ASC'], ['word', 'ASC']],
+      where, limit: parseInt(limit), offset, order,
     });
     res.json({ total: count, page: parseInt(page), limit: parseInt(limit), data: rows });
   } catch (err) {
@@ -48,6 +55,20 @@ async function getByLevel(req, res) {
       order: Sequelize.fn('RAND'),
     });
     res.json(words);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+async function getIdsByLevel(req, res) {
+  try {
+    const where = { jlpt_level: req.params.level };
+    const rows = await Vocabulary.findAll({
+      where,
+      attributes: ['id'],
+      order: [Sequelize.literal(`RAND(${_dailySeed()})`)],
+    });
+    res.json(rows.map(r => r.id));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -107,4 +128,4 @@ async function bulkImport(req, res) {
   res.json({ success: true, imported, failed, total: rows.length, deck_name });
 }
 
-module.exports = { list, getById, getByLevel, bulkImport };
+module.exports = { list, getById, getByLevel, getIdsByLevel, bulkImport };

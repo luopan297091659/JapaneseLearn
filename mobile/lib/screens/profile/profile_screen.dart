@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import '../../services/api_service.dart';
@@ -24,9 +25,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _loading = true;
   bool? _notifOverride; // 乐观更新开关状态
   Map<String, bool> _permissions = {};
+  double _slowSpeed = 0.5;
 
   @override
-  void initState() { super.initState(); _load(); _checkPermissions(); }
+  void initState() { super.initState(); _load(); _checkPermissions(); _loadSlowSpeed(); }
+
+  Future<void> _loadSlowSpeed() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) setState(() => _slowSpeed = prefs.getDouble('slow_speed') ?? 0.5);
+  }
+
+  Future<void> _setSlowSpeed(double v) async {
+    final speed = (v * 100).round() / 100.0;
+    setState(() => _slowSpeed = speed);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('slow_speed', speed);
+  }
 
   Future<void> _load() async {
     try {
@@ -69,50 +83,63 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _editGoal() async {
     final current = _user?.dailyGoalMinutes ?? 15;
     int selected = current;
+    const presets = [5, 15, 30, 60, 90, 120];
+    // 确保 selected 是合法值
+    if (!presets.contains(selected)) {
+      selected = presets.reduce((a, b) => (a - selected).abs() < (b - selected).abs() ? a : b);
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSt) => AlertDialog(
-          title: const Text('学习目标'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('每日学习目标：$selected 分钟',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              Slider(
-                value: selected.toDouble(),
-                min: 5, max: 120, divisions: 23,
-                label: '$selected 分钟',
-                onChanged: (v) => setSt(() => selected = v.round()),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [5, 15, 30, 60, 90, 120].map((m) => GestureDetector(
-                  onTap: () => setSt(() => selected = m),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: selected == m
-                          ? Theme.of(ctx).colorScheme.primary
-                          : Theme.of(ctx).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(8),
+        builder: (ctx, setSt) {
+          final idx = presets.indexOf(selected);
+          return AlertDialog(
+            title: const Text('学习目标'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('每日学习目标：$selected 分钟',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Slider(
+                  value: idx.toDouble(),
+                  min: 0, max: (presets.length - 1).toDouble(),
+                  divisions: presets.length - 1,
+                  label: '$selected 分钟',
+                  onChanged: (v) => setSt(() => selected = presets[v.round()]),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: presets.map((m) => GestureDetector(
+                    onTap: () => setSt(() => selected = m),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: selected == m
+                            ? Theme.of(ctx).colorScheme.primary
+                            : Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text('$m分',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: selected == m ? Colors.white : null,
+                          )),
                     ),
-                    child: Text('$m分',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: selected == m ? Colors.white : null,
-                        )),
-                  ),
-                )).toList(),
-              ),
+                  )).toList(),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true),  child: const Text('保存')),
             ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true),  child: const Text('保存')),
-          ],
-        ),
+          );
+        },
       ),
     );
     if (confirmed == true && selected != current) {
@@ -759,6 +786,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           trailing: Switch(
                             value: _notifOverride ?? (_user?.notificationEnabled ?? true),
                             onChanged: _toggleNotification,
+                          ),
+                        ),
+                        const Divider(height: 1, indent: 56),
+                        ListTile(
+                          leading: const Text('🐌', style: TextStyle(fontSize: 22)),
+                          title: const Text('慢放速度'),
+                          subtitle: Row(
+                            children: [
+                              const Text('0.2x', style: TextStyle(fontSize: 11)),
+                              Expanded(
+                                child: Slider(
+                                  value: _slowSpeed.clamp(0.2, 0.8),
+                                  min: 0.2,
+                                  max: 0.8,
+                                  divisions: 12,
+                                  label: '${_slowSpeed}x',
+                                  onChanged: _setSlowSpeed,
+                                ),
+                              ),
+                              const Text('0.8x', style: TextStyle(fontSize: 11)),
+                              const SizedBox(width: 4),
+                              Text('${_slowSpeed}x',
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
+                                      color: Theme.of(context).colorScheme.primary)),
+                            ],
                           ),
                         ),
                         const Divider(height: 1, indent: 56),

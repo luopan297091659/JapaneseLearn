@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../config/app_config.dart';
 
@@ -28,11 +29,14 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   PlayerState _playerState = PlayerState(false, ProcessingState.idle);
+  double _speed = 1.0;
+  static const _speedOptions = [0.5, 0.75, 1.0, 1.25, 1.5];
 
   @override
   void initState() {
     super.initState();
     _initAudioSession();
+    _loadSpeed();
     _player = AudioPlayer();
     _player.playerStateStream.listen((state) {
       if (mounted) setState(() => _playerState = state);
@@ -62,6 +66,19 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     }).catchError((e) {
       print('【音频】获取 AudioSession 失败: $e');
     });
+  }
+
+  Future<void> _loadSpeed() async {
+    final p = await SharedPreferences.getInstance();
+    final s = p.getDouble('audio_speed') ?? 1.0;
+    if (mounted) setState(() => _speed = s);
+  }
+
+  Future<void> _setSpeed(double speed) async {
+    setState(() => _speed = speed);
+    await _player.setSpeed(speed);
+    final p = await SharedPreferences.getInstance();
+    await p.setDouble('audio_speed', speed);
   }
 
   @override
@@ -106,7 +123,8 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
         
         // ✅ 新增：播放前设置音量为最大
         await _player.setVolume(1.0);
-        print('【音频】开始播放，音量: 100%');
+        await _player.setSpeed(_speed);
+        print('【音频】开始播放，音量: 100%, 速度: ${_speed}x');
         
         await _player.play();
       } catch (e) {
@@ -189,7 +207,25 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                   ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
+        // 速度按钮（compact 模式）
+        InkWell(
+          onTap: () {
+            final idx = _speedOptions.indexOf(_speed);
+            final next = _speedOptions[(idx + 1) % _speedOptions.length];
+            _setSpeed(next);
+          },
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: _speed != 1.0 ? cs.primary.withOpacity(0.15) : cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text('${_speed}x', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _speed != 1.0 ? cs.primary : cs.outline)),
+          ),
+        ),
+        const SizedBox(width: 4),
         if (widget.label != null)
           Text(widget.label!, style: TextStyle(fontSize: 12, color: cs.outline)),
       ]);
@@ -236,6 +272,34 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
             ),
           ),
         ]),
+        // 速度选择器
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('速度 ', style: TextStyle(fontSize: 11, color: cs.outline)),
+              ..._speedOptions.map((s) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: InkWell(
+                  onTap: () => _setSpeed(s),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: s == _speed ? cs.primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: s == _speed ? cs.primary : cs.outline.withOpacity(0.3)),
+                    ),
+                    child: Text('${s}x',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
+                        color: s == _speed ? Colors.white : cs.outline)),
+                  ),
+                ),
+              )),
+            ],
+          ),
+        ),
         if (_hasError)
           Text(_errorMessage, style: TextStyle(fontSize: 11, color: cs.error)),
       ]),

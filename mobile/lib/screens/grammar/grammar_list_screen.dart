@@ -21,11 +21,34 @@ class GrammarListScreen extends StatefulWidget {
 
 class _GrammarListScreenState extends State<GrammarListScreen> {
   String _selectedLevel = 'N5';
-  List<GrammarLessonModel> _lessons = [];
+  final List<GrammarLessonModel> _lessons = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  int _page = 1;
+  int _total = 0;
+  static const _pageSize = 20;
+  final ScrollController _scrollController = ScrollController();
 
   @override
-  void initState() { super.initState(); _restoreLevel(); }
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _restoreLevel();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      _loadMore();
+    }
+  }
 
   Future<void> _restoreLevel() async {
     final p = await SharedPreferences.getInstance();
@@ -42,11 +65,46 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() { _loading = true; _page = 1; _lessons.clear(); _hasMore = true; });
     try {
-      final res = await apiService.getGrammarLessons(level: _selectedLevel);
-      setState(() { _lessons = res['data'] as List<GrammarLessonModel>; _loading = false; });
-    } catch (_) { setState(() => _loading = false); }
+      final res = await apiService.getGrammarLessons(level: _selectedLevel, page: 1, limit: _pageSize);
+      _total = res['total'] as int? ?? 0;
+      final data = res['data'] as List<GrammarLessonModel>;
+      if (!mounted) return;
+      setState(() {
+        _lessons.addAll(data);
+        _hasMore = _lessons.length < _total;
+        _loading = false;
+      });
+      // 预加载第2页
+      if (_hasMore) _prefetch(2);
+    } catch (_) { if (mounted) setState(() => _loading = false); }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    _page++;
+    try {
+      final res = await apiService.getGrammarLessons(level: _selectedLevel, page: _page, limit: _pageSize);
+      final data = res['data'] as List<GrammarLessonModel>;
+      if (!mounted) return;
+      setState(() {
+        _lessons.addAll(data);
+        _hasMore = _lessons.length < _total;
+        _loadingMore = false;
+      });
+      // 预加载下一页到缓存
+      if (_hasMore) _prefetch(_page + 1);
+    } catch (_) {
+      _page--;
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  void _prefetch(int nextPage) {
+    // 静默预加载，仅填充缓存，不影响UI
+    apiService.getGrammarLessons(level: _selectedLevel, page: nextPage, limit: _pageSize);
   }
 
   @override
@@ -93,34 +151,89 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? _buildSkeleton(cs)
           : RefreshIndicator(
               onRefresh: _load,
               child: _lessons.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.menu_book_outlined, size: 64, color: cs.outlineVariant),
-                          const SizedBox(height: 12),
-                          Text('暂无 $_selectedLevel 语法条目', style: TextStyle(color: cs.outline)),
-                        ],
-                      ),
+                  ? ListView(
+                      children: [
+                        SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+                        Icon(Icons.menu_book_outlined, size: 64, color: cs.outlineVariant),
+                        const SizedBox(height: 12),
+                        Center(child: Text('暂无 $_selectedLevel 语法条目', style: TextStyle(color: cs.outline))),
+                      ],
                     )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
-                      itemCount: _lessons.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
+                      itemCount: _lessons.length + 2, // header + footer
                       itemBuilder: (_, i) {
-                        final l = _lessons[i];
-                        return _GrammarCard(
-                          lesson: l,
-                          index: i + 1,
-                          levelColor: lvCol,
+                        if (i == 0) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Row(
+                              children: [
+                                Text('共 $_total 条', style: TextStyle(fontSize: 13, color: cs.outline, fontWeight: FontWeight.w500)),
+                                const Spacer(),
+                                Text('${_lessons.length}/$_total', style: TextStyle(fontSize: 12, color: cs.outlineVariant)),
+                              ],
+                            ),
+                          );
+                        }
+                        final idx = i - 1;
+                        if (idx >= _lessons.length) {
+                          if (_loadingMore) {
+                            return const Padding(padding: EdgeInsets.all(20), child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))));
+                          }
+                          return _hasMore
+                              ? const SizedBox.shrink()
+                              : Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Center(child: Text('— 已全部加载 —', style: TextStyle(fontSize: 12, color: cs.outlineVariant))),
+                                );
+                        }
+                        final l = _lessons[idx];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _GrammarCard(lesson: l, index: idx + 1, levelColor: lvCol, lessonIds: _lessons.map((e) => e.id).toList()),
                         );
                       },
                     ),
             ),
+    );
+  }
+
+  Widget _buildSkeleton(ColorScheme cs) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
+      itemCount: 8,
+      itemBuilder: (_, __) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              Container(width: 36, height: 36, decoration: BoxDecoration(color: cs.surfaceContainerHighest, shape: BoxShape.circle)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(height: 16, width: 140, decoration: BoxDecoration(color: cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(4))),
+                    const SizedBox(height: 8),
+                    Container(height: 12, width: 200, decoration: BoxDecoration(color: cs.surfaceContainerHighest.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4))),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -131,12 +244,13 @@ class _GrammarCard extends StatelessWidget {
   final GrammarLessonModel lesson;
   final int index;
   final Color levelColor;
-  const _GrammarCard({required this.lesson, required this.index, required this.levelColor});
+  final List<String>? lessonIds;
+  const _GrammarCard({required this.lesson, required this.index, required this.levelColor, this.lessonIds});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final desc = lesson.explanationZh ?? lesson.explanation;
+    final desc = lesson.explanationZh ?? lesson.explanation ?? '';
     final preview = desc.length > 60 ? '${desc.substring(0, 60)}…' : desc;
 
     return Material(
@@ -144,7 +258,7 @@ class _GrammarCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () => context.go('/grammar/${lesson.id}'),
+        onTap: () => context.go('/grammar/${lesson.id}', extra: lessonIds),
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(

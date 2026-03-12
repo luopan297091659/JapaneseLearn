@@ -238,6 +238,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item" onclick="nav('sync')" id="nav-sync"><span class="icon">🔄</span>全局同步</div>
   <div class="nav-item" onclick="nav('app')" id="nav-app"><span class="icon">📱</span>App管理</div>
   <div class="nav-item" onclick="nav('ai-settings')" id="nav-ai-settings"><span class="icon">🤖</span>AI设置</div>
+  <div class="nav-item" onclick="nav('admin-mgmt')" id="nav-admin-mgmt"><span class="icon">🔐</span>权限管理</div>
   <div class="sidebar-footer"><div class="sidebar-footer-txt">言旅 · JapaneseLearn v1.0</div></div>
 </div>
 
@@ -257,7 +258,7 @@ tbody tr:hover td{background:#f8faff}
 
 <!-- MEMBERSHIP PLAN MODAL -->
 <div class="modal-overlay" id="modal-plan">
-  <div class="modal" style="width:560px">
+  <div class="modal" style="width:620px">
     <h2 id="mp-title">添加套餐</h2>
     <input type="hidden" id="mp-idx" value="-1" />
     <div class="form-row"><label>ID（唯一标识，小写英文） *</label><input id="mp-id" placeholder="monthly" /></div>
@@ -271,8 +272,12 @@ tbody tr:hover td{background:#f8faff}
       </select>
     </div>
     <div class="form-row"><label>套餐简介</label><input id="mp-desc" placeholder="适合入门用户的免费套餐" /></div>
-    <div class="form-row"><label>功能清单（每行一项）</label>
-      <textarea id="mp-features" rows="4" placeholder="无限练习题&#10;SRS 间隔复习&#10;听力课程"></textarea>
+    <div class="form-row"><label>功能描述（每行一项，展示给用户看的文案）</label>
+      <textarea id="mp-features" rows="3" placeholder="无限练习题&#10;SRS 间隔复习&#10;听力课程"></textarea>
+    </div>
+    <div class="form-row">
+      <label>绑定前端功能（勾选该套餐可使用的功能模块）</label>
+      <div id="mp-bound-features" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;margin-top:6px"></div>
     </div>
     <div class="form-row" style="display:flex;align-items:center;gap:8px">
       <input type="checkbox" id="mp-enabled" style="width:auto" /> <label style="margin:0">启用此套餐</label>
@@ -414,9 +419,19 @@ async function api(method, path, body=null, isForm=false){
   const opts = { method, headers:{ Authorization:`Bearer ${TOKEN}` } };
   if(body && !isForm){ opts.headers['Content-Type']='application/json'; opts.body=JSON.stringify(body); }
   if(body && isForm)  { opts.body = body; }
-  const r = await fetch(`${API}${path}`, opts);
+  let r;
+  try { r = await fetch(`${API}${path}`, opts); } catch(e) { throw new Error('网络连接失败，请检查网络后重试'); }
   const data = await r.json().catch(()=>({}));
-  if(!r.ok) throw new Error(data.message || r.statusText);
+  if(!r.ok){
+    const msg = data.error || data.message || `请求失败 (${r.status})`;
+    const details = data.details ? '\n' + data.details.join('\n') : '';
+    const err = new Error(msg + details);
+    err.status = r.status;
+    err.code = data.code || '';
+    if(r.status === 401 && data.code !== 'TOKEN_INVALID'){ doLogout(); }
+    if(r.status === 403) err.message = '权限不足: ' + msg;
+    throw err;
+  }
   return data;
 }
 
@@ -446,10 +461,12 @@ function monthStart(){ const d=new Date(); d.setDate(1); return d.toISOString().
 function yearStart() { return new Date().getFullYear()+'-01-01' }
 function qs(obj)    { return '?'+Object.entries(obj).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&') }
 const PALETTE = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#f97316','#84cc16','#3b82f6'];
-const ACT_NAME = {vocabulary:'📚 词汇学习',grammar:'📖 语法学习',srs_review:'🔄 SRS复习',quiz:'📝 测验',flashcard:'🃏 闪卡',news:'📰 新闻阅读',listening:'🎧 听力练习',game:'🎮 助词方块',reading:'📖 阅读',pronunciation:'🎤 发音练习',gojuon:'🔤 五十音',dictionary:'🔍 辞书検索',translate:'🌐 翻译解析',todofuken:'🗾 都道府県',game_verbs:'🎮 动词方块'};
+const ACT_NAME = {vocabulary:'📚 词汇学习',grammar:'📖 语法学习',srs_review:'🔄 SRS复习',quiz:'📝 测验',flashcard:'🃏 闪卡',news:'📰 新闻阅读',listening:'🎧 听力练习',game:'🎮 助词方块',reading:'📖 阅读',pronunciation:'🎤 发音练习',gojuon:'🔤 五十音',dictionary:'🔍 辞书検索',translate:'🌐 翻译解析',todofuken:'🗾 都道府県',game_verbs:'🎮 动词方块',anki:'📦 Anki词库'};
 function actName(t){ return ACT_NAME[t]||t; }
 
 /* ───────────────────────────────── AUTH ──────────────────────────────────── */
+let _adminInfo = { is_super_admin: true, permissions: [], all_permissions: [] };
+
 async function doLogin(){
   const username = document.getElementById('li-user').value.trim();
   const password = document.getElementById('li-pass').value;
@@ -468,15 +485,48 @@ async function doLogin(){
     document.getElementById('topbar-user').textContent = user.username;
     const av = document.getElementById('topbar-avatar');
     if(av) av.textContent = (user.username||'A')[0].toUpperCase();
+    await loadAdminInfo();
     showApp();
   }catch(e){ document.getElementById('login-err').textContent = e.message; }
+}
+async function loadAdminInfo(){
+  try{
+    _adminInfo = await api('GET', '/admin/admin-info');
+  }catch(e){ _adminInfo = { is_super_admin: false, permissions: [], all_permissions: [] }; }
+}
+function hasPermission(perm){
+  if(_adminInfo.is_super_admin) return true;
+  return (_adminInfo.permissions||[]).includes(perm);
 }
 function doLogout(){ TOKEN=''; localStorage.removeItem('admin_token'); location.reload(); }
 function showApp(){
   document.getElementById('login-page').style.display='none';
   document.getElementById('sidebar').style.display='flex';
   document.getElementById('main').style.display='flex';
+  applySidebarPermissions();
   nav('dashboard');
+}
+function applySidebarPermissions(){
+  const superOnlyNavs = ['nav-feature-toggles','nav-app','nav-ai-settings','nav-admin-mgmt'];
+  const permNavMap = {
+    'nav-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-tracks': 'tracks',
+    'nav-users': 'users', 'nav-stat-users': 'stats', 'nav-stat-traffic': 'stats',
+    'nav-stat-feature': 'stats', 'nav-membership': 'membership', 'nav-sync': 'sync',
+    'nav-import': 'vocabulary',
+  };
+  superOnlyNavs.forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = _adminInfo.is_super_admin ? '' : 'none';
+  });
+  // 系统 section header
+  const sysSections = document.querySelectorAll('.sidebar-section');
+  sysSections.forEach(s => {
+    if(s.textContent.trim() === '系统') s.style.display = _adminInfo.is_super_admin ? '' : 'none';
+  });
+  Object.entries(permNavMap).forEach(([navId, perm]) => {
+    const el = document.getElementById(navId);
+    if(el) el.style.display = hasPermission(perm) ? '' : 'none';
+  });
 }
 
 /* ───────────────────────────────── NAV ───────────────────────────────────── */
@@ -486,7 +536,8 @@ const PAGE_TITLES = {
   'stat-users':'用户统计', 'stat-traffic':'流量监控',
   'stat-feature':'功能频率',
   membership:'会员配置', import:'内容导入', sync:'全局同步',
-  app:'App管理', 'feature-toggles':'功能开关', 'ai-settings':'AI设置'
+  app:'App管理', 'feature-toggles':'功能开关', 'ai-settings':'AI设置',
+  'admin-mgmt':'权限管理'
 };
 const PAGE_ICONS = {
   dashboard:'📊', vocab:'📚', grammar:'📖',
@@ -494,7 +545,8 @@ const PAGE_ICONS = {
   'stat-users':'📈', 'stat-traffic':'🌐',
   'stat-feature':'📊',
   membership:'👑', import:'📥', sync:'🔄',
-  app:'📱', 'feature-toggles':'🔀', 'ai-settings':'🤖'
+  app:'📱', 'feature-toggles':'🔀', 'ai-settings':'🤖',
+  'admin-mgmt':'🔐'
 };
 const PAGE_DESCS = {
   vocab:'管理词汇条目', grammar:'管理文法条目',
@@ -502,7 +554,8 @@ const PAGE_DESCS = {
   'stat-users':'用户数据分析', 'stat-traffic':'API流量监控',
   'stat-feature':'功能使用频率分析',
   membership:'会员套餐管理', import:'Anki/CSV导入', sync:'内容版本发布',
-  app:'App上传下载', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量'
+  app:'App上传下载', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量',
+  'admin-mgmt':'管理员权限配置'
 };
 
 /* ─── Recent Nav Tracking ─── */
@@ -533,6 +586,7 @@ const PAGE_FNS = {
   'stat-feature': renderStatFeature,
   membership: renderMembership, import: renderImport, sync: renderSync,
   app: renderAppManage, 'feature-toggles': renderFeatureToggles, 'ai-settings': renderAiSettings,
+  'admin-mgmt': renderAdminMgmt,
 };
 /* ─────────────────────────── 功能开关 ───────────────────────────────────── */
 let _ftData = null;
@@ -1176,7 +1230,7 @@ async function renderUsers(){
     <button class="btn btn-primary" onclick="userSearch()">搜索</button>
   </div>
   <div class="panel" style="padding:0">
-    <table><thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th><th>活跃</th><th>注册时间</th><th>操作</th></tr></thead>
+    <table><thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th><th>会员</th><th>活跃</th><th>注册时间</th><th>操作</th></tr></thead>
     <tbody id="us-body"></tbody></table>
     <div style="padding:12px 16px" id="us-pager"></div>
   </div>`;
@@ -1186,23 +1240,81 @@ async function loadUsers(){
   try{
     const d=await api('GET',`/admin/users?page=${uState.page}&limit=${uState.limit}&q=${encodeURIComponent(uState.search)}`);
     uState.total=d.total||0;
-    document.getElementById('us-body').innerHTML=(d.data||[]).map(u=>`
-      <tr>
+    document.getElementById('us-body').innerHTML=(d.data||[]).map(u=>{
+      const mp = u.membership_plan;
+      const me = u.membership_expire;
+      const isExpired = me && new Date(me) < new Date();
+      const memBadge = mp ? `<span class="badge ${isExpired?'badge-orange':'badge-green'}">${esc(mp)}${isExpired?' (已过期)':''}</span>` : '<span style="color:#aaa;font-size:11px">无</span>';
+      const memExpire = me ? `<br/><small style="color:#888">${new Date(me).toLocaleDateString('zh-CN')}</small>` : '';
+      return `<tr>
         <td>${u.id}</td><td>${esc(u.username)}</td><td>${esc(u.email)}</td>
         <td><span class="badge ${u.role==='admin'?'badge-red':'badge-blue'}">${esc(u.role)}</span></td>
+        <td>${memBadge}${memExpire}</td>
         <td>${u.is_active?'✅':'❌'}</td>
         <td>${new Date(u.createdAt).toLocaleDateString('zh-CN')}</td>
         <td>
           <button class="btn btn-ghost btn-sm" onclick="toggleRole('${u.id}','${u.role==='admin'?'user':'admin'}')">${u.role==='admin'?'降为普通':'设为管理员'}</button>
+          <button class="btn btn-ghost btn-sm" onclick="openMembershipModal('${u.id}','${esc(u.username)}','${esc(mp||'')}','${esc(me||'')}')">会员</button>
           <button class="btn btn-danger btn-sm" onclick="toggleActive('${u.id}',${!u.is_active})">${u.is_active?'禁用':'启用'}</button>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
     renderPager('us-pager', uState.page, Math.ceil(uState.total/uState.limit), p=>{ uState.page=p; loadUsers(); });
   }catch(e){ toast(e.message,true) }
 }
 function userSearch(){ uState.page=1; uState.search=document.getElementById('us-search').value; loadUsers(); }
 async function toggleRole(id, role){ try{ await api('PUT',`/admin/users/${id}`,{role}); toast('已更新'); loadUsers(); }catch(e){ toast(e.message,true) } }
 async function toggleActive(id, is_active){ try{ await api('PUT',`/admin/users/${id}`,{is_active}); toast('已更新'); loadUsers(); }catch(e){ toast(e.message,true) } }
+
+let _membershipPlansCache = null;
+async function openMembershipModal(userId, username, currentPlan, currentExpire){
+  if(!_membershipPlansCache){
+    try{ const c = await api('GET','/admin/membership'); _membershipPlansCache = c.plans || []; }catch{ _membershipPlansCache = []; }
+  }
+  const plans = _membershipPlansCache;
+  const planOptions = plans.filter(p=>p.enabled).map(p=>`<option value="${esc(p.id)}" ${currentPlan===p.id?'selected':''}>${esc(p.name)} (¥${p.price}/${p.period})</option>`).join('');
+  const modalHtml = `
+    <div class="modal" style="width:480px">
+      <h2>绑定会员 — ${esc(username)}</h2>
+      <input type="hidden" id="um-uid" value="${userId}" />
+      <div class="form-row"><label>会员套餐</label>
+        <select id="um-plan">
+          <option value="">无会员</option>
+          ${planOptions}
+        </select>
+      </div>
+      <div class="form-row"><label>到期时间（永久会员可留空）</label>
+        <input type="date" id="um-expire" value="${currentExpire?currentExpire.slice(0,10):''}" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('modal-membership')">取消</button>
+        <button class="btn btn-primary" onclick="saveUserMembership()">保存</button>
+      </div>
+    </div>`;
+  let overlay = document.getElementById('modal-membership');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'modal-membership';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = modalHtml;
+  overlay.classList.add('open');
+}
+async function saveUserMembership(){
+  const uid = document.getElementById('um-uid').value;
+  const plan = document.getElementById('um-plan').value;
+  const expire = document.getElementById('um-expire').value;
+  try{
+    await api('PUT',`/admin/users/${uid}/membership`,{
+      membership_plan: plan || null,
+      membership_expire: expire || null,
+    });
+    toast('会员已更新 ✅');
+    closeModal('modal-membership');
+    loadUsers();
+  }catch(e){ toast(e.message,true); }
+}
 
 /* ─────────────────────────── STATS HELPERS ───────────────────────────────── */
 function rangeBarHTML(prefix, onApply){
@@ -1244,19 +1356,19 @@ function lineCfg(labels, datasets){
     label:ds.label, data:ds.data,
     borderColor:PALETTE[i%PALETTE.length], backgroundColor:PALETTE[i%PALETTE.length]+'22',
     tension:.4, pointRadius:3, pointHoverRadius:5, fill:!!ds.fill, borderWidth:2
-  }))}, options:{responsive:true, plugins:{legend:{position:'top',labels:{font:{size:12},padding:14}}},
+  }))}, options:{responsive:true, plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',font:{size:12},padding:14}}},
     scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'}},x:{grid:{display:false}}}} };
 }
 function barCfg(labels, datasets){
   return { type:'bar', data:{ labels, datasets:datasets.map((ds,i)=>({
     label:ds.label, data:ds.data,
     backgroundColor:PALETTE[i%PALETTE.length]+'cc', borderRadius:5, borderSkipped:false
-  }))}, options:{responsive:true, plugins:{legend:{position:'top',labels:{font:{size:12},padding:14}}},
+  }))}, options:{responsive:true, plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',font:{size:12},padding:14}}},
     scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'}},x:{grid:{display:false}}}} };
 }
 function pieCfg(labels, data, type='doughnut'){
   return { type, data:{ labels, datasets:[{data, backgroundColor:PALETTE, borderWidth:2, hoverOffset:6}]},
-    options:{responsive:true, plugins:{legend:{position:'right',labels:{font:{size:12},padding:14}}}} };
+    options:{responsive:true, plugins:{legend:{position:'right',labels:{usePointStyle:true,pointStyle:'circle',font:{size:12},padding:14}}}} };
 }
 
 /* ─────────────────────────── STAT: TRAFFIC ───────────────────────────────── */
@@ -1367,10 +1479,11 @@ async function loadFeatureCharts(){
     if(ftCtx) charts['fu-trend']=new Chart(ftCtx,{
       type:'line',
       data:{ labels:ftLabels, datasets:ftTypes.map((t,i)=>({
-        label:actName(t), data:ftLabels.map(l=>ftMap[t]?.[l]||0), fill:true,
-        borderColor:PALETTE[i%PALETTE.length], backgroundColor:PALETTE[i%PALETTE.length]+'55', tension:.3, pointRadius:2
+        label:actName(t), data:ftLabels.map(l=>ftMap[t]?.[l]||0),
+        backgroundColor:PALETTE[i%PALETTE.length]+'66', borderColor:PALETTE[i%PALETTE.length], borderWidth:2,
+        fill:true, tension:0.4, pointRadius:0
       }))},
-      options:{responsive:true, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true,stacked:true}}}
+      options:{responsive:true, plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',font:{size:12},padding:14}}}, scales:{x:{stacked:true},y:{beginAtZero:true,stacked:true}}}
     });
 
     // 时段分布（柱状图）
@@ -1411,6 +1524,7 @@ function _buildMembershipUI() {
       <td style="font-size:15px;font-weight:700">${p.price==0?'<span class="badge badge-blue">免费</span>':'&#165;'+p.price}</td>
       <td>${PERIOD_LABEL[p.period]||p.period}</td>
       <td style="max-width:240px;color:#555">${(p.features||[]).map(f=>`<span style="display:inline-block;background:#f5f5f5;border-radius:10px;padding:1px 8px;margin:1px;font-size:11px">${esc(f)}</span>`).join(' ')}</td>
+      <td style="max-width:200px">${(p.bound_features||[]).map(f=>`<span style="display:inline-block;background:#e0f2fe;border-radius:10px;padding:1px 8px;margin:1px;font-size:11px;color:#0369a1">${esc(f)}</span>`).join(' ')||'<span style="color:#aaa;font-size:11px">未绑定</span>'}</td>
       <td>${esc(p.description||'')}</td>
       <td>
         <button class="btn btn-ghost btn-sm" onclick="editPlan(${i})">编辑</button>
@@ -1435,9 +1549,9 @@ function _buildMembershipUI() {
     <div style="overflow-x:auto">
     <table>
       <thead><tr>
-        <th>状态</th><th>套餐</th><th>价格</th><th>周期</th><th>功能清单</th><th>简介</th><th>操作</th>
+        <th>状态</th><th>套餐</th><th>价格</th><th>周期</th><th>功能描述</th><th>绑定功能</th><th>简介</th><th>操作</th>
       </tr></thead>
-      <tbody id="mem-plans-body">${rows||'<tr><td colspan="7" style="text-align:center;color:#aaa">暂无套餐，请点击"添加套餐"</td></tr>'}</tbody>
+      <tbody id="mem-plans-body">${rows||'<tr><td colspan="8" style="text-align:center;color:#aaa">暂无套餐，请点击"添加套餐"</td></tr>'}</tbody>
     </table>
     </div>
   </div>
@@ -1473,7 +1587,29 @@ function _buildMembershipUI() {
   </div>`;
 }
 
-function addPlan() {
+let _featureListCache = null;
+async function loadFeatureListForPlan() {
+  if(!_featureListCache) {
+    try { const r = await api('GET','/admin/feature-toggles'); _featureListCache = r.features || []; } catch { _featureListCache = []; }
+  }
+  return _featureListCache;
+}
+
+function renderBoundFeatures(selected) {
+  const container = document.getElementById('mp-bound-features');
+  if(!container) return;
+  const features = _featureListCache || [];
+  selected = selected || [];
+  container.innerHTML = features.map(f => `
+    <div style="display:flex;align-items:center;gap:6px">
+      <input type="checkbox" class="mp-bf-chk" value="${esc(f.id)}" ${selected.includes(f.id)?'checked':''} style="width:auto" />
+      <label style="margin:0;font-size:13px">${f.icon||''} ${esc(f.name)}</label>
+    </div>
+  `).join('');
+}
+
+async function addPlan() {
+  await loadFeatureListForPlan();
   document.getElementById('mp-title').textContent = '添加套餐';
   ['mp-idx','mp-id','mp-name','mp-price','mp-desc','mp-features'].forEach(id => {
     const el = document.getElementById(id);
@@ -1481,10 +1617,12 @@ function addPlan() {
   });
   document.getElementById('mp-period').value = 'month';
   document.getElementById('mp-enabled').checked = true;
+  renderBoundFeatures([]);
   openModal('modal-plan');
 }
 
-function editPlan(idx) {
+async function editPlan(idx) {
+  await loadFeatureListForPlan();
   const p = _memCfg.plans[idx];
   if (!p) return;
   document.getElementById('mp-title').textContent = '编辑套餐';
@@ -1496,6 +1634,7 @@ function editPlan(idx) {
   document.getElementById('mp-desc').value  = p.description||'';
   document.getElementById('mp-features').value = (p.features||[]).join('\n');
   document.getElementById('mp-enabled').checked = !!p.enabled;
+  renderBoundFeatures(p.bound_features || []);
   openModal('modal-plan');
 }
 
@@ -1508,10 +1647,11 @@ function savePlan() {
   const desc    = document.getElementById('mp-desc').value.trim();
   const feats   = document.getElementById('mp-features').value.split('\n').map(s=>s.trim()).filter(Boolean);
   const enabled = document.getElementById('mp-enabled').checked;
+  const boundFeatures = Array.from(document.querySelectorAll('.mp-bf-chk:checked')).map(el=>el.value);
   if (!id || !name) { toast('请填写 ID 和套餐名称', true); return; }
   const dup = _memCfg.plans.findIndex((p,i)=>p.id===id && i!==idx);
   if (dup !== -1) { toast('套餐 ID 已存在', true); return; }
-  const plan = { id, name, price, period, description: desc, features: feats, enabled };
+  const plan = { id, name, price, period, description: desc, features: feats, enabled, bound_features: boundFeatures };
   if (idx === -1) { _memCfg.plans.push(plan); }
   else            { _memCfg.plans[idx] = plan; }
   closeModal('modal-plan');
@@ -2078,6 +2218,94 @@ async function resetAiUsageFn() {
   }
 }
 
+async function resetAiUsageFn() {
+  if (!confirm('确定重置所有 AI 用量计数？此操作不可恢复。')) return;
+  try {
+    await api('POST', '/admin/ai-usage/reset');
+    toast('用量已重置 ✓', 'success');
+    renderAiSettings();
+  } catch(e) {
+    toast('重置失败: ' + e.message, 'error');
+  }
+}
+
+/* ─────────────────────────── ADMIN MANAGEMENT ────────────────────────────── */
+async function renderAdminMgmt() {
+  if(!_adminInfo.is_super_admin){ document.getElementById('content').innerHTML='<div class="panel"><p style="color:#e74c3c">权限不足，仅高级管理员可访问</p></div>'; return; }
+  document.getElementById('content').innerHTML='<p style="color:#aaa;padding:40px;text-align:center">加载中…</p>';
+  try{
+    const d=await api('GET','/admin/admins');
+    const admins=d.data||[];
+    const allPerms=d.all_permissions||[];
+    const rows=admins.map(a=>{
+      const perms=a.permissions_parsed||[];
+      const isSA=a.admin_level==='super_admin';
+      const permBadges=isSA?'<span class="badge badge-red">全部权限</span>':allPerms.map(p=>`<span class="badge ${perms.includes(p.key)?'badge-green':'badge-orange'}" style="cursor:pointer;margin:1px" onclick="toggleAdminPerm('${a.id}','${p.key}',${!perms.includes(p.key)})" title="点击切换">${p.icon} ${p.name}</span>`).join(' ');
+      return `<tr>
+        <td>${esc(a.username)}</td><td>${esc(a.email)}</td>
+        <td><span class="badge ${isSA?'badge-red':'badge-blue'}">${isSA?'高级管理员':'普通管理员'}</span></td>
+        <td style="max-width:400px">${permBadges}</td>
+        <td>${isSA?'—':`<button class="btn btn-ghost btn-sm" onclick="editAdminPerms('${a.id}','${esc(a.username)}')">编辑权限</button>`}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('content').innerHTML=`
+    <div class="panel">
+      <div class="panel-header"><h3>🔐 管理员权限配置</h3></div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px">高级管理员拥有所有权限，普通管理员仅拥有被分配的功能权限。点击权限标签可快速切换。</p>
+      <table>
+        <thead><tr><th>用户名</th><th>邮箱</th><th>管理等级</th><th>功能权限</th><th>操作</th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="5" style="text-align:center;color:#aaa">暂无管理员</td></tr>'}</tbody>
+      </table>
+    </div>`;
+  }catch(e){ document.getElementById('content').innerHTML=`<div class="panel"><p style="color:#e74c3c">加载失败: ${esc(e.message)}</p></div>`; }
+}
+async function toggleAdminPerm(id, perm, enable){
+  try{
+    const d=await api('GET','/admin/admins');
+    const admin=(d.data||[]).find(a=>a.id===id);
+    if(!admin) return toast('管理员不存在',true);
+    let perms=admin.permissions_parsed||[];
+    if(enable&&!perms.includes(perm)) perms.push(perm);
+    if(!enable) perms=perms.filter(p=>p!==perm);
+    await api('PUT',`/admin/admins/${id}/permissions`,{permissions:perms});
+    toast('权限已更新');
+    renderAdminMgmt();
+  }catch(e){ toast(e.message,true); }
+}
+async function editAdminPerms(id, username){
+  try{
+    const d=await api('GET','/admin/admins');
+    const admin=(d.data||[]).find(a=>a.id===id);
+    if(!admin) return toast('管理员不存在',true);
+    const allPerms=(d.all_permissions||[]);
+    const perms=admin.permissions_parsed||[];
+    const checkboxes=allPerms.map(p=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
+        <input type="checkbox" id="ap-${p.key}" ${perms.includes(p.key)?'checked':''} style="width:auto" />
+        <label style="margin:0;font-size:14px">${p.icon} ${p.name}</label>
+      </div>`).join('');
+    document.getElementById('content').innerHTML=`
+    <div class="panel" style="max-width:600px">
+      <div class="panel-header"><h3>编辑「${esc(username)}」的权限</h3></div>
+      <div style="margin-bottom:16px">${checkboxes}</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="renderAdminMgmt()">取消</button>
+        <button class="btn btn-primary" onclick="saveAdminPerms('${id}')">保存权限</button>
+      </div>
+    </div>`;
+  }catch(e){ toast(e.message,true); }
+}
+async function saveAdminPerms(id){
+  try{
+    const d=await api('GET','/admin/admins');
+    const allPerms=(d.all_permissions||[]).map(p=>p.key);
+    const perms=allPerms.filter(k=>document.getElementById('ap-'+k)?.checked);
+    await api('PUT',`/admin/admins/${id}/permissions`,{permissions:perms});
+    toast('权限已保存 ✅');
+    renderAdminMgmt();
+  }catch(e){ toast(e.message,true); }
+}
+
 /* ─────────────────────────── INIT ────────────────────────────────────────── */
 // 绑定登录按钮事件（避免依赖 onclick 属性被 CSP 拦截）
 document.getElementById('login-btn').addEventListener('click', doLogin);
@@ -2094,6 +2322,7 @@ document.getElementById('li-pass').addEventListener('keydown', function(e){ if(e
     document.getElementById('topbar-user').textContent=user.username;
     const av2=document.getElementById('topbar-avatar');
     if(av2) av2.textContent=(user.username||'A')[0].toUpperCase();
+    await loadAdminInfo();
     showApp();
   }catch(_e){ TOKEN=''; localStorage.removeItem('admin_token'); }
 })();

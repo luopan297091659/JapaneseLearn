@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../l10n/app_localizations.dart';
+import '../../utils/japanese_text_utils.dart';
 
 class VocabularyListScreen extends StatefulWidget {
   const VocabularyListScreen({super.key});
@@ -25,6 +26,9 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
   int  _total       = 0;
   int  _page        = 1;
   static const _limit = 30;
+
+  /// 当前级别的全部单词 ID（用于详情页上一个/下一个导航）
+  List<String> _allWordIds = [];
 
   @override
   void initState() {
@@ -77,13 +81,24 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
     }
     setState(() => _loading = true);
     try {
-      final res = await apiService.getVocabulary(
-        level: _selectedLevel,
-        query: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
-        page: _page,
-        limit: _limit,
-      );
+      final futures = <Future>[
+        apiService.getVocabulary(
+          level: _selectedLevel,
+          query: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
+          page: _page,
+          limit: _limit,
+        ),
+      ];
+      // 搜索模式下不加载全部 ID，仅在常规浏览时加载
+      if (_searchCtrl.text.isEmpty && reset) {
+        futures.add(apiService.getVocabularyIdsByLevel(_selectedLevel));
+      }
+      final results = await Future.wait(futures);
+      final res = results[0] as Map<String, dynamic>;
       final newWords = res['data'] as List<VocabularyModel>;
+      if (results.length > 1) {
+        _allWordIds = results[1] as List<String>;
+      }
       setState(() {
         _words   = reset ? newWords : [..._words, ...newWords];
         _total   = res['total'] as int;
@@ -213,7 +228,7 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                                       )
                                     : const SizedBox.shrink();
                               }
-                              return _VocabCard(word: _words[i], wordIds: _words.map((w) => w.id).toList());
+                              return _VocabCard(word: _words[i], wordIds: _allWordIds.isNotEmpty ? _allWordIds : _words.map((w) => w.id).toList());
                             },
                           ),
                   ),
@@ -225,6 +240,14 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
 }
 
 // ─── 词汇卡片 ─────────────────────────────────────────────────────────────────
+
+/// 格式化原始词性：自動1→自動詞1, 他動3→他動詞3, 自他動2→自他動詞2
+String _formatPosRaw(String raw) {
+  return raw.replaceFirstMapped(
+    RegExp(r'^(自他動|自動|他動|補動)(\d*)'),
+    (m) => '${m[1]}詞${m[2] ?? ""}',
+  );
+}
 
 const _levelColors = {
   'N5': Color(0xFF4CAF50),
@@ -299,7 +322,7 @@ class _VocabCard extends StatelessWidget {
                           const SizedBox(width: 8),
                           Flexible(
                             child: Text(
-                              word.reading,
+                              cleanReading(word.reading),
                               style: TextStyle(fontSize: 12, color: cs.primary),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -314,7 +337,7 @@ class _VocabCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (word.partOfSpeech.isNotEmpty)
+                    if ((word.partOfSpeechRaw ?? word.partOfSpeech).isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Container(
@@ -324,7 +347,7 @@ class _VocabCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            word.partOfSpeech,
+                            _formatPosRaw(word.partOfSpeechRaw ?? word.partOfSpeech),
                             style: TextStyle(fontSize: 10, color: cs.outline),
                           ),
                         ),
