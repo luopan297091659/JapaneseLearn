@@ -32,6 +32,7 @@ const adminRoutes = require('./routes/admin');
 const syncRoutes  = require('./routes/sync');
 const gameRoutes  = require('./routes/game');
 const aiRoutes    = require('./routes/ai');
+const forumRoutes = require('./routes/forum');
 
 const app = express();
 
@@ -43,6 +44,15 @@ app.use('/admin', (_req, res, next) => {
   res.setHeader(
     'Content-Security-Policy',
     "default-src 'self'; script-src 'self' 'unsafe-inline'; script-src-attr 'unsafe-inline'; style-src 'self' https: 'unsafe-inline'; img-src 'self' data:; font-src 'self' https: data:; connect-src 'self'"
+  );
+  next();
+});
+
+// 论坛前端 CSP
+app.use('/forum', (_req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; script-src-attr 'unsafe-inline'; style-src 'self' https: 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https: data:; connect-src 'self'"
   );
   next();
 });
@@ -90,6 +100,9 @@ app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '../public/adm
 // Web frontend static files
 app.use('/app', express.static(path.join(__dirname, '../public/app')));
 app.get('/app', (req, res) => res.sendFile(path.join(__dirname, '../public/app/index.html')));
+// Forum static files
+app.use('/forum', express.static(path.join(__dirname, '../public/forum')));
+app.get('/forum', (req, res) => res.sendFile(path.join(__dirname, '../public/forum/index.html')));
 
 // API Routes
 app.use('/api/v1/auth', authRoutes);
@@ -107,6 +120,7 @@ app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/sync', syncRoutes);
 app.use('/api/v1/game', gameRoutes);
 app.use('/api/v1/ai', aiRoutes);
+app.use('/api/v1/forum', forumRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -170,7 +184,13 @@ async function start() {
     logger.info('Database connection established.');
     // 生产环境只做 "CREATE TABLE IF NOT EXISTS"，不执行任何 ALTER
     // 如需新增字段请手动执行 SQL migration
+    // 确保 Forum 模型已注册到 sequelize
+    require('./models/Forum');
     await sequelize.sync({ alter: { drop: false } }); // 自动添加新列，但不删除现有列/数据
+
+    // 初始化论坛默认分类
+    const { seedCategories } = require('./controllers/forumController');
+    await seedCategories();
 
     const certPath = process.env.SSL_CERT_PATH || './certs/cert.pem';
     const keyPath  = process.env.SSL_KEY_PATH  || './certs/key.pem';
