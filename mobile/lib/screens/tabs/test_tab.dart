@@ -34,7 +34,7 @@ class TestTab extends StatelessWidget {
           const SizedBox(height: 12),
           _TestCard(
             icon: Icons.draw_rounded,
-            title: '50音书写测试',
+            title: '五十音书写',
             subtitle: '书写测试 · 练习假名书写与笔顺',
             color: const Color(0xFF2196F3),
             onTap: () => context.push('/kana-writing-test'),
