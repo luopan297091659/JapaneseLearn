@@ -243,6 +243,8 @@ class _KanaPracticeSheetState extends State<_KanaPracticeSheet> {
   }
 
   void _replayAnimation() {
+    // Recreate controllers so old dispose() won't detach the new ones
+    _strokeControllers = List.generate(_chars.length, (_) => KanaStrokeController());
     setState(() => _animKey++);
   }
 
