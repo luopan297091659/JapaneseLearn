@@ -150,7 +150,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
-  static const _tabRoutes = ['/home', '/study', '/games', '/test', '/tools'];
+  static const _tabRoutes = ['/home', '/study', '/test', '/tools', '/games'];
 
   void _onTabTap(int index) {
     if (index == _currentIndex) return;
@@ -175,15 +175,15 @@ class _MainShellState extends State<MainShell> {
           location.startsWith('/news') ||
           location.startsWith('/nhk-news')) {
         idx = 1; // 学习
-      } else if (location.startsWith('/game')) {
-        idx = 2; // 游戏 (covers /game, /games)
       } else if (location.startsWith('/quiz')) {
-        idx = 3; // 测试
+        idx = 2; // 测试
       } else if (location.startsWith('/dictionary') ||
           location.startsWith('/anki') ||
           location.startsWith('/local-vocab') ||
           location.startsWith('/todofuken')) {
-        idx = 4; // 工具
+        idx = 3; // 工具
+      } else if (location.startsWith('/game')) {
+        idx = 4; // 游戏 (covers /game, /games)
       } else {
         idx = 0; // 主页
       }
@@ -208,9 +208,9 @@ class _MainShellState extends State<MainShell> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: '主页'),
           NavigationDestination(icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book_rounded), label: '学习'),
-          NavigationDestination(icon: Icon(Icons.sports_esports_outlined), selectedIcon: Icon(Icons.sports_esports_rounded), label: '游戏'),
           NavigationDestination(icon: Icon(Icons.assignment_outlined), selectedIcon: Icon(Icons.assignment_rounded), label: '测试'),
           NavigationDestination(icon: Icon(Icons.build_outlined), selectedIcon: Icon(Icons.build_rounded), label: '工具'),
+          NavigationDestination(icon: Icon(Icons.sports_esports_outlined), selectedIcon: Icon(Icons.sports_esports_rounded), label: '游戏'),
         ],
       ),
     );

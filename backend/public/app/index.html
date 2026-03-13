@@ -494,7 +494,7 @@ ul { list-style: none; }
       <div class="nav-item" data-page="news" onclick="navigate('news')"><span class="icon">📰</span>新闻</div>
       <div class="nav-section">测试</div>
       <div class="nav-item" data-page="quiz" onclick="navigate('quiz')"><span class="icon">✏️</span>测验</div>
-      <div class="nav-item" data-page="kana-test" onclick="navigate('kana-test')"><span class="icon">✍️</span>50音书写测试</div>
+      <div class="nav-item" data-page="kana-test" onclick="navigate('kana-test')"><span class="icon">✍️</span>五十音书写</div>
       <div class="nav-item" data-page="todofuken" onclick="navigate('todofuken')"><span class="icon">🗾</span>都道府県</div>
       <div class="nav-section">账号</div>
       <div class="nav-item" data-page="profile" onclick="navigate('profile')"><span class="icon">👤</span>我的</div>
@@ -519,52 +519,48 @@ ul { list-style: none; }
         </div>
 
         <!-- JLPT 等级 + 连续打卡 -->
-        <div class="grid-2" style="margin-bottom:20px">
-          <div class="card" style="margin-bottom:0;text-align:center">
-            <div style="font-size:12px;color:var(--text-hint);margin-bottom:4px">当前等级</div>
-            <div id="home-level" style="font-size:36px;font-weight:900;color:var(--primary)">N5</div>
-            <div style="margin:8px 0 4px">
-              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-hint)">
+        <div class="grid-2" style="margin-bottom:12px">
+          <div class="card" style="margin-bottom:0;text-align:center;padding:10px">
+            <div style="font-size:11px;color:var(--text-hint);margin-bottom:2px">当前等级</div>
+            <div id="home-level" style="font-size:24px;font-weight:900;color:var(--primary)">N5</div>
+            <div style="margin:4px 0 2px">
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-hint)">
                 <span id="home-level-cur">N5</span><span id="home-level-next">→ N4</span>
               </div>
-              <div style="background:var(--bg3);border-radius:6px;height:8px;overflow:hidden;margin-top:3px">
+              <div style="background:var(--bg3);border-radius:6px;height:6px;overflow:hidden;margin-top:2px">
                 <div id="home-level-bar" style="background:var(--primary);height:100%;width:0%;border-radius:6px;transition:width .6s"></div>
               </div>
-              <div style="font-size:11px;color:var(--text-hint);margin-top:3px"><span id="home-level-xp">0</span> / <span id="home-level-xp-max">500</span> XP</div>
+              <div style="font-size:10px;color:var(--text-hint);margin-top:2px"><span id="home-level-xp">0</span> / <span id="home-level-xp-max">500</span> XP</div>
             </div>
           </div>
-          <div class="card" style="margin-bottom:0;text-align:center">
-            <div style="font-size:12px;color:var(--text-hint);margin-bottom:4px">连续打卡</div>
-            <div style="font-size:36px;font-weight:900">🔥</div>
-            <div id="home-streak" style="font-size:28px;font-weight:800;color:var(--danger)">0</div>
-            <div style="font-size:12px;color:var(--text-hint)">天</div>
+          <div class="card" style="margin-bottom:0;text-align:center;padding:10px">
+            <div style="font-size:11px;color:var(--text-hint);margin-bottom:2px">连续打卡</div>
+            <div style="font-size:24px;font-weight:900">🔥</div>
+            <div id="home-streak" style="font-size:20px;font-weight:800;color:var(--danger)">0</div>
+            <div style="font-size:11px;color:var(--text-hint)">天</div>
           </div>
         </div>
 
         <!-- 今日学习 -->
-        <div class="card" style="margin-bottom:20px">
-          <div class="card-title">📊 今日学习</div>
-          <div class="grid-2" style="gap:12px;margin-bottom:16px">
-            <div style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center">
-              <div style="font-size:24px;font-weight:800;color:var(--primary)" id="today-xp">0</div>
-              <div style="font-size:12px;color:var(--text-hint)">今日 XP</div>
+        <div class="card" style="margin-bottom:12px;padding:12px">
+          <div class="card-title" style="margin-bottom:8px;font-size:14px">📊 今日学习</div>
+          <div class="grid-3" style="gap:8px;margin-bottom:10px">
+            <div style="background:var(--bg2);border-radius:10px;padding:10px;text-align:center">
+              <div style="font-size:18px;font-weight:800;color:var(--primary)" id="today-xp">0</div>
+              <div style="font-size:11px;color:var(--text-hint)">今日 XP</div>
             </div>
-            <div style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center">
-              <div style="font-size:24px;font-weight:800;color:#10b981" id="today-time">0</div>
-              <div style="font-size:12px;color:var(--text-hint)">学习分钟</div>
+            <div style="background:var(--bg2);border-radius:10px;padding:10px;text-align:center">
+              <div style="font-size:18px;font-weight:800;color:#10b981" id="today-time">0</div>
+              <div style="font-size:11px;color:var(--text-hint)">学习分钟</div>
             </div>
-            <div style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center">
-              <div style="font-size:24px;font-weight:800;color:#f59e0b" id="today-activities">0</div>
-              <div style="font-size:12px;color:var(--text-hint)">学习活动</div>
-            </div>
-            <div style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center">
-              <div style="font-size:24px;font-weight:800;color:#8b5cf6" id="today-total-xp">0</div>
-              <div style="font-size:12px;color:var(--text-hint)">总 XP</div>
+            <div style="background:var(--bg2);border-radius:10px;padding:10px;text-align:center">
+              <div style="font-size:18px;font-weight:800;color:#f59e0b" id="today-activities">0</div>
+              <div style="font-size:11px;color:var(--text-hint)">学习活动</div>
             </div>
           </div>
           <!-- 每日目标 -->
-          <div style="border-top:1px solid var(--border);padding-top:14px">
-            <div style="font-size:13px;font-weight:600;margin-bottom:10px">🎯 每日目标</div>
+          <div style="border-top:1px solid var(--border);padding-top:10px">
+            <div style="font-size:12px;font-weight:600;margin-bottom:8px">🎯 每日目标</div>
             <div id="daily-goals-list"></div>
           </div>
         </div>
@@ -578,6 +574,33 @@ ul { list-style: none; }
               <div style="font-size:12px;opacity:.8">趁热打铁，强化记忆！</div>
             </div>
             <span style="background:rgba(255,255,255,.25);padding:6px 16px;border-radius:20px;font-weight:600;font-size:13px">开始</span>
+          </div>
+        </div>
+
+        <!-- 辞书 -->
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-title">🔍 辞書（词典）</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <input class="input" id="home-dict-input" placeholder="输入日文、汉字或中文…" style="flex:1" onkeydown="if(event.key==='Enter')homeSearchDict()">
+            <button class="btn btn-primary" onclick="homeSearchDict()">搜索</button>
+            <button class="btn btn-sm" id="home-dict-lang-btn" onclick="toggleDictLang()" style="white-space:nowrap;min-width:56px;border-radius:20px"></button>
+          </div>
+          <div id="home-dict-results" style="margin-top:12px"></div>
+        </div>
+
+        <!-- 今日一词 -->
+        <div class="card word-of-day" id="word-of-day" style="margin-bottom:20px;position:relative">
+          <div class="card-title" style="color:#fff;opacity:.8">✨ 每日一词</div>
+          <button class="btn btn-sm" style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,.2);color:#fff;border:none;font-size:12px;padding:4px 10px" onclick="nextWod()">🔄 换一词</button>
+          <div style="text-align:center;margin-bottom:4px;display:flex;justify-content:center;gap:6px">
+            <span id="wod-level-badge" style="background:rgba(255,255,255,.25);padding:2px 10px;border-radius:8px;font-size:12px;font-weight:700"></span>
+            <span id="wod-pos" style="background:rgba(255,255,255,.18);padding:2px 10px;border-radius:8px;font-size:12px;font-weight:600"></span>
+          </div>
+          <div class="word" id="wod-word">　</div>
+          <div class="reading" id="wod-reading">　</div>
+          <div id="wod-meaning-wrap" style="text-align:center;margin-top:8px">
+            <button class="btn btn-sm" id="wod-reveal-btn" style="background:rgba(255,255,255,.15);color:#fff;border:none;font-size:13px" onclick="revealWod()">👁️ 点击查看释义</button>
+            <div class="meaning" id="wod-meaning" style="display:none">　</div>
           </div>
         </div>
 
@@ -612,33 +635,6 @@ ul { list-style: none; }
             <div class="quick-action" onclick="navigate('todofuken')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
               <div style="font-size:24px">🗾</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">都道府県</div>
             </div>
-          </div>
-        </div>
-
-        <!-- 辞书 -->
-        <div class="card" style="margin-bottom:20px">
-          <div class="card-title">🔍 辞書（词典）</div>
-          <div style="display:flex;gap:10px;align-items:center">
-            <input class="input" id="home-dict-input" placeholder="输入日文、汉字或中文…" style="flex:1" onkeydown="if(event.key==='Enter')homeSearchDict()">
-            <button class="btn btn-primary" onclick="homeSearchDict()">搜索</button>
-            <button class="btn btn-sm" id="home-dict-lang-btn" onclick="toggleDictLang()" style="white-space:nowrap;min-width:56px;border-radius:20px"></button>
-          </div>
-          <div id="home-dict-results" style="margin-top:12px"></div>
-        </div>
-
-        <!-- 今日一词 -->
-        <div class="card word-of-day" id="word-of-day" style="margin-bottom:20px;position:relative">
-          <div class="card-title" style="color:#fff;opacity:.8">✨ 每日一词</div>
-          <button class="btn btn-sm" style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,.2);color:#fff;border:none;font-size:12px;padding:4px 10px" onclick="nextWod()">🔄 换一词</button>
-          <div style="text-align:center;margin-bottom:4px;display:flex;justify-content:center;gap:6px">
-            <span id="wod-level-badge" style="background:rgba(255,255,255,.25);padding:2px 10px;border-radius:8px;font-size:12px;font-weight:700"></span>
-            <span id="wod-pos" style="background:rgba(255,255,255,.18);padding:2px 10px;border-radius:8px;font-size:12px;font-weight:600"></span>
-          </div>
-          <div class="word" id="wod-word">　</div>
-          <div class="reading" id="wod-reading">　</div>
-          <div id="wod-meaning-wrap" style="text-align:center;margin-top:8px">
-            <button class="btn btn-sm" id="wod-reveal-btn" style="background:rgba(255,255,255,.15);color:#fff;border:none;font-size:13px" onclick="revealWod()">👁️ 点击查看释义</button>
-            <div class="meaning" id="wod-meaning" style="display:none">　</div>
           </div>
         </div>
       </div>
@@ -740,7 +736,7 @@ ul { list-style: none; }
               <div style="font-size:15px;color:var(--text-sub)" id="result-summary"></div>
               <div style="margin-top:20px;display:flex;gap:10px;justify-content:center">
                 <button class="btn btn-outline" onclick="showQuizSetup()">再来一次</button>
-                <button class="btn btn-primary" onclick="navigate('home')">返回首页</button>
+                <button class="btn btn-primary" onclick="goBack()">返回</button>
               </div>
             </div>
           </div>
@@ -1237,7 +1233,9 @@ function closeModalOutside(e) { if (e.target === document.getElementById('modal-
 // ══════════════════════════════════════════════════════════════════
 //  NAVIGATION
 // ══════════════════════════════════════════════════════════════════
-function navigate(page) {
+let _navHistory = ['home'];
+
+function navigate(page, pushHistory = true) {
   // 检查功能开关
   if (page !== 'home' && page !== 'profile' && !isFeatureEnabled(page)) {
     toast('该功能暂未开放'); return;
@@ -1252,6 +1250,14 @@ function navigate(page) {
   if (ni) ni.classList.add('active');
   closeSidebar();
   window.scrollTo(0, 0);
+
+  // 记录导航历史
+  if (pushHistory) {
+    if (_navHistory[_navHistory.length - 1] !== page) {
+      _navHistory.push(page);
+      if (_navHistory.length > 20) _navHistory.shift();
+    }
+  }
 
   // 记录常用功能
   trackFrequentFunc(page);
@@ -1285,6 +1291,15 @@ function toggleSidebar() {
 function closeSidebar() {
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('overlay-bg').classList.remove('show');
+}
+function goBack() {
+  if (_navHistory.length > 1) {
+    _navHistory.pop();
+    const prev = _navHistory[_navHistory.length - 1];
+    navigate(prev, false);
+  } else {
+    navigate('home', false);
+  }
 }
 function toggleSidebarCollapse() {
   const m = document.getElementById('main');
@@ -1590,7 +1605,7 @@ async function loadHome() {
     document.getElementById('today-xp').textContent = td.xp_earned || 0;
     document.getElementById('today-time').textContent = Math.round((td.study_seconds || 0) / 60);
     document.getElementById('today-activities').textContent = td.activity_count || 0;
-    document.getElementById('today-total-xp').textContent = totalXp;
+
 
     // 每日目标
     const goals = dg.goals || {};
@@ -1996,7 +2011,7 @@ async function finishSrs() {
       <div style="font-size:13px;color:var(--text-sub);margin-bottom:24px">正确率</div>
       <div style="display:flex;gap:10px;justify-content:center">
         <button class="btn btn-outline" onclick="loadSrs()">再复习一次</button>
-        <button class="btn btn-primary" onclick="navigate('home')">返回首页</button>
+        <button class="btn btn-primary" onclick="goBack()">返回</button>
       </div>
     </div>`;
 }
@@ -2681,22 +2696,6 @@ async function loadProfile() {
         <p style="margin-top:4px">${levelBadge(u.level || 'N5')}</p>
       </div>
       <hr class="divider">
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;text-align:center;margin-bottom:20px">
-        <div><div style="font-size:28px;font-weight:800;color:var(--primary)">${u.streak_days ?? 0}</div><div style="font-size:12px;color:var(--text-sub)">🔥 连续天数</div></div>
-        <div><div style="font-size:28px;font-weight:800;color:var(--success)">${u.total_study_minutes ?? 0}</div><div style="font-size:12px;color:var(--text-sub)">⏱ 学习分钟</div></div>
-        <div><div style="font-size:28px;font-weight:800;color:var(--warning)">${srsStats.total ?? 0}</div><div style="font-size:12px;color:var(--text-sub)">📂 SRS 总卡片</div></div>
-      </div>
-      ${daily.length ? `
-        <div class="card-title">📅 最近7天学习</div>
-        <div style="display:flex;gap:8px;align-items:flex-end;height:80px">
-          ${daily.map(d => {
-            const secs = parseInt(d.total_seconds || d.totalSeconds || 0);
-            const mn = Math.max(1, Math.round(secs/60));
-            const h = Math.min(100, mn * 5);
-            return `<div style="flex:1;background:var(--primary);border-radius:4px 4px 0 0;height:${h}%;min-height:4px;opacity:.85" title="${d.date}: ${mn}分钟"></div>`;
-          }).join('')}
-        </div>` : ''}
-      <hr class="divider">
       <div class="card-title" style="margin-top:8px">⚙ 修改设置</div>
       <div class="input-group">
         <label>每日目标（分钟）</label>
@@ -2962,13 +2961,15 @@ function showKanaPractice(romaji, hira, kata) {
 
   speakJa(hira);
 
-  // Build SVG animation area(s) for info view
+  // Build SVG animation area — matches app layout
+  const animSize = isMulti ? 140 : 200;
   let svgAnimHtml;
   if (isMulti) {
-    svgAnimHtml = `<div style="display:flex;gap:8px;justify-content:center;margin-top:16px">` +
-      chars.map((ch, i) => `<div style="text-align:center"><div style="font-size:12px;color:var(--text-hint);margin-bottom:4px">${escHtml(ch)}</div><div id="kana-stroke-anim-area-${i}" style="position:relative;width:140px;height:140px;background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden"></div></div>`).join('') + `</div>`;
+    svgAnimHtml = `<div style="display:flex;gap:8px;justify-content:center">`
+      + chars.map((ch, i) => `<div style="flex:1;max-width:${animSize}px"><div id="kana-stroke-anim-area-${i}" style="position:relative;width:100%;padding-top:100%;background:var(--surface);border-radius:12px;overflow:hidden"></div></div>`).join('')
+      + `</div>`;
   } else {
-    svgAnimHtml = `<div id="kana-stroke-anim-area-0" style="margin-top:16px;position:relative;width:200px;height:200px;margin-left:auto;margin-right:auto;background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden"></div>`;
+    svgAnimHtml = `<div id="kana-stroke-anim-area-0" style="position:relative;width:${animSize}px;height:${animSize}px;margin:0 auto;background:var(--surface);border-radius:12px;overflow:hidden"></div>`;
   }
 
   // Build character selector for practice view (multi-char)
@@ -2978,16 +2979,19 @@ function showKanaPractice(romaji, hira, kata) {
     : '';
 
   const html = `
-    <div id="kana-practice-info" style="text-align:center">
-      <div style="font-size:88px;font-weight:900;color:var(--primary);line-height:1.1">${escHtml(displayKana)}</div>
-      <div style="font-size:20px;font-weight:600;color:var(--text-secondary);margin:4px 0">${escHtml(romaji)}</div>
-      <div style="display:inline-block;background:var(--primary-bg);color:var(--primary);padding:4px 12px;border-radius:8px;font-size:14px;margin-bottom:20px">${escHtml(otherLabel)}: ${escHtml(otherKana)}</div>
-      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:8px">
-        <button class="btn btn-sm" onclick="speakJa('${escHtml(hira)}')" style="padding:8px 20px;border-radius:14px">🔊 发音</button>
-        <button class="btn btn-sm" onclick="playKanaStrokeAnim()" style="padding:8px 20px;border-radius:14px" id="kana-anim-btn">▶ 笔顺</button>
-        <button class="btn btn-sm" onclick="startKanaPractice()" style="background:var(--primary);color:#fff;padding:8px 20px;border-radius:14px">✏️ 书写练习</button>
+    <div id="kana-practice-info">
+      <div style="background:var(--bg2);border-radius:16px;padding:24px 16px;text-align:center">
+        ${svgAnimHtml}
+        <div style="margin-top:14px;display:flex;align-items:center;justify-content:center;gap:10px">
+          <span style="font-size:18px;font-weight:600;color:var(--text-secondary)">${escHtml(romaji)}</span>
+          <span style="background:var(--primary-bg);color:var(--primary);padding:3px 10px;border-radius:8px;font-size:13px">${escHtml(otherLabel)}: ${escHtml(otherKana)}</span>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px">
+          <button class="btn btn-outline btn-sm" onclick="speakJa('${escHtml(hira)}')" style="padding:8px 18px;border-radius:14px;display:flex;align-items:center;gap:4px"><span style='font-size:16px'>🔊</span> 发音</button>
+          <button class="btn btn-outline btn-sm" onclick="speakJaSlow('${escHtml(hira)}')" style="padding:8px 18px;border-radius:14px;display:flex;align-items:center;gap:4px;color:var(--warning);border-color:var(--warning)"><span style='font-size:16px'>🐌</span> 慢速</button>
+          <button class="btn btn-outline btn-sm" onclick="playKanaStrokeAnim()" style="padding:8px 18px;border-radius:14px;display:flex;align-items:center;gap:4px" id="kana-anim-btn"><span style='font-size:16px'>🔄</span> 重播</button>
+        </div>
       </div>
-      ${svgAnimHtml}
     </div>
     <div id="kana-practice-canvas-area" style="display:none">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -3008,11 +3012,13 @@ function showKanaPractice(romaji, hira, kata) {
       </div>
     </div>`;
 
-  openModal(displayKana + ' - 五十音', html);
-  // Load SVG(s) for stroke animation in info area
-  _kanaPracticeChars.forEach((c, i) => {
-    _loadKanaSvg(c.svgUrl, 'kana-stroke-anim-area-' + i, true);
-  });
+  openModal(displayKana , html);
+  // Load SVG(s) for stroke animation — sequential for multi-char yōon
+  if (isMulti) {
+    _loadKanaSvgChain(0);
+  } else {
+    _loadKanaSvg(_kanaPracticeChars[0].svgUrl, 'kana-stroke-anim-area-0', true);
+  }
 }
 
 let _currentKanaSvgUrl = '';
@@ -3027,6 +3033,9 @@ function _loadKanaSvg(svgUrl, containerId, autoPlay) {
       container.innerHTML = svgText;
       const svg = container.querySelector('svg');
       if (!svg) return;
+      // Handle both fixed-size and padding-top aspect-ratio containers
+      svg.style.position = 'absolute';
+      svg.style.inset = '0';
       svg.style.width = '100%';
       svg.style.height = '100%';
       svg.style.display = 'block';
@@ -3122,13 +3131,82 @@ function _animateStrokes(svg) {
   _kanaSvgAnimId = requestAnimationFrame(tick);
 }
 
+// Sequential chain-load for multi-char yōon: play one after another
+function _loadKanaSvgChain(idx) {
+  if (idx >= _kanaPracticeChars.length) return;
+  const c = _kanaPracticeChars[idx];
+  const containerId = 'kana-stroke-anim-area-' + idx;
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  fetch(c.svgUrl)
+    .then(r => r.text())
+    .then(svgText => {
+      container.innerHTML = svgText;
+      const svg = container.querySelector('svg');
+      if (!svg) return;
+      svg.style.position = 'absolute';
+      svg.style.inset = '0';
+      svg.style.width = '100%';
+      svg.style.height = '100%';
+      svg.style.display = 'block';
+      svg.querySelector('[data-strokesvg="shadows"]')?.setAttribute('style', 'fill:rgba(0,0,0,0.08)');
+      _setupStrokeAnim(svg, false);
+      _animateStrokesWithCallback(svg, () => _loadKanaSvgChain(idx + 1));
+    })
+    .catch(() => { _loadKanaSvgChain(idx + 1); });
+}
+
+// Animate strokes then call onDone
+function _animateStrokesWithCallback(svg, onDone) {
+  if (!svg || !svg._strokePaths || svg._strokePaths.length === 0) { onDone?.(); return; }
+  const strokePaths = svg._strokePaths;
+  for (const s of strokePaths) {
+    for (const p of s.paths) p.setAttribute('stroke-dashoffset', p._totalLen);
+  }
+  cancelAnimationFrame(_kanaSvgAnimId);
+  svg._animState = 'playing';
+  const totalStrokes = strokePaths.length;
+  const msPerStroke = 500;
+  const totalMs = msPerStroke * totalStrokes + 200;
+  const startTime = performance.now();
+  function tick(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / totalMs, 1);
+    for (let i = 0; i < totalStrokes; i++) {
+      const strokeStart = i / totalStrokes;
+      const strokeEnd = (i + 1) / totalStrokes;
+      let frac = progress >= strokeEnd ? 1 : progress <= strokeStart ? 0 : (progress - strokeStart) / (strokeEnd - strokeStart);
+      for (const p of strokePaths[i].paths) p.setAttribute('stroke-dashoffset', p._totalLen * (1 - frac));
+    }
+    if (progress < 1) { _kanaSvgAnimId = requestAnimationFrame(tick); }
+    else { svg._animState = 'done'; onDone?.(); }
+  }
+  _kanaSvgAnimId = requestAnimationFrame(tick);
+}
+
 function playKanaStrokeAnim() {
+  // Reset all strokes first
   _kanaPracticeChars.forEach((c, i) => {
     const area = document.getElementById('kana-stroke-anim-area-' + i);
     if (!area) return;
     const svg = area.querySelector('svg');
-    if (svg) _animateStrokes(svg);
+    if (svg && svg._strokePaths) {
+      for (const s of svg._strokePaths) {
+        for (const p of s.paths) p.setAttribute('stroke-dashoffset', p._totalLen);
+      }
+    }
   });
+  // Play sequentially
+  _playKanaStrokeChain(0);
+}
+
+function _playKanaStrokeChain(idx) {
+  if (idx >= _kanaPracticeChars.length) return;
+  const area = document.getElementById('kana-stroke-anim-area-' + idx);
+  if (!area) return;
+  const svg = area.querySelector('svg');
+  if (!svg) return;
+  _animateStrokesWithCallback(svg, () => _playKanaStrokeChain(idx + 1));
 }
 
 function startKanaPractice() {
@@ -3322,6 +3400,13 @@ function loadKanaTest() {
   _ktRenderSetup();
 }
 
+function _ktExitTest() {
+  if (_ktScores.length > 0 && !_ktFinished) {
+    if (!confirm('\u6d4b\u8bd5\u8fdb\u884c\u4e2d\uff0c\u786e\u5b9a\u8981\u9000\u51fa\u5417\uff1f')) return;
+  }
+  _ktRenderSetup();
+}
+
 function _ktRenderSetup() {
   _ktFinished = false;
   _ktScored = false;
@@ -3352,7 +3437,7 @@ function _ktRenderSetup() {
           ${[5,10,15,20].map(n => `<div class="chip ${_ktCount===n?'active':''}" onclick="_ktSetCount(${n})">${n}</div>`).join('')}
         </div>
       </div>
-      <button class="btn" onclick="_ktStart()" style="width:100%;padding:14px;font-size:16px;font-weight:700;background:var(--primary);color:#fff;border-radius:14px">开始测试</button>
+      <button class="btn" onclick="_ktStart()" style="width:100%;padding:14px;font-size:16px;font-weight:700;background:var(--primary);color:#fff;border-radius:14px">▶ 开始测试</button>
     </div>`;
 }
 
@@ -3382,7 +3467,7 @@ function _ktGenerateQuestions() {
         allKana.push({kana: hira, romaji, isKatakana: false});
       }
       if (_ktCategory === 'katakana' || _ktCategory === 'mixed') {
-        allKana.push({kana: kata, romaji, isKatakana: false});
+        allKana.push({kana: kata, romaji, isKatakana: true});
       }
     }
   }
@@ -3414,18 +3499,28 @@ function _ktRenderQuestion() {
   const svgFolder = _isKatakana(q.kana) ? 'katakana' : 'hiragana';
   const svgUrl = `svg/kana/${svgFolder}/${encodeURIComponent(q.kana)}.svg`;
   const container = document.getElementById('kana-test-content');
+  const avgScoreHtml = _ktScores.length > 0
+    ? `<span style="font-size:13px;color:var(--text-hint)">平均 ${Math.round(_ktScores.reduce((a,b)=>a+b,0)/_ktScores.length)}分</span>`
+    : '';
+  const kanaTypeLabel = q.isKatakana ? '片假名' : '平假名';
+  const kanaTypeBg = q.isKatakana ? '#e3f2fd' : '#fce4ec';
+  const kanaTypeColor = q.isKatakana ? '#1565c0' : '#c62828';
   container.innerHTML = `
     <div style="max-width:500px;margin:0 auto">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <span onclick="_ktExitTest()" style="cursor:pointer;font-size:18px;color:var(--text-hint);padding:4px 8px" title="\u9000\u51fa\u6d4b\u8bd5">\u2716</span>
         <span style="font-size:14px;color:var(--text-secondary)">${_ktCurrent+1} / ${_ktQuestions.length}</span>
         <div style="flex:1;margin:0 12px;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden">
           <div style="height:100%;background:var(--primary);border-radius:3px;width:${(_ktCurrent/_ktQuestions.length)*100}%;transition:width .3s"></div>
         </div>
+        ${avgScoreHtml}
       </div>
-      <div style="text-align:center;margin-bottom:16px">
-        <div style="font-size:14px;color:var(--text-hint);margin-bottom:4px">请写出这个假名</div>
-        <div style="font-size:48px;font-weight:900;color:var(--primary)">${escHtml(q.romaji)}</div>
-        <button class="btn btn-sm" onclick="_ktPlayPrompt()" style="margin-top:8px;padding:6px 16px;border-radius:12px">🔊 发音</button>
+      <div style="background:var(--primary-bg);border-radius:16px;padding:16px;text-align:center;margin-bottom:16px">
+        <div style="font-size:13px;color:var(--text-hint);margin-bottom:4px">请写出以下 <span style="display:inline-block;font-size:11px;padding:1px 8px;border-radius:6px;background:${kanaTypeBg};color:${kanaTypeColor};font-weight:600">${kanaTypeLabel}</span></div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:8px">
+          <span style="font-size:48px;font-weight:900;color:var(--primary)">${escHtml(q.romaji)}</span>
+          <span onclick="_ktPlayPrompt()" style="cursor:pointer;font-size:22px;color:var(--primary)" title="发音">🔊</span>
+        </div>
       </div>
       <div id="kt-canvas-area" style="position:relative;width:100%;max-width:360px;margin:0 auto">
         <div style="position:relative;width:100%;padding-top:100%;background:#fff;border-radius:16px;border:1px solid var(--border);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)">
@@ -3512,7 +3607,7 @@ function _ktInitCanvas() {
     _ktCurrentStroke.push(getPos(e));
     _ktRedraw();
   };
-  cvs.onpointerup = cvs.onpointercancel = () => {
+  const _ktFinishStroke = () => {
     if (_ktDrawing && _ktCurrentStroke.length > 0) {
       _ktStrokes.push([..._ktCurrentStroke]);
     }
@@ -3520,6 +3615,8 @@ function _ktInitCanvas() {
     _ktCurrentStroke = [];
     _ktRedraw();
   };
+  cvs.onpointerup = cvs.onpointercancel = _ktFinishStroke;
+  cvs.onlostpointercapture = _ktFinishStroke;
 }
 
 function _ktDrawGrid() {
@@ -3580,6 +3677,12 @@ function _ktToggleRef() {
 }
 
 function _ktSubmit() {
+  // Flush any pending stroke that wasn't committed (Android pointerup reliability issue)
+  if (_ktDrawing && _ktCurrentStroke.length > 0) {
+    _ktStrokes.push([..._ktCurrentStroke]);
+    _ktDrawing = false;
+    _ktCurrentStroke = [];
+  }
   if (_ktStrokes.length === 0) { toast('请先书写假名'); return; }
   const score = _ktCalcScore();
   _ktCurrentScore = score;
@@ -3640,9 +3743,13 @@ function _ktShowResult() {
         ${_ktQuestions.map((q, i) => {
           const s = _ktScores[i] || 0;
           const c = s >= 80 ? '#4caf50' : s >= 50 ? '#ff9800' : '#f44336';
+          const kanaTypeTag = q.isKatakana ? '片' : '平';
+          const kanaTypeBg = q.isKatakana ? '#e3f2fd' : '#fce4ec';
+          const kanaTypeColor = q.isKatakana ? '#1565c0' : '#c62828';
           return `<div style="display:flex;align-items:center;padding:8px 12px;background:var(--bg2);border-radius:10px;margin-bottom:6px">
             <span style="width:28px;font-size:13px;color:var(--text-hint)">${i+1}</span>
             <span style="font-size:20px;font-weight:700;width:40px">${escHtml(q.kana)}</span>
+            <span style="font-size:10px;padding:1px 5px;border-radius:4px;background:${kanaTypeBg};color:${kanaTypeColor};margin-right:6px">${kanaTypeTag}</span>
             <span style="font-size:13px;color:var(--text-secondary);flex:1">${escHtml(q.romaji)}</span>
             <span style="font-size:16px;font-weight:800;color:${c}">${s}</span>
           </div>`;
@@ -3650,6 +3757,7 @@ function _ktShowResult() {
       </div>
       <div style="display:flex;gap:12px;justify-content:center">
         <button class="btn" onclick="_ktRenderSetup()" style="padding:12px 28px;font-size:15px;border-radius:14px">重新开始</button>
+        <button class="btn" onclick="goBack()" style="padding:12px 28px;font-size:15px;border-radius:14px;background:var(--primary);color:#fff">返回</button>
       </div>
     </div>`;
 }
@@ -3932,7 +4040,7 @@ function showTdfResult() {
       <div style="font-size:13px;color:var(--text-sub);margin-bottom:24px">正确率</div>
       <div style="display:flex;gap:10px;justify-content:center">
         <button class="btn btn-outline" onclick="loadTodofuken()">重新选择</button>
-        <button class="btn btn-primary" onclick="navigate('home')">返回首页</button>
+        <button class="btn btn-primary" onclick="goBack()">返回</button>
       </div>
     </div>`;
 }
