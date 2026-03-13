@@ -76,7 +76,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             behavior: SnackBarBehavior.floating,
             action: SnackBarAction(
               label: '查看词汇',
-              onPressed: () => context.go('/vocabulary'),
+              onPressed: () => context.push('/vocabulary'),
             ),
           ),
         );
@@ -639,7 +639,7 @@ class _SrsReviewBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.go('/srs-review'),
+      onTap: () => context.push('/srs-review'),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         decoration: BoxDecoration(

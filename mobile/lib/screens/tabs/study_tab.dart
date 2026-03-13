@@ -51,7 +51,7 @@ class StudyTab extends StatelessWidget {
           _StudyCard(
             icon: Icons.headphones_rounded,
             title: '听力练习',
-            subtitle: '提升听力 · 磨耳朵训练',
+            subtitle: '听力提升 · 例句听写录音AI比对',
             color: const Color(0xFF9C27B0),
             onTap: () => context.push('/listening'),
           ),

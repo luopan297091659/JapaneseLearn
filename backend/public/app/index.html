@@ -298,6 +298,7 @@ ul { list-style: none; }
   padding: 14px 18px; border-radius: var(--radius-sm); border: 2px solid var(--border);
   margin-bottom: 10px; cursor: pointer; font-size: 15px; font-weight: 500;
   transition: all .15s; background: var(--surface);
+  word-break: break-word; line-height: 1.5;
 }
 .quiz-option:hover:not(.selected):not(.correct):not(.wrong) { border-color: var(--primary); background: var(--primary-light); }
 .quiz-option.selected { border-color: var(--primary); background: var(--primary-light); }
@@ -482,7 +483,7 @@ ul { list-style: none; }
       <div class="nav-item" data-page="gojuon" onclick="navigate('gojuon')"><span class="icon">🔤</span>五十音</div>
       <div class="nav-item" data-page="vocabulary" onclick="navigate('vocabulary')"><span class="icon">📖</span>单词</div>
       <div class="nav-item" data-page="grammar" onclick="navigate('grammar')"><span class="icon">📝</span>文法</div>
-      <div class="nav-item" data-page="listening" onclick="navigate('listening')"><span class="icon">🎧</span>听力</div>
+      <div class="nav-item" data-page="listening-study" onclick="navigate('listening-study')"><span class="icon">🎧</span>听力练习</div>
       <div class="nav-item" data-page="pronunciation" onclick="navigate('pronunciation')"><span class="icon">🎤</span>发音练习</div>
       <div class="nav-item" data-page="flashcard" onclick="navigate('flashcard')"><span class="icon">🃏</span>闪卡练习</div>
       <div class="nav-item" data-page="srs" onclick="navigate('srs')"><span class="icon">🗂️</span>SRS 复习</div>
@@ -493,9 +494,10 @@ ul { list-style: none; }
       <div class="nav-item" data-page="dictionary" onclick="navigate('dictionary')"><span class="icon">🔍</span>词典</div>
       <div class="nav-item" data-page="news" onclick="navigate('news')"><span class="icon">📰</span>新闻</div>
       <div class="nav-section">测试</div>
-      <div class="nav-item" data-page="quiz" onclick="navigate('quiz')"><span class="icon">✏️</span>测验</div>
+      <div class="nav-item" data-page="quiz" onclick="navigate('quiz')"><span class="icon">✏️</span>单词测验</div>
       <div class="nav-item" data-page="kana-test" onclick="navigate('kana-test')"><span class="icon">✍️</span>五十音书写</div>
       <div class="nav-item" data-page="todofuken" onclick="navigate('todofuken')"><span class="icon">🗾</span>都道府県</div>
+      <div class="nav-item" data-page="listening-exercise" onclick="navigate('listening-exercise')"><span class="icon">👂</span>听力测试</div>
       <div class="nav-section">账号</div>
       <div class="nav-item" data-page="profile" onclick="navigate('profile')"><span class="icon">👤</span>我的</div>
       <div class="nav-footer">
@@ -632,6 +634,9 @@ ul { list-style: none; }
             <div class="quick-action" onclick="navigate('quiz')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
               <div style="font-size:24px">✏️</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">做测验</div>
             </div>
+            <div class="quick-action" onclick="navigate('listening-study')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
+              <div style="font-size:24px">👂</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">听力练习</div>
+            </div>
             <div class="quick-action" onclick="navigate('todofuken')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
               <div style="font-size:24px">🗾</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">都道府県</div>
             </div>
@@ -754,19 +759,163 @@ ul { list-style: none; }
         <div id="dict-results"></div>
       </div>
 
-      <!-- 听力页 -->
-      <div class="page" id="page-listening">
-        <h2 style="margin-bottom:20px;font-size:22px">🎧 聴解練習</h2>
-        <div class="chips" id="listen-level-chips">
-          <div class="chip active" onclick="selectListenLevel('N5')">N5</div>
-          <div class="chip" onclick="selectListenLevel('N4')">N4</div>
-          <div class="chip" onclick="selectListenLevel('N3')">N3</div>
-          <div class="chip" onclick="selectListenLevel('N2')">N2</div>
-          <div class="chip" onclick="selectListenLevel('N1')">N1</div>
-          <div class="chip" onclick="selectListenLevel(null)">全部</div>
+      <!-- 听力练习页 -->
+      <div class="page" id="page-listening-study">
+        <h2 style="margin-bottom:20px;font-size:22px">🎧 听力练习</h2>
+        <p style="color:var(--text-sub);margin-bottom:16px">听N5-N1例句，录音或输入文字进行AI比对评分</p>
+        <!-- 级别选择 -->
+        <div class="chips" id="ls-level-chips" style="margin-bottom:16px">
+          <div class="chip active" onclick="selectLsLevel('N5')">N5</div>
+          <div class="chip" onclick="selectLsLevel('N4')">N4</div>
+          <div class="chip" onclick="selectLsLevel('N3')">N3</div>
+          <div class="chip" onclick="selectLsLevel('N2')">N2</div>
+          <div class="chip" onclick="selectLsLevel('N1')">N1</div>
         </div>
-        <div id="listen-list"></div>
-        <div id="listen-loading" class="loading"><div class="spinner"></div></div>
+        <!-- 例句卡片 -->
+        <div id="ls-card" style="display:none">
+          <div class="card" style="padding:24px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+              <span id="ls-progress" style="color:var(--text-hint);font-size:13px">1 / 20</span>
+              <span id="ls-type-tag" style="font-size:11px;padding:2px 8px;border-radius:8px;background:var(--primary-light);color:var(--primary)">语法例句</span>
+            </div>
+            <div id="ls-title" style="font-size:12px;color:var(--text-hint);margin-bottom:12px;text-align:center"></div>
+            <!-- 播放区域 -->
+            <div style="text-align:center;padding:20px 0;background:var(--bg2);border-radius:12px;margin-bottom:16px">
+              <div style="font-size:36px;margin-bottom:8px">🎧</div>
+              <div style="color:var(--text-sub);font-size:14px;margin-bottom:12px">请仔细听这段日语</div>
+              <div style="display:flex;justify-content:center;gap:10px">
+                <button class="btn btn-primary" onclick="lsPlayAudio()">🔊 播放</button>
+                <button class="btn btn-outline" onclick="lsPlaySlow()">🐌 慢速</button>
+              </div>
+            </div>
+            <!-- 录音按钮 -->
+            <div style="text-align:center;margin-bottom:12px">
+              <button class="btn btn-primary" id="ls-rec-btn" onclick="lsToggleRecord()">🎙️ 录音比对</button>
+              <div id="ls-recording-hint" style="display:none;color:var(--danger);font-size:12px;margin-top:6px">🔴 正在聆听...请用日语说出你听到的内容</div>
+            </div>
+            <!-- 文字输入 -->
+            <div style="text-align:center;margin-bottom:12px">
+              <button class="btn btn-outline" id="ls-input-toggle" onclick="lsToggleInput()">✍️ 文字输入</button>
+              <div id="ls-input-area" style="display:none;margin-top:12px">
+                <div style="display:flex;gap:8px">
+                  <input type="text" class="input" id="ls-text-input" placeholder="输入你听到的日语..." style="flex:1" onkeydown="if(event.key==='Enter')lsSubmitText()">
+                  <button class="btn btn-primary btn-sm" onclick="lsSubmitText()">提交</button>
+                </div>
+              </div>
+            </div>
+            <!-- 评分结果 -->
+            <div id="ls-result" style="display:none;text-align:center;padding:16px 0">
+              <div id="ls-score" style="font-size:56px;font-weight:900"></div>
+              <div id="ls-feedback" style="font-size:14px;color:var(--text-sub);margin-top:4px"></div>
+            </div>
+            <!-- 原文显示 -->
+            <div id="ls-sentence-detail" style="display:none;background:var(--bg2);padding:16px;border-radius:10px;margin-top:12px">
+              <div style="font-size:13px;color:var(--text-hint);margin-bottom:6px">📝 原文</div>
+              <div id="ls-sentence" style="font-size:18px;font-weight:600;margin-bottom:4px"></div>
+              <div id="ls-reading" style="font-size:13px;color:var(--text-sub);margin-bottom:8px"></div>
+              <div id="ls-meaning" style="font-size:14px;color:var(--success);font-weight:600"></div>
+            </div>
+            <div id="ls-show-btn-area" style="text-align:center;margin-top:12px">
+              <button class="btn btn-outline btn-sm" onclick="lsShowSentence()">👁 显示原文</button>
+            </div>
+            <!-- 导航按钮 -->
+            <div style="display:flex;justify-content:space-between;margin-top:20px">
+              <button class="btn btn-outline btn-sm" id="ls-prev-btn" onclick="lsPrev()">← 上一句</button>
+              <button class="btn btn-outline btn-sm" id="ls-next-btn" onclick="lsNext()">下一句 →</button>
+            </div>
+          </div>
+        </div>
+        <!-- 统计 -->
+        <div id="ls-stats" class="card" style="display:none;margin-top:16px;padding:16px">
+          <div style="display:flex;justify-content:space-around;text-align:center">
+            <div><div id="ls-stat-count" style="font-size:22px;font-weight:700;color:var(--primary)">0</div><div style="font-size:12px;color:var(--text-hint)">已练习</div></div>
+            <div style="width:1px;background:var(--border)"></div>
+            <div><div id="ls-stat-avg" style="font-size:22px;font-weight:700">-</div><div style="font-size:12px;color:var(--text-hint)">平均分</div></div>
+            <div style="width:1px;background:var(--border)"></div>
+            <div><div id="ls-stat-level" style="font-size:22px;font-weight:700;color:var(--primary)">N5</div><div style="font-size:12px;color:var(--text-hint)">当前级别</div></div>
+          </div>
+        </div>
+        <!-- 加载中 / 空 -->
+        <div id="ls-loading" style="text-align:center;padding:40px 0"><div class="spinner"></div></div>
+        <div id="ls-empty" style="display:none;text-align:center;padding:40px 0;color:var(--text-sub)">
+          <div style="font-size:48px;margin-bottom:12px">🎧</div>
+          <div>暂无例句数据</div>
+          <button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="loadListeningStudy()">重试</button>
+        </div>
+      </div>
+
+      <!-- 听力页 -->
+      <!-- 听力测试页 -->
+      <div class="page" id="page-listening-exercise">
+        <h2 style="margin-bottom:20px;font-size:22px">👂 听力测试</h2>
+        <p style="color:var(--text-sub);margin-bottom:16px">听日语例句，选出正确的中文翻译</p>
+        <!-- 设置阶段 -->
+        <div id="le-setup">
+          <div class="card" style="padding:24px">
+            <div class="card-title" style="justify-content:center">🎯 测试设置</div>
+            <div class="input-group">
+              <label>级别</label>
+              <select class="input" id="le-level">
+                <option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <label>题数</label>
+              <select class="input" id="le-count">
+                <option>5</option><option selected>10</option><option>15</option><option>20</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="startListeningExercise()">开始测试</button>
+            <div id="le-error" style="color:var(--danger);font-size:13px;margin-top:8px;display:none"></div>
+          </div>
+        </div>
+        <!-- 答题阶段 -->
+        <div id="le-playing" style="display:none">
+          <div class="card">
+            <div class="quiz-progress-row">
+              <div class="quiz-num" id="le-num">1 / 10</div>
+              <div class="progress-bar" style="flex:1"><div class="fill" id="le-prog-bar" style="width:10%"></div></div>
+            </div>
+            <!-- 音频播放区 -->
+            <div style="text-align:center;padding:20px 0;background:var(--bg2);border-radius:12px;margin-bottom:16px">
+              <div style="font-size:36px;margin-bottom:12px">🎧</div>
+              <div style="color:var(--text-sub);font-size:14px;margin-bottom:12px">请仔细听这段日语</div>
+              <audio id="le-audio" style="display:none"></audio>
+              <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap">
+                <button class="btn btn-primary" onclick="lePlayAudio()" id="le-play-btn">🔊 播放</button>
+                <button class="btn btn-outline" onclick="lePlaySlow()">🐌 慢速</button>
+              </div>
+              <div id="le-source-tag" style="margin-top:8px;font-size:11px;color:var(--text-hint)"></div>
+            </div>
+            <div style="font-weight:600;margin-bottom:12px;color:var(--text-sub)">这段日语是什么意思？</div>
+            <div id="le-options"></div>
+            <!-- 答题后显示原文 -->
+            <div id="le-detail" style="display:none;background:var(--bg2);padding:16px;border-radius:10px;margin-top:16px">
+              <div style="font-size:13px;color:var(--text-hint);margin-bottom:6px">📝 原文</div>
+              <div id="le-sentence" style="font-size:18px;font-weight:600;margin-bottom:4px"></div>
+              <div id="le-reading" style="font-size:13px;color:var(--text-sub);margin-bottom:8px"></div>
+              <div id="le-correct-text" style="font-size:14px;color:var(--success);font-weight:600"></div>
+              <div id="le-grammar-info" style="font-size:12px;color:var(--text-hint);margin-top:6px"></div>
+            </div>
+            <div style="text-align:right;margin-top:16px">
+              <button class="btn btn-primary btn-sm" id="le-next-btn" onclick="leNextQ()" style="display:none">下一题 →</button>
+            </div>
+          </div>
+        </div>
+        <!-- 结果阶段 -->
+        <div id="le-result" style="display:none">
+          <div class="card" style="text-align:center">
+            <div class="card-title" style="justify-content:center">🎉 练习完成！</div>
+            <div class="result-ring" id="le-result-ring" style="--pct:0turn">
+              <div class="inner" id="le-result-pct">0%</div>
+            </div>
+            <div style="font-size:15px;color:var(--text-sub)" id="le-result-summary"></div>
+            <div style="margin-top:20px;display:flex;gap:10px;justify-content:center">
+              <button class="btn btn-outline" onclick="showLeSetup()">再来一次</button>
+              <button class="btn btn-primary" onclick="goBack()">返回</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 发音练习页 -->
@@ -1022,18 +1171,18 @@ ul { list-style: none; }
 
       <!-- 50音書写テスト -->
       <div class="page" id="page-kana-test">
-        <h2 style="margin-bottom:20px;font-size:22px">✍️ 50音书写测试</h2>
+        <h2 style="margin-bottom:20px;font-size:22px">✍️ 五十音书写</h2>
         <div id="kana-test-content"></div>
       </div>
 
-      <!-- 都道府県クイズ -->
+      <!-- 都道府県竞答 -->
       <div class="page" id="page-todofuken">
-        <h2 style="margin-bottom:20px;font-size:22px">🗾 都道府県クイズ</h2>
+        <h2 style="margin-bottom:20px;font-size:22px">🗾 都道府県竞答</h2>
         <!-- 地区选择阶段 -->
         <div id="tdf-setup">
           <div class="card" style="text-align:center;padding:30px">
             <div style="font-size:48px;margin-bottom:16px">🗾</div>
-            <div style="font-size:18px;font-weight:700;margin-bottom:8px">选择地区开始测验</div>
+            <div style="font-size:18px;font-weight:700;margin-bottom:8px">选择地区开始竞答</div>
             <div style="font-size:13px;color:var(--text-sub);margin-bottom:20px">学习 47 个都道府県的读音</div>
           </div>
           <div class="grid-2" id="tdf-regions" style="gap:10px;margin-top:16px"></div>
@@ -1268,7 +1417,6 @@ function navigate(page, pushHistory = true) {
     case 'vocabulary': if (!vocabLoaded) loadVocab(); break;
     case 'grammar': if (!grammarLoaded) loadGrammar(); break;
     case 'srs': loadSrs(); break;
-    case 'listening': if (!listenLoaded) loadListening(); break;
     case 'news': if (newsTab === 'nhk') { if (!nhkLoaded) loadNhkNews(); } else if (newsTab === 'fav') { loadFavNews(); } else { if (!newsLoaded) loadNews(); } break;
     case 'profile': loadProfile(); break;
     case 'game': gamePageInit('particles'); break;
@@ -1278,6 +1426,8 @@ function navigate(page, pushHistory = true) {
     case 'gojuon': loadGojuon(); break;
     case 'kana-test': loadKanaTest(); break;
     case 'todofuken': loadTodofuken(); break;
+    case 'listening-exercise': showLeSetup(); break;
+    case 'listening-study': loadListeningStudy(); break;
   }
 }
 
@@ -1398,7 +1548,8 @@ const PAGE_META = {
   game:          { icon: '🎮', name: '助词方块' },
   'game-verbs':  { icon: '🎮', name: '动词方块' },
   dictionary:    { icon: '🔍', name: '词典查询' },
-  listening:     { icon: '🎧', name: '听力练习' },
+  'listening-exercise': { icon: '👂', name: '听力测试' },
+  'listening-study': { icon: '🎧', name: '听力练习' },
   news:          { icon: '📰', name: '日语新闻' },
   profile:       { icon: '👤', name: '我的' },
   pronunciation: { icon: '🎤', name: '发音练习' },
@@ -2155,60 +2306,356 @@ async function searchDict() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  LISTENING
+//  LISTENING STUDY (听力练习 - 例句听写 + AI比对)
 // ══════════════════════════════════════════════════════════════════
-let listenLoaded = false, listenLevel = 'N5';
+let _lsSentences = [], _lsIdx = 0, _lsLevel = 'N5', _lsScores = [];
+let _lsRecording = false, _lsRecognition = null;
 
-function selectListenLevel(l) {
-  listenLevel = l; listenLoaded = false;
-  document.querySelectorAll('#listen-level-chips .chip').forEach((c,i) => {
-    const lvls = ['N5','N4','N3','N2','N1', null];
-    c.classList.toggle('active', lvls[i] === l);
+function selectLsLevel(level) {
+  _lsLevel = level;
+  document.querySelectorAll('#ls-level-chips .chip').forEach(c => {
+    c.classList.toggle('active', c.textContent.trim() === level);
   });
-  loadListening();
+  _lsSentences = []; _lsIdx = 0; _lsScores = [];
+  loadListeningStudy();
 }
 
-async function loadListening() {
-  document.getElementById('listen-loading').style.display = '';
-  document.getElementById('listen-list').innerHTML = '';
-  let url = '/listening?page=1';
-  if (listenLevel) url += `&level=${listenLevel}`;
+async function loadListeningStudy() {
+  document.getElementById('ls-card').style.display = 'none';
+  document.getElementById('ls-stats').style.display = 'none';
+  document.getElementById('ls-loading').style.display = '';
+  document.getElementById('ls-empty').style.display = 'none';
   try {
-    const res = await GET(url);
-    const tracks = res.data || [];
-    listenLoaded = true;
-    const el = document.getElementById('listen-list');
-    if (tracks.length === 0) {
-      el.innerHTML = '<div class="empty-state"><div class="icon">🎧</div><p>暂无听力材料</p></div>';
-    } else {
-      el.innerHTML = tracks.map(t => `
-        <div class="track-card" style="margin-bottom:12px" onclick="showTrackPlayer('${escHtml(t.id)}', '${escHtml(t.title || '')}', '${escHtml(t.audio_url || '')}')">
-          <div class="play-icon">▶</div>
-          <div style="flex:1">
-            <div class="track-title">${escHtml(t.title || '')}</div>
-            <div class="track-sub">
-              ${t.duration_seconds ? `${Math.round(t.duration_seconds/60)} 分 ` : ''}
-              ${t.category ? t.category : ''}
-              ${t.jlpt_level ? ` · ${t.jlpt_level}` : ''}
-            </div>
-          </div>
-          <span style="font-size:12px;color:var(--text-hint)">▶ ${t.play_count || 0}</span>
-        </div>
-      `).join('');
+    const res = await GET(`/listening/exercise?level=${_lsLevel}&count=20&source=all`);
+    _lsSentences = res.data || [];
+    _lsIdx = 0; _lsScores = [];
+    if (_lsSentences.length === 0) {
+      document.getElementById('ls-loading').style.display = 'none';
+      document.getElementById('ls-empty').style.display = '';
+      return;
     }
-  } catch(e) { toast('听力内容加载失败: ' + e.message); }
-  document.getElementById('listen-loading').style.display = 'none';
+    document.getElementById('ls-loading').style.display = 'none';
+    document.getElementById('ls-card').style.display = '';
+    document.getElementById('ls-stats').style.display = '';
+    document.getElementById('ls-stat-level').textContent = _lsLevel;
+    renderLsSentence();
+    updateLsStats();
+  } catch(e) {
+    document.getElementById('ls-loading').style.display = 'none';
+    document.getElementById('ls-empty').style.display = '';
+  }
 }
 
-function showTrackPlayer(id, title, audioUrl) {
-  if (!audioUrl) { toast('暂无音频'); return; }
-  openModal(title, `
-    <div class="audio-player">
-      <audio controls autoplay src="${escHtml(audioUrl)}" style="width:100%"></audio>
-    </div>
-    <p style="font-size:13px;color:var(--text-sub);margin-top:12px;text-align:center">
-      如无法播放，请检查浏览器是否支持该格式
-    </p>`);
+function renderLsSentence() {
+  const s = _lsSentences[_lsIdx];
+  document.getElementById('ls-progress').textContent = `${_lsIdx + 1} / ${_lsSentences.length}`;
+  document.getElementById('ls-type-tag').textContent = s.type === 'grammar' ? '语法例句' : '词汇例句';
+  document.getElementById('ls-title').textContent = s.grammar_title || s.word || '';
+  document.getElementById('ls-result').style.display = 'none';
+  document.getElementById('ls-sentence-detail').style.display = 'none';
+  document.getElementById('ls-show-btn-area').style.display = '';
+  document.getElementById('ls-rec-btn').textContent = '🎙️ 录音比对';
+  document.getElementById('ls-recording-hint').style.display = 'none';
+  document.getElementById('ls-input-area').style.display = 'none';
+  document.getElementById('ls-text-input').value = '';
+  document.getElementById('ls-prev-btn').disabled = _lsIdx <= 0;
+  document.getElementById('ls-next-btn').disabled = _lsIdx >= _lsSentences.length - 1;
+}
+
+function lsPlayAudio() {
+  if (_lsSentences.length === 0) return;
+  const s = _lsSentences[_lsIdx];
+  if (s.audio_url) {
+    const a = new Audio(s.audio_url.startsWith('/') ? location.origin + s.audio_url : s.audio_url);
+    a.playbackRate = 1.0;
+    a.play().catch(() => speakJa(s.sentence, 0.8));
+  } else {
+    speakJa(s.sentence, 0.8);
+  }
+}
+
+function lsPlaySlow() {
+  if (_lsSentences.length === 0) return;
+  const s = _lsSentences[_lsIdx];
+  if (s.audio_url) {
+    const a = new Audio(s.audio_url.startsWith('/') ? location.origin + s.audio_url : s.audio_url);
+    a.playbackRate = 0.6;
+    a.play().catch(() => speakJa(s.sentence, 0.4));
+  } else {
+    speakJa(s.sentence, 0.4);
+  }
+}
+
+function lsToggleRecord() {
+  if (_lsRecording) { lsStopRecord(); return; }
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { toast('您的浏览器不支持语音识别'); return; }
+
+  _lsRecognition = new SpeechRecognition();
+  _lsRecognition.lang = 'ja-JP';
+  _lsRecognition.interimResults = false;
+  _lsRecognition.maxAlternatives = 3;
+
+  _lsRecognition.onresult = (event) => {
+    const results = event.results[0];
+    const s = _lsSentences[_lsIdx];
+    const targets = [s.sentence, s.reading].filter(Boolean);
+    let bestScore = 0, recognized = '';
+    for (let i = 0; i < results.length; i++) {
+      const text = results[i].transcript.trim();
+      for (const t of targets) {
+        const score = calcPronScore(t, text);
+        if (score > bestScore) { bestScore = score; recognized = text; }
+      }
+    }
+    lsShowResult(bestScore, recognized);
+  };
+
+  _lsRecognition.onerror = (e) => {
+    _lsRecording = false;
+    document.getElementById('ls-rec-btn').textContent = '🎙️ 录音比对';
+    document.getElementById('ls-recording-hint').style.display = 'none';
+    if (e.error === 'no-speech') toast('未检测到语音，请重试');
+    else toast('识别出错: ' + e.error);
+  };
+
+  _lsRecognition.onend = () => {
+    _lsRecording = false;
+    document.getElementById('ls-rec-btn').textContent = '🎙️ 录音比对';
+    document.getElementById('ls-recording-hint').style.display = 'none';
+  };
+
+  _lsRecognition.start();
+  _lsRecording = true;
+  document.getElementById('ls-rec-btn').textContent = '⏹ 停止录音';
+  document.getElementById('ls-recording-hint').style.display = '';
+  document.getElementById('ls-input-area').style.display = 'none';
+  window._lsRecTimer = setTimeout(() => { lsStopRecord(); }, 15000);
+}
+
+function lsStopRecord() {
+  clearTimeout(window._lsRecTimer);
+  if (_lsRecognition) _lsRecognition.stop();
+}
+
+function lsToggleInput() {
+  const area = document.getElementById('ls-input-area');
+  area.style.display = area.style.display === 'none' ? '' : 'none';
+}
+
+function lsSubmitText() {
+  const text = document.getElementById('ls-text-input').value.trim();
+  if (!text) return;
+  const s = _lsSentences[_lsIdx];
+  const targets = [s.sentence, s.reading].filter(Boolean);
+  let bestScore = 0;
+  for (const t of targets) {
+    const score = calcPronScore(t, text);
+    if (score > bestScore) bestScore = score;
+  }
+  lsShowResult(bestScore, text);
+}
+
+function lsShowResult(score, recognized) {
+  _lsScores.push(score);
+  const color = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : 'var(--danger)';
+  let fb = '';
+  if (score >= 90) fb = '🎉 完美！';
+  else if (score >= 70) fb = `👍 不错！识别:「${recognized}」`;
+  else if (score >= 40) fb = `💪 继续努力！识别:「${recognized}」`;
+  else fb = `🔄 再试一次！识别:「${recognized}」`;
+
+  document.getElementById('ls-result').style.display = '';
+  document.getElementById('ls-score').textContent = score;
+  document.getElementById('ls-score').style.color = color;
+  document.getElementById('ls-feedback').textContent = fb;
+  lsShowSentence();
+  updateLsStats();
+}
+
+function lsShowSentence() {
+  const s = _lsSentences[_lsIdx];
+  document.getElementById('ls-sentence-detail').style.display = '';
+  document.getElementById('ls-sentence').textContent = s.sentence || '';
+  document.getElementById('ls-reading').textContent = s.reading || '';
+  document.getElementById('ls-meaning').textContent = '💬 ' + (s.correct_answer || '');
+  document.getElementById('ls-show-btn-area').style.display = 'none';
+}
+
+function lsPrev() {
+  if (_lsIdx > 0) { _lsIdx--; renderLsSentence(); }
+}
+
+function lsNext() {
+  if (_lsIdx < _lsSentences.length - 1) { _lsIdx++; renderLsSentence(); }
+}
+
+function updateLsStats() {
+  document.getElementById('ls-stat-count').textContent = _lsScores.length;
+  if (_lsScores.length > 0) {
+    const avg = Math.round(_lsScores.reduce((a, b) => a + b, 0) / _lsScores.length);
+    document.getElementById('ls-stat-avg').textContent = avg;
+    document.getElementById('ls-stat-avg').style.color = avg >= 70 ? '#10b981' : '#f59e0b';
+  } else {
+    document.getElementById('ls-stat-avg').textContent = '-';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+//  LISTENING EXERCISE (听力测试 - 听句选义)
+// ══════════════════════════════════════════════════════════════════
+let leQuestions = [], leCurrent = 0, leCorrect = 0, leAnswered = false;
+let leStartTime = null;
+
+function showLeSetup() {
+  document.getElementById('le-setup').style.display = '';
+  document.getElementById('le-playing').style.display = 'none';
+  document.getElementById('le-result').style.display = 'none';
+  const errEl = document.getElementById('le-error');
+  errEl.style.display = 'none';
+  errEl.textContent = '';
+}
+
+async function startListeningExercise() {
+  const level = document.getElementById('le-level').value;
+  const source = 'all';
+  const count = parseInt(document.getElementById('le-count').value);
+  const errEl = document.getElementById('le-error');
+  errEl.style.display = 'none';
+
+  try {
+    const res = await GET(`/listening/exercise?level=${level}&count=${count}&source=${source}`);
+    leQuestions = res.data || [];
+    if (leQuestions.length === 0) {
+      errEl.textContent = '该级别暂无可用的听力测试题目';
+      errEl.style.display = '';
+      return;
+    }
+    leCurrent = 0; leCorrect = 0; leAnswered = false;
+    leStartTime = Date.now();
+    document.getElementById('le-setup').style.display = 'none';
+    document.getElementById('le-playing').style.display = '';
+    document.getElementById('le-result').style.display = 'none';
+    renderLeQ();
+    lePlayAudio();
+  } catch(e) {
+    errEl.textContent = '加载题目失败: ' + e.message;
+    errEl.style.display = '';
+  }
+}
+
+function renderLeQ() {
+  const q = leQuestions[leCurrent];
+  const n = leCurrent + 1, total = leQuestions.length;
+  document.getElementById('le-num').textContent = `${n} / ${total}`;
+  document.getElementById('le-prog-bar').style.width = `${n/total*100}%`;
+  document.getElementById('le-next-btn').style.display = 'none';
+  document.getElementById('le-detail').style.display = 'none';
+  leAnswered = false;
+
+  // 来源标签
+  document.getElementById('le-source-tag').textContent = q.type === 'grammar' ? '📖 语法例句' : '📚 词汇例句';
+
+  // 选项
+  const opts = q.options || [];
+  document.getElementById('le-options').innerHTML = opts.map((o, i) => {
+    const fs = o.length > 30 ? 'font-size:13px' : '';
+    return `<div class="quiz-option" id="le-opt-${i}" onclick="leSelectOpt('${escHtml(o).replace(/'/g,"\\'")}', ${i})" style="${fs}">${escHtml(o)}</div>`;
+  }).join('');
+}
+
+function lePlayAudio() {
+  const q = leQuestions[leCurrent];
+  if (q.audio_url) {
+    // 使用服务端音频
+    const audioEl = document.getElementById('le-audio');
+    let src = q.audio_url;
+    if (src.startsWith('/')) src = location.origin + src;
+    audioEl.src = src;
+    audioEl.playbackRate = 1.0;
+    audioEl.play().catch(() => {
+      // 音频播放失败，降级使用 TTS
+      speakJa(q.sentence, 0.8);
+    });
+  } else {
+    // TTS 降级
+    speakJa(q.sentence, 0.8);
+  }
+}
+
+function lePlaySlow() {
+  const q = leQuestions[leCurrent];
+  if (q.audio_url) {
+    const audioEl = document.getElementById('le-audio');
+    let src = q.audio_url;
+    if (src.startsWith('/')) src = location.origin + src;
+    audioEl.src = src;
+    audioEl.playbackRate = 0.6;
+    audioEl.play().catch(() => {
+      speakJa(q.sentence, 0.4);
+    });
+  } else {
+    speakJa(q.sentence, 0.4);
+  }
+}
+
+function leSelectOpt(answer, idx) {
+  if (leAnswered) return;
+  leAnswered = true;
+  const q = leQuestions[leCurrent];
+  const correct = q.correct_answer;
+  const isRight = answer === correct;
+  if (isRight) leCorrect++;
+
+  document.querySelectorAll('#le-options .quiz-option').forEach((el, i) => {
+    const optText = el.textContent.trim();
+    if (optText === correct) el.classList.add('correct');
+    else if (i === idx && !isRight) el.classList.add('wrong');
+  });
+
+  // 显示原文详情
+  document.getElementById('le-detail').style.display = '';
+  document.getElementById('le-sentence').textContent = q.sentence || '';
+  document.getElementById('le-reading').textContent = q.reading || '';
+  document.getElementById('le-correct-text').textContent = '✓ ' + correct;
+  const infoEl = document.getElementById('le-grammar-info');
+  if (q.grammar_title) {
+    infoEl.textContent = '语法: ' + q.grammar_title;
+    infoEl.style.display = '';
+  } else if (q.word) {
+    infoEl.textContent = '单词: ' + q.word;
+    infoEl.style.display = '';
+  } else {
+    infoEl.style.display = 'none';
+  }
+
+  document.getElementById('le-next-btn').style.display = '';
+  document.getElementById('le-next-btn').textContent = leCurrent < leQuestions.length - 1 ? '下一题 →' : '查看结果';
+}
+
+function leNextQ() {
+  leCurrent++;
+  if (leCurrent >= leQuestions.length) {
+    showLeResult();
+  } else {
+    renderLeQ();
+    lePlayAudio();
+  }
+}
+
+async function showLeResult() {
+  document.getElementById('le-playing').style.display = 'none';
+  document.getElementById('le-result').style.display = '';
+  const total = leQuestions.length;
+  const pct = total > 0 ? Math.round(leCorrect / total * 100) : 0;
+  document.getElementById('le-result-pct').textContent = pct + '%';
+  document.getElementById('le-result-ring').style.background =
+    `conic-gradient(${pct>=80 ? 'var(--success)' : pct>=60 ? 'var(--warning)' : 'var(--danger)'} ${pct*3.6}deg, var(--border) 0)`;
+  document.getElementById('le-result-summary').textContent = `答对 ${leCorrect} / ${total} 题`;
+
+  const dur = Math.round((Date.now() - leStartTime) / 1000);
+  try { await POST('/progress/log', { activity_type: 'listening', duration_seconds: dur, score: pct }); } catch(_){}
 }
 
 // ══════════════════════════════════════════════════════════════════

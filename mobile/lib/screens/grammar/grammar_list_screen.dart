@@ -117,7 +117,7 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
           tooltip: '返回',
-          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+          onPressed: () => context.canPop() ? context.pop() : context.go('/study'),
         ),
         actions: [],
         bottom: PreferredSize(
@@ -258,7 +258,7 @@ class _GrammarCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () => context.go('/grammar/${lesson.id}', extra: lessonIds),
+        onTap: () => context.push('/grammar/${lesson.id}', extra: lessonIds),
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(

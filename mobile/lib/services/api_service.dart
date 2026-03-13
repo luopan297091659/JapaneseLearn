@@ -569,6 +569,32 @@ class ApiService {
     return res.data;
   }
 
+  /// 获取听力练习题目
+  Future<List<ListeningExerciseQuestion>> getListeningExercises({
+    required String level,
+    int count = 10,
+    String source = 'all',
+  }) async {
+    final res = await _dio.get('/listening/exercise', queryParameters: {
+      'level': level,
+      'count': count,
+      'source': source,
+    });
+    final data = res.data['data'] as List<dynamic>? ?? [];
+    return data.map((e) => ListeningExerciseQuestion.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// 获取听力练习统计
+  Future<Map<String, dynamic>> getListeningExerciseStats() async {
+    final key = 'listening_exercise_stats';
+    final cached = _cache.get(key);
+    if (cached != null) return cached as Map<String, dynamic>;
+    final res = await _dio.get('/listening/exercise/stats');
+    final data = res.data as Map<String, dynamic>;
+    _cache.set(key, data, AppConfig.cacheTtlLong);
+    return data;
+  }
+
   // ─── News ─────────────────────────────────────────────────────────────────
   Future<List<NewsArticleModel>> getNews({String? difficulty, String? query, int page = 1}) async {
     final key = 'news:${difficulty}:${query}:$page';

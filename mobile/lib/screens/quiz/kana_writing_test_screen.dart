@@ -278,7 +278,7 @@ class _KanaWritingTestScreenState extends State<KanaWritingTestScreen> {
                     child: Column(
                       children: [
                         Text(
-                          '请写出以下${isKata ? "（片假名）" : "（平假名）"}',
+                          '请写出以下${isKata ? "片假名" : "平假名"}',
                           style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
                         ),
                         const SizedBox(height: 8),
