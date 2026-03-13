@@ -40,12 +40,13 @@ async function bumpVersion(field = 'version') {
 // ─── 仪表板统计 ───────────────────────────────────────────────────────────────
 async function getDashboard(req, res) {
   try {
-    const [vocabCount, grammarCount, trackCount, userCount, recentUsers] = await Promise.all([
+    const [vocabCount, grammarCount, trackCount, userCount, recentUsers, grammarExampleCount] = await Promise.all([
       Vocabulary.count(),
       GrammarLesson.count(),
       ListeningTrack.count(),
       User.count(),
       User.findAll({ order: [['createdAt', 'DESC']], limit: 5, attributes: ['id', 'username', 'email', 'level', 'role', 'createdAt'] }),
+      GrammarExample.count(),
     ]);
 
     // 词汇按JLPT级别分组
@@ -66,7 +67,7 @@ async function getDashboard(req, res) {
     if (!cv) cv = { version: 1, vocab_version: 1, grammar_version: 1 };
 
     res.json({
-      vocabCount, grammarCount, trackCount, userCount, activeUsers,
+      vocabCount, grammarCount, trackCount, userCount, activeUsers, grammarExampleCount,
       vocabByLevel: Object.fromEntries(vocabByLevel.map(r => [r.jlpt_level, parseInt(r.cnt)])),
       recentUsers,
       contentVersion: cv,
@@ -817,7 +818,8 @@ const DEFAULT_FEATURE_TOGGLES = {
   features: [
     { id: 'vocabulary',    name: '单词学习', icon: '📖', web: true,  mobile: true  },
     { id: 'grammar',       name: '语法学习', icon: '📝', web: true,  mobile: true  },
-    { id: 'listening',     name: '听力练习', icon: '🎧', web: true,  mobile: true  },
+    { id: 'listening',     name: '听力材料', icon: '🎧', web: true,  mobile: true  },
+    { id: 'listening-exercise', name: '听力练习', icon: '👂', web: true,  mobile: true  },
     { id: 'srs',           name: 'SRS复习',  icon: '🗂️', web: true,  mobile: true  },
     { id: 'flashcard',     name: '闪卡练习', icon: '🃏', web: true,  mobile: true  },
     { id: 'gojuon',        name: '五十音',   icon: '🔤', web: true,  mobile: true  },

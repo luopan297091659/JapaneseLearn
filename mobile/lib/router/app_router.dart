@@ -13,6 +13,7 @@ import '../screens/vocabulary/vocabulary_detail_screen.dart';
 import '../screens/grammar/grammar_list_screen.dart';
 import '../screens/grammar/grammar_detail_screen.dart';
 import '../screens/listening/listening_screen.dart';
+import '../screens/listening/listening_exercise_screen.dart';
 import '../screens/quiz/quiz_screen.dart';
 import '../screens/quiz/quiz_result_screen.dart';
 import '../screens/profile/profile_screen.dart';
@@ -88,6 +89,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(path: '/listening', builder: (_, __) => const ListeningScreen()),
+          GoRoute(path: '/listening-exercise', builder: (_, __) => const ListeningExerciseScreen()),
           GoRoute(path: '/quiz', builder: (_, __) => const QuizScreen()),
           GoRoute(
             path: '/quiz/result',

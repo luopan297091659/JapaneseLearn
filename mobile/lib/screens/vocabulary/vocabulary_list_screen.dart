@@ -142,7 +142,7 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
           tooltip: '返回',
-          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+          onPressed: () => context.canPop() ? context.pop() : context.go('/study'),
         ),
         actions: [],
         bottom: PreferredSize(
@@ -271,7 +271,7 @@ class _VocabCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () => context.go('/vocabulary/${word.id}', extra: wordIds),
+        onTap: () => context.push('/vocabulary/${word.id}', extra: wordIds),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(

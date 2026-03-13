@@ -436,6 +436,58 @@ class SrsStatModel {
       );
 }
 
+// ─── Listening Exercise Model ─────────────────────────────────────────────────
+class ListeningExerciseQuestion {
+  final String id;
+  final String type;          // 'grammar' | 'vocabulary'
+  final String sentence;
+  final String? reading;
+  final String? audioUrl;
+  final String correctAnswer;
+  final List<String> options;
+  final String? grammarTitle;
+  final String? word;
+  final String jlptLevel;
+  String? userAnswer;
+
+  ListeningExerciseQuestion({
+    required this.id,
+    required this.type,
+    required this.sentence,
+    this.reading,
+    this.audioUrl,
+    required this.correctAnswer,
+    required this.options,
+    this.grammarTitle,
+    this.word,
+    required this.jlptLevel,
+    this.userAnswer,
+  });
+
+  factory ListeningExerciseQuestion.fromJson(Map<String, dynamic> json) {
+    final rawOptions = json['options'];
+    List<String> optionsList = [];
+    if (rawOptions is List) {
+      optionsList = rawOptions.map((e) => e.toString()).toList();
+    }
+    return ListeningExerciseQuestion(
+      id: json['id']?.toString() ?? '',
+      type: json['type']?.toString() ?? 'grammar',
+      sentence: json['sentence']?.toString() ?? '',
+      reading: json['reading']?.toString(),
+      audioUrl: json['audio_url']?.toString(),
+      correctAnswer: json['correct_answer']?.toString() ?? '',
+      options: optionsList,
+      grammarTitle: json['grammar_title']?.toString(),
+      word: json['word']?.toString(),
+      jlptLevel: json['jlpt_level']?.toString() ?? 'N5',
+    );
+  }
+
+  bool get isCorrect => userAnswer == correctAnswer;
+  bool get isAnswered => userAnswer != null;
+}
+
 // ─── Dictionary / Jisho Online API Models ────────────────────────────────────
 
 class DictionarySearchResult {

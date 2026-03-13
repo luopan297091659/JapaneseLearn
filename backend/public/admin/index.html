@@ -95,6 +95,7 @@ button{cursor:pointer;font-family:inherit}
 .c-rose{background:rgba(239,68,68,.12);color:var(--danger)}
 .c-cyan{background:rgba(6,182,212,.12);color:var(--info)}
 .c-purple{background:rgba(139,92,246,.12);color:#8b5cf6}
+.c-pink{background:rgba(236,72,153,.12);color:#ec4899}
 
 .panel{background:var(--bg-card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);border:1px solid var(--border);margin-bottom:20px}
 .panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
@@ -461,7 +462,7 @@ function monthStart(){ const d=new Date(); d.setDate(1); return d.toISOString().
 function yearStart() { return new Date().getFullYear()+'-01-01' }
 function qs(obj)    { return '?'+Object.entries(obj).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&') }
 const PALETTE = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#f97316','#84cc16','#3b82f6'];
-const ACT_NAME = {vocabulary:'📚 词汇学习',grammar:'📖 语法学习',srs_review:'🔄 SRS复习',quiz:'📝 测验',flashcard:'🃏 闪卡',news:'📰 新闻阅读',listening:'🎧 听力练习',game:'🎮 助词方块',reading:'📖 阅读',pronunciation:'🎤 发音练习',gojuon:'🔤 五十音',dictionary:'🔍 辞书検索',translate:'🌐 翻译解析',todofuken:'🗾 都道府県',game_verbs:'🎮 动词方块',anki:'📦 Anki词库'};
+const ACT_NAME = {vocabulary:'📚 词汇学习',grammar:'📖 语法学习',srs_review:'🔄 SRS复习',quiz:'📝 测验',flashcard:'🃏 闪卡',news:'📰 新闻阅读',listening:'🎧 听力练习',listening_exercise:'👂 听力测试',game:'🎮 助词方块',reading:'📖 阅读',pronunciation:'🎤 发音练习',gojuon:'🔤 五十音',dictionary:'🔍 辞书検索',translate:'🌐 翻译解析',todofuken:'🗾 都道府県',game_verbs:'🎮 动词方块',anki:'📦 Anki词库'};
 function actName(t){ return ACT_NAME[t]||t; }
 
 /* ───────────────────────────────── AUTH ──────────────────────────────────── */
@@ -918,6 +919,10 @@ async function renderDashboard(){
       <div class="stat-card">
         <div class="stat-icon c-amber">🎧</div>
         <div class="stat-body"><div class="stat-label">听力曲目</div><div class="stat-value">${(d.trackCount||0).toLocaleString()}</div><div class="stat-sub">听力素材</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon c-pink">👂</div>
+        <div class="stat-body"><div class="stat-label">听力题库</div><div class="stat-value">${(d.grammarExampleCount||0).toLocaleString()}</div><div class="stat-sub">语法例句数</div></div>
       </div>
       <div class="stat-card">
         <div class="stat-icon c-cyan">👥</div>

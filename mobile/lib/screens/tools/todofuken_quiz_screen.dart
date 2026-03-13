@@ -161,7 +161,7 @@ class _TodofukenQuizScreenState extends State<TodofukenQuizScreen> {
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
       appBar: AppBar(
-        title: const Text('都道府県クイズ'),
+        title: const Text('都道府県竞答'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
           onPressed: () {
@@ -191,7 +191,7 @@ class _TodofukenQuizScreenState extends State<TodofukenQuizScreen> {
       children: [
         Icon(Icons.map_rounded, size: 64, color: cs.primary),
         const SizedBox(height: 16),
-        Text('都道府県クイズ', textAlign: TextAlign.center,
+        Text('都道府県竞答', textAlign: TextAlign.center,
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: cs.onSurface)),
         const SizedBox(height: 8),
         Text('看汉字选读音，学习 47 个都道府県の名前！', textAlign: TextAlign.center,
