@@ -74,7 +74,7 @@ class S {
   String get homeSubVocab    => isZh ? '词汇积累' : 'Vocabulary';
   String get homeSubGrammar  => isZh ? '文法学习' : 'Grammar';
   String get homeSubListen   => isZh ? '听力练习' : 'Listening';
-  String get homeSubQuiz     => isZh ? '随机测验' : 'Quiz';
+  String get homeSubQuiz     => isZh ? '单词随机测验' : 'Quiz';
   String get homeSubNews     => isZh ? '日语新闻' : 'JP News';
   String get homeSubSrs      => isZh ? '间隔复习' : 'SRS Review';
   String get homeSubDict     => isZh ? '日语查词' : 'Dictionary';

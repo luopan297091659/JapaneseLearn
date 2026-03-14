@@ -487,17 +487,16 @@ ul { list-style: none; }
       <div class="nav-item" data-page="pronunciation" onclick="navigate('pronunciation')"><span class="icon">🎤</span>发音练习</div>
       <div class="nav-item" data-page="flashcard" onclick="navigate('flashcard')"><span class="icon">🃏</span>闪卡练习</div>
       <div class="nav-item" data-page="srs" onclick="navigate('srs')"><span class="icon">🗂️</span>SRS 复习</div>
-      <div class="nav-section">游戏</div>
-      <div class="nav-item" data-page="game" onclick="navigate('game')"><span class="icon">🎮</span>助词方块</div>
-      <div class="nav-item" data-page="game-verbs" onclick="navigate('game-verbs')"><span class="icon">🎮</span>动词方块</div>
       <div class="nav-section">工具</div>
       <div class="nav-item" data-page="dictionary" onclick="navigate('dictionary')"><span class="icon">🔍</span>词典</div>
       <div class="nav-item" data-page="news" onclick="navigate('news')"><span class="icon">📰</span>新闻</div>
+      <div class="nav-item" data-page="wrong-answers" onclick="navigate('wrong-answers')"><span class="icon">📝</span>错题集</div>
       <div class="nav-section">测试</div>
       <div class="nav-item" data-page="quiz" onclick="navigate('quiz')"><span class="icon">✏️</span>单词测验</div>
       <div class="nav-item" data-page="kana-test" onclick="navigate('kana-test')"><span class="icon">✍️</span>五十音书写</div>
       <div class="nav-item" data-page="todofuken" onclick="navigate('todofuken')"><span class="icon">🗾</span>都道府県</div>
       <div class="nav-item" data-page="listening-exercise" onclick="navigate('listening-exercise')"><span class="icon">👂</span>听力测试</div>
+      <div class="nav-item" data-page="game" onclick="navigate('game')"><span class="icon">🎮</span>闯关游戏</div>
       <div class="nav-section">账号</div>
       <div class="nav-item" data-page="profile" onclick="navigate('profile')"><span class="icon">👤</span>我的</div>
       <div class="nav-footer">
@@ -626,10 +625,7 @@ ul { list-style: none; }
               <div style="font-size:24px">🔤</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">五十音</div>
             </div>
             <div class="quick-action" onclick="navigate('game')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
-              <div style="font-size:24px">🎮</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">助词游戏</div>
-            </div>
-            <div class="quick-action" onclick="navigate('game-verbs')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
-              <div style="font-size:24px">🎮</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">动词方块</div>
+              <div style="font-size:24px">🎮</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">闯关游戏</div>
             </div>
             <div class="quick-action" onclick="navigate('quiz')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
               <div style="font-size:24px">✏️</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">做测验</div>
@@ -1017,7 +1013,7 @@ ul { list-style: none; }
           <!-- 标题栏 -->
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
             <div>
-              <h2 style="font-size:20px;margin:0" id="g-title">🎮 助词方块</h2>
+              <h2 style="font-size:20px;margin:0" id="g-title">🎮 闯关游戏</h2>
               <div id="g-max-badge" style="font-size:11px;color:var(--text-hint);margin-top:2px">共 10 关</div>
             </div>
             <div style="display:flex;gap:8px">
@@ -1025,20 +1021,10 @@ ul { list-style: none; }
               <button class="btn btn-outline btn-sm" id="g-admin-btn" style="display:none" onclick="gOpenAdminConfig()">⚙️ 设置</button>
             </div>
           </div>
-          <!-- 速度设置 -->
-          <div id="g-diff-panel" class="card" style="margin-bottom:12px;padding:14px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-              <div style="font-size:11px;font-weight:700;color:var(--text-hint);letter-spacing:.5px">⚡ 下落速度</div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <span id="g-speed-emoji" style="font-size:18px">�</span>
-                <span id="g-speed-label" style="font-size:13px;font-weight:700;color:var(--primary)">正常</span>
-                <span id="g-speed-val" style="font-size:13px;font-weight:800;background:var(--primary);color:#fff;padding:2px 10px;border-radius:12px;min-width:42px;text-align:center">10.0s</span>
-              </div>
-            </div>
-            <input id="g-speed-slider" type="range" min="300" max="20000" step="100" value="10000" oninput="gameSpeedInput(this)">
-            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-hint);margin-top:5px">
-              <span>⚡ 0.3s 极速</span><span>🚶 10s 正常</span><span>🐢 20s 慢速</span>
-            </div>
+          <!-- 游戏类型选择 -->
+          <div class="chips" style="margin-bottom:12px">
+            <div class="chip active" id="g-chip-particles" onclick="gSwitchGameType('particles')">🧩 助词方块</div>
+            <div class="chip" id="g-chip-verbs" onclick="gSwitchGameType('verbs')">🔤 动词方块</div>
           </div>
           <!-- 关卡网格 -->
           <div id="g-lvl-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px"></div>
@@ -1073,6 +1059,18 @@ ul { list-style: none; }
               <div class="card" style="padding:5px 4px;text-align:center">
                 <div style="font-size:17px;font-weight:800;color:var(--danger)" id="g-wrong">0</div>
                 <div style="font-size:10px;color:var(--text-sub)">错误</div>
+              </div>
+            </div>
+            <!-- 速度调节(游戏中) -->
+            <div id="g-speed-ingame" class="card" style="margin-bottom:6px;padding:6px 10px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="font-size:10px;font-weight:700;color:var(--text-hint);white-space:nowrap">⚡ 速度</div>
+                <input id="g-speed-slider" type="range" min="300" max="20000" step="100" value="10000" oninput="gameSpeedInput(this)" style="flex:1">
+                <div style="display:flex;align-items:center;gap:4px">
+                  <span id="g-speed-emoji" style="font-size:14px">🚶</span>
+                  <span id="g-speed-label" style="font-size:11px;font-weight:700;color:var(--primary)">正常</span>
+                  <span id="g-speed-val" style="font-size:11px;font-weight:800;background:var(--primary);color:#fff;padding:1px 8px;border-radius:10px;min-width:36px;text-align:center">10.0s</span>
+                </div>
               </div>
             </div>
             <!-- 题目卡 -->
@@ -1202,6 +1200,29 @@ ul { list-style: none; }
         </div>
         <!-- 结果 -->
         <div id="tdf-result" style="display:none"></div>
+      </div>
+
+      <!-- 错题集页 -->
+      <div class="page" id="page-wrong-answers">
+        <h2 style="margin-bottom:20px;font-size:22px">📝 错题集</h2>
+        <p style="color:var(--text-sub);margin-bottom:16px">收录所有测试、游戏中做错的题目，方便复习</p>
+        <!-- 筛选 -->
+        <div class="chips" id="wa-type-chips" style="margin-bottom:16px">
+          <div class="chip active" onclick="waFilterType('all')">全部</div>
+          <div class="chip" onclick="waFilterType('quiz')">单词测验</div>
+          <div class="chip" onclick="waFilterType('listening')">听力测试</div>
+          <div class="chip" onclick="waFilterType('game')">闯关游戏</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:16px">
+          <button class="btn btn-outline btn-sm" onclick="waClearAll()" style="color:var(--danger)">🗑️ 清空全部</button>
+          <div style="flex:1"></div>
+          <span id="wa-count" style="font-size:13px;color:var(--text-sub);align-self:center">0 条</span>
+        </div>
+        <div id="wa-list"></div>
+        <div id="wa-empty" style="display:none;text-align:center;color:var(--text-hint);padding:40px">
+          <div style="font-size:48px;margin-bottom:12px">🎉</div>
+          <div>暂无错题，继续保持！</div>
+        </div>
       </div>
 
       <!-- 个人页 -->
@@ -1391,8 +1412,7 @@ function navigate(page, pushHistory = true) {
   }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('#sidebar .nav-item').forEach(i => i.classList.remove('active'));
-  // game-verbs reuses the same game page
-  const pageId = page === 'game-verbs' ? 'game' : page;
+  const pageId = page;
   const pg = document.getElementById('page-' + pageId);
   if (pg) pg.classList.add('active');
   const ni = document.querySelector(`[data-page="${page}"]`);
@@ -1420,7 +1440,6 @@ function navigate(page, pushHistory = true) {
     case 'news': if (newsTab === 'nhk') { if (!nhkLoaded) loadNhkNews(); } else if (newsTab === 'fav') { loadFavNews(); } else { if (!newsLoaded) loadNews(); } break;
     case 'profile': loadProfile(); break;
     case 'game': gamePageInit('particles'); break;
-    case 'game-verbs': gamePageInit('verbs'); break;
     case 'pronunciation': loadPronunciation(); break;
     case 'flashcard': loadFlashcardSetup(); break;
     case 'gojuon': loadGojuon(); break;
@@ -1428,6 +1447,7 @@ function navigate(page, pushHistory = true) {
     case 'todofuken': loadTodofuken(); break;
     case 'listening-exercise': showLeSetup(); break;
     case 'listening-study': loadListeningStudy(); break;
+    case 'wrong-answers': loadWrongAnswers(); break;
   }
 }
 
@@ -1545,8 +1565,7 @@ const PAGE_META = {
   grammar:       { icon: '📝', name: '文法课程' },
   srs:           { icon: '🗂️', name: 'SRS 复习' },
   quiz:          { icon: '✏️', name: '随堂测验' },
-  game:          { icon: '🎮', name: '助词方块' },
-  'game-verbs':  { icon: '🎮', name: '动词方块' },
+  game:          { icon: '🎮', name: '闯关游戏' },
   dictionary:    { icon: '🔍', name: '词典查询' },
   'listening-exercise': { icon: '👂', name: '听力测试' },
   'listening-study': { icon: '🎧', name: '听力练习' },
@@ -1556,6 +1575,7 @@ const PAGE_META = {
   flashcard:     { icon: '🃏', name: '闪卡练习' },
   gojuon:        { icon: '🔤', name: '五十音' },
   todofuken:     { icon: '🗾', name: '都道府県' },
+  'wrong-answers': { icon: '📝', name: '错题集' },
 };
 
 function getFrequentFuncs() {
@@ -2227,6 +2247,17 @@ function selectQuizOpt(answer, idx) {
   const isRight = answer === correct;
   if (isRight) quizCorrect++;
 
+  // 保存错题到错题集
+  if (!isRight) {
+    saveWrongAnswer({
+      source: 'quiz',
+      question: q.question || q.sentence || '',
+      yourAnswer: answer,
+      correctAnswer: correct,
+      explanation: q.explanation || ''
+    });
+  }
+
   document.querySelectorAll('.quiz-option').forEach((el, i) => {
     const optText = el.textContent.trim();
     if (optText === correct) el.classList.add('correct');
@@ -2263,6 +2294,123 @@ async function showQuizResult() {
   document.getElementById('result-summary').textContent = `答对 ${quizCorrect} / ${total} 题`;
   // log
   try { await POST('/progress/log', { activity_type: 'quiz', duration_seconds: 0, score: pct }); } catch(_){}
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  WRONG ANSWERS (错题集)
+// ══════════════════════════════════════════════════════════════════
+let waCurrentFilter = 'all';
+
+function saveWrongAnswer(entry) {
+  try {
+    var all = JSON.parse(localStorage.getItem('wrongAnswers') || '[]');
+    entry.time = new Date().toISOString();
+    all.push(entry);
+    if (all.length > 500) all = all.slice(all.length - 500);
+    localStorage.setItem('wrongAnswers', JSON.stringify(all));
+  } catch(e) {}
+}
+
+function loadWrongAnswers() {
+  waCurrentFilter = 'all';
+  document.querySelectorAll('#page-wrong-answers .chip').forEach(c => {
+    c.classList.toggle('active', c.textContent.trim() === '全部');
+  });
+  waRenderList('all');
+  waSyncWithServer();
+}
+
+function waSyncWithServer() {
+  var all = [];
+  try { all = JSON.parse(localStorage.getItem('wrongAnswers') || '[]'); } catch(e) {}
+  var unsynced = all.filter(function(w) { return !w.id; });
+  fetchApi('/wrong-answers/sync', 'POST', { items: unsynced })
+    .then(function(res) {
+      if (res && res.ok && res.data) {
+        localStorage.setItem('wrongAnswers', JSON.stringify(res.data));
+        waRenderList(waCurrentFilter);
+      }
+    }).catch(function() {});
+}
+
+function waFilterType(type) {
+  waCurrentFilter = type;
+  document.querySelectorAll('#page-wrong-answers .chip').forEach(c => {
+    var map = {'全部':'all','单词测验':'quiz','听力测试':'listening','闯关游戏':'game'};
+    c.classList.toggle('active', map[c.textContent.trim()] === type);
+  });
+  waRenderList(type);
+}
+
+function waDeleteOne(idx) {
+  var all = [];
+  try { all = JSON.parse(localStorage.getItem('wrongAnswers') || '[]'); } catch(e) {}
+  // idx是在过滤后列表中的下标，需找到在all中的实际下标
+  var filtered = waCurrentFilter === 'all' ? all : all.filter(function(w) { return w.source === waCurrentFilter; });
+  filtered.sort(function(a, b) { return (b.time || '').localeCompare(a.time || ''); });
+  var item = filtered[idx];
+  if (!item) return;
+  // 从服务端删除
+  if (item.id) {
+    fetchApi('/wrong-answers/' + item.id, 'DELETE').catch(function() {});
+  }
+  // 从本地删除
+  var realIdx = all.indexOf(item);
+  if (realIdx === -1) {
+    // 引用可能不同，按内容匹配
+    realIdx = all.findIndex(function(w) { return w.time === item.time && w.question === item.question && w.source === item.source; });
+  }
+  if (realIdx >= 0) all.splice(realIdx, 1);
+  localStorage.setItem('wrongAnswers', JSON.stringify(all));
+  waRenderList(waCurrentFilter);
+}
+
+function waRenderList(type) {
+  var el = document.getElementById('wa-list');
+  if (!el) return;
+  var all = [];
+  try { all = JSON.parse(localStorage.getItem('wrongAnswers') || '[]'); } catch(e) {}
+  if (type !== 'all') all = all.filter(function(w) { return w.source === type; });
+  all.sort(function(a, b) { return (b.time || '').localeCompare(a.time || ''); });
+  var countEl = document.getElementById('wa-count');
+  if (countEl) countEl.textContent = all.length + ' 条';
+  if (!all.length) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>暂无错题记录</p></div>';
+    return;
+  }
+  var sourceLabels = {quiz:'单词测验', listening:'听力测试', game:'闯关游戏'};
+  el.innerHTML = all.map(function(w, i) {
+    var srcLabel = sourceLabels[w.source] || w.source;
+    var extra = w.gameType ? (w.gameType === 'verbs' ? ' · 动词方块' : ' · 助词方块') : '';
+    var timeStr = w.time ? new Date(w.time).toLocaleString('zh-CN', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+    return '<div class="card" style="margin-bottom:8px;padding:12px;position:relative">' +
+      '<button onclick="waDeleteOne(' + i + ')" style="position:absolute;top:6px;right:6px;background:none;border:none;cursor:pointer;color:var(--text-hint);font-size:16px;padding:4px 6px;border-radius:4px" title="删除此题">&times;</button>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-right:24px">' +
+      '<span style="font-size:10px;background:var(--primary-light,#e8effe);color:var(--primary);padding:2px 8px;border-radius:10px;font-weight:700">' + escHtml(srcLabel + extra) + '</span>' +
+      '<span style="font-size:10px;color:var(--text-hint)">' + escHtml(timeStr) + '</span>' +
+      '</div>' +
+      '<div style="font-weight:700;margin-bottom:4px">' + escHtml(w.question) + '</div>' +
+      '<div style="color:var(--danger);font-size:13px">❌ ' + escHtml(w.yourAnswer) + '</div>' +
+      '<div style="color:var(--success);font-size:13px">✅ ' + escHtml(w.correctAnswer) + '</div>' +
+      (w.explanation ? '<div style="color:var(--text-sub);font-size:12px;margin-top:4px">' + escHtml(w.explanation) + '</div>' : '') +
+      '</div>';
+  }).join('');
+}
+
+function waClearAll() {
+  var label = waCurrentFilter === 'all' ? '所有' : ({'quiz':'单词测验','listening':'听力测试','game':'闯关游戏'}[waCurrentFilter] || waCurrentFilter);
+  if (!confirm('确定要清空「' + label + '」的错题记录吗？')) return;
+  if (waCurrentFilter === 'all') {
+    localStorage.removeItem('wrongAnswers');
+  } else {
+    var all = [];
+    try { all = JSON.parse(localStorage.getItem('wrongAnswers') || '[]'); } catch(e) {}
+    all = all.filter(function(w) { return w.source !== waCurrentFilter; });
+    localStorage.setItem('wrongAnswers', JSON.stringify(all));
+  }
+  fetchApi('/wrong-answers?source=' + waCurrentFilter, 'DELETE').catch(function() {});
+  waRenderList(waCurrentFilter);
+  toast('已清空');
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -2607,6 +2755,17 @@ function leSelectOpt(answer, idx) {
   const correct = q.correct_answer;
   const isRight = answer === correct;
   if (isRight) leCorrect++;
+
+  // 保存错题到错题集
+  if (!isRight) {
+    saveWrongAnswer({
+      source: 'listening',
+      question: q.sentence || q.question || '',
+      yourAnswer: answer,
+      correctAnswer: correct,
+      explanation: q.grammar_title ? '语法: ' + q.grammar_title : (q.word ? '单词: ' + q.word : '')
+    });
+  }
 
   document.querySelectorAll('#le-options .quiz-option').forEach((el, i) => {
     const optText = el.textContent.trim();

@@ -55,6 +55,14 @@ class ToolsTab extends StatelessWidget {
             color: const Color(0xFF0077B6),
             onTap: () => context.push('/news'),
           ),
+          const SizedBox(height: 12),
+          _ToolCard(
+            icon: Icons.assignment_late_rounded,
+            title: '错题集',
+            subtitle: '查阅测试中的错题 · 随时复习',
+            color: const Color(0xFFE53935),
+            onTap: () => context.push('/wrong-answers'),
+          ),
         ],
       ),
     );

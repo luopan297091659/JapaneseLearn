@@ -826,7 +826,7 @@ const DEFAULT_FEATURE_TOGGLES = {
     { id: 'pronunciation', name: 'AI发音',   icon: '🎤', web: true,  mobile: true  },
     { id: 'game',          name: '助词方块', icon: '🎮', web: true,  mobile: true  },
     { id: 'game-verbs',    name: '动词方块', icon: '🎮', web: true,  mobile: true  },
-    { id: 'quiz',          name: '随机测验', icon: '✏️', web: true,  mobile: true  },
+    { id: 'quiz',          name: '单词随机测验', icon: '✏️', web: true,  mobile: true  },
     { id: 'todofuken',     name: '都道府県', icon: '🗾', web: true,  mobile: true  },
     { id: 'dictionary',    name: '辞书检索', icon: '🔍', web: true,  mobile: true  },
     { id: 'news',          name: 'NHK新闻',  icon: '📰', web: true,  mobile: true  },

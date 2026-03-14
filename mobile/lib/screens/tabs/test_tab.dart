@@ -4,6 +4,43 @@ import 'package:go_router/go_router.dart';
 class TestTab extends StatelessWidget {
   const TestTab({super.key});
 
+  void _showGameTypeSelection(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('选择游戏', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Text('🧩', style: TextStyle(fontSize: 28)),
+              title: const Text('助词方块', style: TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: const Text('填入正确助词，消行闯关'),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              tileColor: const Color(0xFFF0FDF4),
+              onTap: () { Navigator.pop(ctx); context.push('/game', extra: 'particles'); },
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Text('🔤', style: TextStyle(fontSize: 28)),
+              title: const Text('动词方块', style: TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: const Text('选择正确动词活用形'),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              tileColor: const Color(0xFFEFF6FF),
+              onTap: () { Navigator.pop(ctx); context.push('/game', extra: 'verbs'); },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -26,7 +63,7 @@ class TestTab extends StatelessWidget {
         children: [
           _TestCard(
             icon: Icons.quiz_rounded,
-            title: '随机测验',
+            title: '单词随机测验',
             subtitle: '检验水平 · 随机出题巩固知识',
             color: const Color(0xFFFF5722),
             onTap: () => context.push('/quiz'),
@@ -54,6 +91,14 @@ class TestTab extends StatelessWidget {
             subtitle: '听句选义 · N5-N1 例句听力测试',
             color: const Color(0xFFE040FB),
             onTap: () => context.push('/listening-exercise'),
+          ),
+          const SizedBox(height: 12),
+          _TestCard(
+            icon: Icons.sports_esports_rounded,
+            title: '闯关游戏',
+            subtitle: '助词方块 · 动词方块 · 闯关挑战',
+            color: const Color(0xFF4CAF50),
+            onTap: () => _showGameTypeSelection(context),
           ),
         ],
       ),
