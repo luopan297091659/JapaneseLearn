@@ -24,7 +24,6 @@ import '../screens/vocabulary/local_vocab_screen.dart';
 import '../screens/game/tetris_grammar_game.dart';
 import '../screens/game/flashcard_screen.dart';
 import '../screens/tabs/study_tab.dart';
-import '../screens/tabs/game_tab.dart';
 import '../screens/tabs/test_tab.dart';
 import '../screens/tabs/tools_tab.dart';
 import '../screens/study/gojuon_screen.dart';
@@ -35,6 +34,7 @@ import '../screens/news/nhk_detail_screen.dart';
 import '../screens/tools/todofuken_quiz_screen.dart';
 import '../screens/tools/translate_screen.dart';
 import '../screens/quiz/kana_writing_test_screen.dart';
+import '../screens/tools/wrong_answers_screen.dart';
 import '../models/models.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -69,7 +69,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
           GoRoute(path: '/study', builder: (_, __) => const StudyTab()),
-          GoRoute(path: '/games', builder: (_, __) => const GameTab()),
           GoRoute(path: '/test', builder: (_, __) => const TestTab()),
           GoRoute(path: '/tools', builder: (_, __) => const ToolsTab()),
           GoRoute(path: '/vocabulary', builder: (_, __) => const VocabularyListScreen()),
@@ -113,10 +112,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               gameType: (state.extra as String?) ?? 'particles',
             ),
           ),
-          GoRoute(
-            path: '/game-verbs',
-            builder: (_, __) => const TetrisGrammarGame(gameType: 'verbs'),
-          ),
+
           GoRoute(path: '/flashcard', builder: (_, __) => const FlashcardScreen()),
           GoRoute(path: '/gojuon', builder: (_, __) => const GojuonScreen()),
           GoRoute(path: '/pronunciation', builder: (_, __) => const PronunciationScreen()),
@@ -135,6 +131,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/todofuken-quiz', builder: (_, __) => const TodofukenQuizScreen()),
           GoRoute(path: '/translate', builder: (_, __) => const TranslateScreen()),
           GoRoute(path: '/kana-writing-test', builder: (_, __) => const KanaWritingTestScreen()),
+          GoRoute(path: '/wrong-answers', builder: (_, __) => const WrongAnswersScreen()),
         ],
       ),
     ],
@@ -152,7 +149,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
-  static const _tabRoutes = ['/home', '/study', '/test', '/tools', '/games'];
+  static const _tabRoutes = ['/home', '/study', '/test', '/tools'];
 
   void _onTabTap(int index) {
     if (index == _currentIndex) return;
@@ -177,15 +174,17 @@ class _MainShellState extends State<MainShell> {
           location.startsWith('/news') ||
           location.startsWith('/nhk-news')) {
         idx = 1; // 学习
-      } else if (location.startsWith('/quiz')) {
+      } else if (location.startsWith('/quiz') ||
+          location.startsWith('/game') ||
+          location.startsWith('/listening-exercise')) {
         idx = 2; // 测试
       } else if (location.startsWith('/dictionary') ||
           location.startsWith('/anki') ||
           location.startsWith('/local-vocab') ||
-          location.startsWith('/todofuken')) {
+          location.startsWith('/todofuken') ||
+          location.startsWith('/translate') ||
+          location.startsWith('/wrong-answers')) {
         idx = 3; // 工具
-      } else if (location.startsWith('/game')) {
-        idx = 4; // 游戏 (covers /game, /games)
       } else {
         idx = 0; // 主页
       }
@@ -212,7 +211,6 @@ class _MainShellState extends State<MainShell> {
           NavigationDestination(icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book_rounded), label: '学习'),
           NavigationDestination(icon: Icon(Icons.assignment_outlined), selectedIcon: Icon(Icons.assignment_rounded), label: '测试'),
           NavigationDestination(icon: Icon(Icons.build_outlined), selectedIcon: Icon(Icons.build_rounded), label: '工具'),
-          NavigationDestination(icon: Icon(Icons.sports_esports_outlined), selectedIcon: Icon(Icons.sports_esports_rounded), label: '游戏'),
         ],
       ),
     );

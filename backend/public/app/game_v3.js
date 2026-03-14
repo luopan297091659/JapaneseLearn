@@ -299,6 +299,7 @@ let gGameType = 'particles'; // 'particles' or 'verbs'
 // ── 全局状态 ──
 let gBoard = null, gBoardTxt = null, gBoardClr = null;
 let gScore = 0, gCombo = 0, gMaxCombo = 0, gWrong = 0, gWrongLog = [];
+let gAllLog = [];  // 记录所有已出题目（含正确和错误）
 let gCurQ = null, gSelected = 1, gDropCol = 0;
 let gBaseMs = 10000, gDropMs = 10000;
 let gTimerIv = null, gTimeElapsed = 0, gRunning = false;
@@ -406,12 +407,30 @@ function gMigrateOldStorage() {
   } catch(e) {}
 }
 
+// ── 切换游戏类型（助词方块 / 动词方块）──
+function gSwitchGameType(type) {
+  if (type === gGameType) return;
+  gGameType = type;
+  // 更新 chip 样式
+  var cp = document.getElementById('g-chip-particles');
+  var cv = document.getElementById('g-chip-verbs');
+  if (cp) cp.classList.toggle('active', type === 'particles');
+  if (cv) cv.classList.toggle('active', type === 'verbs');
+  // 重新加载进度
+  gLoadLocalSaves();
+  gSyncServerProgress();
+  gRenderLevelGrid();
+}
+
 // ── 页面初始化 ──
 function gamePageInit(gameType) {
   if (gameType) gGameType = gameType;
   gMigrateOldStorage();
-  const titleEl = document.getElementById('g-title');
-  if (titleEl) titleEl.textContent = gGameType === 'verbs' ? '🎮 动词方块' : '🎮 助词方块';
+  // 更新 chip 样式
+  var cp = document.getElementById('g-chip-particles');
+  var cv = document.getElementById('g-chip-verbs');
+  if (cp) cp.classList.toggle('active', gGameType === 'particles');
+  if (cv) cv.classList.toggle('active', gGameType === 'verbs');
   gLoadLocalSaves();
   gameSpeedInit();
   gSyncServerProgress();
@@ -471,6 +490,7 @@ function gBeginLevel(lv) {
   gPassCount    = 0;
   gDropMs       = Math.round(gBaseMs * cfg.speedMul);
   gScore = 0; gCombo = 0; gMaxCombo = 0; gWrong = 0; gWrongLog = [];
+  gAllLog = [];
   gFever = false; gRunning = true;
   document.getElementById('g-sel').style.display  = 'none';
   document.getElementById('g-play').style.display = '';
@@ -479,8 +499,6 @@ function gBeginLevel(lv) {
   document.getElementById('g-pass-txt').textContent  = '0/' + cfg.toPass;
   document.getElementById('g-fever-banner').style.display = 'none';
   ['g-score','g-combo','g-wrong'].forEach(id => document.getElementById(id).textContent = 0);
-  const dp = document.getElementById('g-diff-panel');
-  if (dp) { dp.style.opacity = '.45'; dp.style.pointerEvents = 'none'; }
   gRenderLives();
   gameInitBoard();
   gameNextQ();
@@ -492,8 +510,6 @@ function gBackToSelect() {
   gRunning = false;
   document.getElementById('g-play').style.display = 'none';
   document.getElementById('g-sel').style.display  = '';
-  const dp = document.getElementById('g-diff-panel');
-  if (dp) { dp.style.opacity = ''; dp.style.pointerEvents = ''; }
   gRenderLevelGrid();
 }
 
@@ -579,20 +595,52 @@ function gQPool() {
   return GAME_QS.filter(q => types.has(q.t));
 }
 
-// ── 下一题 ──
+// ── 题目难度分级（从简单到复杂）──
+// 助词：は/が/を/に (基础) → で/と/の/から/まで (中级) → より/ほど/こそ/さえ (高级)
+// 动词：ます形/ない形 (基础) → た形/て形 (中级) → 可能形/受身形/使役形 (高级)
+const G_DIFF_ORDER_P = ['は','が','を','に','へ','で','と','の','から','まで','も','や','とか','だの','より','だけ','しか','さえ','でも','ばかり','ほど','ぐらい','くらい','こそ','でさえ'];
+const G_DIFF_ORDER_V = ['ます形','ない形','た形','て形','可能形','受身形','使役形','使役受身','命令形','意向形','条件形'];
+
+function gQDifficulty(q) {
+  if (q.t === 'p') {
+    const idx = G_DIFF_ORDER_P.indexOf(q.a);
+    return idx >= 0 ? idx : G_DIFF_ORDER_P.length;
+  }
+  if (q.t === 'v') {
+    // 从题目文字中提取变形类型
+    for (let i = 0; i < G_DIFF_ORDER_V.length; i++) {
+      if (q.s.includes(G_DIFF_ORDER_V[i])) return i;
+    }
+    return G_DIFF_ORDER_V.length;
+  }
+  return 0; // 词义选择统一难度
+}
+
+// ── 下一题（渐进难度：前期出简单题，后期出难题，关内不重复）──
 function gameNextQ() {
   if (!gRunning) return;
   gDropCol = gamePickCol();
   if (gDropCol === -1) { gRunning = false; setTimeout(gLevelFail, 300); return; }
-  const pool  = gQPool();
-  const src   = pool[Math.floor(Math.random() * pool.length)];
+  const pool = gQPool();
+  // 按难度排序
+  const sorted = pool.map((q, i) => ({ q, d: gQDifficulty(q), i }))
+                      .sort((a, b) => a.d - b.d || a.i - b.i);
+  // 根据当前答题进度决定取题范围
+  const progress = gPassCount / Math.max(1, gPassTarget); // 0~1
+  const maxIdx = Math.max(3, Math.ceil(sorted.length * Math.min(1, progress * 1.5 + 0.3)));
+  // 过滤已出过的题，避免关内重复
+  const usedSentences = new Set(gAllLog.map(l => l.s));
+  let subset = sorted.slice(0, maxIdx).filter(x => !usedSentences.has(x.q.s));
+  // 若过滤后无题可用，回退到全池（允许重复）
+  if (subset.length === 0) subset = sorted.slice(0, maxIdx);
+  const pick = subset[Math.floor(Math.random() * subset.length)].q;
   // 深拷贝并随机打乱选项顺序
-  const shuffled = [...src.o];
+  const shuffled = [...pick.o];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-  gCurQ = { t: src.t, s: src.s, a: src.a, o: shuffled, e: src.e };
+  gCurQ = { t: pick.t, s: pick.s, a: pick.a, o: shuffled, e: pick.e };
   gSelected = Math.floor(gCurQ.o.length / 2);
   gTimeElapsed = 0;
   document.getElementById('g-sentence').textContent      = gCurQ.s;
@@ -668,6 +716,9 @@ function gameConfirm() {
   gBoard[landRow][gDropCol]    = ok ? 'correct' : 'wrong';
   gBoardTxt[landRow][gDropCol] = ans;
   gBoardClr[landRow][gDropCol] = ok ? gComboColor() : 'linear-gradient(135deg,#dc2626,#ef4444)';
+
+  // 记录所有已出题目
+  gAllLog.push({s: gCurQ.s, ans: ans, correct: gCurQ.a, ok: ok, e: gCurQ.e});
 
   if (ok) {
     gPassCount++;
@@ -783,26 +834,28 @@ function gCalcStars(acc, maxCombo) {
 function gLevelClear() {
   const acc   = Math.round(gPassCount / Math.max(1, gPassCount + gWrong) * 100);
   const stars = gCalcStars(acc, gMaxCombo);
-  const dp    = document.getElementById('g-diff-panel');
-  if (dp) { dp.style.opacity = ''; dp.style.pointerEvents = ''; }
   gSaveLocalProgress(gCurrentLevel, gScore, stars, gMaxCombo);
   if (gCurrentLevel >= gUnlockedTo && gCurrentLevel < gMaxLevels) {
     gUnlockedTo = gCurrentLevel + 1;
     try { localStorage.setItem(gStorageKey('gUnlockedTo'), gUnlockedTo); } catch {}
   }
   gameSaveScore(gCurrentLevel, gScore, acc, gMaxCombo, gPassCount + gWrong, true);
+  // 保存错题到错题集
+  gSaveWrongToStorage();
   const starStr = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
   const nextLv  = gCurrentLevel + 1;
   const hasNext = nextLv <= gMaxLevels;
-  const wHtml   = gWrongLog.length
-    ? '<div style="font-weight:700;margin-bottom:8px;text-align:left">📋 本关错题</div>' +
-      gWrongLog.slice(0,5).map(w =>
-        '<div style="padding:8px;background:var(--surface2,#f5f5f5);border-radius:6px;margin-bottom:6px;font-size:12px;text-align:left">' +
-        '<div style="font-weight:700">' + escHtml(w.s) + '</div>' +
-        '<div style="color:var(--danger)">❌ ' + escHtml(w.wrong) + '</div>' +
-        '<div style="color:var(--success)">✅ ' + escHtml(w.correct) + '</div>' +
+  // 生成所有题目的完整结果
+  const allHtml = gAllLog.length
+    ? '<div style="font-weight:700;margin-bottom:8px;text-align:left">📋 本关全部题目（' + gAllLog.length + '题）</div>' +
+      '<div style="max-height:260px;overflow-y:auto">' +
+      gAllLog.map(w =>
+        '<div style="padding:8px;background:' + (w.ok ? '#f0fdf4' : '#fef2f2') + ';border-left:3px solid ' + (w.ok ? '#22c55e' : '#ef4444') + ';border-radius:6px;margin-bottom:6px;font-size:12px;text-align:left">' +
+        '<div style="font-weight:700">' + (w.ok ? '✅ ' : '❌ ') + escHtml(w.s) + '</div>' +
+        (w.ok ? '<div style="color:#16a34a">答案：' + escHtml(w.correct) + '</div>'
+               : '<div style="color:var(--danger)">你的答案：' + escHtml(w.ans) + '</div><div style="color:#16a34a">正确答案：' + escHtml(w.correct) + '</div>') +
         '<div style="color:var(--text-sub);font-size:11px">' + escHtml(w.e) + '</div></div>'
-      ).join('') : '';
+      ).join('') + '</div>' : '';
   openModal('🎉 关卡 ' + gCurrentLevel + ' 通关！',
     '<div style="text-align:center;margin-bottom:14px">' +
     '<div style="font-size:44px;margin-bottom:8px">' + starStr + '</div>' +
@@ -810,7 +863,7 @@ function gLevelClear() {
     '<div style="background:var(--primary-light,#e8effe);padding:12px;border-radius:8px"><div style="font-size:20px;font-weight:800;color:var(--primary)">' + gScore + '</div><div style="font-size:10px;color:var(--text-sub)">得分</div></div>' +
     '<div style="background:#e8f5e9;padding:12px;border-radius:8px"><div style="font-size:20px;font-weight:800;color:var(--success)">' + acc + '%</div><div style="font-size:10px;color:var(--text-sub)">正确率</div></div>' +
     '<div style="background:#fffbeb;padding:12px;border-radius:8px"><div style="font-size:20px;font-weight:800;color:#f59e0b">' + gMaxCombo + '</div><div style="font-size:10px;color:var(--text-sub)">最高连击</div></div>' +
-    '</div></div>' + wHtml +
+    '</div></div>' + allHtml +
     '<div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">' +
     '<button class="btn btn-outline btn-sm" onclick="closeModal();gBackToSelect()">关卡列表</button>' +
     '<button class="btn btn-outline btn-sm" onclick="closeModal();gBeginLevel(' + gCurrentLevel + ')">重玩本关</button>' +
@@ -822,19 +875,23 @@ function gLevelClear() {
 
 // ── 失败 ──
 function gLevelFail() {
-  const dp = document.getElementById('g-diff-panel');
-  if (dp) { dp.style.opacity = ''; dp.style.pointerEvents = ''; }
   const total = gPassCount + gWrong;
   const acc   = total > 0 ? Math.round(gPassCount / total * 100) : 0;
   gameSaveScore(gCurrentLevel, gScore, acc, gMaxCombo, total, false);
+  // 保存错题到错题集
+  gSaveWrongToStorage();
   const reason  = gLives <= 0 ? '💔 生命用尽' : '📦 棋盘溢出';
-  const wHtml   = gWrongLog.slice(0,6).map(w =>
-    '<div style="padding:8px;background:var(--surface2,#f5f5f5);border-radius:6px;margin-bottom:6px;font-size:12px;text-align:left">' +
-    '<div style="font-weight:700">' + escHtml(w.s) + '</div>' +
-    '<div style="color:var(--danger)">❌ ' + escHtml(w.wrong) + '</div>' +
-    '<div style="color:var(--success)">✅ ' + escHtml(w.correct) + '</div>' +
-    '<div style="color:var(--text-sub);font-size:11px">' + escHtml(w.e) + '</div></div>'
-  ).join('');
+  // 生成所有题目的完整结果
+  const allHtml = gAllLog.length
+    ? '<div style="font-weight:700;margin-bottom:8px;text-align:left">📋 本关全部题目（' + gAllLog.length + '题）</div>' +
+      '<div style="max-height:260px;overflow-y:auto">' +
+      gAllLog.map(w =>
+        '<div style="padding:8px;background:' + (w.ok ? '#f0fdf4' : '#fef2f2') + ';border-left:3px solid ' + (w.ok ? '#22c55e' : '#ef4444') + ';border-radius:6px;margin-bottom:6px;font-size:12px;text-align:left">' +
+        '<div style="font-weight:700">' + (w.ok ? '✅ ' : '❌ ') + escHtml(w.s) + '</div>' +
+        (w.ok ? '<div style="color:#16a34a">答案：' + escHtml(w.correct) + '</div>'
+               : '<div style="color:var(--danger)">你的答案：' + escHtml(w.ans) + '</div><div style="color:#16a34a">正确答案：' + escHtml(w.correct) + '</div>') +
+        '<div style="color:var(--text-sub);font-size:11px">' + escHtml(w.e) + '</div></div>'
+      ).join('') + '</div>' : '';
   openModal(reason + ' · 关卡 ' + gCurrentLevel,
     '<div style="text-align:center;margin-bottom:12px">' +
     '<div style="font-size:40px;margin-bottom:8px">😤</div>' +
@@ -844,8 +901,7 @@ function gLevelFail() {
     '<div style="background:#e8f5e9;padding:10px;border-radius:8px"><div style="font-size:20px;font-weight:800;color:var(--success)">' + acc + '%</div><div style="font-size:10px;color:var(--text-sub)">正确率</div></div>' +
     '</div>' +
     '<div style="font-size:13px;color:var(--text-sub)">已答对 ' + gPassCount + '/' + gPassTarget + '，未达过关条件</div>' +
-    '</div>' +
-    (gWrongLog.length ? '<div style="font-weight:700;margin-bottom:8px">📋 错题回顾</div>' + wHtml : '') +
+    '</div>' + allHtml +
     '<div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">' +
     '<button class="btn btn-outline btn-sm" onclick="closeModal();gBackToSelect()">关卡列表</button>' +
     '<button class="btn btn-primary btn-sm" onclick="closeModal();gBeginLevel(' + gCurrentLevel + ')">再试一次</button>' +
@@ -972,6 +1028,30 @@ function gSaveAdminConfig() {
       gRenderLevelGrid();
     }
   }).catch(() => toast('保存失败'));
+}
+
+// ── 保存游戏错题到错题集（localStorage） ──
+function gSaveWrongToStorage() {
+  if (!gWrongLog.length) return;
+  try {
+    var all = JSON.parse(localStorage.getItem('wrongAnswers') || '[]');
+    var now = new Date().toISOString();
+    gWrongLog.forEach(function(w) {
+      all.push({
+        source: 'game',
+        gameType: gGameType,
+        level: gCurrentLevel,
+        question: w.s,
+        yourAnswer: w.wrong,
+        correctAnswer: w.correct,
+        explanation: w.e,
+        time: now
+      });
+    });
+    // 最多保留500条
+    if (all.length > 500) all = all.slice(all.length - 500);
+    localStorage.setItem('wrongAnswers', JSON.stringify(all));
+  } catch(e) {}
 }
 
 // ── 速度滑块 ──

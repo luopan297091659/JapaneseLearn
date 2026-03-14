@@ -33,6 +33,7 @@ const syncRoutes  = require('./routes/sync');
 const gameRoutes  = require('./routes/game');
 const aiRoutes    = require('./routes/ai');
 const forumRoutes = require('./routes/forum');
+const wrongAnswersRoutes = require('./routes/wrongAnswers');
 
 const app = express();
 
@@ -121,6 +122,7 @@ app.use('/api/v1/sync', syncRoutes);
 app.use('/api/v1/game', gameRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/forum', forumRoutes);
+app.use('/api/v1/wrong-answers', wrongAnswersRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

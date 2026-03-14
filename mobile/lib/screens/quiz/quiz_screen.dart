@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../services/local_db.dart';
 import '../../models/models.dart';
@@ -152,6 +154,39 @@ class _QuizScreenState extends State<QuizScreen> {
     if (_answered) return;
     setState(() { _selectedAnswer = answer; _answered = true;
       _questions[_current].userAnswer = answer; });
+    final q = _questions[_current];
+    if (answer != q.correctAnswer) {
+      _saveWrongAnswer(
+        source: 'quiz',
+        question: q.question,
+        yourAnswer: answer,
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation ?? '',
+      );
+    }
+  }
+
+  Future<void> _saveWrongAnswer({
+    required String source,
+    required String question,
+    required String yourAnswer,
+    required String correctAnswer,
+    String explanation = '',
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('wrongAnswers') ?? '[]';
+    final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+    list.add({
+      'source': source,
+      'question': question,
+      'yourAnswer': yourAnswer,
+      'correctAnswer': correctAnswer,
+      'explanation': explanation,
+      'time': DateTime.now().toIso8601String(),
+    });
+    // 最多保留500条
+    while (list.length > 500) { list.removeAt(0); }
+    await prefs.setString('wrongAnswers', jsonEncode(list));
   }
 
   void _nextQuestion() {
@@ -208,7 +243,7 @@ class _QuizScreenState extends State<QuizScreen> {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('随机测验'),
+        title: const Text('单词随机测验'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
           tooltip: '返回',

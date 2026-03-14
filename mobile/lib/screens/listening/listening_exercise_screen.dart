@@ -348,50 +348,63 @@ class _ListeningExerciseScreenState extends State<ListeningExerciseScreen> {
           ),
           const SizedBox(height: 20),
 
-          // 音频播放区域
+          // 音频播放区域（紧凑两行）
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: cs.primaryContainer.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
             ),
-            child: Column(children: [
-              Icon(Icons.headphones_rounded, size: 40, color: cs.primary),
-              const SizedBox(height: 12),
-              Text(
-                '请仔细听这段日语',
-                style: TextStyle(fontSize: 15, color: cs.onSurface.withValues(alpha: 0.7)),
-              ),
-              const SizedBox(height: 16),
-
-              // 音频播放按钮区域
-              if (q.audioUrl != null && q.audioUrl!.isNotEmpty) ...[
-                AudioPlayerWidget(audioUrl: q.audioUrl, compact: false),
-                const SizedBox(height: 8),
-              ],
-
-              // TTS 按钮行
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (q.audioUrl == null || q.audioUrl!.isEmpty) ...[
-                    // 无服务端音频时，用 TTS 播放
-                    FilledButton.icon(
-                      onPressed: () => _speakSentence(q.sentence),
-                      icon: Icon(_ttsPlaying ? Icons.stop_rounded : Icons.volume_up_rounded),
-                      label: Text(_ttsPlaying ? '播放中' : '播放'),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                  OutlinedButton.icon(
-                    onPressed: () => _speakSentence(q.sentence, rate: 0.25),
-                    icon: const Text('🐌', style: TextStyle(fontSize: 18)),
-                    label: const Text('慢速'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(children: [
+                  Icon(Icons.headphones_rounded, size: 20, color: cs.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    '请仔细听这段日语',
+                    style: TextStyle(fontSize: 14, color: cs.onSurface.withValues(alpha: 0.7)),
                   ),
+                ]),
+                const SizedBox(height: 10),
+                // 服务端音频（如果有）
+                if (q.audioUrl != null && q.audioUrl!.isNotEmpty) ...[
+                  AudioPlayerWidget(audioUrl: q.audioUrl, compact: true),
+                  const SizedBox(height: 8),
                 ],
-              ),
-            ]),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      height: 34,
+                      child: FilledButton.icon(
+                        onPressed: () => _speakSentence(q.sentence),
+                        icon: Icon(_ttsPlaying ? Icons.stop_rounded : Icons.play_arrow_rounded, size: 18),
+                        label: Text(_ttsPlaying ? '播放中' : '播放', style: const TextStyle(fontSize: 13)),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      height: 34,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _speakSentence(q.sentence, rate: 0.25),
+                        icon: const Icon(Icons.slow_motion_video_rounded, size: 18),
+                        label: const Text('慢速', style: TextStyle(fontSize: 13)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
 
           const SizedBox(height: 20),

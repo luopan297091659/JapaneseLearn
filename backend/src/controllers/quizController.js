@@ -3,24 +3,93 @@ const { Op } = require('sequelize');
 
 async function generateQuiz(req, res) {
   const { level = 'N5', quiz_type = 'vocabulary', count = 10 } = req.query;
+  const safeCount = Math.min(parseInt(count) || 10, 50);
   try {
     const { sequelize: db } = require('../config/database');
     const questions = await QuizQuestion.findAll({
       where: {
         jlpt_level: level,
         question_type: { [Op.in]: quizTypeToTypes(quiz_type) },
-        options: { [Op.not]: null },  // 只取有选项的题目
+        options: { [Op.not]: null },
       },
-      order: db.literal('RAND()'),   // MySQL 随机排序，每次不同
-      limit: Math.min(parseInt(count) || 10, 50),
+      order: db.literal('RAND()'),
+      limit: safeCount,
     });
-    if (!questions || questions.length === 0) {
-      return res.json({ quiz_type, level, questions: [] });
+    if (questions && questions.length > 0) {
+      return res.json({ quiz_type, level, questions });
     }
-    res.json({ quiz_type, level, questions });
+    // 预置题目不足时，从词汇表动态生成
+    const dynamic = await buildDynamicQuiz(level, quiz_type, safeCount);
+    res.json({ quiz_type, level, questions: dynamic });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+}
+
+/**
+ * 从 vocabulary 表动态生成测验题目
+ */
+async function buildDynamicQuiz(level, quizType, count) {
+  const { Vocabulary } = require('../models');
+  const { sequelize: db } = require('../config/database');
+  // 取足够多的词汇用于生成题目和干扰项
+  const pool = await Vocabulary.findAll({
+    where: { jlpt_level: level },
+    order: db.literal('RAND()'),
+    limit: Math.max(count * 4, 80),
+  });
+  if (pool.length < 4) return [];
+
+  const types = quizTypeToTypes(quizType);
+  const questions = [];
+
+  for (let i = 0; i < pool.length && questions.length < count; i++) {
+    const word = pool[i];
+    const others = pool.filter((w, idx) => idx !== i);
+
+    if (types.includes('meaning')) {
+      const correct = (word.meaning_zh || '').trim();
+      if (!correct) continue;
+      const wrongSet = new Set();
+      for (const w of others) {
+        const m = (w.meaning_zh || '').trim();
+        if (m && m !== correct) wrongSet.add(m);
+        if (wrongSet.size >= 3) break;
+      }
+      if (wrongSet.size < 3) continue;
+      const opts = [correct, ...wrongSet].sort(() => Math.random() - 0.5);
+      questions.push({
+        id: word.id,
+        question_type: 'meaning',
+        question: word.reading ? `「${word.word}」(${word.reading}) の意味は？` : `「${word.word}」の意味は？`,
+        correct_answer: correct,
+        options: JSON.stringify(opts),
+        explanation: `${word.word} → ${correct}`,
+        jlpt_level: level,
+      });
+    } else if (types.includes('reading')) {
+      const correct = (word.reading || '').trim();
+      if (!correct) continue;
+      const wrongSet = new Set();
+      for (const w of others) {
+        const r = (w.reading || '').trim();
+        if (r && r !== correct) wrongSet.add(r);
+        if (wrongSet.size >= 3) break;
+      }
+      if (wrongSet.size < 3) continue;
+      const opts = [correct, ...wrongSet].sort(() => Math.random() - 0.5);
+      questions.push({
+        id: word.id,
+        question_type: 'reading',
+        question: `「${word.word}」の読み方は？`,
+        correct_answer: correct,
+        options: JSON.stringify(opts),
+        explanation: `${word.word} の読みは ${correct}`,
+        jlpt_level: level,
+      });
+    }
+  }
+  return questions;
 }
 
 function quizTypeToTypes(type) {
