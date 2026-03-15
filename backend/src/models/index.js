@@ -173,6 +173,19 @@ const ApiLog = sequelize.define('ApiLog', {
   user_agent: { type: DataTypes.STRING(300), allowNull: true },
 }, { tableName: 'api_logs', timestamps: true, updatedAt: false });
 
+// ────────── NHK News Cache (缓存历史NHK新闻) ──────────
+const NhkNewsCache = sequelize.define('NhkNewsCache', {
+  id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
+  nhk_id: { type: DataTypes.STRING(100), allowNull: false, unique: true },
+  title: { type: DataTypes.TEXT, allowNull: false },
+  description: { type: DataTypes.TEXT, allowNull: true },
+  body: { type: DataTypes.TEXT('long'), allowNull: true },
+  image_url: { type: DataTypes.STRING(500), allowNull: true },
+  link: { type: DataTypes.STRING(500), allowNull: true },
+  category: { type: DataTypes.STRING(10), defaultValue: '0' },
+  published_at: { type: DataTypes.DATE, allowNull: true },
+}, { tableName: 'nhk_news_cache' });
+
 // ────────── News Favorite (用户收藏新闻) ──────────
 const NewsFavorite = sequelize.define('NewsFavorite', {
   id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
@@ -207,6 +220,60 @@ const MembershipPlan = sequelize.define('MembershipPlan', {
   sort_order:      { type: DataTypes.INTEGER, defaultValue: 0 },
 }, { tableName: 'membership_plans' });
 
+// ────────── JMdict 词典 ──────────
+const DictEntry = sequelize.define('DictEntry', {
+  id:          { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  ent_seq:     { type: DataTypes.INTEGER, allowNull: false, comment: 'JMdict entry sequence number' },
+  kanji:       { type: DataTypes.STRING(100), allowNull: true, comment: '汉字书写形式' },
+  reading:     { type: DataTypes.STRING(100), allowNull: false, comment: '假名读音' },
+  pos:         { type: DataTypes.STRING(200), allowNull: true, comment: '词性 (英文)' },
+  meaning_en:  { type: DataTypes.TEXT, allowNull: true, comment: '英文释义 (;分隔)' },
+  meaning_zh:  { type: DataTypes.TEXT, allowNull: true, comment: '中文释义 (;分隔)' },
+  priority:    { type: DataTypes.TINYINT, defaultValue: 0, comment: '常用度 0-5 (ichi1/news1/spec1=高)' },
+  jlpt:        { type: DataTypes.STRING(5), allowNull: true, comment: 'N5-N1' },
+}, {
+  tableName: 'dict_entries',
+  timestamps: false,
+  indexes: [
+    { fields: ['kanji'] },
+    { fields: ['reading'] },
+    { fields: ['ent_seq'] },
+  ],
+});
+
+// ────────── AI 翻译缓存 ──────────
+const DictTransCache = sequelize.define('DictTransCache', {
+  id:         { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  word:       { type: DataTypes.STRING(100), allowNull: false },
+  reading:    { type: DataTypes.STRING(100), allowNull: true },
+  meaning_en: { type: DataTypes.TEXT, allowNull: false, comment: '原始英文释义' },
+  meaning_zh: { type: DataTypes.TEXT, allowNull: false, comment: 'AI翻译的中文释义' },
+}, {
+  tableName: 'dict_trans_cache',
+  updatedAt: false,
+  indexes: [
+    { unique: true, fields: ['word', 'reading'] },
+  ],
+});
+
+// ────────── 听力频道（磨耳朵） ──────────
+const ListeningChannel = sequelize.define('ListeningChannel', {
+  id:       { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  platform: { type: DataTypes.ENUM('youtube', 'bilibili'), allowNull: false },
+  channel_url: { type: DataTypes.STRING(500), allowNull: false },
+  channel_id:  { type: DataTypes.STRING(200), allowNull: true, comment: '平台频道/用户ID' },
+  name:     { type: DataTypes.STRING(200), allowNull: false, comment: '博主名称' },
+  avatar:   { type: DataTypes.STRING(500), allowNull: true, comment: '头像URL' },
+  description: { type: DataTypes.STRING(500), allowNull: true },
+  is_active: { type: DataTypes.BOOLEAN, defaultValue: true },
+  sort_order: { type: DataTypes.INTEGER, defaultValue: 0 },
+  max_videos: { type: DataTypes.INTEGER, defaultValue: 12, comment: '最大抓取视频数' },
+  video_cache: { type: DataTypes.JSON, allowNull: true, comment: '缓存的最近视频列表' },
+  cache_updated_at: { type: DataTypes.DATE, allowNull: true },
+}, {
+  tableName: 'listening_channels',
+});
+
 const AppRelease = require('./AppRelease');
 
 module.exports = {
@@ -218,6 +285,7 @@ module.exports = {
   QuizQuestion,
   QuizSession,
   NewsArticle,
+  NhkNewsCache,
   NewsFavorite,
   UserProgress,
   ContentVersion,
@@ -226,4 +294,7 @@ module.exports = {
   GameScore,
   GameConfig,
   MembershipPlan,
+  DictEntry,
+  DictTransCache,
+  ListeningChannel,
 };

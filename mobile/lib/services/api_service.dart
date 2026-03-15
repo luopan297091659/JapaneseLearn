@@ -556,6 +556,23 @@ class ApiService {
   }
 
   // ─── Listening ────────────────────────────────────────────────────────────
+
+  /// 获取磨耳朵视频列表（带缓存）
+  Future<Map<String, dynamic>> getImmersionVideos({int page = 1, int limit = 20, bool forceRefresh = false}) async {
+    final key = 'immersion:$page:$limit';
+    if (!forceRefresh) {
+      final cached = _cache.get(key);
+      if (cached != null) return cached as Map<String, dynamic>;
+    }
+    final res = await _dio.get('/listening-channels', queryParameters: {
+      'page': page,
+      'limit': limit,
+    });
+    final data = res.data as Map<String, dynamic>;
+    _cache.set(key, data, AppConfig.cacheTtlLong);
+    return data;
+  }
+
   Future<Map<String, dynamic>> getListeningTracks({String? level, String? category, int page = 1}) async {
     final key = 'listening:${level}:${category}:$page';
     final cached = _cache.get(key);
@@ -709,24 +726,39 @@ class ApiService {
     return articles;
   }
 
-  /// 从文章页面抓取正文
+  /// 通过后端 API 获取文章正文
   Future<String> getNhkArticleBody(String articleId) async {
-    if (!RegExp(r'^k?\d+$').hasMatch(articleId)) return '';
-    // 需要找到日期路径，先尝试从缓存的文章中查找完整 URL
-    // 直接用 NHK 的搜索路径
+    if (articleId.isEmpty) return '';
     try {
-      final res = await _nhkDio.get(
-        '/news/html/$articleId.html',
-        options: Options(
-          responseType: ResponseType.plain,
-          followRedirects: true,
-          maxRedirects: 5,
-        ),
-      );
-      return _extractNhkBody(res.data as String);
+      final res = await dio.get('/news/nhk/$articleId');
+      return (res.data['body'] as String?) ?? '';
     } catch (_) {
       return '';
     }
+  }
+
+  /// 获取 NHK 文章详情（body + link）
+  Future<Map<String, String>> getNhkArticleDetail(String articleId) async {
+    if (articleId.isEmpty) return {'body': '', 'link': ''};
+    try {
+      final res = await dio.get('/news/nhk/$articleId');
+      return {
+        'body': (res.data['body'] as String?) ?? '',
+        'link': (res.data['link'] as String?) ?? '',
+      };
+    } catch (_) {
+      return {'body': '', 'link': ''};
+    }
+  }
+
+  /// 获取 NHK 历史新闻（分页）
+  Future<Map<String, dynamic>> getNhkNewsHistory({String? category, int page = 1, int limit = 20}) async {
+    final params = <String, dynamic>{'page': page, 'limit': limit};
+    if (category != null) params['category'] = category;
+    final res = await dio.get('/news/nhk/history', queryParameters: params);
+    final data = (res.data['data'] as List?) ?? [];
+    final articles = data.map((j) => NewsArticleModel.fromJson(j as Map<String, dynamic>)).toList();
+    return {'total': res.data['total'] ?? 0, 'data': articles};
   }
 
   /// 从文章页面 HTML 中提取正文段落

@@ -750,19 +750,32 @@ class _WordOfDayCard extends StatelessWidget {
             },
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
+              layoutBuilder: (currentChild, previousChildren) {
+                return Stack(
+                  alignment: Alignment.centerLeft,
+                  children: [
+                    ...previousChildren,
+                    if (currentChild != null) currentChild,
+                  ],
+                );
+              },
               child: revealed
-                  ? Column(
+                  ? Container(
                       key: const ValueKey('revealed'),
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(word.meaningZh,
-                            style: TextStyle(fontSize: 16, color: cs.onSurface, fontWeight: FontWeight.w500)),
-                        if (word.exampleSentence != null) ...[
-                          const SizedBox(height: 8),
-                          Text(word.exampleSentence!,
-                              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, height: 1.5)),
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 2),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(word.meaningZh,
+                              style: TextStyle(fontSize: 16, color: cs.onSurface, fontWeight: FontWeight.w500)),
+                          if (word.exampleSentence != null) ...[
+                            const SizedBox(height: 8),
+                            Text(word.exampleSentence!,
+                                style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, height: 1.5)),
+                          ],
                         ],
-                      ],
+                      ),
                     )
                   : Container(
                       key: const ValueKey('hidden'),

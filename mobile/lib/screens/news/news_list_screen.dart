@@ -15,6 +15,10 @@ class _NewsListScreenState extends State<NewsListScreen> with SingleTickerProvid
   // ── NHK Easy ──
   List<NewsArticleModel> _nhkArticles = [];
   bool _nhkLoading = true;
+  int _nhkPage = 1;
+  int _nhkTotal = 0;
+  bool _nhkLoadingMore = false;
+  final ScrollController _nhkScrollCtrl = ScrollController();
 
   // ── 收藏 ──
   List<NewsFavoriteModel> _favArticles = [];
@@ -24,18 +28,49 @@ class _NewsListScreenState extends State<NewsListScreen> with SingleTickerProvid
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
+    _nhkScrollCtrl.addListener(_onNhkScroll);
     _loadNhk();
   }
 
   @override
-  void dispose() { _tabCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _tabCtrl.dispose();
+    _nhkScrollCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onNhkScroll() {
+    if (_nhkScrollCtrl.position.pixels >= _nhkScrollCtrl.position.maxScrollExtent - 200) {
+      _loadMoreNhk();
+    }
+  }
 
   Future<void> _loadNhk() async {
-    setState(() => _nhkLoading = true);
+    setState(() { _nhkLoading = true; _nhkPage = 1; });
     try {
-      final news = await apiService.getNhkNews();
-      setState(() { _nhkArticles = news; _nhkLoading = false; });
+      // 先请求最新 RSS（触发服务端缓存）
+      apiService.getNhkNews().catchError((_) => <NewsArticleModel>[]);
+      // 从历史接口加载
+      final result = await apiService.getNhkNewsHistory(page: 1, limit: 20);
+      setState(() {
+        _nhkArticles = result['data'] as List<NewsArticleModel>;
+        _nhkTotal = result['total'] as int;
+        _nhkLoading = false;
+      });
     } catch (_) { setState(() => _nhkLoading = false); }
+  }
+
+  Future<void> _loadMoreNhk() async {
+    if (_nhkLoadingMore || _nhkArticles.length >= _nhkTotal) return;
+    _nhkLoadingMore = true;
+    try {
+      final result = await apiService.getNhkNewsHistory(page: _nhkPage + 1, limit: 20);
+      final more = result['data'] as List<NewsArticleModel>;
+      if (more.isNotEmpty) {
+        setState(() { _nhkArticles.addAll(more); _nhkPage++; });
+      }
+    } catch (_) {}
+    _nhkLoadingMore = false;
   }
 
   Future<void> _loadFav() async {
@@ -100,10 +135,17 @@ class _NewsListScreenState extends State<NewsListScreen> with SingleTickerProvid
     return RefreshIndicator(
       onRefresh: _loadNhk,
       child: ListView.separated(
+        controller: _nhkScrollCtrl,
         padding: const EdgeInsets.all(16),
-        itemCount: _nhkArticles.length,
+        itemCount: _nhkArticles.length + (_nhkArticles.length < _nhkTotal ? 1 : 0),
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (_, i) {
+          if (i >= _nhkArticles.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            );
+          }
           final a = _nhkArticles[i];
           return _NhkNewsCard(article: a, onTap: () => context.push('/nhk-news/${a.id}', extra: a));
         },

@@ -226,6 +226,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item" onclick="nav('vocab')"   id="nav-vocab">  <span class="icon">📚</span>词汇管理</div>
   <div class="nav-item" onclick="nav('grammar')" id="nav-grammar"><span class="icon">📖</span>文法管理</div>
   <div class="nav-item" onclick="nav('tracks')"  id="nav-tracks"> <span class="icon">🎧</span>听力管理</div>
+  <div class="nav-item" onclick="nav('channels')" id="nav-channels"><span class="icon">📺</span>频道管理</div>
   <div class="nav-item" onclick="nav('users')"   id="nav-users">  <span class="icon">👥</span>用户管理</div>
   <div class="sidebar-section">数据分析</div>
   <div class="nav-item" onclick="nav('stat-users')"    id="nav-stat-users">   <span class="icon">📈</span>用户统计</div>
@@ -362,6 +363,23 @@ tbody tr:hover td{background:#f8faff}
   </div>
 </div>
 
+<!-- CHANNEL MODAL -->
+<div class="modal-overlay" id="modal-channel">
+  <div class="modal">
+    <h2 id="mc-title">添加频道</h2>
+    <input type="hidden" id="mc-id" />
+    <div class="form-row"><label>频道链接 *</label><input id="mc-url" placeholder="https://www.youtube.com/channel/UC... 或 https://space.bilibili.com/..." /></div>
+    <div class="form-row"><label>频道名称</label><input id="mc-name" placeholder="留空自动获取" /></div>
+    <div class="form-row"><label>描述</label><input id="mc-desc" /></div>
+    <div class="form-row"><label>排序（越小越靠前）</label><input type="number" id="mc-sort" value="0" /></div>
+    <div class="form-row"><label>最大视频数</label><input type="number" id="mc-maxvids" value="12" min="1" /></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-channel')">取消</button>
+      <button class="btn btn-primary" onclick="saveChannel()">保存</button>
+    </div>
+  </div>
+</div>
+
 <!-- TRACK MODAL -->
 <div class="modal-overlay" id="modal-track">
   <div class="modal">
@@ -462,7 +480,7 @@ function monthStart(){ const d=new Date(); d.setDate(1); return d.toISOString().
 function yearStart() { return new Date().getFullYear()+'-01-01' }
 function qs(obj)    { return '?'+Object.entries(obj).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&') }
 const PALETTE = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#f97316','#84cc16','#3b82f6'];
-const ACT_NAME = {vocabulary:'📚 词汇学习',grammar:'📖 语法学习',srs_review:'🔄 SRS复习',quiz:'📝 测验',flashcard:'🃏 闪卡',news:'📰 新闻阅读',listening:'🎧 听力练习',listening_exercise:'👂 听力测试',game:'🎮 助词方块',reading:'📖 阅读',pronunciation:'🎤 发音练习',gojuon:'🔤 五十音',dictionary:'🔍 辞书検索',translate:'🌐 翻译解析',todofuken:'🗾 都道府県',game_verbs:'🎮 动词方块',anki:'📦 Anki词库'};
+const ACT_NAME = {vocabulary:'📚 词汇学习',grammar:'📖 语法学习',srs_review:'🔄 SRS复习',quiz:'📝 测验',flashcard:'🃏 闪卡',news:'📰 新闻阅读',listening:'🎧 听力练习',listening_exercise:'👂 听力测验',game:'🎮 助词方块',reading:'📖 阅读',pronunciation:'🎤 发音练习',gojuon:'🔤 五十音',dictionary:'🔍 辞书検索',translate:'🌐 翻译解析',todofuken:'🗾 都道府県',game_verbs:'🎮 动词方块',anki:'📦 Anki词库'};
 function actName(t){ return ACT_NAME[t]||t; }
 
 /* ───────────────────────────────── AUTH ──────────────────────────────────── */
@@ -533,7 +551,7 @@ function applySidebarPermissions(){
 /* ───────────────────────────────── NAV ───────────────────────────────────── */
 const PAGE_TITLES = {
   dashboard:'仪表板', vocab:'词汇管理', grammar:'文法管理',
-  tracks:'听力管理', users:'用户管理',
+  tracks:'听力管理', channels:'频道管理', users:'用户管理',
   'stat-users':'用户统计', 'stat-traffic':'流量监控',
   'stat-feature':'功能频率',
   membership:'会员配置', import:'内容导入', sync:'全局同步',
@@ -542,7 +560,7 @@ const PAGE_TITLES = {
 };
 const PAGE_ICONS = {
   dashboard:'📊', vocab:'📚', grammar:'📖',
-  tracks:'🎧', users:'👥',
+  tracks:'🎧', channels:'📺', users:'👥',
   'stat-users':'📈', 'stat-traffic':'🌐',
   'stat-feature':'📊',
   membership:'👑', import:'📥', sync:'🔄',
@@ -551,7 +569,7 @@ const PAGE_ICONS = {
 };
 const PAGE_DESCS = {
   vocab:'管理词汇条目', grammar:'管理文法条目',
-  tracks:'管理听力素材', users:'查看管理用户',
+  tracks:'管理听力素材', channels:'管理YouTube/B站频道', users:'查看管理用户',
   'stat-users':'用户数据分析', 'stat-traffic':'API流量监控',
   'stat-feature':'功能使用频率分析',
   membership:'会员套餐管理', import:'Anki/CSV导入', sync:'内容版本发布',
@@ -582,7 +600,7 @@ function getFrequentNav(limit){
 }
 const PAGE_FNS = {
   dashboard: renderDashboard, vocab: renderVocab, grammar: renderGrammar,
-  tracks: renderTracks, users: renderUsers,
+  tracks: renderTracks, channels: renderChannels, users: renderUsers,
   'stat-users': renderStatUsers, 'stat-traffic': renderStatTraffic,
   'stat-feature': renderStatFeature,
   membership: renderMembership, import: renderImport, sync: renderSync,
@@ -1354,7 +1372,10 @@ function qRangeYear(p){
   document.getElementById(`${p}-start`).value=yearStart();
   document.getElementById(`${p}-end`).value=today();
 }
-function getRange(p){ return { grain:document.getElementById(`${p}-grain`).value, start:document.getElementById(`${p}-start`).value, end:document.getElementById(`${p}-end`).value }; }
+function getRange(p){
+  const g=document.getElementById(`${p}-grain`), s=document.getElementById(`${p}-start`), e=document.getElementById(`${p}-end`);
+  return { grain:g?g.value:'day', start:s?s.value:daysAgo(29), end:e?e.value:today() };
+}
 
 function lineCfg(labels, datasets){
   return { type:'line', data:{ labels, datasets:datasets.map((ds,i)=>({
@@ -1407,7 +1428,8 @@ async function loadTrafficCharts(){
     ]),'tf-rt');
     const st=d.statusDist||[];
     mkChart('tf-status-c', pieCfg(st.map(x=>String(x.status_code)), st.map(x=>x.count)),'tf-status');
-    document.getElementById('tf-slow-body').innerHTML=(d.slowTop||[]).map(x=>`
+    const tfSlow=document.getElementById('tf-slow-body');
+    if(tfSlow) tfSlow.innerHTML=(d.slowTop||[]).map(x=>`
       <tr><td style="word-break:break-all">${esc(x.path)}</td><td>${Math.round(x.avg_ms)}</td><td>${Math.round(x.max_ms)}</td><td>${x.cnt}</td></tr>`).join('');
     const hp=d.hotPaths||[];
     mkChart('tf-hot-c', barCfg(hp.map(x=>x.path),[{label:'请求次数', data:hp.map(x=>x.cnt)}]),'tf-hot');
@@ -1431,7 +1453,8 @@ async function loadUserCharts(){
   const r=getRange('su');
   try{
     const d=await api('GET','/admin/stats/users'+qs(r));
-    document.getElementById('su-cards').innerHTML=`
+    const suCards=document.getElementById('su-cards');
+    if(suCards) suCards.innerHTML=`
       <div class="stat-card"><div class="stat-icon c-indigo">🆕</div><div class="stat-body"><div class="stat-label">范围内新用户</div><div class="stat-value">${(d.newUsers||0).toLocaleString()}</div></div></div>
       <div class="stat-card"><div class="stat-icon c-emerald">⚡</div><div class="stat-body"><div class="stat-label">范围内活跃用户</div><div class="stat-value">${(d.activeUsers||0).toLocaleString()}</div></div></div>`;
     const rLabels=(d.regTrend||[]).map(x=>x.period);
@@ -2235,6 +2258,96 @@ async function resetAiUsageFn() {
 }
 
 /* ─────────────────────────── ADMIN MANAGEMENT ────────────────────────────── */
+/* ───────────────────────────── CHANNELS (磨耳朵) ──────────────────────── */
+async function renderChannels(){
+  document.getElementById('content').innerHTML = `
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="openChannelModal()">＋ 添加频道</button>
+  </div>
+  <div class="panel" style="padding:0">
+    <table><thead><tr><th>平台</th><th>名称</th><th>频道链接</th><th>视频数</th><th>最大视频数</th><th>状态</th><th>排序</th><th>操作</th></tr></thead>
+    <tbody id="ch-body"></tbody></table>
+  </div>`;
+  await loadChannels();
+}
+async function loadChannels(){
+  try{
+    const d=await api('GET','/admin/channels');
+    document.getElementById('ch-body').innerHTML=(d.data||[]).map(c=>{
+      const vcount = (c.video_cache||[]).length;
+      const platIcon = c.platform==='youtube'?'▶️ YouTube':'📺 Bilibili';
+      return `<tr data-ch-id="${c.id}">
+        <td>${platIcon}</td>
+        <td>${esc(c.name)}</td>
+        <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><a href="${esc(c.channel_url)}" target="_blank" style="color:#6c8cff">${esc(c.channel_url)}</a></td>
+        <td>${vcount}</td>
+        <td>${c.max_videos||12}</td>
+        <td class="ch-status">${c.is_active?'<span class="badge badge-green">启用</span>':'<span class="badge badge-orange">禁用</span>'}</td>
+        <td>${c.sort_order||0}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick='editChannel(${JSON.stringify(c).replace(/'/g,"&#39;")})'>编辑</button>
+          <button class="btn btn-ghost btn-sm" onclick="refreshChannel('${c.id}')">刷新</button>
+          <button class="btn btn-ghost btn-sm ch-toggle" onclick="toggleChannel('${c.id}',${!c.is_active})">${c.is_active?'禁用':'启用'}</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteChannel('${c.id}')">删除</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }catch(e){ toast(e.message,true) }
+}
+function openChannelModal(c=null){
+  document.getElementById('mc-id').value=c?.id||'';
+  document.getElementById('mc-url').value=c?.channel_url||'';
+  document.getElementById('mc-name').value=c?.name||'';
+  document.getElementById('mc-desc').value=c?.description||'';
+  document.getElementById('mc-sort').value=c?.sort_order||0;
+  document.getElementById('mc-maxvids').value=c?.max_videos||12;
+  document.getElementById('mc-title').textContent=c?'编辑频道':'添加频道';
+  if(c) document.getElementById('mc-url').disabled=true;
+  else document.getElementById('mc-url').disabled=false;
+  openModal('modal-channel');
+}
+function editChannel(c){ openChannelModal(c); }
+async function saveChannel(){
+  const id=document.getElementById('mc-id').value;
+  try{
+    if(id){
+      await api('PUT',`/admin/channels/${id}`,{
+        name: document.getElementById('mc-name').value.trim(),
+        description: document.getElementById('mc-desc').value.trim(),
+        sort_order: parseInt(document.getElementById('mc-sort').value)||0,
+        max_videos: parseInt(document.getElementById('mc-maxvids').value)||12,
+      });
+    } else {
+      await api('POST','/admin/channels',{
+        channel_url: document.getElementById('mc-url').value.trim(),
+        name: document.getElementById('mc-name').value.trim()||undefined,
+        description: document.getElementById('mc-desc').value.trim()||undefined,
+        max_videos: parseInt(document.getElementById('mc-maxvids').value)||12,
+      });
+    }
+    toast('保存成功'); closeModal('modal-channel'); loadChannels();
+  }catch(e){ toast(e.message,true) }
+}
+async function deleteChannel(id){
+  if(!confirm('确认删除该频道？')) return;
+  try{ await api('DELETE',`/admin/channels/${id}`); toast('已删除'); loadChannels(); }catch(e){ toast(e.message,true) }
+}
+async function toggleChannel(id,active){
+  // 乐观更新：立即切换按钮状态
+  const row = document.querySelector(`[data-ch-id="${id}"]`);
+  if(row){
+    const statusTd = row.querySelector('.ch-status');
+    const toggleBtn = row.querySelector('.ch-toggle');
+    if(statusTd) statusTd.innerHTML = active ? '<span class="badge badge-green">启用</span>' : '<span class="badge badge-orange">禁用</span>';
+    if(toggleBtn){ toggleBtn.textContent = active ? '禁用' : '启用'; toggleBtn.setAttribute('onclick',`toggleChannel('${id}',${!active})`); }
+  }
+  try{ await api('PUT',`/admin/channels/${id}`,{is_active:active}); toast(active?'已启用':'已禁用'); }catch(e){ toast(e.message,true); loadChannels(); }
+}
+async function refreshChannel(id){
+  try{ toast('刷新中…'); await api('POST',`/admin/channels/${id}/refresh`); toast('刷新成功'); loadChannels(); }catch(e){ toast(e.message,true) }
+}
+
+/* ───────────────────────────── ADMIN MGMT ──────────────────────────────── */
 async function renderAdminMgmt() {
   if(!_adminInfo.is_super_admin){ document.getElementById('content').innerHTML='<div class="panel"><p style="color:#e74c3c">权限不足，仅高级管理员可访问</p></div>'; return; }
   document.getElementById('content').innerHTML='<p style="color:#aaa;padding:40px;text-align:center">加载中…</p>';

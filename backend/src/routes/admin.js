@@ -18,6 +18,9 @@ const {
   getAiSettings, saveAiSettings, getAiUsage, resetAiUsage,
   listAdmins, updateAdminPermissions, getAdminInfo,
 } = require('../controllers/adminController');
+const {
+  adminListChannels, adminCreateChannel, adminUpdateChannel, adminDeleteChannel, adminRefreshChannel,
+} = require('../controllers/listeningChannelController');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -111,6 +114,13 @@ router.get('/ai-settings',       superAdminAuth, asyncHandler(getAiSettings));
 router.post('/ai-settings',      superAdminAuth, asyncHandler(saveAiSettings));
 router.get('/ai-usage',          superAdminAuth, asyncHandler(getAiUsage));
 router.post('/ai-usage/reset',   superAdminAuth, asyncHandler(resetAiUsage));
+
+// 频道管理（磨耳朵）
+router.get('/channels',           permissionCheck('tracks'), asyncHandler(adminListChannels));
+router.post('/channels',          permissionCheck('tracks'), asyncHandler(adminCreateChannel));
+router.put('/channels/:id',       permissionCheck('tracks'), asyncHandler(adminUpdateChannel));
+router.delete('/channels/:id',    permissionCheck('tracks'), asyncHandler(adminDeleteChannel));
+router.post('/channels/:id/refresh', permissionCheck('tracks'), asyncHandler(adminRefreshChannel));
 
 // 管理员权限管理（仅高级管理员）
 router.get('/admins',             superAdminAuth, asyncHandler(listAdmins));

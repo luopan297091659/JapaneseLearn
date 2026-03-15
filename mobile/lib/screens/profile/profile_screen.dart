@@ -622,49 +622,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Stats row
-                  Row(children: [
-                    _StatCard(icon: Icons.local_fire_department, color: Colors.orange,
-                        label: s.streakDays, value: '${_progress?.streakDays ?? 0}${s.day}'),
-                    const SizedBox(width: 8),
-                    _StatCard(icon: Icons.timer, color: Colors.blue,
-                        label: s.totalMinutes, value: '${_progress?.totalStudyMinutes ?? 0}${s.minute}'),
-                    const SizedBox(width: 8),
-                    _StatCard(icon: Icons.quiz, color: Colors.purple,
-                        label: s.avgScore, value: '${(_progress?.quizStats?.avgScore ?? 0).toStringAsFixed(0)}%'),
-                  ]),
-                  const SizedBox(height: 16),
-                  // SRS stats
-                  if (_progress?.srsStats != null) ...[
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(s.srsCards, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: [
-                                _SrsStatItem(label: s.total, value: '${_progress!.srsStats!.total}'),
-                                _SrsStatItem(label: s.graduated, value: '${_progress!.srsStats!.graduated}', color: Colors.green),
-                                _SrsStatItem(label: s.inProgress, value: '${_progress!.srsStats!.total - _progress!.srsStats!.graduated}', color: Colors.blue),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            if (_progress!.srsStats!.total > 0)
-                              LinearProgressIndicator(
-                                value: _progress!.srsStats!.graduated / _progress!.srsStats!.total,
-                                backgroundColor: Colors.blue.withValues(alpha: 0.2),
-                                valueColor: const AlwaysStoppedAnimation(Colors.green),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
                   // Settings section
                   Text(s.settings, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 8),

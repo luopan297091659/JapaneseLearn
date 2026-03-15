@@ -360,6 +360,7 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
   // ── 统计 ──
   int _score = 0, _combo = 0, _maxCombo = 0, _wrong = 0;
   final List<Map<String, String>> _wrongLog = [];
+  final List<Map<String, dynamic>> _allLog = [];
   int _lives = 1, _livesMax = 1;
   int _passCount = 0, _passTarget = 6;
   bool _fever = false, _running = false;
@@ -461,7 +462,7 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
     _livesMax = _lvLives(lv); _lives = _livesMax;
     _passTarget = _gRows * _gCols; _passCount = 0;
     _score = 0; _combo = 0; _maxCombo = 0; _wrong = 0;
-    _wrongLog.clear(); _usedQuestions.clear(); _fever = false; _feedbackIdx = null;
+    _wrongLog.clear(); _allLog.clear(); _usedQuestions.clear(); _fever = false; _feedbackIdx = null;
     _baseMs = _speedOptions[_speedIdx]['ms'] as int;
     _dropMs = _baseMs;
     _board    = List.generate(_gRows, (_) => List.filled(_gCols, null));
@@ -517,6 +518,7 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
     int landRow = -1;
     for (int r = _gRows - 1; r >= 0; r--) { if (_board[r][_dropCol] == null) { landRow = r; break; } }
     if (landRow < 0) { _running = false; Future.delayed(const Duration(milliseconds: 300), _levelFail); return; }
+    _allLog.add({'s': _curQ!.s, 'ans': ans, 'correct': _curQ!.a, 'ok': ok, 'e': _curQ!.e});
     setState(() {
       _feedbackIdx = _selected; _feedbackOk = ok;
       _board[landRow][_dropCol]    = ok ? 'correct' : 'wrong';
@@ -579,7 +581,9 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
   }
 
   void _levelClear() {
-    final stars = _wrong == 0 ? 3 : _wrong <= 2 ? 2 : 1;
+    final total = _passCount + _wrong;
+    final acc = total > 0 ? (_passCount * 100 / total).round() : 100;
+    final stars = (acc >= 85 && _maxCombo >= 5) ? 3 : acc >= 65 ? 2 : 1;
     _saveProgress(_currentLevel, _score, stars, _maxCombo);
     if (_currentLevel + 1 <= _maxLevels) _saveUnlocked(_currentLevel + 1);
     _submitScore();
@@ -592,7 +596,7 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
           const SizedBox(height: 6),
           Text('★' * stars + '☆' * (3 - stars), style: const TextStyle(fontSize: 26, letterSpacing: 3, color: Color(0xFFf59e0b))),
         ]),
-        content: _reportContent(),
+        content: SizedBox(width: double.maxFinite, child: _reportContent(cleared: true)),
         actions: [
           TextButton(
             onPressed: () { 
@@ -628,7 +632,7 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('💔 关卡失败', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        content: _reportContent(),
+        content: SizedBox(width: double.maxFinite, child: _reportContent(cleared: false)),
         actions: [
           TextButton(
             onPressed: () { 
@@ -649,27 +653,80 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
     );
   }
 
-  Widget _reportContent() => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      _statRow('得分', '$_score'), _statRow('最高连击', '$_maxCombo'), _statRow('错误', '$_wrong'),
-      if (_wrongLog.isNotEmpty) ...[
-        const Divider(height: 16),
-        const Align(alignment: Alignment.centerLeft, child: Text('错题回顾', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-        const SizedBox(height: 4),
-        ..._wrongLog.take(3).map((w) => Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: Text('${w['s']}\n✗ ${w['wrong']}  ✓ ${w['correct']}', style: const TextStyle(fontSize: 12)),
-        )),
+  Widget _reportContent({bool cleared = false}) {
+    final total = _passCount + _wrong;
+    final acc = total > 0 ? (_passCount * 100 / total).round() : 0;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 统计行
+        Row(children: [
+          _statCard('得分', '$_score', const Color(0xFFe8effe), const Color(0xFF3b82f6)),
+          const SizedBox(width: 8),
+          _statCard(cleared ? '正确率' : '错误', cleared ? '$acc%' : '$_wrong', 
+            cleared ? const Color(0xFFe8f5e9) : const Color(0xFFffebee),
+            cleared ? const Color(0xFF22c55e) : const Color(0xFFef4444)),
+          const SizedBox(width: 8),
+          _statCard('最高连击', '$_maxCombo', const Color(0xFFfffbeb), const Color(0xFFf59e0b)),
+        ]),
+        if (!cleared) ...[
+          const SizedBox(height: 8),
+          Text('已答对 $_passCount/$_passTarget，未达过关条件', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+        ],
+        if (_allLog.isNotEmpty) ...[
+          const Divider(height: 20),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text('📋 本关全部题目（${_allLog.length}题）', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+          const SizedBox(height: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 260),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _allLog.length,
+              itemBuilder: (_, i) {
+                final w = _allLog[i];
+                final ok = w['ok'] as bool;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: ok ? const Color(0xFFf0fdf4) : const Color(0xFFfef2f2),
+                    border: Border(left: BorderSide(color: ok ? const Color(0xFF22c55e) : const Color(0xFFef4444), width: 3)),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${ok ? "✅ " : "❌ "}${w['s']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      if (ok)
+                        Text('答案：${w['correct']}', style: const TextStyle(color: Color(0xFF16a34a), fontSize: 12))
+                      else ...[
+                        Text('你的答案：${w['ans']}', style: const TextStyle(color: Color(0xFFef4444), fontSize: 12)),
+                        Text('正确答案：${w['correct']}', style: const TextStyle(color: Color(0xFF16a34a), fontSize: 12)),
+                      ],
+                      Text('${w['e']}', style: const TextStyle(color: Colors.black45, fontSize: 11)),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ],
-    ],
-  );
+    );
+  }
 
-  Widget _statRow(String label, String val) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [Text(label, style: const TextStyle(color: Colors.black54)), Text(val, style: const TextStyle(fontWeight: FontWeight.bold))],
+  Widget _statCard(String label, String val, Color bg, Color fg) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+      child: Column(children: [
+        Text(val, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: fg)),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.black54)),
+      ]),
     ),
   );
 
@@ -942,6 +999,8 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
                       final idx = v.round();
                       setState(() => _speedIdx = idx);
                       _baseMs = _speedOptions[idx]['ms'] as int;
+                      _dropMs = _baseMs;
+                      if (_running) _startTimer();
                       final p = await SharedPreferences.getInstance();
                       await p.setInt('g_speed_idx', idx);
                     },

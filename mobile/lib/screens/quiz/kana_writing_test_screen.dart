@@ -323,7 +323,7 @@ class _KanaWritingTestScreenState extends State<KanaWritingTestScreen> {
                           child: OutlinedButton.icon(
                             onPressed: () {
                               _strokeController.clear();
-                              setState(() => _canvasKey++);
+                              setState(() {});
                             },
                             icon: const Icon(Icons.delete_sweep_rounded, size: 20),
                             label: const Text('清除'),

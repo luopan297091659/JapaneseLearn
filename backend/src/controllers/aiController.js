@@ -232,4 +232,4 @@ async function wordDetail(req, res) {
   }
 }
 
-module.exports = { translate, analyze, wordDetail };
+module.exports = { translate, analyze, wordDetail, callAI };

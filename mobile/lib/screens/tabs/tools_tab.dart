@@ -57,12 +57,13 @@ class ToolsTab extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _ToolCard(
-            icon: Icons.assignment_late_rounded,
-            title: '错题集',
-            subtitle: '查阅测试中的错题 · 随时复习',
-            color: const Color(0xFFE53935),
-            onTap: () => context.push('/wrong-answers'),
+            icon: Icons.headphones_rounded,
+            title: '磨耳朵',
+            subtitle: '沉浸式听力 · Bilibili/YouTube 日语视频',
+            color: const Color(0xFFE65100),
+            onTap: () => context.push('/immersion'),
           ),
+
         ],
       ),
     );

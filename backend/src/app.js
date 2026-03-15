@@ -34,6 +34,8 @@ const gameRoutes  = require('./routes/game');
 const aiRoutes    = require('./routes/ai');
 const forumRoutes = require('./routes/forum');
 const wrongAnswersRoutes = require('./routes/wrongAnswers');
+const pronunciationRoutes = require('./routes/pronunciation');
+const listeningChannelRoutes = require('./routes/listeningChannel');
 
 const app = express();
 
@@ -62,7 +64,7 @@ app.use('/forum', (_req, res, next) => {
 app.use('/app', (_req, res, next) => {
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; script-src-attr 'unsafe-inline'; style-src 'self' https: 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https: data:; media-src 'self' https:; connect-src 'self'"
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; script-src-attr 'unsafe-inline'; style-src 'self' https: 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https: data:; media-src 'self' blob: https:; connect-src 'self'; frame-src https://www.youtube.com https://player.bilibili.com"
   );
   next();
 });
@@ -123,6 +125,8 @@ app.use('/api/v1/game', gameRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/forum', forumRoutes);
 app.use('/api/v1/wrong-answers', wrongAnswersRoutes);
+app.use('/api/v1/pronunciation', pronunciationRoutes);
+app.use('/api/v1/listening-channels', listeningChannelRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

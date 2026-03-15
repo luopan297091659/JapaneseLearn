@@ -35,6 +35,7 @@ import '../screens/tools/todofuken_quiz_screen.dart';
 import '../screens/tools/translate_screen.dart';
 import '../screens/quiz/kana_writing_test_screen.dart';
 import '../screens/tools/wrong_answers_screen.dart';
+import '../screens/listening/immersion_screen.dart';
 import '../models/models.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -132,6 +133,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/translate', builder: (_, __) => const TranslateScreen()),
           GoRoute(path: '/kana-writing-test', builder: (_, __) => const KanaWritingTestScreen()),
           GoRoute(path: '/wrong-answers', builder: (_, __) => const WrongAnswersScreen()),
+          GoRoute(path: '/immersion', builder: (_, __) => const ImmersionScreen()),
         ],
       ),
     ],
@@ -183,7 +185,8 @@ class _MainShellState extends State<MainShell> {
           location.startsWith('/local-vocab') ||
           location.startsWith('/todofuken') ||
           location.startsWith('/translate') ||
-          location.startsWith('/wrong-answers')) {
+          location.startsWith('/wrong-answers') ||
+          location.startsWith('/immersion')) {
         idx = 3; // 工具
       } else {
         idx = 0; // 主页

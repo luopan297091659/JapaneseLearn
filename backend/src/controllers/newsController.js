@@ -1,4 +1,4 @@
-const { NewsArticle, NewsFavorite } = require('../models');
+const { NewsArticle, NewsFavorite, NhkNewsCache } = require('../models');
 const { Op } = require('sequelize');
 const https = require('https');
 const http  = require('http');
@@ -116,9 +116,69 @@ async function nhkList(req, res) {
       return res.status(400).json({ error: 'Invalid category. Valid: ' + Object.keys(NHK_CATEGORIES).join(',') });
     }
     const articles = await fetchNhkRss(category);
+    // 异步持久化到数据库（不阻塞响应），并限制每个分类最多 20 条
+    setImmediate(async () => {
+      try {
+        for (const a of articles) {
+          // 仅保存有足够内容的新闻（description >= 50字符）
+          if (!a.description || a.description.length < 50) continue;
+          await NhkNewsCache.findOrCreate({
+            where: { nhk_id: a.id },
+            defaults: {
+              nhk_id: a.id,
+              title: a.title,
+              description: a.description,
+              body: a.description, // RSS description 作为正文（最完整的可用来源）
+              link: a.link,
+              category,
+              published_at: a.publishedAt ? new Date(a.publishedAt) : null,
+            },
+          });
+        }
+        // 清理旧文章：每个分类只保留最新 20 条
+        const allInCat = await NhkNewsCache.findAll({
+          where: { category },
+          order: [['published_at', 'DESC']],
+          attributes: ['id'],
+        });
+        if (allInCat.length > 20) {
+          const idsToDelete = allInCat.slice(20).map(r => r.id);
+          await NhkNewsCache.destroy({ where: { id: idsToDelete } });
+        }
+      } catch (_) { /* ignore persist errors */ }
+    });
     res.json({ total: articles.length, data: articles, category: NHK_CATEGORIES[category] });
   } catch (err) {
     res.status(502).json({ error: 'Failed to fetch NHK news: ' + err.message });
+  }
+}
+
+// ── NHK 历史新闻（分页）──────────────────────────────────────────────
+async function nhkHistory(req, res) {
+  const { category, page = 1, limit = 20 } = req.query;
+  const where = {};
+  if (category && NHK_CATEGORIES[category]) where.category = category;
+  const offset = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
+  try {
+    const { count, rows } = await NhkNewsCache.findAndCountAll({
+      where,
+      limit: Math.min(50, parseInt(limit)),
+      offset,
+      order: [['published_at', 'DESC']],
+    });
+    const data = rows.map(r => ({
+      id: r.nhk_id,
+      title: r.title,
+      description: r.description,
+      body: r.body || '',
+      imageUrl: r.image_url || '',
+      link: r.link,
+      publishedAt: r.published_at ? r.published_at.toISOString() : null,
+      source: 'NHK',
+    }));
+    res.json({ total: count, page: parseInt(page), limit: parseInt(limit), data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 }
 
@@ -128,6 +188,12 @@ async function nhkArticle(req, res) {
   if (!/^[\d]{8}-[a-zA-Z0-9]+$/.test(rawId)) {
     return res.status(400).json({ error: 'Invalid news ID' });
   }
+
+  // 先查缓存，获取 RSS description（比 JSON-LD 更完整）
+  let cached = null;
+  try { cached = await NhkNewsCache.findOne({ where: { nhk_id: rawId } }); } catch (_) {}
+  const rssDesc = (cached && cached.description) || '';
+
   try {
     const url = `https://www3.nhk.or.jp/news/html/${rawId.replace('-', '/')}.html`;
     const html = await httpGet(url);
@@ -157,8 +223,36 @@ async function nhkArticle(req, res) {
       if (titleMatch) title = titleMatch[1].replace(/\s*\|.*$/, '').trim();
     }
 
-    res.json({ id: rawId, title, description, image, body: description, link: url });
+    // NHK 正文通过 JS 渲染，海外服务器无法获取完整正文
+    // 优先使用 RSS description（更完整），其次 JSON-LD description
+    const body = rssDesc.length >= description.length ? rssDesc : description;
+
+    // 仅在内容足够长时才缓存 body（过滤不完整内容）
+    if (body.length >= 50) {
+      setImmediate(async () => {
+        try {
+          await NhkNewsCache.update(
+            { body, image_url: image, title: title || undefined, description: description || undefined },
+            { where: { nhk_id: rawId } },
+          );
+        } catch (_) { /* ignore */ }
+      });
+    }
+
+    res.json({ id: rawId, title, description, image, body, link: url });
   } catch (err) {
+    // 如果抓取失败，尝试从缓存读取
+    if (cached) {
+      const body = cached.body || cached.description || '';
+      return res.json({
+        id: rawId,
+        title: cached.title || '',
+        description: cached.description || '',
+        image: cached.image_url || '',
+        body,
+        link: cached.link || '',
+      });
+    }
     res.status(502).json({ error: 'Failed to fetch article: ' + err.message });
   }
 }
@@ -211,4 +305,4 @@ async function checkFavorite(req, res) {
   res.json({ favorited: !!exists });
 }
 
-module.exports = { list, getById, nhkList, nhkArticle, nhkCategories, listFavorites, addFavorite, removeFavorite, checkFavorite };
+module.exports = { list, getById, nhkList, nhkArticle, nhkCategories, nhkHistory, listFavorites, addFavorite, removeFavorite, checkFavorite };

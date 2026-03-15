@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:dio/dio.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../utils/tts_helper.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
@@ -17,7 +18,11 @@ class NhkDetailScreen extends StatefulWidget {
 
 class _NhkDetailScreenState extends State<NhkDetailScreen> {
   String _body = '';
+  String _translation = '';
+  String _articleLink = '';
   bool _loading = true;
+  bool _translating = false;
+  bool _showTranslation = false;
   bool _showRuby = true;
   double _fontSize = 18;
   bool _isFav = false;
@@ -42,8 +47,12 @@ class _NhkDetailScreenState extends State<NhkDetailScreen> {
 
   Future<void> _load() async {
     try {
-      final body = await apiService.getNhkArticleBody(widget.newsId);
-      setState(() { _body = body; _loading = false; });
+      final data = await apiService.getNhkArticleDetail(widget.newsId);
+      setState(() {
+        _body = data['body'] ?? '';
+        _articleLink = data['link'] ?? '';
+        _loading = false;
+      });
     } catch (_) { setState(() => _loading = false); }
   }
 
@@ -52,6 +61,31 @@ class _NhkDetailScreenState extends State<NhkDetailScreen> {
       final fav = await apiService.checkNewsFavorite('nhk', widget.newsId);
       setState(() => _isFav = fav);
     } catch (_) {}
+  }
+
+  Future<void> _toggleTranslate() async {
+    if (_translation.isNotEmpty) {
+      setState(() => _showTranslation = !_showTranslation);
+      return;
+    }
+    final text = _plainText(_body);
+    if (text.isEmpty) return;
+    setState(() => _translating = true);
+    try {
+      final result = await apiService.aiTranslate(text);
+      setState(() {
+        _translation = result;
+        _showTranslation = true;
+        _translating = false;
+      });
+    } catch (e) {
+      setState(() => _translating = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('翻译失败：$e'), duration: const Duration(seconds: 2)),
+        );
+      }
+    }
   }
 
   Future<void> _toggleFav() async {
@@ -161,9 +195,12 @@ class _NhkDetailScreenState extends State<NhkDetailScreen> {
             onPressed: _toggleFav,
           ),
           IconButton(
-            icon: Icon(_showRuby ? Icons.text_fields : Icons.translate, size: 20),
-            tooltip: _showRuby ? '隐藏读音' : '显示读音',
-            onPressed: () => setState(() => _showRuby = !_showRuby),
+            icon: _translating
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : Icon(_showTranslation ? Icons.translate : Icons.g_translate, size: 20,
+                       color: _showTranslation ? const Color(0xFF0077B6) : null),
+            tooltip: _showTranslation ? '隐藏翻译' : '翻译',
+            onPressed: _translating ? null : _toggleTranslate,
           ),
           IconButton(
             icon: const Icon(Icons.volume_up, size: 20),
@@ -274,6 +311,46 @@ class _NhkDetailScreenState extends State<NhkDetailScreen> {
                         ),
                       ),
                     )),
+                    // 翻译内容
+                    if (_showTranslation && _translation.isNotEmpty) ...[
+                      const Divider(),
+                      Container(
+                        margin: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0077B6).withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF0077B6).withValues(alpha: 0.2)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(children: const [
+                              Icon(Icons.translate, size: 16, color: Color(0xFF0077B6)),
+                              SizedBox(width: 6),
+                              Text('中文翻译', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF0077B6))),
+                            ]),
+                            const SizedBox(height: 8),
+                            Text(_translation, style: TextStyle(fontSize: _fontSize - 2, height: 1.8, color: cs.onSurface)),
+                          ],
+                        ),
+                      ),
+                    ],
+                    // 查看原文按钮
+                    if (_articleLink.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Center(
+                        child: OutlinedButton.icon(
+                          onPressed: () => launchUrl(Uri.parse(_articleLink), mode: LaunchMode.externalApplication),
+                          icon: const Icon(Icons.open_in_new, size: 16),
+                          label: const Text('查看原文'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF0077B6),
+                            side: const BorderSide(color: Color(0xFF0077B6), width: 0.8),
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 32),
                   ],
                 ),

@@ -194,7 +194,8 @@ async function getMyProgress(req, res) {
       const lv  = Number(r.level_num);
       if (lv > maxPassedLevel) maxPassedLevel = lv;
       const acc   = Number(r.best_acc)   || 0;
-      const stars = acc >= 100 ? 3 : acc >= 70 ? 2 : 1;
+      const combo = Number(r.best_combo) || 0;
+      const stars = (acc >= 85 && combo >= 5) ? 3 : acc >= 65 ? 2 : 1;
       byLevel[lv] = { score: Number(r.best_score) || 0, stars, combo: Number(r.best_combo) || 0 };
     });
     res.json({ ok: true, unlocked_to: maxPassedLevel + 1, level_scores: byLevel });

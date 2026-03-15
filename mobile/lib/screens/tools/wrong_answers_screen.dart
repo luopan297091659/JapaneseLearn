@@ -18,7 +18,7 @@ class _WrongAnswersScreenState extends State<WrongAnswersScreen> {
 
   static const _sourceLabels = {
     'quiz': '单词测验',
-    'listening': '听力测试',
+    'listening': '听力测验',
     'game': '闯关游戏',
   };
 
@@ -133,7 +133,7 @@ class _WrongAnswersScreenState extends State<WrongAnswersScreen> {
                   child: Row(children: [
                     _buildChip('全部', 'all'), const SizedBox(width: 8),
                     _buildChip('单词测验', 'quiz'), const SizedBox(width: 8),
-                    _buildChip('听力测试', 'listening'), const SizedBox(width: 8),
+                    _buildChip('听力测验', 'listening'), const SizedBox(width: 8),
                     _buildChip('闯关游戏', 'game'),
                   ]),
                 ),
@@ -211,11 +211,31 @@ class _WrongAnswersScreenState extends State<WrongAnswersScreen> {
               ]),
             ),
             // 单条删除按钮
-            IconButton(
-              icon: Icon(Icons.close, size: 18, color: cs.outline),
-              onPressed: () => _deleteOne(w),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            GestureDetector(
+              onTap: () async {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('删除错题'),
+                    content: const Text('确定要删除这条错题记录吗？'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+                      TextButton(onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('删除', style: TextStyle(color: Colors.red))),
+                    ],
+                  ),
+                );
+                if (ok == true) _deleteOne(w);
+              },
+              child: Container(
+                margin: const EdgeInsets.only(left: 4),
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.delete_outline, size: 18, color: Colors.red.shade400),
+              ),
             ),
           ],
         ),

@@ -1,11 +1,12 @@
 const router = require('express').Router();
 const asyncHandler = require('../utils/asyncHandler');
 const { authenticate } = require('../middlewares/auth');
-const { list, getById, nhkList, nhkArticle, nhkCategories,
+const { list, getById, nhkList, nhkArticle, nhkCategories, nhkHistory,
         listFavorites, addFavorite, removeFavorite, checkFavorite } = require('../controllers/newsController');
 
 router.get('/', asyncHandler(list));
 router.get('/nhk/categories', asyncHandler(nhkCategories));
+router.get('/nhk/history', asyncHandler(nhkHistory));
 router.get('/nhk', asyncHandler(nhkList));
 router.get('/nhk/:id', asyncHandler(nhkArticle));
 

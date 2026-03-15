@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../widgets/audio_player_widget.dart';
@@ -110,6 +112,32 @@ class _ListeningExerciseScreenState extends State<ListeningExerciseScreen> {
       _answered = true;
       _questions[_current].userAnswer = answer;
     });
+    // 答错时保存到错题集
+    final q = _questions[_current];
+    if (answer != q.correctAnswer) {
+      _saveWrongAnswer(
+        question: q.sentence,
+        yourAnswer: answer,
+        correctAnswer: q.correctAnswer,
+        explanation: q.grammarTitle != null ? '语法: ${q.grammarTitle}' : (q.word != null ? '单词: ${q.word}' : ''),
+      );
+    }
+  }
+
+  Future<void> _saveWrongAnswer({required String question, required String yourAnswer, required String correctAnswer, String explanation = ''}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('wrongAnswers') ?? '[]';
+    final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+    list.add({
+      'source': 'listening',
+      'question': question,
+      'yourAnswer': yourAnswer,
+      'correctAnswer': correctAnswer,
+      'explanation': explanation,
+      'time': DateTime.now().toIso8601String(),
+    });
+    while (list.length > 500) { list.removeAt(0); }
+    await prefs.setString('wrongAnswers', jsonEncode(list));
   }
 
   void _nextQuestion() {
@@ -202,7 +230,7 @@ class _ListeningExerciseScreenState extends State<ListeningExerciseScreen> {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: Text(_started ? '听力测试 ($_level)' : '听力测试'),
+        title: Text(_started ? '听力测验 ($_level)' : '听力测验'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
           onPressed: () {

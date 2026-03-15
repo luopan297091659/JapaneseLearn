@@ -1058,7 +1058,7 @@ function gSaveWrongToStorage() {
 function gameSpeedInput(input) {
   const ms = parseInt(input.value);
   gBaseMs = ms;
-  if (!gRunning) gDropMs = ms;
+  gDropMs = ms;
   const pct = (ms - 300) / (20000 - 300) * 100;
   input.style.background = 'linear-gradient(to right, var(--primary) ' + pct + '%, var(--border) ' + pct + '%)';
   const secs = (ms / 1000).toFixed(1);

@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../services/api_service.dart';
 
@@ -104,34 +106,48 @@ class _ListeningScreenState extends State<ListeningScreen> {
       }
       return;
     }
+    // 如果之前初始化失败，重试一次
+    if (!_speechAvailable) {
+      _speechAvailable = await _speech.initialize();
+    }
     if (!_speechAvailable) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('语音识别不可用，请检查权限')),
+          const SnackBar(content: Text('语音识别不可用，请检查麦克风权限或系统设置')),
         );
       }
       return;
     }
     _lastRecognized = '';
     setState(() { _listening = true; _score = null; _recognized = ''; _feedback = ''; _inputMode = false; _inputCtrl.clear(); });
-    await _speech.listen(
-      localeId: 'ja_JP',
-      onResult: (result) {
-        _lastRecognized = result.recognizedWords;
-        if (result.finalResult) _processResult(result.recognizedWords);
-      },
-      listenFor: const Duration(seconds: 15),
-      pauseFor: const Duration(seconds: 3),
-    );
-    _speech.statusListener = (status) {
-      if (status == 'done' || status == 'notListening') {
-        if (mounted && _listening && _score == null && _lastRecognized.isNotEmpty) {
-          _processResult(_lastRecognized);
-        } else if (mounted && _listening) {
-          setState(() => _listening = false);
+    try {
+      await _speech.listen(
+        localeId: 'ja_JP',
+        onResult: (result) {
+          _lastRecognized = result.recognizedWords;
+          if (result.finalResult) _processResult(result.recognizedWords);
+        },
+        listenFor: const Duration(seconds: 15),
+        pauseFor: const Duration(seconds: 3),
+      );
+      _speech.statusListener = (status) {
+        if (status == 'done' || status == 'notListening') {
+          if (mounted && _listening && _score == null && _lastRecognized.isNotEmpty) {
+            _processResult(_lastRecognized);
+          } else if (mounted && _listening) {
+            setState(() { _listening = false; _feedback = '未检测到语音，请靠近麦克风重试'; });
+          }
         }
+      };
+    } catch (e) {
+      debugPrint('Speech listen error: $e');
+      if (mounted) {
+        setState(() { _listening = false; _feedback = '录音启动失败，请重试'; });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('录音启动失败：$e'), duration: const Duration(seconds: 2)),
+        );
       }
-    };
+    }
   }
 
   void _processResult(String recognized) {
@@ -159,6 +175,32 @@ class _ListeningScreenState extends State<ListeningScreen> {
     }
 
     setState(() { _score = score; _recognized = recognized; _feedback = feedback; _listening = false; _showSentence = true; });
+
+    // 得分低于70分时保存到错题集
+    if (score < 70) {
+      _saveWrongAnswer(
+        question: sentence,
+        yourAnswer: rec,
+        correctAnswer: sentence,
+        explanation: s['meaning'] as String? ?? '',
+      );
+    }
+  }
+
+  Future<void> _saveWrongAnswer({required String question, required String yourAnswer, required String correctAnswer, String explanation = ''}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('wrongAnswers') ?? '[]';
+    final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+    list.add({
+      'source': 'listening',
+      'question': question,
+      'yourAnswer': yourAnswer,
+      'correctAnswer': correctAnswer,
+      'explanation': explanation,
+      'time': DateTime.now().toIso8601String(),
+    });
+    while (list.length > 500) { list.removeAt(0); }
+    await prefs.setString('wrongAnswers', jsonEncode(list));
   }
 
   void _submitText() {

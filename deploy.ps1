@@ -44,6 +44,7 @@ Remote-Run "mkdir -p $RemotePath/config"
 Write-Host "[2/5] 上传文件..." -ForegroundColor Yellow
 Remote-Upload-Dir  "$LocalBackend\src"          "$RemotePath/"
 Remote-Upload-Dir  "$LocalBackend\public"       "$RemotePath/"
+Remote-Upload-Dir  "$LocalBackend\scripts"      "$RemotePath/"
 Remote-Upload-File "$LocalBackend\package.json" "$RemotePath/package.json"
 Remote-Upload-File "$LocalBackend\.env"         "$RemotePath/.env"
 
