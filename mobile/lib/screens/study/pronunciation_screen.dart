@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -13,6 +14,7 @@ import '../../models/models.dart';
 import '../../utils/japanese_text_utils.dart';
 import '../../utils/tts_helper.dart';
 import '../../services/permission_service.dart';
+import '../../widgets/membership_gate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PronunciationScreen extends StatefulWidget {
@@ -35,6 +37,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
   bool _speechAvailable = false;
   String? _recordingPath;
   bool _uploading = false;
+  bool _isMember = true; // optimistic default
 
   // scoring
   int? _score;
@@ -49,9 +52,17 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
   @override
   void initState() {
     super.initState();
+    _checkMembership();
     _initTts();
     _initSpeech();
     _loadWords();
+  }
+
+  Future<void> _checkMembership() async {
+    try {
+      final user = await apiService.getMe();
+      if (mounted) setState(() => _isMember = user.isMember);
+    } catch (_) {}
   }
 
   Future<void> _initTts() async {
@@ -142,9 +153,24 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
 
   String _lastRecognized = '';
 
+  /// 安全停止录音器
+  Future<void> _stopRecorderSafely() async {
+    try {
+      if (await _recorder.isRecording()) {
+        final path = await _recorder.stop();
+        if (path != null && await File(path).exists()) {
+          if (mounted) setState(() => _recordingPath = path);
+        }
+      }
+    } catch (e) {
+      debugPrint('Stop recorder error: $e');
+    }
+  }
+
   Future<void> _toggleRecord() async {
     if (_listening) {
       await _speech.stop();
+      await _stopRecorderSafely();
       // Process whatever was recognized so far
       if (_score == null && _lastRecognized.isNotEmpty) {
         _processResult(_lastRecognized);
@@ -183,13 +209,34 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
     _lastRecognized = '';
     setState(() { _listening = true; _score = null; _recognized = ''; _feedback = ''; _recordingPath = null; });
 
-    // 注意：不再同时开启 AudioRecorder，避免与 speech_to_text 争抢麦克风
-    // 语音识别结束后可通过「录制回放」按钮单独录音
+    final isAndroid = defaultTargetPlatform == TargetPlatform.android;
+
+    // 非 Android 平台：同时启动 AudioRecorder（Android 上麦克风会冲突）
+    if (!isAndroid) {
+      try {
+        final dir = await getApplicationDocumentsDirectory();
+        final recDir = Directory('${dir.path}/recordings');
+        if (!await recDir.exists()) await recDir.create(recursive: true);
+        final w = _words[_index];
+        final name = cleanWord(w.word).replaceAll(RegExp(r'[^\w\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]'), '');
+        final filePath = '${recDir.path}/pron_${name}_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        if (await _recorder.hasPermission()) {
+          await _recorder.start(
+            const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000, sampleRate: 44100),
+            path: filePath,
+          );
+          _recordingPath = filePath;
+        }
+      } catch (e) {
+        debugPrint('Audio recorder start error (non-fatal): $e');
+      }
+    }
 
     try {
       // 设置状态监听器（在 listen 之前注册）
       _speech.statusListener = (status) {
         if (status == 'done' || status == 'notListening') {
+          if (!isAndroid) _stopRecorderSafely();
           if (mounted && _listening && _score == null && _lastRecognized.isNotEmpty) {
             _processResult(_lastRecognized);
           } else if (mounted && _listening) {
@@ -212,6 +259,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
       );
     } catch (e) {
       debugPrint('Speech listen error: $e');
+      await _stopRecorderSafely();
       if (mounted) {
         setState(() { _listening = false; _feedback = '录音启动失败，请重试'; });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -462,24 +510,24 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
         backgroundColor: cs.primary,
         foregroundColor: Colors.white,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                // Level chips
-                _buildLevelChips(cs),
-                const SizedBox(height: 20),
-                // Word card
-                if (_words.isNotEmpty) _buildWordCard(cs),
-                const SizedBox(height: 20),
-                // Session stats
-                _buildSessionStats(cs, avgScore),
-                const SizedBox(height: 20),
-                // Recording history
-                _buildRecordingHistory(cs),
-              ],
-            ),
+      body: MembershipGate(
+        featureId: 'pronunciation',
+        isMember: _isMember,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  _buildLevelChips(cs),
+                  const SizedBox(height: 20),
+                  if (_words.isNotEmpty) _buildWordCard(cs),
+                  const SizedBox(height: 20),
+                  _buildSessionStats(cs, avgScore),
+                  const SizedBox(height: 20),
+                  _buildRecordingHistory(cs),
+                ],
+              ),
+      ),
     );
   }
 
@@ -597,46 +645,40 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
               const SizedBox(height: 8),
               Text(_feedback, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant), textAlign: TextAlign.center),
               const SizedBox(height: 12),
-              // 录制回放按钮（在语音识别结束后单独录音，避免麦克风冲突）
-              if (_recordingPath == null)
-                OutlinedButton.icon(
-                  onPressed: _isRecordingPlayback ? _recordPlayback : _recordPlayback,
-                  icon: Icon(_isRecordingPlayback ? Icons.stop_circle_rounded : Icons.fiber_manual_record_rounded,
-                      size: 18, color: _isRecordingPlayback ? Colors.red : Colors.deepOrange),
-                  label: Text(_isRecordingPlayback ? '停止录制 (3s)' : '🎤 录制回放'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    foregroundColor: Colors.deepOrange,
-                    side: BorderSide(color: _isRecordingPlayback ? Colors.red : Colors.deepOrange),
-                  ),
-                ),
+              // 回放录音按钮（录音在语音识别期间自动完成）
               if (_recordingPath != null) ...[
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                   OutlinedButton.icon(
-                    onPressed: _playRecording,
+                    onPressed: () {
+                      _playRecording();
+                      // 自动在后台上传保存
+                      if (!_uploading) _uploadRecording();
+                    },
                     icon: const Icon(Icons.play_arrow_rounded, size: 18),
                     label: const Text('回放录音'),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: _uploading ? null : _uploadRecording,
-                    icon: _uploading
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.cloud_upload_rounded, size: 18),
-                    label: Text(_uploading ? '上传中…' : '保存录音'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      foregroundColor: Colors.teal,
-                      side: const BorderSide(color: Colors.teal),
+                  if (_uploading)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8),
+                      child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
                     ),
-                  ),
                 ]),
+              ] else if (_score != null && !_listening) ...[
+                // Android 上麦克风只能独占使用，需要单独录制回放
+                OutlinedButton.icon(
+                  onPressed: _isRecordingPlayback ? null : _recordPlayback,
+                  icon: Icon(_isRecordingPlayback ? Icons.mic_rounded : Icons.fiber_manual_record_rounded,
+                      size: 18, color: _isRecordingPlayback ? Colors.red : null),
+                  label: Text(_isRecordingPlayback ? '🔴 录制中…' : '录制回放'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
               ],
             ]),
           ),

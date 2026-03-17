@@ -14,6 +14,7 @@ class AnkiCard {
   final String? meaningEn;
   final String? example;
   final String? audioUrl; // 本地音频文件路径（来自 .apkg 提取）
+  final String? deckName; // 牌组层级名称，如 "Root::Sub::Leaf"
 
   const AnkiCard({
     required this.word,
@@ -22,6 +23,7 @@ class AnkiCard {
     this.meaningEn,
     this.example,
     this.audioUrl,
+    this.deckName,
   });
 
   Map<String, dynamic> toJson() => {
@@ -31,6 +33,7 @@ class AnkiCard {
         if (meaningEn != null && meaningEn!.isNotEmpty) 'meaning_en': meaningEn,
         if (example != null && example!.isNotEmpty) 'example_sentence': example,
         if (audioUrl != null && audioUrl!.isNotEmpty) 'audio_url': audioUrl,
+        if (deckName != null && deckName!.isNotEmpty) 'deck_name': deckName,
       };
 }
 
@@ -334,12 +337,13 @@ class AnkiParser {
     return extractDir;
   }
 
-  /// 打开解压后的 SQLite，读取 notes + 字段名映射
+  /// 打开解压后的 SQLite，读取 notes + 字段名映射 + 牌组层级
   /// 自动尝试 anki21b → anki21 → anki2，任一格式可打开即停止
   static Future<
       ({
         List<Map<String, Object?>> notes,
-        Map<dynamic, List<String>> fieldMap
+        Map<dynamic, List<String>> fieldMap,
+        Map<String, String> noteDeckMap,  // note_id → deck full name (e.g. "Root::Sub::Leaf")
       })> _readAnkiDb(String extractDirPath) async {
     final candidates = [
       'collection.anki21b', // 新版（zstd 压缩 SQLite，sqflite 不支持需跳过）
@@ -433,8 +437,58 @@ class AnkiParser {
     }
 
     final notes = await db.rawQuery('SELECT id, mid, tags, flds FROM notes');
+
+    // ── 提取牌组层级：note_id → deck full name ────────────────────────────
+    final Map<String, String> noteDeckMap = {};
+    try {
+      // 1. 构建 deck_id → deck_name 映射
+      final Map<String, String> deckIdToName = {};
+
+      // 新格式: decks 表
+      bool decksOk = false;
+      try {
+        final deckRows = await db.rawQuery('SELECT id, name FROM decks');
+        if (deckRows.isNotEmpty) {
+          for (final r in deckRows) {
+            deckIdToName[r['id'].toString()] = r['name']?.toString() ?? '';
+          }
+          decksOk = true;
+        }
+      } catch (_) {}
+
+      // 旧格式: col.decks JSON
+      if (!decksOk) {
+        try {
+          final colRows = await db.rawQuery('SELECT decks FROM col LIMIT 1');
+          if (colRows.isNotEmpty && colRows.first['decks'] != null) {
+            final decksJson = jsonDecode(colRows.first['decks']!.toString())
+                as Map<String, dynamic>;
+            for (final entry in decksJson.entries) {
+              final deckObj = entry.value as Map<String, dynamic>;
+              deckIdToName[entry.key] = deckObj['name']?.toString() ?? '';
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 2. 构建 note_id → deck_id（通过 cards 表的 nid → did）
+      if (deckIdToName.isNotEmpty) {
+        try {
+          final cards = await db.rawQuery('SELECT nid, did FROM cards');
+          for (final c in cards) {
+            final nid = c['nid'].toString();
+            final did = c['did'].toString();
+            final deckName = deckIdToName[did];
+            if (deckName != null && deckName.isNotEmpty) {
+              noteDeckMap[nid] = deckName;
+            }
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+
     await db.close();
-    return (notes: notes, fieldMap: fieldMap);
+    return (notes: notes, fieldMap: fieldMap, noteDeckMap: noteDeckMap);
   }
 
   static Future<AnkiPreview> _previewApkg(String filePath) async {
@@ -503,7 +557,10 @@ class AnkiParser {
                 break;
               }
             }
-            return _buildCard(rawFlds, mapping, audioUrl: audioUrl);
+            // 获取该笔记对应的牌组名称
+            final noteId = n['id']?.toString();
+            final deckName = noteId != null ? data.noteDeckMap[noteId] : null;
+            return _buildCard(rawFlds, mapping, audioUrl: audioUrl, deckName: deckName);
           })
           .whereType<AnkiCard>()
           .toList();
@@ -580,7 +637,7 @@ class AnkiParser {
   // ── 构建单张卡片 ────────────────────────────────────────────────────────────
 
   static AnkiCard? _buildCard(List<String> flds, Map<String, int?> mapping,
-      {String? audioUrl}) {
+      {String? audioUrl, String? deckName}) {
     final wi = mapping['word'];
     if (wi == null || wi >= flds.length) return null;
 
@@ -619,6 +676,7 @@ class AnkiParser {
       meaningEn: meaningEn,
       example: example,
       audioUrl: audioUrl,
+      deckName: deckName,
     );
   }
 }

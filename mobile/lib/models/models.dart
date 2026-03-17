@@ -12,6 +12,12 @@ class UserModel {
   final String? lastStudyDate;
   final int dailyGoalMinutes;
   final bool notificationEnabled;
+  final bool isMember;
+  final String? membershipPlan;
+  final String? membershipExpire;
+  final bool isTrial;
+  final bool trialActivated;
+  final int? membershipDaysLeft;
 
   const UserModel({
     required this.id,
@@ -24,6 +30,12 @@ class UserModel {
     this.lastStudyDate,
     required this.dailyGoalMinutes,
     required this.notificationEnabled,
+    this.isMember = false,
+    this.membershipPlan,
+    this.membershipExpire,
+    this.isTrial = false,
+    this.trialActivated = false,
+    this.membershipDaysLeft,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -37,6 +49,12 @@ class UserModel {
         lastStudyDate: json['last_study_date'],
         dailyGoalMinutes: json['daily_goal_minutes'] ?? 15,
         notificationEnabled: json['notification_enabled'] ?? true,
+        isMember: json['is_member'] == true,
+        membershipPlan: json['membership_plan'],
+        membershipExpire: json['membership_expire'],
+        isTrial: json['is_trial'] == true,
+        trialActivated: json['trial_activated'] == true,
+        membershipDaysLeft: json['membership_days_left'] as int?,
       );
 }
 

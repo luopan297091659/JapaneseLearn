@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../services/api_service.dart';
 import '../../utils/tts_helper.dart';
+import '../../widgets/membership_gate.dart';
 
 class TranslateScreen extends StatefulWidget {
   const TranslateScreen({super.key});
@@ -26,12 +27,21 @@ class _TranslateScreenState extends State<TranslateScreen> with SingleTickerProv
   Map<String, dynamic>? _wordDetail;
   bool _wordLoading = false;
   int _selectedTokenIdx = -1;
+  bool _isMember = true;
 
   @override
   void initState() {
     super.initState();
+    _checkMembership();
     _tabCtrl = TabController(length: 2, vsync: this);
     _initTts();
+  }
+
+  Future<void> _checkMembership() async {
+    try {
+      final user = await apiService.getMe();
+      if (mounted) setState(() => _isMember = user.isMember);
+    } catch (_) {}
   }
 
   Future<void> _initTts() async {
@@ -158,9 +168,12 @@ class _TranslateScreenState extends State<TranslateScreen> with SingleTickerProv
           onTap: (_) => setState(() {}),
         ),
       ),
-      body: Column(
-        children: [
-          // — 输入区 —
+      body: MembershipGate(
+        featureId: 'ai_features',
+        isMember: _isMember,
+        child: Column(
+          children: [
+            // — 输入区 —
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(
@@ -225,6 +238,7 @@ class _TranslateScreenState extends State<TranslateScreen> with SingleTickerProv
             ),
           ),
         ],
+      ),
       ),
     );
   }

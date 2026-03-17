@@ -1,0 +1,157 @@
+{
+  "tiers": [
+    {
+      "id": "grammar_lessons",
+      "name": "语法课程",
+      "icon": "📝",
+      "type": "limit",
+      "free_limit": 5,
+      "free_label": "前5课免费",
+      "member_label": "全部"
+    },
+    {
+      "id": "srs_daily",
+      "name": "SRS复习",
+      "icon": "🗂️",
+      "type": "daily_limit",
+      "free_limit": 30,
+      "free_label": "每日限30张",
+      "member_label": "无限制"
+    },
+    {
+      "id": "immersion_daily",
+      "name": "听力/磨耳朵",
+      "icon": "👂",
+      "type": "daily_limit",
+      "free_limit": 3,
+      "free_label": "每日3个",
+      "member_label": "无限制"
+    },
+    {
+      "id": "ai_features",
+      "name": "AI功能(翻译/解析)",
+      "icon": "🤖",
+      "type": "blocked",
+      "free_label": "不可用",
+      "member_label": "可用"
+    },
+    {
+      "id": "pronunciation",
+      "name": "发音练习",
+      "icon": "🎤",
+      "type": "blocked",
+      "free_label": "不可用",
+      "member_label": "可用"
+    },
+    {
+      "id": "anki_import",
+      "name": "Anki导入",
+      "icon": "📥",
+      "type": "blocked",
+      "free_label": "不可用",
+      "member_label": "可用"
+    },
+    {
+      "id": "game_levels",
+      "name": "游戏模式",
+      "icon": "🎮",
+      "type": "limit",
+      "free_limit": 5,
+      "free_label": "前5关",
+      "member_label": "全部"
+    },
+    {
+      "id": "quiz_meaning_daily",
+      "name": "词汇测验(意思题)",
+      "icon": "✏️",
+      "type": "daily_limit",
+      "free_limit": 10,
+      "free_label": "每日10题",
+      "member_label": "无限制"
+    },
+    {
+      "id": "quiz_reading_daily",
+      "name": "词汇测验(读音题)",
+      "icon": "📖",
+      "type": "daily_limit",
+      "free_limit": 10,
+      "free_label": "每日10题",
+      "member_label": "无限制"
+    },
+    {
+      "id": "quiz_jlpt_levels",
+      "name": "JLPT等级筛选",
+      "icon": "🏅",
+      "type": "enum",
+      "free_values": ["N5", "N4"],
+      "member_values": ["N5", "N4", "N3", "N2", "N1"],
+      "free_label": "N5 / N4",
+      "member_label": "N5~N1 全部"
+    },
+    {
+      "id": "quiz_count_options",
+      "name": "题目数量选择",
+      "icon": "🔢",
+      "type": "enum",
+      "free_values": [10],
+      "member_values": [10, 20, 30],
+      "free_label": "仅10题",
+      "member_label": "10 / 20 / 30题"
+    },
+    {
+      "id": "kana_writing_modes",
+      "name": "假名手写测试",
+      "icon": "✍️",
+      "type": "enum",
+      "free_values": ["basic"],
+      "member_values": ["basic", "dakuon", "mixed"],
+      "free_label": "基础清音",
+      "member_label": "全部(浊音/混合)"
+    },
+    {
+      "id": "flashcard_levels",
+      "name": "闪卡复习",
+      "icon": "🃏",
+      "type": "enum",
+      "free_values": ["N5"],
+      "member_values": ["N5", "N4", "N3", "N2", "N1"],
+      "free_label": "N5",
+      "member_label": "全等级"
+    },
+    {
+      "id": "anki_quiz",
+      "name": "Anki本地卡组测验",
+      "icon": "📋",
+      "type": "blocked",
+      "free_label": "不可用",
+      "member_label": "可用"
+    },
+    {
+      "id": "wrong_answers",
+      "name": "错题集",
+      "icon": "📝",
+      "type": "blocked",
+      "free_label": "不可用",
+      "member_label": "可用"
+    },
+    {
+      "id": "dictionary_daily",
+      "name": "词典查询",
+      "icon": "🔍",
+      "type": "daily_limit",
+      "free_limit": 20,
+      "free_label": "每日限20次",
+      "member_label": "无限制"
+    },
+    {
+      "id": "news_limit",
+      "name": "NHK新闻",
+      "icon": "📰",
+      "type": "limit",
+      "free_limit": 5,
+      "free_label": "最新5篇",
+      "member_label": "全部"
+    }
+  ],
+  "updated_at": null
+}

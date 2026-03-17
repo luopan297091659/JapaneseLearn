@@ -8,6 +8,7 @@ import '../../services/anki_parser.dart';
 import '../../services/api_service.dart';
 import '../../services/local_db.dart';
 import '../../services/sync_service.dart';
+import '../../widgets/membership_gate.dart';
 
 enum _Step { pick, parsing, preview, importing, done, error }
 
@@ -44,6 +45,20 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
   bool _savedLocally = false;
   bool _syncedToServer = false;
   int  _localCount = 0;
+  bool _isMember = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkMembership();
+  }
+
+  Future<void> _checkMembership() async {
+    try {
+      final user = await apiService.getMe();
+      if (mounted) setState(() => _isMember = user.isMember);
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -136,12 +151,16 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
       // ── 2. 写入本地 SQLite（离线也可用）────────────────────────────────────
       final rows = cards.map((c) {
         final json = c.toJson();
+        // 优先使用 .apkg 中解析出的牌组层级名称，否则使用用户输入的牌组名
+        final cardDeckName = (json['deck_name'] as String?)?.isNotEmpty == true
+            ? json['deck_name'] as String
+            : deckName;
         return {
           ...json,
-          'id':           json['id'] as String? ?? uuid.v4(),
+          'id':             json['id'] as String? ?? uuid.v4(),
           'part_of_speech': _partOfSpeech,
           'jlpt_level':     _jlptLevel,
-          'deck_name':      deckName,
+          'deck_name':      cardDeckName,
         };
       }).toList();
 
@@ -214,22 +233,21 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
         ),
         actions: [
           if (_step != _Step.pick)
-            IconButton(icon: const Icon(Icons.refresh), onPressed: _reset),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
-            onPressed: () {},
-          ),
+            IconButton(icon: const Icon(Icons.refresh), tooltip: '重置', onPressed: _reset),
         ],
       ),
-      body: switch (_step) {
-        _Step.pick      => _buildPickStep(cs, s),
-        _Step.parsing   => _buildParsingStep(cs, s),
-        _Step.preview   => _buildPreviewStep(cs, s),
-        _Step.importing => _buildImportingStep(cs, s),
-        _Step.done      => _buildDoneStep(cs, s),
-        _Step.error     => _buildErrorStep(cs, s),
-      },
+      body: MembershipGate(
+        featureId: 'anki_import',
+        isMember: _isMember,
+        child: switch (_step) {
+          _Step.pick      => _buildPickStep(cs, s),
+          _Step.parsing   => _buildParsingStep(cs, s),
+          _Step.preview   => _buildPreviewStep(cs, s),
+          _Step.importing => _buildImportingStep(cs, s),
+          _Step.done      => _buildDoneStep(cs, s),
+          _Step.error     => _buildErrorStep(cs, s),
+        },
+      ),
     );
   }
 

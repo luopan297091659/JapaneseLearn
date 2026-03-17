@@ -13,36 +13,74 @@ class ImmersionScreen extends StatefulWidget {
 
 class _ImmersionScreenState extends State<ImmersionScreen> {
   final _api = ApiService();
+  final _scrollController = ScrollController();
   List<dynamic> _videos = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  int _page = 1;
   String? _error;
 
   // 内嵌播放器状态
   String? _playingTitle;
   String? _playingUrl;
+  String? _playingPlatform;
+  bool _isFullscreen = false;
   WebViewController? _webController;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _loadVideos();
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     super.dispose();
   }
 
+  void _onScroll() {
+    if (_loadingMore || !_hasMore) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 200) {
+      _loadMore();
+    }
+  }
+
   Future<void> _loadVideos({bool forceRefresh = false}) async {
-    setState(() { _loading = true; _error = null; });
+    setState(() { _loading = true; _error = null; _page = 1; });
     try {
       final data = await _api.getImmersionVideos(page: 1, limit: 20, forceRefresh: forceRefresh);
+      final list = data['data'] as List<dynamic>? ?? [];
+      final total = data['total'] as int? ?? 0;
       setState(() {
-        _videos = data['data'] as List<dynamic>? ?? [];
+        _videos = list;
+        _hasMore = _videos.length < total;
         _loading = false;
       });
     } catch (e) {
       setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() { _loadingMore = true; });
+    try {
+      final nextPage = _page + 1;
+      final data = await _api.getImmersionVideos(page: nextPage, limit: 20);
+      final list = data['data'] as List<dynamic>? ?? [];
+      final total = data['total'] as int? ?? 0;
+      setState(() {
+        _page = nextPage;
+        _videos.addAll(list);
+        _hasMore = _videos.length < total;
+        _loadingMore = false;
+      });
+    } catch (_) {
+      setState(() { _loadingMore = false; });
     }
   }
 
@@ -80,6 +118,7 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
     setState(() {
       _playingTitle = title;
       _playingUrl = playerUrl;
+      _playingPlatform = platform;
       _webController = controller;
     });
   }
@@ -88,23 +127,44 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
     setState(() {
       _playingTitle = null;
       _playingUrl = null;
+      _playingPlatform = null;
       _webController = null;
     });
   }
 
   void _enterFullscreen() {
     if (_webController == null || _playingUrl == null) return;
-    Navigator.of(context, rootNavigator: true).push(
-      PageRouteBuilder(
-        opaque: true,
-        pageBuilder: (_, __, ___) => _FullscreenPlayerPage(
-          controller: _webController!,
-          title: _playingTitle ?? '',
+    // 先隐藏小屏WebView，避免两个WebViewWidget共享controller导致黑屏
+    setState(() { _isFullscreen = true; });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Navigator.of(context, rootNavigator: true).push(
+        PageRouteBuilder(
+          opaque: true,
+          pageBuilder: (_, __, ___) => _FullscreenPlayerPage(
+            controller: _webController!,
+            title: _playingTitle ?? '',
+            platform: _playingPlatform ?? '',
+          ),
+          transitionsBuilder: (_, anim, __, child) =>
+              FadeTransition(opacity: anim, child: child),
         ),
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
-      ),
-    );
+      ).then((_) {
+        if (!mounted) return;
+        // 退出全屏后重建WebViewController，避免共享controller导致黑屏
+        final url = _playingUrl;
+        if (url != null) {
+          final newController = WebViewController()
+            ..setJavaScriptMode(JavaScriptMode.unrestricted)
+            ..loadRequest(Uri.parse(url));
+          setState(() {
+            _webController = newController;
+            _isFullscreen = false;
+          });
+        } else {
+          setState(() { _isFullscreen = false; });
+        }
+      });
+    });
   }
 
   @override
@@ -121,8 +181,17 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
       body: Column(
         children: [
           // 内嵌视频播放器区域
-          if (_playingUrl != null && _webController != null)
-            _buildInlinePlayer(cs),
+          if (_playingUrl != null && _webController != null && !_isFullscreen)
+            _buildInlinePlayer(cs)
+          else if (_isFullscreen)
+            // 全屏时保留占位，避免布局跳动
+            Container(
+              color: Colors.black,
+              child: const AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Center(child: Text('全屏播放中…', style: TextStyle(color: Colors.white54, fontSize: 13))),
+              ),
+            ),
           // 视频列表
           Expanded(
             child: _loading
@@ -143,15 +212,26 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
                         : RefreshIndicator(
                             onRefresh: _onRefresh,
                             child: GridView.builder(
+                              controller: _scrollController,
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: 2,
-                                childAspectRatio: 0.95,
+                                childAspectRatio: 1.0,
                                 crossAxisSpacing: 6,
-                                mainAxisSpacing: 6,
+                                mainAxisSpacing: 2,
                               ),
-                              itemCount: _videos.length,
-                              itemBuilder: (ctx, i) => _buildVideoCard(_videos[i] as Map<String, dynamic>),
+                              itemCount: _videos.length + (_hasMore ? 1 : 0),
+                              itemBuilder: (ctx, i) {
+                                if (i >= _videos.length) {
+                                  return const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(16),
+                                      child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
+                                    ),
+                                  );
+                                }
+                                return _buildVideoCard(_videos[i] as Map<String, dynamic>);
+                              },
                             ),
                           ),
           ),
@@ -161,6 +241,7 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
   }
 
   Widget _buildInlinePlayer(ColorScheme cs) {
+    final isRepost = _playingPlatform == 'bilibili';
     return Container(
       color: Colors.black,
       child: Column(
@@ -169,7 +250,23 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
           // 播放器
           AspectRatio(
             aspectRatio: 16 / 9,
-            child: WebViewWidget(controller: _webController!),
+            child: Stack(
+              children: [
+                WebViewWidget(controller: _webController!),
+                if (isRepost)
+                  Positioned(
+                    top: 6, left: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade700.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text('网络转载视频', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+              ],
+            ),
           ),
           // 控制条
           Container(
@@ -269,40 +366,38 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
               ),
             ),
             // 标题和信息
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, height: 1.2),
-                    ),
-                    const Spacer(),
-                    Row(
-                      children: [
-                        Text(
-                          platform == 'youtube' ? '▶️' : '📺',
-                          style: const TextStyle(fontSize: 10),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(6, 3, 6, 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, height: 1.15),
+                  ),
+                  const SizedBox(height: 1),
+                  Row(
+                    children: [
+                      Text(
+                        platform == 'youtube' ? '▶️' : '📺',
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                      const SizedBox(width: 3),
+                      Expanded(
+                        child: Text(
+                          channelName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                         ),
-                        const SizedBox(width: 3),
-                        Expanded(
-                          child: Text(
-                            channelName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (dateStr.isNotEmpty)
-                      Text(dateStr, style: TextStyle(fontSize: 9, color: Colors.grey[500])),
-                  ],
-                ),
+                      ),
+                      if (dateStr.isNotEmpty)
+                        Text(dateStr, style: TextStyle(fontSize: 9, color: Colors.grey[500])),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -316,8 +411,9 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
 class _FullscreenPlayerPage extends StatefulWidget {
   final WebViewController controller;
   final String title;
+  final String platform;
 
-  const _FullscreenPlayerPage({required this.controller, required this.title});
+  const _FullscreenPlayerPage({required this.controller, required this.title, required this.platform});
 
   @override
   State<_FullscreenPlayerPage> createState() => _FullscreenPlayerPageState();
@@ -357,6 +453,21 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
         body: Stack(
           children: [
             WebViewWidget(controller: widget.controller),
+            if (widget.platform == 'bilibili')
+              Positioned(
+                top: 8,
+                left: 8,
+                child: SafeArea(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade700.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text('网络转载视频', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ),
             Positioned(
               top: 8,
               right: 8,

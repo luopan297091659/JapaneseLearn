@@ -5,6 +5,7 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const asyncHandler = require('../utils/asyncHandler');
 const { authenticate } = require('../middlewares/auth');
+const { checkMembership } = require('../middlewares/membership');
 
 // ── 上传目录 ──
 const uploadDir = path.join(__dirname, '../../uploads/recordings');
@@ -31,7 +32,7 @@ const upload = multer({
 });
 
 // ── POST /recording  上传发音录音 ──
-router.post('/recording', authenticate, upload.single('audio'), asyncHandler(async (req, res) => {
+router.post('/recording', authenticate, checkMembership('pronunciation'), upload.single('audio'), asyncHandler(async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: '未收到音频文件' });
   }

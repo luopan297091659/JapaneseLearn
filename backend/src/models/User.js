@@ -21,6 +21,7 @@ const User = sequelize.define('User', {
   permissions: { type: DataTypes.TEXT, allowNull: true, defaultValue: null },
   membership_plan: { type: DataTypes.STRING(50), allowNull: true, defaultValue: null },
   membership_expire: { type: DataTypes.DATE, allowNull: true, defaultValue: null },
+  trial_activated: { type: DataTypes.BOOLEAN, defaultValue: false },
   notification_enabled: { type: DataTypes.BOOLEAN, defaultValue: true },
   daily_goal_minutes: { type: DataTypes.INTEGER, defaultValue: 15 },
   web_login_token: { type: DataTypes.STRING(36), allowNull: true },

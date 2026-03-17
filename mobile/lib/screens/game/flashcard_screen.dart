@@ -2,7 +2,9 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
+import '../../services/membership_service.dart';
 import '../../models/models.dart';
+import '../../widgets/membership_gate.dart';
 
 class FlashcardScreen extends StatefulWidget {
   const FlashcardScreen({super.key});
@@ -24,11 +26,26 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
   int _correctCount = 0; // good + easy 算正确
   final Map<String, int> _difficultyStats = {'again': 0, 'hard': 0, 'good': 0, 'easy': 0};
   final DateTime _startTime = DateTime.now();
+  bool _isMember = true;
+  List<String> _freeLevels = [];
 
   @override
   void initState() {
     super.initState();
-    // 不自动加载，等用户选级别
+    _checkMembership();
+  }
+
+  Future<void> _checkMembership() async {
+    try {
+      final user = await apiService.getMe();
+      final levels = membershipService.getFreeValues('flashcard_levels');
+      if (mounted) {
+        setState(() {
+          _isMember = user.isMember;
+          _freeLevels = levels ?? [];
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadCards() async {
@@ -155,21 +172,40 @@ class _FlashcardScreenState extends State<FlashcardScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                ...['N5', 'N4', 'N3', 'N2', 'N1'].map((level) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () { _selectedLevel = level; _loadCards(); },
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        side: BorderSide(color: cs.primary.withOpacity(0.3)),
+                ...['N5', 'N4', 'N3', 'N2', 'N1'].map((level) {
+                  final locked = !_isMember && _freeLevels.isNotEmpty && !_freeLevels.contains(level);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          if (locked) {
+                            showMembershipUpgradeDialog(context, featureName: '闪卡等级选择');
+                          } else {
+                            _selectedLevel = level;
+                            _loadCards();
+                          }
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          side: BorderSide(color: locked ? cs.outline.withOpacity(0.3) : cs.primary.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(level, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: locked ? cs.outline : cs.primary)),
+                            if (locked) ...[
+                              const SizedBox(width: 8),
+                              Icon(Icons.lock, size: 16, color: cs.outline),
+                            ],
+                          ],
+                        ),
                       ),
-                      child: Text(level, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cs.primary)),
                     ),
-                  ),
-                )),
+                  );
+                }),
               ],
             ),
           ),

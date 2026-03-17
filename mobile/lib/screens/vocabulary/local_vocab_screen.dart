@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/local_db.dart';
 import '../../services/sync_service.dart';
+import '../../services/api_service.dart';
+import '../../widgets/membership_gate.dart';
 
 // ── 智能显示辅助 ──────────────────────────────────────────────────────────────
 // 部分 Anki 词库字段顺序颠倒：中文意思存入了 word，振假名日语存入了 reading
@@ -45,10 +47,22 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   bool _syncing = false;
   int  _pendingCount = 0;
 
+  // 牌组树展开状态
+  final Set<String> _expandedNodes = {};
+  bool _isMember = true;
+
   @override
   void initState() {
     super.initState();
+    _checkMembership();
     _loadDecks();
+  }
+
+  Future<void> _checkMembership() async {
+    try {
+      final user = await apiService.getMe();
+      if (mounted) setState(() => _isMember = user.isMember);
+    } catch (_) {}
   }
 
   @override
@@ -85,11 +99,12 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     final query = _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim();
     final cards = await localDb.listByDeck(
       deckName: _selectedDeck,
+      prefixMatch: true,
       query:    query,
       page:     _cardPage,
       limit:    30,
     );
-    final total = await localDb.countByDeck(deckName: _selectedDeck, query: query);
+    final total = await localDb.countByDeck(deckName: _selectedDeck, prefixMatch: true, query: query);
     if (!mounted) return;
     setState(() {
       _cards        = reset ? cards : [..._cards, ...cards];
@@ -141,12 +156,16 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   }
 
   void _openCardDetail(BuildContext context, LocalVocabModel card) {
+    final idx = _cards.indexOf(card);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _LocalVocabFlashCard(card: card),
+      builder: (_) => _LocalVocabFlashCard(
+        cards: _cards,
+        initialIndex: idx >= 0 ? idx : 0,
+      ),
     );
   }
 
@@ -162,35 +181,26 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
           tooltip: '返回',
-          onPressed: () => context.canPop() ? context.pop() : context.go('/vocabulary'),
+          onPressed: () {
+            if (_selectedDeck != null) {
+              setState(() { _selectedDeck = null; _cards = []; });
+            } else {
+              context.canPop() ? context.pop() : context.go('/vocabulary');
+            }
+          },
         ),
-        actions: [
-          if (_pendingCount > 0)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: _syncing
-                  ? const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                    )
-                  : Badge(
-                      label: Text('$_pendingCount'),
-                      child: IconButton(
-                        icon: const Icon(Icons.sync_rounded),
-                        tooltip: s.syncNow,
-                        onPressed: _syncAll,
-                      ),
-                    ),
-            ),
-        ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _decks.isEmpty
-              ? _buildEmpty(cs, s)
-              : _selectedDeck == null
-                  ? _buildDeckList(cs, s)
-                  : _buildCardList(cs, s),
+      body: MembershipGate(
+        featureId: 'anki_quiz',
+        isMember: _isMember,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _decks.isEmpty
+                ? _buildEmpty(cs, s)
+                : _selectedDeck == null
+                    ? _buildDeckList(cs, s)
+                    : _buildCardList(cs, s),
+      ),
     );
   }
 
@@ -217,97 +227,245 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     );
   }
 
-  // ── 牌组列表 ──────────────────────────────────────────────────────────────
+  // ── 构建牌组树 ────────────────────────────────────────────────────────────
+  /// 将扁平的 deck_name 列表（可能含 "::" 层级）构建为树结构
+  List<_DeckTreeNode> _buildDeckTree() {
+    // 汇总每个完整路径的直接卡片数
+    final Map<String, int> directTotal = {};
+    final Map<String, int> directPending = {};
+    for (final d in _decks) {
+      directTotal[d.deckName] = d.total;
+      directPending[d.deckName] = d.pending;
+    }
+
+    // 收集所有路径节点（含中间节点）
+    final Map<String, _DeckTreeNode> nodeMap = {};
+    for (final d in _decks) {
+      final parts = d.deckName.split('::');
+      for (int i = 0; i < parts.length; i++) {
+        final fullPath = parts.sublist(0, i + 1).join('::');
+        nodeMap.putIfAbsent(fullPath, () => _DeckTreeNode(
+          fullPath: fullPath,
+          displayName: parts[i],
+          depth: i,
+        ));
+      }
+    }
+
+    // 构建父子关系
+    for (final node in nodeMap.values) {
+      final parts = node.fullPath.split('::');
+      if (parts.length > 1) {
+        final parentPath = parts.sublist(0, parts.length - 1).join('::');
+        nodeMap[parentPath]?.children.add(node);
+      }
+    }
+
+    // 计算每个节点的总卡片数（自身 + 所有后代）
+    void computeTotals(_DeckTreeNode node) {
+      node.ownTotal = directTotal[node.fullPath] ?? 0;
+      node.ownPending = directPending[node.fullPath] ?? 0;
+      for (final child in node.children) {
+        computeTotals(child);
+      }
+      node.subtreeTotal = node.ownTotal +
+          node.children.fold(0, (sum, c) => sum + c.subtreeTotal);
+      node.subtreePending = node.ownPending +
+          node.children.fold(0, (sum, c) => sum + c.subtreePending);
+    }
+
+    // 排序子节点
+    void sortChildren(_DeckTreeNode node) {
+      node.children.sort((a, b) => a.displayName.compareTo(b.displayName));
+      for (final child in node.children) {
+        sortChildren(child);
+      }
+    }
+
+    // 收集根节点
+    final roots = nodeMap.values
+        .where((n) => !n.fullPath.contains('::'))
+        .toList();
+    for (final root in roots) {
+      computeTotals(root);
+      sortChildren(root);
+    }
+    roots.sort((a, b) => a.displayName.compareTo(b.displayName));
+
+    return roots;
+  }
+
+  // ── 牌组列表（树形视图）──────────────────────────────────────────────────
   Widget _buildDeckList(ColorScheme cs, S s) {
+    final roots = _buildDeckTree();
+
     return RefreshIndicator(
       onRefresh: _loadDecks,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // 待同步汇总行
-          if (_pendingCount > 0)
-            Card(
-              color: Colors.orange.shade50,
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                leading: Icon(Icons.cloud_off_rounded, color: Colors.orange.shade700),
-                title: Text('$_pendingCount ${s.pendingCards}',
-                    style: TextStyle(color: Colors.orange.shade700, fontWeight: FontWeight.bold)),
-                subtitle: Text(s.syncFailed, style: TextStyle(color: Colors.orange.shade600, fontSize: 12)),
-                trailing: _syncing
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : FilledButton.tonal(
-                        onPressed: _syncAll,
-                        style: FilledButton.styleFrom(backgroundColor: Colors.orange.shade100),
-                        child: Text(s.syncNow, style: TextStyle(color: Colors.orange.shade800)),
-                      ),
-              ),
+          // 汇总表头
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(10),
             ),
+            child: Row(children: [
+              Expanded(child: Text('牌组', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.onSurface))),
+              SizedBox(width: 64, child: Text('卡片数', textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: cs.primary))),
+            ]),
+          ),
+          const SizedBox(height: 4),
 
-          ..._decks.map((deck) {
-            final hasPending = deck.pending > 0;
-            return Card(
-              margin: const EdgeInsets.only(bottom: 10),
-              child: ListTile(
-                leading: Container(
-                  width: 44, height: 44,
-                  decoration: BoxDecoration(
-                    color: cs.primaryContainer,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.layers_rounded, color: cs.primary),
-                ),
-                title: Text(deck.deckName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Row(children: [
-                  Text('${deck.total} 张', style: const TextStyle(fontSize: 12)),
-                  if (hasPending) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text('${deck.pending} ${s.pendingSync}',
-                          style: TextStyle(fontSize: 11, color: Colors.orange.shade700)),
-                    ),
-                  ],
-                ]),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded),
-                      color: Colors.red.shade300,
-                      tooltip: '删除词库',
-                      onPressed: () => _deleteDeck(deck.deckName),
-                    ),
-                    const Icon(Icons.chevron_right),
-                  ],
-                ),
-                onTap: () => _openDeck(deck.deckName),
-              ),
-            );
-          }),
+          // 树形牌组列表
+          ...roots.expand((root) => _buildTreeItems(cs, root)),
+
+          // 底部导入按钮
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('导入新词库'),
+            onPressed: () => context.push('/anki-import'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
         ],
       ),
     );
   }
 
+  /// 递归构建树节点 Widget 列表
+  List<Widget> _buildTreeItems(ColorScheme cs, _DeckTreeNode node) {
+    final hasChildren = node.children.isNotEmpty;
+    final isExpanded = _expandedNodes.contains(node.fullPath);
+    final depth = node.depth;
+
+    final item = InkWell(
+      onTap: () => _openDeck(node.fullPath),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: EdgeInsets.only(
+          left: 12.0 + depth * 20.0,
+          right: 8,
+          top: 10,
+          bottom: 10,
+        ),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.2))),
+        ),
+        child: Row(children: [
+          // 展开/折叠按钮或占位
+          if (hasChildren)
+            GestureDetector(
+              onTap: () => setState(() {
+                if (isExpanded) {
+                  _expandedNodes.remove(node.fullPath);
+                } else {
+                  _expandedNodes.add(node.fullPath);
+                }
+              }),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(
+                  isExpanded ? Icons.expand_more_rounded : Icons.chevron_right_rounded,
+                  size: 20,
+                  color: cs.outline,
+                ),
+              ),
+            )
+          else
+            const SizedBox(width: 24),
+
+          // 牌组图标
+          Icon(
+            hasChildren ? Icons.folder_rounded : Icons.description_rounded,
+            size: 18,
+            color: depth == 0 ? cs.primary : cs.outline,
+          ),
+          const SizedBox(width: 8),
+
+          // 牌组名称
+          Expanded(
+            child: Text(
+              node.displayName,
+              style: TextStyle(
+                fontSize: depth == 0 ? 15 : 14,
+                fontWeight: depth == 0 ? FontWeight.bold : FontWeight.w500,
+                color: cs.onSurface,
+              ),
+            ),
+          ),
+
+          // 卡片数
+          SizedBox(
+            width: 64,
+            child: Text(
+              '${node.subtreeTotal}',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: cs.primary,
+              ),
+            ),
+          ),
+
+          // 删除按钮（只在根节点显示）
+          if (depth == 0)
+            SizedBox(
+              width: 32,
+              child: IconButton(
+                icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                color: Colors.red.shade300,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: '删除词库',
+                onPressed: () => _deleteDeck(node.fullPath),
+              ),
+            )
+          else
+            const SizedBox(width: 32),
+        ]),
+      ),
+    );
+
+    return [
+      item,
+      if (hasChildren && isExpanded)
+        ...node.children.expand((child) => _buildTreeItems(cs, child)),
+    ];
+  }
+
   // ── 卡片列表 ──────────────────────────────────────────────────────────────
   Widget _buildCardList(ColorScheme cs, S s) {
+    // 显示当前牌组路径（用 :: 分隔的最后一段）
+    final deckParts = _selectedDeck?.split('::') ?? [];
+    final deckTitle = deckParts.isNotEmpty ? deckParts.last : s.localVocab;
+
     return Column(
       children: [
-        // 顶部导航栏
+        // 顶部牌组路径 + 卡片数
         Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Row(children: [
-            TextButton.icon(
-              icon: const Icon(Icons.arrow_back_ios_rounded, size: 16),
-              onPressed: () => setState(() { _selectedDeck = null; _cards = []; }),
-              label: Text(s.localVocab),
+            Expanded(
+              child: Text(
+                deckParts.length > 1
+                    ? deckParts.join(' > ')
+                    : deckTitle,
+                style: TextStyle(
+                  color: cs.onSurface,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            const Spacer(),
             Text('$_cardTotal ${s.cards}',
                 style: TextStyle(color: cs.outline, fontSize: 13)),
           ]),
@@ -382,22 +540,56 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   }
 }
 
+// ─── 牌组树节点模型 ──────────────────────────────────────────────────────────
+
+class _DeckTreeNode {
+  final String fullPath;     // 完整路径，如 "Root::Sub::Leaf"
+  final String displayName;  // 显示名称，如 "Leaf"
+  final int depth;           // 层级深度（0 = 根）
+  final List<_DeckTreeNode> children = [];
+  int ownTotal = 0;          // 该节点自身的卡片数
+  int ownPending = 0;        // 该节点自身的待同步数
+  int subtreeTotal = 0;      // 该节点 + 所有后代的卡片总数
+  int subtreePending = 0;    // 该节点 + 所有后代的待同步总数
+
+  _DeckTreeNode({
+    required this.fullPath,
+    required this.displayName,
+    required this.depth,
+  });
+}
+
 // ─── 本地词库闪卡复习面板 ─────────────────────────────────────────────────────
 
 class _LocalVocabFlashCard extends StatefulWidget {
-  final LocalVocabModel card;
-  const _LocalVocabFlashCard({required this.card});
+  final List<LocalVocabModel> cards;
+  final int initialIndex;
+  const _LocalVocabFlashCard({required this.cards, required this.initialIndex});
   @override
   State<_LocalVocabFlashCard> createState() => _LocalVocabFlashCardState();
 }
 
 class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
   bool _showAnswer = false;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+  }
+
+  void _goTo(int index) {
+    if (index < 0 || index >= widget.cards.length) return;
+    setState(() { _currentIndex = index; _showAnswer = false; });
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs   = Theme.of(context).colorScheme;
-    final card = widget.card;
+    final card = widget.cards[_currentIndex];
+    final hasPrev = _currentIndex > 0;
+    final hasNext = _currentIndex < widget.cards.length - 1;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.75,
@@ -430,6 +622,11 @@ class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
                 // ── 单词卡 ────────────────────────────────────────────────
                 GestureDetector(
                   onTap: () => setState(() => _showAnswer = true),
+                  onHorizontalDragEnd: (details) {
+                    if (details.primaryVelocity == null) return;
+                    if (details.primaryVelocity! < -200) _goTo(_currentIndex + 1);
+                    if (details.primaryVelocity! > 200) _goTo(_currentIndex - 1);
+                  },
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
@@ -564,6 +761,42 @@ class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
                 ],
               ],
             ),
+          ),
+          // ── 底部导航栏 ──────────────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.3))),
+            ),
+            child: Row(children: [
+              OutlinedButton.icon(
+                onPressed: hasPrev ? () => _goTo(_currentIndex - 1) : null,
+                icon: const Icon(Icons.arrow_back_ios_rounded, size: 16),
+                label: const Text('上一个'),
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              const Spacer(),
+              Text('${_currentIndex + 1} / ${widget.cards.length}',
+                  style: TextStyle(fontSize: 13, color: cs.outline, fontWeight: FontWeight.w500)),
+              const Spacer(),
+              OutlinedButton.icon(
+                onPressed: hasNext ? () => _goTo(_currentIndex + 1) : null,
+                icon: const Text(''),
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Text('下一个'),
+                    SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                  ],
+                ),
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ]),
           ),
         ]),
       ),

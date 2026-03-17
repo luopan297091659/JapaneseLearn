@@ -2,9 +2,10 @@ const express = require('express');
 const router  = express.Router();
 const { authenticate } = require('../middlewares/auth');
 const { adminAuth }    = require('../middlewares/adminAuth');
+const { checkMembership } = require('../middlewares/membership');
 const ctrl             = require('../controllers/gameController');
 
-router.post('/score',                authenticate,            ctrl.saveScore);
+router.post('/score',                authenticate, checkMembership('game_levels'), ctrl.saveScore);
 router.get('/my-progress',           authenticate,            ctrl.getMyProgress);
 router.get('/leaderboard',                                    ctrl.getLeaderboard);
 router.get('/leaderboard/global',                             ctrl.getGlobalLeaderboard);

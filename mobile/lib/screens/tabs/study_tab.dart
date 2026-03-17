@@ -1,8 +1,78 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../services/api_service.dart';
+import '../../services/membership_service.dart';
 
-class StudyTab extends StatelessWidget {
+class StudyTab extends StatefulWidget {
   const StudyTab({super.key});
+  @override
+  State<StudyTab> createState() => _StudyTabState();
+}
+
+class _StudyTabState extends State<StudyTab> {
+  bool _isMember = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMembership();
+  }
+
+  Future<void> _loadMembership() async {
+    try {
+      final user = await apiService.getMe();
+      if (mounted) setState(() => _isMember = user.isMember);
+    } catch (_) {}
+  }
+
+  bool _isBlocked(String tierId) =>
+    !_isMember && membershipService.isBlocked(tierId, isMember: _isMember);
+
+  void _showMemberDialog(String name) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56, height: 56,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Center(child: Text('👑', style: TextStyle(fontSize: 28))),
+            ),
+            const SizedBox(height: 14),
+            Text('$name 需开通会员',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Text('升级会员即可解锁全部功能',
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('稍后再说'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              context.push('/membership', extra: false);
+            },
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFF59E0B)),
+            child: const Text('查看权益'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +131,11 @@ class StudyTab extends StatelessWidget {
             title: 'AI 发音练习',
             subtitle: '智能纠正 · 对比原生发音',
             color: const Color(0xFF00BCD4),
-            onTap: () => context.push('/pronunciation'),
+            blocked: _isBlocked('pronunciation'),
+            onTap: () {
+              if (_isBlocked('pronunciation')) { _showMemberDialog('AI 发音练习'); return; }
+              context.push('/pronunciation');
+            },
           ),
           const SizedBox(height: 12),
           _StudyCard(
@@ -91,6 +165,7 @@ class _StudyCard extends StatelessWidget {
   final String subtitle;
   final Color color;
   final VoidCallback onTap;
+  final bool blocked;
 
   const _StudyCard({
     required this.icon,
@@ -98,6 +173,7 @@ class _StudyCard extends StatelessWidget {
     required this.subtitle,
     required this.color,
     required this.onTap,
+    this.blocked = false,
   });
 
   @override
@@ -108,32 +184,45 @@ class _StudyCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
+          color: color.withValues(alpha: blocked ? 0.04 : 0.08),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
+          border: Border.all(color: color.withValues(alpha: blocked ? 0.1 : 0.2)),
         ),
         child: Row(children: [
           Container(
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.18),
+              color: color.withValues(alpha: blocked ? 0.08 : 0.18),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, color: color, size: 28),
+            child: Icon(icon, color: blocked ? color.withValues(alpha: 0.4) : color, size: 28),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color)),
+                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16,
+                  color: blocked ? color.withValues(alpha: 0.4) : color)),
                 const SizedBox(height: 4),
-                Text(subtitle, style: TextStyle(fontSize: 13, color: color.withValues(alpha: 0.7))),
+                Text(blocked ? '会员专属功能' : subtitle,
+                  style: TextStyle(fontSize: 13,
+                    color: blocked ? Colors.grey : color.withValues(alpha: 0.7))),
               ],
             ),
           ),
-          Icon(Icons.arrow_forward_ios_rounded, size: 16, color: color.withValues(alpha: 0.5)),
+          if (blocked)
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.workspace_premium, size: 16, color: Colors.white),
+            )
+          else
+            Icon(Icons.arrow_forward_ios_rounded, size: 16, color: color.withValues(alpha: 0.5)),
         ]),
       ),
     );

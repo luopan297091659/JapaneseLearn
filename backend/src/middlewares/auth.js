@@ -29,4 +29,24 @@ async function authenticate(req, res, next) {
   }
 }
 
-module.exports = { authenticate };
+/**
+ * 可选认证：有 token 就解析用户，没有则跳过
+ * 用于公开接口需要会员限制检查的场景
+ */
+async function optionalAuthenticate(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next();
+  }
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = verifyAccessToken(token);
+    const user = await User.findByPk(decoded.id);
+    if (user && user.is_active) {
+      req.user = user;
+    }
+  } catch { /* token 无效则跳过 */ }
+  next();
+}
+
+module.exports = { authenticate, optionalAuthenticate };

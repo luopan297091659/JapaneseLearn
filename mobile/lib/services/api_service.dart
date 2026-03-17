@@ -53,9 +53,17 @@ class ApiService {
   Completer<bool>? _refreshCompleter;  // 并发刷新锁
   VoidCallback? _onSessionReplaced;
 
+  /// 会员限制回调：返回 { error, feature, message, used, limit }
+  void Function(Map<String, dynamic>)? _onMembershipLimit;
+
   /// 设置被其他设备登录顶替时的回调
   void setOnSessionReplaced(VoidCallback callback) {
     _onSessionReplaced = callback;
+  }
+
+  /// 设置会员限制触发时的回调
+  void setOnMembershipLimit(void Function(Map<String, dynamic>) callback) {
+    _onMembershipLimit = callback;
   }
 
   void init() {
@@ -129,6 +137,13 @@ class ApiService {
           // 刷新失败，清除 token
           await _storage.deleteAll();
           _cache.clear();
+        }
+        // 处理 403 会员限制错误
+        if (error.response?.statusCode == 403) {
+          final data = error.response?.data;
+          if (data is Map && (data['error'] == 'MEMBERSHIP_REQUIRED' || data['error'] == 'DAILY_LIMIT_REACHED')) {
+            _onMembershipLimit?.call(Map<String, dynamic>.from(data));
+          }
         }
         handler.next(error);
       },
@@ -307,14 +322,29 @@ class ApiService {
     }
   }
 
-  Future<UserModel> getMe() async {
+  Future<UserModel> getMe({bool force = false}) async {
     const key = 'me';
-    final cached = _cache.get(key);
-    if (cached != null) return cached as UserModel;
+    if (!force) {
+      final cached = _cache.get(key);
+      if (cached != null) return cached as UserModel;
+    }
     final res = await _dio.get('/auth/me');
     final user = UserModel.fromJson(res.data['user']);
     _cache.set(key, user, AppConfig.cacheTtlShort);
     return user;
+  }
+
+  /// 获取会员体验配置
+  Future<Map<String, dynamic>> getTrialConfig() async {
+    final res = await _dio.get('/users/trial-config');
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  /// 用户自助开通会员体验
+  Future<Map<String, dynamic>> activateTrial() async {
+    _cache.remove('me');
+    final res = await _dio.post('/users/activate-trial');
+    return Map<String, dynamic>.from(res.data);
   }
 
   /// 更新用户设置（daily_goal_minutes / notification_enabled / level 等）

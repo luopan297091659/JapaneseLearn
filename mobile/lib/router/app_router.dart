@@ -36,6 +36,7 @@ import '../screens/tools/translate_screen.dart';
 import '../screens/quiz/kana_writing_test_screen.dart';
 import '../screens/tools/wrong_answers_screen.dart';
 import '../screens/listening/immersion_screen.dart';
+import '../screens/membership/membership_comparison_page.dart';
 import '../models/models.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -134,6 +135,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/kana-writing-test', builder: (_, __) => const KanaWritingTestScreen()),
           GoRoute(path: '/wrong-answers', builder: (_, __) => const WrongAnswersScreen()),
           GoRoute(path: '/immersion', builder: (_, __) => const ImmersionScreen()),
+          GoRoute(
+            path: '/membership',
+            builder: (_, state) => MembershipComparisonPage(
+              isMember: (state.extra as bool?) ?? false,
+            ),
+          ),
         ],
       ),
     ],

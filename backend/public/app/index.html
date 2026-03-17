@@ -418,6 +418,83 @@ ul { list-style: none; }
 @keyframes gfever{0%{background:#7c3aed}33%{background:#ef4444}66%{background:#f59e0b}100%{background:#22c55e}}
 @keyframes recPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}50%{box-shadow:0 0 0 12px rgba(239,68,68,0)}}
 .rec-pulse{animation:recPulse 1.2s ease-in-out infinite;background:#ef4444!important;border-color:#ef4444!important}
+
+/* ─── 会员系统 ────────────────────────────────────────────────── */
+.member-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;
+  white-space: nowrap; cursor: pointer;
+}
+.member-badge.free { background: var(--bg3); color: var(--text-sub); }
+.member-badge.vip { background: linear-gradient(135deg, #f59e0b, #f97316); color: #fff; }
+.nav-lock { font-size: 10px; margin-left: auto; opacity: .6; }
+
+/* 会员页 */
+.membership-header {
+  text-align: center; padding: 24px 0 16px;
+}
+.membership-header h2 { font-size: 22px; margin: 0 0 6px; }
+.membership-header p { color: var(--text-sub); font-size: 14px; margin: 0; }
+.plan-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+@media (max-width: 600px) { .plan-cards { grid-template-columns: 1fr; } }
+.plan-card {
+  border: 2px solid var(--border); border-radius: 16px; padding: 20px;
+  position: relative; transition: border-color .2s, box-shadow .2s;
+}
+.plan-card.current { border-color: var(--primary); }
+.plan-card.recommended {
+  border-color: #f59e0b;
+  box-shadow: 0 4px 20px rgba(245, 158, 11, .15);
+}
+.plan-card .plan-name {
+  font-size: 18px; font-weight: 800; margin-bottom: 4px;
+}
+.plan-card .plan-price {
+  font-size: 28px; font-weight: 900; color: var(--primary); margin: 8px 0;
+}
+.plan-card .plan-price .unit { font-size: 14px; font-weight: 500; color: var(--text-sub); }
+.plan-card .plan-features { list-style: none; padding: 0; margin: 12px 0 0; }
+.plan-card .plan-features li {
+  padding: 5px 0; font-size: 13px; display: flex; align-items: center; gap: 6px;
+}
+.plan-card .plan-features li::before { content: '✓'; color: #22c55e; font-weight: 700; }
+.plan-card .plan-features li.limited::before { content: '⚠'; color: #f59e0b; }
+.plan-card .plan-features li.blocked::before { content: '✕'; color: var(--danger); }
+.plan-tag {
+  position: absolute; top: -10px; right: 16px;
+  background: linear-gradient(135deg, #f59e0b, #f97316); color: #fff;
+  padding: 2px 12px; border-radius: 10px; font-size: 11px; font-weight: 700;
+}
+
+/* 用量配额 */
+.usage-card { margin-bottom: 12px; }
+.usage-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.usage-item {
+  background: var(--bg2); border-radius: 10px; padding: 10px; text-align: center;
+}
+.usage-item .usage-label { font-size: 11px; color: var(--text-hint); margin-bottom: 4px; }
+.usage-item .usage-val { font-size: 16px; font-weight: 800; }
+.usage-item .usage-bar {
+  background: var(--bg3); border-radius: 4px; height: 4px; margin-top: 6px; overflow: hidden;
+}
+.usage-item .usage-bar-inner { height: 100%; border-radius: 4px; transition: width .4s; }
+.usage-item.blocked .usage-val { color: var(--danger); }
+.usage-item.ok .usage-val { color: #22c55e; }
+.usage-item.warning .usage-val { color: #f59e0b; }
+
+/* 升级弹窗 */
+.upgrade-modal-content { text-align: center; padding: 10px 0; }
+.upgrade-modal-content .upgrade-icon { font-size: 48px; margin-bottom: 12px; }
+.upgrade-modal-content .upgrade-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+.upgrade-modal-content .upgrade-desc { color: var(--text-sub); font-size: 14px; margin-bottom: 16px; line-height: 1.6; }
+.upgrade-modal-content .upgrade-benefits {
+  text-align: left; background: var(--bg2); border-radius: 12px; padding: 14px;
+  margin-bottom: 16px;
+}
+.upgrade-modal-content .upgrade-benefits li {
+  list-style: none; padding: 4px 0; font-size: 13px; display: flex; align-items: center; gap: 6px;
+}
+.upgrade-modal-content .upgrade-benefits li::before { content: '✨'; }
 </style>
 </head>
 <body>
@@ -495,6 +572,7 @@ ul { list-style: none; }
         <div class="stat-chip acts"><span class="stat-label">📊</span><span class="stat-val" id="hdr-activities">0</span></div>
       </div>
     </div>
+    <span id="topbar-member-badge" class="member-badge free" onclick="navigate('membership')" style="display:none">免费版</span>
     <div class="user-btn" onclick="navigate('profile')">
       <span id="topbar-username">...</span>
       <span>⚙</span>
@@ -513,12 +591,12 @@ ul { list-style: none; }
       <div class="nav-item" data-page="vocabulary" onclick="navigate('vocabulary')"><span class="icon">📖</span>单词</div>
       <div class="nav-item" data-page="grammar" onclick="navigate('grammar')"><span class="icon">📝</span>文法</div>
       <div class="nav-item" data-page="listening-study" onclick="navigate('listening-study')"><span class="icon">🎧</span>听力练习</div>
-      <div class="nav-item" data-page="pronunciation" onclick="navigate('pronunciation')"><span class="icon">🎤</span>发音练习</div>
+      <div class="nav-item" data-page="pronunciation" onclick="navigate('pronunciation')"><span class="icon">🎤</span>发音练习<span class="nav-lock" title="会员功能">🔒</span></div>
       <div class="nav-item" data-page="flashcard" onclick="navigate('flashcard')"><span class="icon">🃏</span>闪卡练习</div>
       <div class="nav-item" data-page="srs" onclick="navigate('srs')"><span class="icon">🗂️</span>SRS 复习</div>
       <div class="nav-section">工具</div>
       <div class="nav-item" data-page="dictionary" onclick="navigate('dictionary')"><span class="icon">🔍</span>词典</div>
-      <div class="nav-item" data-page="translate" onclick="navigate('translate')"><span class="icon">🌐</span>翻译解析</div>
+      <div class="nav-item" data-page="translate" onclick="navigate('translate')"><span class="icon">🌐</span>翻译解析<span class="nav-lock" title="会员功能">🔒</span></div>
       <div class="nav-item" data-page="news" onclick="navigate('news')"><span class="icon">📰</span>新闻</div>
       <div class="nav-item" data-page="immersion" onclick="navigate('immersion')"><span class="icon">👂</span>磨耳朵</div>
       <div class="nav-section">测试</div>
@@ -527,8 +605,9 @@ ul { list-style: none; }
       <div class="nav-item" data-page="quiz" onclick="navigate('quiz')"><span class="icon">✏️</span>单词测验</div>
       <div class="nav-item" data-page="listening-exercise" onclick="navigate('listening-exercise')"><span class="icon">👂</span>听力测验</div>
       <div class="nav-item" data-page="todofuken" onclick="navigate('todofuken')"><span class="icon">🗾</span>都道府県</div>
-      <div class="nav-item" data-page="wrong-answers" onclick="navigate('wrong-answers')"><span class="icon">📝</span>错题集</div>
+      <div class="nav-item" data-page="wrong-answers" onclick="navigate('wrong-answers')"><span class="icon">📝</span>错题集<span class="nav-lock" title="会员功能">🔒</span></div>
       <div class="nav-section">账号</div>
+      <div class="nav-item" data-page="membership" onclick="navigate('membership')"><span class="icon">👑</span>会员</div>
       <div class="nav-item" data-page="profile" onclick="navigate('profile')"><span class="icon">👤</span>我的</div>
       <div class="nav-footer">
         <div class="nav-item" onclick="doLogout()" style="color:var(--danger)"><span class="icon">↩</span>退出登录</div>
@@ -607,6 +686,15 @@ ul { list-style: none; }
             </div>
             <span style="background:rgba(255,255,255,.25);padding:6px 16px;border-radius:20px;font-weight:600;font-size:13px">开始</span>
           </div>
+        </div>
+
+        <!-- 用量配额 (免费用户) -->
+        <div class="card usage-card" id="home-usage-card" style="margin-bottom:20px;display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div class="card-title" style="margin:0">📊 今日免费额度</div>
+            <span class="member-badge free" onclick="navigate('membership')" style="cursor:pointer">升级会员 →</span>
+          </div>
+          <div class="usage-grid" id="home-usage-grid"></div>
         </div>
 
         <!-- 辞书 -->
@@ -1003,8 +1091,8 @@ ul { list-style: none; }
             <div style="font-size:48px;font-weight:900" id="pron-score">--</div>
             <div id="pron-feedback" style="font-size:13px;color:var(--text-sub);margin-top:8px"></div>
             <div id="pron-audio-controls" style="display:none;margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-              <button class="btn btn-outline btn-sm" onclick="pronPlayRecording()">🔊 回放录音</button>
-              <button class="btn btn-outline btn-sm" onclick="pronSaveRecording()">💾 保存录音</button>
+              <button class="btn btn-outline btn-sm" id="pron-play-save-btn" onclick="pronPlayAndSave()">🔊 回放录音</button>
+              <span id="pron-save-status" style="font-size:12px;color:var(--text-hint);line-height:32px"></span>
             </div>
           </div>
 
@@ -1308,6 +1396,34 @@ ul { list-style: none; }
         </div>
       </div>
 
+      <!-- 会员页 -->
+      <div class="page" id="page-membership">
+        <div class="membership-header">
+          <h2>👑 会员中心</h2>
+          <p>解锁全部功能，畅享日语学习</p>
+        </div>
+        <div id="membership-status-card" class="card" style="margin-bottom:16px">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+        <div id="membership-usage-card" class="card usage-card">
+          <div class="card-title">📊 今日用量</div>
+          <div class="usage-grid" id="membership-usage-grid">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+        <div id="membership-plans" class="plan-cards"></div>
+        <div class="card" style="margin-top:16px">
+          <div class="card-title">💡 会员权益说明</div>
+          <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--text-sub);line-height:2">
+            <li>解锁全部 JLPT 级别（N5~N1）词汇与文法</li>
+            <li>AI 发音练习 & 翻译功能</li>
+            <li>不限次数 SRS 复习、词典查询、听力练习</li>
+            <li>闯关游戏全部关卡</li>
+            <li>Anki 导入 & 扩展测验</li>
+          </ul>
+        </div>
+      </div>
+
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /app -->
@@ -1429,13 +1545,24 @@ async function request(method, path, body = null, opts = {}, _retryCount = 0) {
   if (!res.ok) {
     let msg = `请求失败`;
     let code = '';
+    let errorType = '';
     try {
       const e = await res.json();
       msg = e.error || e.message || msg;
       code = e.code || '';
+      errorType = e.error || '';
       if (e.details && Array.isArray(e.details)) msg += ': ' + e.details.join('; ');
     } catch(_) {}
-    if (res.status === 403) msg = '权限不足: ' + msg;
+    if (res.status === 403) {
+      if (errorType === 'MEMBERSHIP_REQUIRED' || errorType === 'DAILY_LIMIT_REACHED') {
+        const tip = errorType === 'DAILY_LIMIT_REACHED'
+          ? '今日免费额度已用完，升级会员可无限使用'
+          : '此功能需要会员才能使用';
+        showUpgradeModal(tip);
+        throw new Error(tip);
+      }
+      msg = '权限不足: ' + msg;
+    }
     if (res.status === 404) msg = '资源不存在';
     if (res.status === 413) msg = '文件大小超出限制';
     if (res.status === 429) msg = '请求过于频繁，请稍后再试';
@@ -1485,6 +1612,11 @@ function navigate(page, pushHistory = true) {
   if (page !== 'home' && page !== 'profile' && !isFeatureEnabled(page)) {
     toast('该功能暂未开放'); return;
   }
+  // 检查会员限制：blocked 类型功能，免费用户不可进入
+  if (isFeatureBlocked(page)) {
+    showUpgradeModal('此功能需要会员才能使用');
+    return;
+  }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('#sidebar .nav-item').forEach(i => i.classList.remove('active'));
   const pageId = page;
@@ -1516,7 +1648,7 @@ function navigate(page, pushHistory = true) {
     case 'profile': loadProfile(); break;
     case 'game': gamePageInit('particles'); break;
     case 'pronunciation': loadPronunciation(); break;
-    case 'flashcard': loadFlashcardSetup(); break;
+    case 'flashcard': loadFlashcardSetup(); applyFlashcardTierLimits(); break;
     case 'gojuon': loadGojuon(); break;
     case 'kana-test': loadKanaTest(); break;
     case 'todofuken': loadTodofuken(); break;
@@ -1524,6 +1656,8 @@ function navigate(page, pushHistory = true) {
     case 'listening-study': loadListeningStudy(); break;
     case 'wrong-answers': loadWrongAnswers(); break;
     case 'immersion': loadImmersion(); break;
+    case 'membership': loadMembership(); break;
+    case 'quiz': applyQuizTierLimits(); break;
   }
 }
 
@@ -1652,6 +1786,7 @@ const PAGE_META = {
   gojuon:        { icon: '🔤', name: '五十音' },
   todofuken:     { icon: '🗾', name: '都道府県' },
   'wrong-answers': { icon: '📝', name: '错题集' },
+  membership:      { icon: '👑', name: '会员中心' },
 };
 
 function getFrequentFuncs() {
@@ -1778,10 +1913,29 @@ async function loadHome() {
     const username = u.username || '';
     document.getElementById('topbar-username').textContent = username || '我';
     updateWelcomeGreeting(username);
+    // 更新会员徽章
+    const isMember = u.is_member || false;
+    _isMember = isMember;
+    const planName = u.membership_plan === 'yearly' ? '年度会员' : u.membership_plan === 'monthly' ? '月度会员' : '会员';
+    updateMemberBadge(isMember, planName);
   } catch(e) {
     errorCount++;
     updateWelcomeGreeting('');
   }
+
+  // 用量配额 (免费用户)
+  try {
+    const usageData = await GET('/users/usage');
+    const usage = usageData.usage || {};
+    const anyLimited = Object.values(usage).some(u => !u.unlimited);
+    const card = document.getElementById('home-usage-card');
+    if (anyLimited) {
+      card.style.display = '';
+      renderUsageGrid(usage, 'home-usage-grid');
+    } else {
+      card.style.display = 'none';
+    }
+  } catch(_) { /* ignore usage errors */ }
 
   // 常用功能
   try { renderFrequentFuncs(); } catch(e) { console.error('[FreqFuncs] render error:', e); }
@@ -2277,6 +2431,28 @@ async function finishSrs() {
 //  QUIZ
 // ══════════════════════════════════════════════════════════════════
 let quizQuestions = [], quizCurrent = 0, quizCorrect = 0, quizAnswered = false;
+
+function applyQuizTierLimits() {
+  if (_isMember) return;
+  // 级别限制
+  const levelTier = getFeatureTier('quiz_jlpt_levels');
+  if (levelTier && levelTier.type === 'enum' && levelTier.free_values) {
+    const sel = document.getElementById('quiz-level');
+    Array.from(sel.options).forEach(opt => {
+      opt.disabled = !levelTier.free_values.includes(opt.value);
+      if (opt.disabled && opt.selected) sel.value = levelTier.free_values[0] || 'N5';
+    });
+  }
+  // 题数限制
+  const countTier = getFeatureTier('quiz_count_options');
+  if (countTier && countTier.type === 'enum' && countTier.free_values) {
+    const sel = document.getElementById('quiz-count');
+    Array.from(sel.options).forEach(opt => {
+      opt.disabled = !countTier.free_values.includes(parseInt(opt.value));
+      if (opt.disabled && opt.selected) sel.value = String(countTier.free_values[0] || 10);
+    });
+  }
+}
 
 async function startQuiz() {
   const level = document.getElementById('quiz-level').value;
@@ -3172,9 +3348,9 @@ function pronPlayRecording() {
 }
 
 async function pronSaveRecording() {
-  if (!_pronAudioBlob) { toast('没有录音数据'); return; }
+  if (!_pronAudioBlob) return;
   const token = getToken();
-  if (!token) { toast('请先登录'); return; }
+  if (!token) return;
   const w = _pronWords[_pronIdx];
   const word = cleanWord(w.word) || '';
   const reading = cleanReading(w.reading) || '';
@@ -3187,8 +3363,9 @@ async function pronSaveRecording() {
   fd.append('reading', reading);
   fd.append('score', score);
 
+  const statusEl = document.getElementById('pron-save-status');
   try {
-    toast('⏳ 正在上传…');
+    if (statusEl) statusEl.textContent = '⏳ 保存中…';
     const res = await fetch(API + '/pronunciation/recording', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },
@@ -3196,15 +3373,20 @@ async function pronSaveRecording() {
     });
     const data = await res.json();
     if (data.success) {
-      toast('✅ 录音已保存到云端');
-      // 自动刷新录音历史
+      if (statusEl) statusEl.textContent = '✅ 已保存';
       setTimeout(() => loadRecordingHistory(), 300);
     } else {
-      toast('上传失败：' + (data.error || '未知错误'));
+      if (statusEl) statusEl.textContent = '❌ 保存失败';
     }
   } catch (e) {
-    toast('上传失败：' + e.message);
+    if (statusEl) statusEl.textContent = '❌ 保存失败';
   }
+}
+
+function pronPlayAndSave() {
+  pronPlayRecording();
+  // 自动在后台保存到云端
+  pronSaveRecording();
 }
 
 function calcPronScore(target, recognized) {
@@ -3274,7 +3456,7 @@ async function loadRecordingHistory() {
     const data = await res.json();
     const recordings = data.recordings || [];
     if (recordings.length === 0) {
-      container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-hint)">暂无录音记录，完成练习后点击"保存录音"即可保留</div>';
+      container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text-hint)">暂无录音记录，完成练习后点击"回放录音"即可自动保留</div>';
       return;
     }
     container.innerHTML = recordings.map(r => {
@@ -3713,6 +3895,9 @@ async function loadProfile() {
     const prog = await GET('/progress/summary');
     const daily = (prog.daily_stats || []).slice(-7).reverse();
     const srsStats = prog.srs_stats || {};
+    const isMember = u.is_member || false;
+    const planName = isMember ? (u.membership_plan === 'yearly' ? '年度会员' : u.membership_plan === 'monthly' ? '月度会员' : '会员') : '免费版';
+    const expireStr = u.membership_expire ? new Date(u.membership_expire).toLocaleDateString('zh-CN') : '永久';
     el.innerHTML = `
       <div class="profile-avatar">${(u.username || '?')[0].toUpperCase()}</div>
       <div class="profile-info">
@@ -3721,6 +3906,16 @@ async function loadProfile() {
         <p style="margin-top:4px">${levelBadge(u.level || 'N5')}</p>
       </div>
       <hr class="divider">
+      <div class="card-title" style="margin-top:8px">👑 会员状态</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--bg2);border-radius:10px;margin-bottom:12px">
+        <div>
+          <span class="member-badge ${isMember ? 'vip' : 'free'}">${isMember ? '👑 ' + escHtml(planName) : '免费版'}</span>
+          ${isMember ? '<div style="font-size:11px;color:var(--text-hint);margin-top:4px">到期：' + expireStr + '</div>' : ''}
+        </div>
+        <button class="btn btn-sm ${isMember ? 'btn-outline' : 'btn-primary'}" onclick="navigate('membership')" style="font-size:12px">
+          ${isMember ? '查看权益' : '升级会员 →'}
+        </button>
+      </div>
       <div class="card-title" style="margin-top:8px">⚙ 修改设置</div>
       <div class="input-group">
         <label>每日目标（分钟）</label>
@@ -3756,15 +3951,191 @@ async function updateProfile() {
 }
 
 // ══════════════════════════════════════════════════════════════════
+//  MEMBERSHIP
+// ══════════════════════════════════════════════════════════════════
+const FEATURE_NAMES = {
+  grammar_lessons: '文法课程', srs_daily: 'SRS 复习', immersion_daily: '磨耳朵',
+  ai_features: 'AI 功能', pronunciation: '发音练习', anki_import: 'Anki 导入',
+  game_levels: '闯关游戏', quiz_meaning_daily: '词义测验', quiz_reading_daily: '读音测验',
+  dictionary_daily: '词典查询', news_limit: '新闻阅读', anki_quiz: 'Anki 测验',
+  quiz_jlpt_levels: 'JLPT 级别', quiz_count_options: '题目数量',
+  kana_writing_modes: '书写模式', flashcard_levels: '闪卡级别',
+};
+
+function renderUsageGrid(usage, targetId) {
+  const grid = document.getElementById(targetId);
+  if (!grid) return;
+  const dailyKeys = ['srs_daily', 'quiz_meaning_daily', 'quiz_reading_daily', 'dictionary_daily', 'immersion_daily'];
+  const limitKeys = ['grammar_lessons', 'game_levels', 'news_limit'];
+  const blockedKeys = ['ai_features', 'pronunciation', 'anki_import', 'anki_quiz'];
+  let html = '';
+  // daily limits
+  for (const key of dailyKeys) {
+    const u = usage[key]; if (!u) continue;
+    if (u.unlimited) {
+      html += `<div class="usage-item ok"><div class="usage-label">${FEATURE_NAMES[key]}</div><div class="usage-val">无限</div></div>`;
+    } else {
+      const pct = u.limit > 0 ? Math.round((u.used / u.limit) * 100) : 100;
+      const cls = u.remaining <= 0 ? 'blocked' : pct >= 70 ? 'warning' : 'ok';
+      const color = cls === 'blocked' ? 'var(--danger)' : cls === 'warning' ? '#f59e0b' : '#22c55e';
+      html += `<div class="usage-item ${cls}"><div class="usage-label">${FEATURE_NAMES[key]}</div><div class="usage-val">${u.remaining}/${u.limit}</div><div class="usage-bar"><div class="usage-bar-inner" style="width:${Math.min(100,pct)}%;background:${color}"></div></div></div>`;
+    }
+  }
+  // total limits
+  for (const key of limitKeys) {
+    const u = usage[key]; if (!u) continue;
+    if (u.unlimited) {
+      html += `<div class="usage-item ok"><div class="usage-label">${FEATURE_NAMES[key]}</div><div class="usage-val">全部</div></div>`;
+    } else {
+      html += `<div class="usage-item warning"><div class="usage-label">${FEATURE_NAMES[key]}</div><div class="usage-val">前${u.limit}个</div></div>`;
+    }
+  }
+  // blocked
+  for (const key of blockedKeys) {
+    const u = usage[key]; if (!u) continue;
+    if (u.unlimited) {
+      html += `<div class="usage-item ok"><div class="usage-label">${FEATURE_NAMES[key]}</div><div class="usage-val">已解锁</div></div>`;
+    } else {
+      html += `<div class="usage-item blocked"><div class="usage-label">${FEATURE_NAMES[key]}</div><div class="usage-val">🔒 未解锁</div></div>`;
+    }
+  }
+  grid.innerHTML = html || '<div style="color:var(--text-sub);font-size:13px">暂无数据</div>';
+}
+
+async function loadMembership() {
+  // 状态卡
+  const statusEl = document.getElementById('membership-status-card');
+  try {
+    const me = await GET('/auth/me');
+    const u = me.user || me;
+    const isMember = u.is_member || false;
+    const planName = isMember ? (u.membership_plan === 'yearly' ? '年度会员' : u.membership_plan === 'monthly' ? '月度会员' : '会员') : '免费版';
+    const expireStr = u.membership_expire ? new Date(u.membership_expire).toLocaleDateString('zh-CN') : '永久';
+    statusEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="font-size:40px">${isMember ? '👑' : '🆓'}</div>
+        <div style="flex:1">
+          <div style="font-size:16px;font-weight:700">${escHtml(u.username || '')}</div>
+          <div style="margin-top:4px"><span class="member-badge ${isMember ? 'vip' : 'free'}">${isMember ? '👑 ' + escHtml(planName) : '免费版'}</span></div>
+          ${isMember ? '<div style="font-size:12px;color:var(--text-sub);margin-top:4px">到期：' + expireStr + '</div>' : '<div style="font-size:12px;color:var(--text-sub);margin-top:4px">升级后解锁全部功能</div>'}
+        </div>
+      </div>`;
+    // 渲染套餐对比
+    renderMembershipPlans(isMember);
+  } catch(e) { statusEl.innerHTML = `<p style="color:var(--danger)">加载失败</p>`; }
+  // 用量
+  try {
+    const usageData = await GET('/users/usage');
+    renderUsageGrid(usageData.usage || {}, 'membership-usage-grid');
+  } catch(e) { document.getElementById('membership-usage-grid').innerHTML = '<div style="color:var(--danger);font-size:13px">用量加载失败</div>'; }
+}
+
+function renderMembershipPlans(isMember) {
+  const el = document.getElementById('membership-plans');
+  el.innerHTML = `
+    <div class="plan-card ${!isMember ? 'current' : ''}">
+      <div class="plan-name">🆓 免费版</div>
+      <div class="plan-price">¥0</div>
+      <ul class="plan-features">
+        <li class="limited">文法课程前 5 课</li>
+        <li class="limited">SRS 每日 30 次</li>
+        <li class="limited">词典每日 20 次</li>
+        <li class="limited">测验每日 10 次</li>
+        <li class="limited">闯关游戏前 5 关</li>
+        <li class="limited">磨耳朵每日 3 次</li>
+        <li class="blocked">AI 发音练习</li>
+        <li class="blocked">翻译解析</li>
+        <li class="blocked">Anki 导入</li>
+        <li class="blocked">错题集</li>
+      </ul>
+    </div>
+    <div class="plan-card ${isMember ? 'current' : 'recommended'}">
+      ${!isMember ? '<div class="plan-tag">推荐</div>' : ''}
+      <div class="plan-name">👑 会员版</div>
+      <div class="plan-price">畅享 <span class="unit">全部功能</span></div>
+      <ul class="plan-features">
+        <li>全部 JLPT 级别文法</li>
+        <li>SRS 复习无限次</li>
+        <li>词典查询无限次</li>
+        <li>测验无限次 + 全级别</li>
+        <li>闯关游戏全部关卡</li>
+        <li>磨耳朵无限次</li>
+        <li>AI 发音练习</li>
+        <li>翻译解析</li>
+        <li>Anki 导入 & 测验</li>
+        <li>错题集</li>
+      </ul>
+      ${!isMember ? '<div style="text-align:center;margin-top:12px"><button class="btn btn-primary" style="width:100%;justify-content:center" onclick="toast(\'请在 App 内购买会员\', 3000)">升级会员</button></div>' : ''}
+    </div>`;
+}
+
+function showUpgradeModal(tip) {
+  const title = '🔒 功能受限';
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="upgrade-modal-content">
+      <div class="upgrade-icon">👑</div>
+      <div class="upgrade-title">${escHtml(tip)}</div>
+      <div class="upgrade-desc">升级会员即可解锁全部功能，畅享无限制的日语学习体验</div>
+      <ul class="upgrade-benefits">
+        <li>无限次 SRS 复习、词典查询</li>
+        <li>全部 JLPT 级别文法 & 测验</li>
+        <li>AI 发音练习、翻译解析</li>
+        <li>闯关游戏全部关卡</li>
+        <li>Anki 导入、错题集</li>
+      </ul>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="closeModal();navigate('membership')">查看会员详情</button>
+    </div>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function updateMemberBadge(isMember, planName) {
+  const badge = document.getElementById('topbar-member-badge');
+  if (!badge) return;
+  badge.style.display = '';
+  if (isMember) {
+    badge.className = 'member-badge vip';
+    badge.textContent = '👑 ' + (planName || '会员');
+  } else {
+    badge.className = 'member-badge free';
+    badge.textContent = '免费版';
+  }
+  // 侧边栏锁标记：会员隐藏锁
+  document.querySelectorAll('.nav-lock').forEach(el => {
+    el.style.display = isMember ? 'none' : '';
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
 //  FLASHCARD
 // ══════════════════════════════════════════════════════════════════
 let _fcLevel = 'N5', _fcCards = [], _fcIdx = 0, _fcFlipped = false;
 let _fcStats = { total: 0, again: 0, hard: 0, good: 0, easy: 0 };
 
 function selectFcLevel(level) {
+  if (!_isMember) {
+    const tier = getFeatureTier('flashcard_levels');
+    if (tier && tier.type === 'enum' && tier.free_values && !tier.free_values.includes(level)) {
+      showUpgradeModal('免费用户仅支持 ' + (tier.free_values || []).join('/') + ' 级别闪卡，升级会员可解锁全部');
+      return;
+    }
+  }
   _fcLevel = level;
   document.querySelectorAll('#fc-setup .chip').forEach(c => {
     c.classList.toggle('active', c.textContent.trim() === level);
+  });
+}
+
+function applyFlashcardTierLimits() {
+  if (_isMember) return;
+  const tier = getFeatureTier('flashcard_levels');
+  if (!tier || tier.type !== 'enum' || !tier.free_values) return;
+  document.querySelectorAll('#fc-setup .chip').forEach(c => {
+    const lv = c.textContent.trim();
+    if (!tier.free_values.includes(lv)) {
+      c.style.opacity = '0.4';
+      c.title = '会员功能';
+    }
   });
 }
 
@@ -5197,9 +5568,38 @@ function setSlowSpeed(speed) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  FEATURE TOGGLES
+//  FEATURE TOGGLES & MEMBERSHIP TIERS
 // ══════════════════════════════════════════════════════════════════
 let _featureToggles = {}; // id -> bool
+let _isMember = false;
+let _featureTiers = []; // tier rules from server
+
+// 页面 ID 到 tier ID 的映射
+const _pageTierMap = {
+  'pronunciation': 'pronunciation',
+  'translate': 'ai_features',
+  'wrong-answers': 'wrong_answers',
+};
+
+async function loadFeatureTiers() {
+  try {
+    const res = await fetch('/api/v1/sync/tiers');
+    const data = await res.json();
+    if (data.ok && data.tiers) _featureTiers = data.tiers;
+  } catch(_) {}
+}
+
+function getFeatureTier(featureId) {
+  return _featureTiers.find(t => t.id === featureId) || null;
+}
+
+function isFeatureBlocked(page) {
+  if (_isMember) return false;
+  const tierId = _pageTierMap[page];
+  if (!tierId) return false;
+  const tier = getFeatureTier(tierId);
+  return tier && tier.type === 'blocked';
+}
 
 async function loadFeatureToggles() {
   try {
@@ -5260,6 +5660,7 @@ function escHtml(str) {
       return;
     }
     loadFeatureToggles();
+    loadFeatureTiers();
     loadHome();
     updateDictLangBtns();
   } else {

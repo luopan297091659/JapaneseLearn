@@ -2,6 +2,7 @@
  * Sync Routes — 客户端用于检测内容版本，决定是否需要刷新词库/文法
  * GET /api/v1/sync/version  — 无需认证，返回当前内容版本号
  * GET /api/v1/sync/features — 无需认证，返回功能开关状态
+ * GET /api/v1/sync/tiers    — 无需认证，返回功能分级配置
  */
 const router = require('express').Router();
 const asyncHandler = require('../utils/asyncHandler');
@@ -44,6 +45,21 @@ router.get('/features', asyncHandler(async (req, res) => {
     features[f.id] = platform === 'mobile' ? !!f.mobile : !!f.web;
   });
   res.json({ ok: true, platform, features, updated_at: data.updated_at });
+}));
+
+// ── 功能分级配置（公开接口，客户端获取免费/会员功能差异）──
+router.get('/tiers', asyncHandler(async (req, res) => {
+  const tiersFile = path.join(__dirname, '../../config/feature_tiers.json');
+  let data;
+  try {
+    if (fs.existsSync(tiersFile)) {
+      data = JSON.parse(fs.readFileSync(tiersFile, 'utf8'));
+    }
+  } catch { /* ignore */ }
+  if (!data || !Array.isArray(data.tiers)) {
+    data = { tiers: [], updated_at: null };
+  }
+  res.json({ ok: true, tiers: data.tiers, updated_at: data.updated_at });
 }));
 
 module.exports = router;

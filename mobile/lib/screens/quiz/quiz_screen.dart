@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../services/local_db.dart';
+import '../../services/membership_service.dart';
 import '../../models/models.dart';
+import '../../widgets/membership_gate.dart';
 
 // ─── 测验来源 ──────────────────────────────────────────────────────────────────
 enum _QuizSource { server, local }
@@ -35,6 +37,30 @@ class _QuizScreenState extends State<QuizScreen> {
   bool    _loading  = false;
   String? _error;
   DateTime? _startTime;
+  bool _isMember = true;
+  List<String> _freeJlptLevels = [];
+  List<int> _freeCountOptions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _checkMembership();
+  }
+
+  Future<void> _checkMembership() async {
+    try {
+      final user = await apiService.getMe();
+      final jlpt = membershipService.getFreeValues('quiz_jlpt_levels');
+      final counts = membershipService.getFreeValues('quiz_count_options');
+      if (mounted) {
+        setState(() {
+          _isMember = user.isMember;
+          _freeJlptLevels = jlpt ?? [];
+          _freeCountOptions = counts?.map((s) => int.tryParse(s) ?? 0).toList() ?? [];
+        });
+      }
+    } catch (_) {}
+  }
 
   // ────────────────────────────────────────────────────────────────────────────
 
@@ -290,10 +316,21 @@ class _QuizScreenState extends State<QuizScreen> {
                     if (_source == _QuizSource.local)
                       _LevelChip(label: '全部', value: 'ALL', selected: _level == 'ALL',
                           onTap: () => setState(() => _level = 'ALL')),
-                    ...['N5','N4','N3','N2','N1'].map((l) => _LevelChip(
-                      label: l, value: l, selected: _level == l,
-                      onTap: () => setState(() => _level = l),
-                    )),
+                    ...['N5','N4','N3','N2','N1'].map((l) {
+                      final locked = !_isMember && _freeJlptLevels.isNotEmpty && !_freeJlptLevels.contains(l);
+                      return _LevelChip(
+                        label: locked ? '$l 🔒' : l,
+                        value: l,
+                        selected: _level == l,
+                        onTap: () {
+                          if (locked) {
+                            showMembershipUpgradeDialog(context, featureName: 'JLPT等级筛选');
+                          } else {
+                            setState(() => _level = l);
+                          }
+                        },
+                      );
+                    }),
                   ]),
 
                   const SizedBox(height: 24),
@@ -324,11 +361,20 @@ class _QuizScreenState extends State<QuizScreen> {
                   // ── 题目数量 ─────────────────────────────────────────
                   _SectionLabel(label: '题目数量', icon: Icons.format_list_numbered_rounded),
                   const SizedBox(height: 8),
-                  Wrap(spacing: 8, runSpacing: 8, children: [10, 20, 30].map((n) => ChoiceChip(
-                    label: Text('$n 题'),
-                    selected: _count == n,
-                    onSelected: (_) => setState(() => _count = n),
-                  )).toList()),
+                  Wrap(spacing: 8, runSpacing: 8, children: [10, 20, 30].map((n) {
+                    final locked = !_isMember && _freeCountOptions.isNotEmpty && !_freeCountOptions.contains(n);
+                    return ChoiceChip(
+                      label: Text(locked ? '$n 题 🔒' : '$n 题'),
+                      selected: _count == n,
+                      onSelected: (_) {
+                        if (locked) {
+                          showMembershipUpgradeDialog(context, featureName: '题目数量选择');
+                        } else {
+                          setState(() => _count = n);
+                        }
+                      },
+                    );
+                  }).toList()),
 
                   if (_error != null) ...[
                     const SizedBox(height: 16),

@@ -236,6 +236,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item" onclick="nav('membership')" id="nav-membership"><span class="icon">👑</span>会员配置</div>
   <div class="nav-item" onclick="nav('import')" id="nav-import"><span class="icon">📥</span>内容导入</div>
   <div class="sidebar-section">系统</div>
+  <div class="nav-item" onclick="nav('feature-tiers')" id="nav-feature-tiers"><span class="icon">🎯</span>功能分级</div>
   <div class="nav-item" onclick="nav('feature-toggles')" id="nav-feature-toggles"><span class="icon">🔀</span>功能开关</div>
   <div class="nav-item" onclick="nav('sync')" id="nav-sync"><span class="icon">🔄</span>全局同步</div>
   <div class="nav-item" onclick="nav('app')" id="nav-app"><span class="icon">📱</span>App管理</div>
@@ -411,17 +412,19 @@ window.onerror = function(msg, src, line, col, err){
 const API = '/api/v1';
 let TOKEN = localStorage.getItem('admin_token') || '';
 const charts = {};
+const _editCache = {}; // 缓存编辑数据，避免 JSON.stringify 注入 onclick
 
 /* ───────────────────────────────── UTILS ─────────────────────────────────── */
 function toast(msg, err=false){
   const el = document.getElementById('toast');
   el.textContent = msg;
-  el.style.background = err ? 'var(--danger)' : '#1e293b';
+  const isErr = err === true || err === 'error';
+  el.style.background = isErr ? 'var(--danger)' : '#1e293b';
   el.style.color = '#fff';
   el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'), 2800);
 }
-function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
 function openModal(id)  { document.getElementById(id).classList.add('open') }
 function closeModal(id) { document.getElementById(id).classList.remove('open') }
 
@@ -526,7 +529,7 @@ function showApp(){
   nav('dashboard');
 }
 function applySidebarPermissions(){
-  const superOnlyNavs = ['nav-feature-toggles','nav-app','nav-ai-settings','nav-admin-mgmt'];
+  const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-ai-settings','nav-admin-mgmt'];
   const permNavMap = {
     'nav-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-tracks': 'tracks',
     'nav-users': 'users', 'nav-stat-users': 'stats', 'nav-stat-traffic': 'stats',
@@ -554,7 +557,7 @@ const PAGE_TITLES = {
   tracks:'听力管理', channels:'频道管理', users:'用户管理',
   'stat-users':'用户统计', 'stat-traffic':'流量监控',
   'stat-feature':'功能频率',
-  membership:'会员配置', import:'内容导入', sync:'全局同步',
+  membership:'会员配置', import:'内容导入', sync:'全局同步', 'feature-tiers':'功能分级',
   app:'App管理', 'feature-toggles':'功能开关', 'ai-settings':'AI设置',
   'admin-mgmt':'权限管理'
 };
@@ -563,7 +566,7 @@ const PAGE_ICONS = {
   tracks:'🎧', channels:'📺', users:'👥',
   'stat-users':'📈', 'stat-traffic':'🌐',
   'stat-feature':'📊',
-  membership:'👑', import:'📥', sync:'🔄',
+  membership:'👑', import:'📥', sync:'🔄', 'feature-tiers':'🎯',
   app:'📱', 'feature-toggles':'🔀', 'ai-settings':'🤖',
   'admin-mgmt':'🔐'
 };
@@ -572,7 +575,7 @@ const PAGE_DESCS = {
   tracks:'管理听力素材', channels:'管理YouTube/B站频道', users:'查看管理用户',
   'stat-users':'用户数据分析', 'stat-traffic':'API流量监控',
   'stat-feature':'功能使用频率分析',
-  membership:'会员套餐管理', import:'Anki/CSV导入', sync:'内容版本发布',
+  membership:'会员套餐管理', import:'Anki/CSV导入', sync:'内容版本发布', 'feature-tiers':'会员功能分级配置',
   app:'App上传下载', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量',
   'admin-mgmt':'管理员权限配置'
 };
@@ -604,9 +607,158 @@ const PAGE_FNS = {
   'stat-users': renderStatUsers, 'stat-traffic': renderStatTraffic,
   'stat-feature': renderStatFeature,
   membership: renderMembership, import: renderImport, sync: renderSync,
-  app: renderAppManage, 'feature-toggles': renderFeatureToggles, 'ai-settings': renderAiSettings,
+  app: renderAppManage, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings,
   'admin-mgmt': renderAdminMgmt,
 };
+/* ─────────────────────────── 功能分级（会员权益）───────────────────────────── */
+let _tierData = [];
+async function renderFeatureTiers() {
+  document.getElementById('content').innerHTML = '<p style="color:#aaa;padding:40px;text-align:center">加载中…</p>';
+  try {
+    const res = await api('GET', '/admin/feature-tiers');
+    _tierData = res.tiers || [];
+    buildTierUI();
+  } catch(e) {
+    document.getElementById('content').innerHTML = `<div class="panel"><p style="color:#e74c3c">加载失败: ${esc(e.message)}</p></div>`;
+  }
+}
+
+function buildTierUI() {
+  const TYPE_LABELS = { blocked: '🔒 完全锁定', daily_limit: '📊 每日限额', limit: '📏 数量限制', 'enum': '🏷️ 枚举限制' };
+  const rows = _tierData.map((t, i) => {
+    let freeCol = '', editBtns = '';
+    if (t.type === 'blocked') {
+      freeCol = `<span style="color:#ef4444;font-weight:600">✕ ${esc(t.free_label)}</span>`;
+    } else if (t.type === 'daily_limit' || t.type === 'limit') {
+      freeCol = `<input type="number" min="0" value="${t.free_limit||0}" style="width:60px;padding:4px 6px;border:1.5px solid #e2e8f0;border-radius:6px;text-align:center;font-size:13px" onchange="_tierData[${i}].free_limit=parseInt(this.value)||0;_tierData[${i}].free_label=this.value==0?'不可用':((_tierData[${i}].type==='daily_limit'?'每日限':'')+this.value+(_tierData[${i}].type==='daily_limit'?'次':''));_tierDirty=true" />`;
+    } else if (t.type === 'enum') {
+      freeCol = `<input type="text" value="${(t.free_values||[]).join(', ')}" style="width:120px;padding:4px 6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px" onchange="_tierData[${i}].free_values=this.value.split(',').map(s=>s.trim()).filter(Boolean);_tierDirty=true" title="逗号分隔" />`;
+    }
+    return `<tr style="border-bottom:1px solid #f1f5f9">
+      <td style="padding:10px;font-size:18px;text-align:center;width:36px">${esc(t.icon||'')}</td>
+      <td style="padding:10px"><b>${esc(t.name)}</b><div style="font-size:11px;color:#999">${esc(t.id)}</div></td>
+      <td style="padding:10px;text-align:center"><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;background:${t.type==='blocked'?'#fef2f2;color:#dc2626':t.type==='daily_limit'?'#fefce8;color:#ca8a04':t.type==='limit'?'#f0fdf4;color:#16a34a':'#eff6ff;color:#2563eb'}">${TYPE_LABELS[t.type]||t.type}</span></td>
+      <td style="padding:10px;text-align:center">${freeCol}</td>
+      <td style="padding:10px;text-align:center;color:#10b981;font-weight:600">${esc(t.member_label||'无限制')}</td>
+      <td style="padding:10px;text-align:center">
+        <button class="btn btn-ghost btn-sm" onclick="editTier(${i})">编辑</button>
+        <button class="btn btn-danger btn-sm" style="margin-left:2px" onclick="deleteTier(${i})">删除</button>
+        <button class="btn btn-ghost btn-sm" style="margin-left:2px" onclick="moveTier(${i},-1)">↑</button>
+        <button class="btn btn-ghost btn-sm" onclick="moveTier(${i},1)">↓</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('content').innerHTML = `
+    <div class="panel" style="max-width:1100px">
+      <div class="panel-header">
+        <h3>🎯 功能分级配置</h3>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="addTier()">＋ 添加规则</button>
+        </div>
+      </div>
+      <p style="font-size:12px;color:#999;margin-bottom:14px">配置免费用户与会员用户的功能差异。限额类型的值可直接在表格内编辑，也可点击"编辑"修改完整信息。</p>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="border-bottom:2px solid var(--border);color:var(--text-muted);font-size:12px">
+            <th style="padding:8px;width:36px"></th>
+            <th style="padding:8px;text-align:left">功能名称</th>
+            <th style="padding:8px;text-align:center;width:120px">限制类型</th>
+            <th style="padding:8px;text-align:center;width:140px">🆓 免费用户</th>
+            <th style="padding:8px;text-align:center;width:120px">👑 会员用户</th>
+            <th style="padding:8px;text-align:center;width:160px">操作</th>
+          </tr></thead>
+          <tbody>${rows||'<tr><td colspan="6" style="text-align:center;color:#aaa;padding:24px">暂无分级规则</td></tr>'}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="renderFeatureTiers()">取消更改</button>
+        <button class="btn" style="background:#6366f1;color:#fff" onclick="saveTiers()">💾 保存配置</button>
+      </div>
+    </div>`;
+}
+
+let _tierDirty = false;
+
+function addTier() {
+  const id = prompt('功能 ID（唯一英文标识，如 quiz_daily）');
+  if (!id) return;
+  if (_tierData.some(t => t.id === id)) { toast('该 ID 已存在', true); return; }
+  _tierData.push({
+    id, name: '新功能', icon: '⭐', type: 'blocked',
+    free_label: '不可用', member_label: '可用',
+  });
+  _tierDirty = true;
+  buildTierUI();
+}
+
+function editTier(idx) {
+  const t = _tierData[idx];
+  if (!t) return;
+  const typeOpts = ['blocked','daily_limit','limit','enum'].map(v => `<option value="${v}" ${t.type===v?'selected':''}>${v}</option>`).join('');
+  const html = `
+    <div class="form-row"><label>功能 ID</label><input id="et-id" value="${esc(t.id)}" readonly style="background:#f1f5f9" /></div>
+    <div class="form-row"><label>功能名称</label><input id="et-name" value="${esc(t.name)}" /></div>
+    <div class="form-row"><label>图标</label><input id="et-icon" value="${esc(t.icon)}" style="width:60px" /></div>
+    <div class="form-row"><label>限制类型</label><select id="et-type">${typeOpts}</select></div>
+    <div class="form-row"><label>免费限额（daily_limit/limit 类型填数值）</label><input id="et-free-limit" type="number" min="0" value="${t.free_limit||0}" /></div>
+    <div class="form-row"><label>免费可用值（enum 类型，逗号分隔）</label><input id="et-free-values" value="${(t.free_values||[]).join(', ')}" /></div>
+    <div class="form-row"><label>会员可用值（enum 类型，逗号分隔）</label><input id="et-member-values" value="${(t.member_values||[]).join(', ')}" /></div>
+    <div class="form-row"><label>免费用户标签</label><input id="et-free-label" value="${esc(t.free_label||'')}" /></div>
+    <div class="form-row"><label>会员用户标签</label><input id="et-member-label" value="${esc(t.member_label||'')}" /></div>
+  `;
+  // 用动态 modal
+  let overlay = document.getElementById('modal-tier-edit');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'modal-tier-edit';
+    overlay.className = 'modal-overlay';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = `<div class="modal" style="width:540px"><h2>编辑功能分级规则</h2>${html}<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('modal-tier-edit')">取消</button><button class="btn btn-primary" onclick="saveTierEdit(${idx})">确认</button></div></div>`;
+  openModal('modal-tier-edit');
+}
+
+function saveTierEdit(idx) {
+  const t = _tierData[idx];
+  t.name = document.getElementById('et-name').value.trim();
+  t.icon = document.getElementById('et-icon').value.trim();
+  t.type = document.getElementById('et-type').value;
+  t.free_limit = parseInt(document.getElementById('et-free-limit').value) || 0;
+  t.free_values = document.getElementById('et-free-values').value.split(',').map(s=>s.trim()).filter(Boolean);
+  t.member_values = document.getElementById('et-member-values').value.split(',').map(s=>s.trim()).filter(Boolean);
+  t.free_label = document.getElementById('et-free-label').value.trim();
+  t.member_label = document.getElementById('et-member-label').value.trim();
+  _tierDirty = true;
+  closeModal('modal-tier-edit');
+  buildTierUI();
+}
+
+function deleteTier(idx) {
+  if (!confirm(`确认删除「${_tierData[idx]?.name}」？`)) return;
+  _tierData.splice(idx, 1);
+  _tierDirty = true;
+  buildTierUI();
+}
+
+function moveTier(idx, dir) {
+  const to = idx + dir;
+  if (to < 0 || to >= _tierData.length) return;
+  [_tierData[idx], _tierData[to]] = [_tierData[to], _tierData[idx]];
+  _tierDirty = true;
+  buildTierUI();
+}
+
+async function saveTiers() {
+  try {
+    await api('POST', '/admin/feature-tiers', { tiers: _tierData });
+    toast('功能分级配置已保存 ✓', 'success');
+    _tierDirty = false;
+  } catch(e) {
+    toast('保存失败: ' + e.message, 'error');
+  }
+}
+
 /* ─────────────────────────── 功能开关 ───────────────────────────────────── */
 let _ftData = null;
 async function renderFeatureToggles() {
@@ -814,23 +966,24 @@ async function renderAppManage() {
 async function loadAppList() {
   try {
     const d = await api('GET', '/admin/listAppReleases');
-    const rows = (d.data||[]).map(r => `
-      <tr>
+    const rows = (d.data||[]).map(r => {
+      const sid = esc(String(r.id));
+      return `<tr>
         <td>${esc(r.platform)}</td>
         <td><b>${esc(r.version)}</b></td>
         <td>${new Date(r.upload_time||r.createdAt).toLocaleString('zh-CN')}</td>
         <td>${r.download_count||r.downloadCount||0}</td>
         <td>
-          <input type="text" value="${location.origin}/api/v1/admin/downloadApp/${r.id}" readonly
+          <input type="text" value="${location.origin}/api/v1/admin/downloadApp/${sid}" readonly
             style="width:240px;font-size:12px;padding:3px 6px;border:1px solid #e2e8f0;border-radius:5px;background:#f8fafc;color:#334155;cursor:pointer"
             onclick="this.select();document.execCommand('copy');toast('已复制直链')" title="点击复制" />
         </td>
         <td>
-          <a class="btn btn-ghost btn-sm" href="/api/v1/admin/downloadApp/${r.id}" target="_blank">下载</a>
-          <button class="btn btn-danger btn-sm" onclick="deleteAppRelease('${r.id}')">删除</button>
+          <a class="btn btn-ghost btn-sm" href="/api/v1/admin/downloadApp/${sid}" target="_blank">下载</a>
+          <button class="btn btn-danger btn-sm" onclick="deleteAppRelease('${sid}')">删除</button>
         </td>
-      </tr>
-    `).join('');
+      </tr>`;
+    }).join('');
     document.getElementById('app-list-body').innerHTML = rows || '<tr><td colspan="6" style="text-align:center;color:#aaa">暂无数据</td></tr>';
   } catch(e) {
     document.getElementById('app-list-body').innerHTML = `<tr><td colspan="6" style="color:#e74c3c;text-align:center">${esc(e.message)}</td></tr>`;
@@ -1013,17 +1166,20 @@ async function loadVocab(){
     const levelParam = vState.level ? `&level=${vState.level}` : '';
     const d = await api('GET',`/admin/vocabulary?page=${vState.page}&limit=${vState.limit}&q=${encodeURIComponent(vState.search)}${levelParam}`);
     vState.total = d.total||0;
-    document.getElementById('vt-body').innerHTML = (d.data||[]).map(v=>`
+    document.getElementById('vt-body').innerHTML = (d.data||[]).map(v=>{
+      _editCache['v_'+v.id] = v;
+      return `
       <tr>
         <td><input type="checkbox" class="v-cb" value="${v.id}" onchange="updateDelBtn()" /></td>
         <td><b>${esc(v.word)}</b></td><td>${esc(v.reading)}</td><td>${esc(v.meaning_zh)}</td>
         <td>${esc(v.part_of_speech||'')}</td>
         <td><span class="badge badge-blue">${esc(v.jlpt_level)}</span></td>
         <td>
-          <button class="btn btn-ghost btn-sm" onclick='editVocab(${JSON.stringify(v)})'>编辑</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteVocab('${v.id}')">删除</button>
+          <button class="btn btn-ghost btn-sm" onclick="editVocab('${esc(String(v.id))}')">编辑</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteVocab('${esc(String(v.id))}')">删除</button>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
     renderPager('v-pager', vState.page, Math.ceil(vState.total/vState.limit), p=>{ vState.page=p; loadVocab(); });
   }catch(e){ toast(e.message,true) }
 }
@@ -1042,7 +1198,7 @@ function openVocabModal(v=null){
   document.getElementById('mv-title').textContent = v ? '编辑词汇' : '添加词汇';
   openModal('modal-vocab');
 }
-function editVocab(v){ openVocabModal(v); }
+function editVocab(id){ openVocabModal(_editCache['v_'+id]); }
 async function saveVocab(){
   const id = document.getElementById('mv-id').value;
   const body={
@@ -1125,17 +1281,20 @@ async function loadGrammar(){
     const levelParam = gState.level ? `&level=${gState.level}` : '';
     const d=await api('GET',`/admin/grammar?page=${gState.page}&limit=${gState.limit}&q=${encodeURIComponent(gState.search)}${levelParam}`);
     gState.total=d.total||0;
-    document.getElementById('gr-body').innerHTML=(d.data||[]).map(g=>`
+    document.getElementById('gr-body').innerHTML=(d.data||[]).map(g=>{
+      _editCache['g_'+g.id] = g;
+      return `
       <tr>
         <td><input type="checkbox" class="gr-cb" value="${g.id}" onchange="updateGrDelBtn()" /></td>
         <td>${g.id}</td><td>${esc(g.title||g.pattern)}</td>
         <td><span class="badge badge-orange">${esc(g.jlpt_level)}</span></td>
         <td>${g.examples?.length||0}</td>
         <td>
-          <button class="btn btn-ghost btn-sm" onclick='editGrammar(${JSON.stringify(g)})'>编辑</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteGrammar('${g.id}')">删除</button>
+          <button class="btn btn-ghost btn-sm" onclick="editGrammar('${esc(String(g.id))}')">编辑</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteGrammar('${esc(String(g.id))}')">删除</button>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
     renderPager('gr-pager', gState.page, Math.ceil(gState.total/gState.limit), p=>{ gState.page=p; loadGrammar(); });
   }catch(e){ toast(e.message,true) }
 }
@@ -1157,7 +1316,7 @@ function openGrammarModal(g=null){
   document.getElementById('mg-title').textContent=g?'编辑文法':'添加文法';
   openModal('modal-grammar');
 }
-function editGrammar(g){ openGrammarModal(g); }
+function editGrammar(id){ openGrammarModal(_editCache['g_'+id]); }
 async function saveGrammar(){
   const id=document.getElementById('mg-id').value;
   const examples=document.getElementById('mg-examples').value.trim().split('\n').filter(Boolean)
@@ -1199,16 +1358,19 @@ async function loadTracks(){
   try{
     const d=await api('GET',`/admin/tracks?page=${tState.page}&limit=${tState.limit}&q=${encodeURIComponent(tState.search)}`);
     tState.total=d.total||0;
-    document.getElementById('tr-body').innerHTML=(d.data||[]).map(t=>`
+    document.getElementById('tr-body').innerHTML=(d.data||[]).map(t=>{
+      _editCache['t_'+t.id] = t;
+      return `
       <tr>
         <td>${t.id}</td><td>${esc(t.title)}</td>
         <td><span class="badge badge-green">${esc(t.jlpt_level)}</span></td>
         <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.audio_url||'')}</td>
         <td>
-          <button class="btn btn-ghost btn-sm" onclick='editTrack(${JSON.stringify(t)})'>编辑</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteTrack('${t.id}')">删除</button>
+          <button class="btn btn-ghost btn-sm" onclick="editTrack('${esc(String(t.id))}')">编辑</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteTrack('${esc(String(t.id))}')">删除</button>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
     renderPager('tr-pager', tState.page, Math.ceil(tState.total/tState.limit), p=>{ tState.page=p; loadTracks(); });
   }catch(e){ toast(e.message,true) }
 }
@@ -1223,7 +1385,7 @@ function openTrackModal(t=null){
   document.getElementById('mt-title').textContent=t?'编辑听力':'添加听力';
   openModal('modal-track');
 }
-function editTrack(t){ openTrackModal(t); }
+function editTrack(id){ openTrackModal(_editCache['t_'+id]); }
 async function saveTrack(){
   const id=document.getElementById('mt-id').value;
   const body={
@@ -1269,6 +1431,7 @@ async function loadUsers(){
       const isExpired = me && new Date(me) < new Date();
       const memBadge = mp ? `<span class="badge ${isExpired?'badge-orange':'badge-green'}">${esc(mp)}${isExpired?' (已过期)':''}</span>` : '<span style="color:#aaa;font-size:11px">无</span>';
       const memExpire = me ? `<br/><small style="color:#888">${new Date(me).toLocaleDateString('zh-CN')}</small>` : '';
+      const sid = esc(String(u.id));
       return `<tr>
         <td>${u.id}</td><td>${esc(u.username)}</td><td>${esc(u.email)}</td>
         <td><span class="badge ${u.role==='admin'?'badge-red':'badge-blue'}">${esc(u.role)}</span></td>
@@ -1276,9 +1439,9 @@ async function loadUsers(){
         <td>${u.is_active?'✅':'❌'}</td>
         <td>${new Date(u.createdAt).toLocaleDateString('zh-CN')}</td>
         <td>
-          <button class="btn btn-ghost btn-sm" onclick="toggleRole('${u.id}','${u.role==='admin'?'user':'admin'}')">${u.role==='admin'?'降为普通':'设为管理员'}</button>
-          <button class="btn btn-ghost btn-sm" onclick="openMembershipModal('${u.id}','${esc(u.username)}','${esc(mp||'')}','${esc(me||'')}')">会员</button>
-          <button class="btn btn-danger btn-sm" onclick="toggleActive('${u.id}',${!u.is_active})">${u.is_active?'禁用':'启用'}</button>
+          <button class="btn btn-ghost btn-sm" onclick="toggleRole('${sid}','${u.role==='admin'?'user':'admin'}')">${u.role==='admin'?'降为普通':'设为管理员'}</button>
+          <button class="btn btn-ghost btn-sm" onclick="openMembershipModal('${sid}','${esc(u.username)}','${esc(mp||'')}','${esc(me||'')}')">会员</button>
+          <button class="btn btn-danger btn-sm" onclick="toggleActive('${sid}',${!u.is_active})">${u.is_active?'禁用':'启用'}</button>
         </td>
       </tr>`;
     }).join('');
@@ -1544,7 +1707,10 @@ async function renderMembership() {
 const PERIOD_LABEL = { month:'按月度', year:'按年度', forever:'永久' };
 
 function _buildMembershipUI() {
-  const { plans = [], payment = {}, notice = '' } = _memCfg;
+  const { plans = [], payment = {}, notice = '', trial = {} } = _memCfg;
+  const trialEnabled = trial.enabled !== false;
+  const trialDays = trial.days || 3;
+  const trialDesc = trial.description || '免费体验全部会员功能';
   const rows = plans.map((p, i) => `
     <tr>
       <td><span class="badge ${p.enabled?'badge-green':'badge-red'}">${p.enabled?'启用':'停用'}</span></td>
@@ -1563,6 +1729,25 @@ function _buildMembershipUI() {
     </tr>`).join('');
 
   document.getElementById('content').innerHTML = `
+  <div class="panel" style="margin-bottom:16px">
+    <div class="panel-header"><h3>🎁 会员体验配置</h3></div>
+    <p style="font-size:12px;color:#999;margin-bottom:12px">用户可免费开通一次会员体验，体验期间解锁全部会员功能，到期自动恢复免费用户。每个账号仅限一次。</p>
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:12px 16px;align-items:center;max-width:480px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="trial-enabled" style="width:auto" ${trialEnabled?'checked':''} />
+        <label style="margin:0;font-size:13px;font-weight:600">启用体验功能</label>
+      </div>
+      <div></div>
+      <label style="margin:0;font-size:13px;color:#555">体验天数</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input id="trial-days" type="number" min="1" max="30" value="${trialDays}" style="width:80px;padding:6px 10px;border:1px solid #d9d9d9;border-radius:7px;font-size:14px;text-align:center" />
+        <span style="font-size:12px;color:#999">天（1~30天）</span>
+      </div>
+      <label style="margin:0;font-size:13px;color:#555">体验描述</label>
+      <input id="trial-desc" value="${esc(trialDesc)}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:7px;font-size:13px" placeholder="免费体验全部会员功能" />
+    </div>
+  </div>
+
   <div class="panel" style="margin-bottom:16px">
     <div class="panel-header"><h3>📢 运营公告（App 内展示给用户）</h3></div>
     <input id="mem-notice" style="width:100%;padding:8px 12px;border:1px solid #d9d9d9;border-radius:7px;font-size:14px" value="${esc(notice)}" placeholder="留空表示不展示公告" />
@@ -1701,6 +1886,11 @@ function movePlan(from, to) {
 
 async function saveAllMembership() {
   _memCfg.notice = document.getElementById('mem-notice')?.value || '';
+  _memCfg.trial = {
+    enabled: document.getElementById('trial-enabled').checked,
+    days: parseInt(document.getElementById('trial-days').value) || 3,
+    description: document.getElementById('trial-desc').value.trim(),
+  };
   _memCfg.payment = {
     alipay_enabled:    document.getElementById('pay-ali-enabled').checked,
     alipay_appid:      document.getElementById('pay-ali-appid').value.trim(),
@@ -1711,7 +1901,7 @@ async function saveAllMembership() {
     wechat_notify_url: document.getElementById('pay-wx-notify').value.trim(),
   };
   try {
-    await api('POST', '/admin/membership', { plans: _memCfg.plans, payment: _memCfg.payment, notice: _memCfg.notice });
+    await api('POST', '/admin/membership', { plans: _memCfg.plans, payment: _memCfg.payment, notice: _memCfg.notice, trial: _memCfg.trial });
     toast('保存成功 ✅');
   } catch(e) { toast(e.message, true); }
 }
@@ -2239,21 +2429,10 @@ async function resetAiUsageFn() {
   if (!confirm('确定重置所有 AI 用量计数？此操作不可恢复。')) return;
   try {
     await api('POST', '/admin/ai-usage/reset');
-    toast('用量已重置 ✓', 'success');
+    toast('用量已重置 ✓');
     renderAiSettings();
   } catch(e) {
-    toast('重置失败: ' + e.message, 'error');
-  }
-}
-
-async function resetAiUsageFn() {
-  if (!confirm('确定重置所有 AI 用量计数？此操作不可恢复。')) return;
-  try {
-    await api('POST', '/admin/ai-usage/reset');
-    toast('用量已重置 ✓', 'success');
-    renderAiSettings();
-  } catch(e) {
-    toast('重置失败: ' + e.message, 'error');
+    toast('重置失败: ' + e.message, true);
   }
 }
 
@@ -2276,7 +2455,9 @@ async function loadChannels(){
     document.getElementById('ch-body').innerHTML=(d.data||[]).map(c=>{
       const vcount = (c.video_cache||[]).length;
       const platIcon = c.platform==='youtube'?'▶️ YouTube':'📺 Bilibili';
-      return `<tr data-ch-id="${c.id}">
+      const sid = esc(String(c.id));
+      _editCache['ch_'+c.id] = c;
+      return `<tr data-ch-id="${sid}">
         <td>${platIcon}</td>
         <td>${esc(c.name)}</td>
         <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><a href="${esc(c.channel_url)}" target="_blank" style="color:#6c8cff">${esc(c.channel_url)}</a></td>
@@ -2285,10 +2466,10 @@ async function loadChannels(){
         <td class="ch-status">${c.is_active?'<span class="badge badge-green">启用</span>':'<span class="badge badge-orange">禁用</span>'}</td>
         <td>${c.sort_order||0}</td>
         <td>
-          <button class="btn btn-ghost btn-sm" onclick='editChannel(${JSON.stringify(c).replace(/'/g,"&#39;")})'>编辑</button>
-          <button class="btn btn-ghost btn-sm" onclick="refreshChannel('${c.id}')">刷新</button>
-          <button class="btn btn-ghost btn-sm ch-toggle" onclick="toggleChannel('${c.id}',${!c.is_active})">${c.is_active?'禁用':'启用'}</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteChannel('${c.id}')">删除</button>
+          <button class="btn btn-ghost btn-sm" onclick="editChannel('${sid}')">编辑</button>
+          <button class="btn btn-ghost btn-sm" onclick="refreshChannel('${sid}')">刷新</button>
+          <button class="btn btn-ghost btn-sm ch-toggle" onclick="toggleChannel('${sid}',${!c.is_active})">${c.is_active?'禁用':'启用'}</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteChannel('${sid}')">删除</button>
         </td>
       </tr>`;
     }).join('');
@@ -2306,7 +2487,7 @@ function openChannelModal(c=null){
   else document.getElementById('mc-url').disabled=false;
   openModal('modal-channel');
 }
-function editChannel(c){ openChannelModal(c); }
+function editChannel(id){ openChannelModal(_editCache['ch_'+id]); }
 async function saveChannel(){
   const id=document.getElementById('mc-id').value;
   try{
@@ -2334,12 +2515,14 @@ async function deleteChannel(id){
 }
 async function toggleChannel(id,active){
   // 乐观更新：立即切换按钮状态
-  const row = document.querySelector(`[data-ch-id="${id}"]`);
+  const rows = document.querySelectorAll('[data-ch-id]');
+  let row = null;
+  rows.forEach(r => { if(r.dataset.chId === String(id)) row = r; });
   if(row){
     const statusTd = row.querySelector('.ch-status');
     const toggleBtn = row.querySelector('.ch-toggle');
     if(statusTd) statusTd.innerHTML = active ? '<span class="badge badge-green">启用</span>' : '<span class="badge badge-orange">禁用</span>';
-    if(toggleBtn){ toggleBtn.textContent = active ? '禁用' : '启用'; toggleBtn.setAttribute('onclick',`toggleChannel('${id}',${!active})`); }
+    if(toggleBtn){ toggleBtn.textContent = active ? '禁用' : '启用'; toggleBtn.onclick = ()=>toggleChannel(id,!active); }
   }
   try{ await api('PUT',`/admin/channels/${id}`,{is_active:active}); toast(active?'已启用':'已禁用'); }catch(e){ toast(e.message,true); loadChannels(); }
 }
@@ -2358,12 +2541,13 @@ async function renderAdminMgmt() {
     const rows=admins.map(a=>{
       const perms=a.permissions_parsed||[];
       const isSA=a.admin_level==='super_admin';
-      const permBadges=isSA?'<span class="badge badge-red">全部权限</span>':allPerms.map(p=>`<span class="badge ${perms.includes(p.key)?'badge-green':'badge-orange'}" style="cursor:pointer;margin:1px" onclick="toggleAdminPerm('${a.id}','${p.key}',${!perms.includes(p.key)})" title="点击切换">${p.icon} ${p.name}</span>`).join(' ');
+      const sid=esc(String(a.id));
+      const permBadges=isSA?'<span class="badge badge-red">全部权限</span>':allPerms.map(p=>`<span class="badge ${perms.includes(p.key)?'badge-green':'badge-orange'}" style="cursor:pointer;margin:1px" onclick="toggleAdminPerm('${sid}','${esc(p.key)}',${!perms.includes(p.key)})" title="点击切换">${esc(p.icon)} ${esc(p.name)}</span>`).join(' ');
       return `<tr>
         <td>${esc(a.username)}</td><td>${esc(a.email)}</td>
         <td><span class="badge ${isSA?'badge-red':'badge-blue'}">${isSA?'高级管理员':'普通管理员'}</span></td>
         <td style="max-width:400px">${permBadges}</td>
-        <td>${isSA?'—':`<button class="btn btn-ghost btn-sm" onclick="editAdminPerms('${a.id}','${esc(a.username)}')">编辑权限</button>`}</td>
+        <td>${isSA?'—':`<button class="btn btn-ghost btn-sm" onclick="editAdminPerms('${sid}','${esc(a.username)}')">编辑权限</button>`}</td>
       </tr>`;
     }).join('');
     document.getElementById('content').innerHTML=`

@@ -4,9 +4,29 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../services/sync_service.dart';
+import '../../services/membership_service.dart';
 import '../../models/models.dart';
 import '../../l10n/app_localizations.dart';
 import '../../utils/japanese_text_utils.dart';
+
+// ── 首页功能 ID → 分级 tier ID 映射 ──
+const _featureTierMap = <String, String>{
+  'pronunciation': 'pronunciation',
+  'translate':     'ai_features',
+  'anki':          'anki_import',
+  'grammar':       'grammar_lessons',
+  'srs':           'srs_daily',
+  'dictionary':    'dictionary_daily',
+  'news':          'news_limit',
+  'quiz':          'quiz_meaning_daily',
+  'game':          'game_levels',
+  'flashcard':     'flashcard_levels',
+  'localvocab':    'anki_quiz',
+  'listening':     'immersion_daily',
+  'immersion':     'immersion_daily',
+  'kana-writing-test': 'kana_writing_modes',
+  'wrong-answers': 'wrong_answers',
+};
 
 // ── 全部可选功能（ID → 元数据） ──
 const _allFeatures = <String, ({IconData icon, String label, String sub, String path, Color color})>{
@@ -26,6 +46,9 @@ const _allFeatures = <String, ({IconData icon, String label, String sub, String 
   'wrong-answers': (icon: Icons.assignment_late_rounded, label: '错题集',    sub: '错题复习', path: '/wrong-answers', color: Color(0xFFE53935)),
   'anki':          (icon: Icons.upload_file_rounded,    label: 'Anki导入',  sub: '导入词库', path: '/anki-import',    color: Color(0xFF795548)),
   'localvocab':    (icon: Icons.folder_copy_rounded,    label: 'Anki词库',  sub: '本地浏览', path: '/local-vocab',    color: Color(0xFF00897B)),
+  'listening-exercise': (icon: Icons.hearing_rounded,   label: '听力测验',  sub: '听力检测', path: '/listening-exercise', color: Color(0xFF7B1FA2)),
+  'immersion':     (icon: Icons.ondemand_video_rounded, label: '磨耳朵',    sub: '沉浸式听力', path: '/immersion',   color: Color(0xFF00695C)),
+  'kana-writing-test': (icon: Icons.draw_rounded,       label: '假名书写',  sub: '手写测试', path: '/kana-writing-test', color: Color(0xFFC62828)),
 };
 const _defaultFeatureIds = ['vocabulary', 'grammar', 'srs', 'flashcard', 'listening', 'dictionary'];
 
@@ -119,11 +142,42 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _loadUser() async {
     setState(() => _userLoading = true);
     try {
-      final user = await apiService.getMe();
-      if (mounted) setState(() { _user = user; _userLoading = false; });
+      final user = await apiService.getMe(force: true);
+      if (mounted) {
+        setState(() { _user = user; _userLoading = false; });
+        // Check if trial just expired
+        if (user.trialActivated && !user.isMember && user.membershipPlan == 'trial') {
+          _showTrialExpiredDialog();
+        }
+      }
     } catch (_) {
       if (mounted) setState(() => _userLoading = false);
     }
+  }
+
+  void _showTrialExpiredDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(children: [
+          Text('\u23f0', style: TextStyle(fontSize: 24)),
+          SizedBox(width: 8),
+          Expanded(child: Text('\u4f53\u9a8c\u5df2\u7ed3\u675f')),
+        ]),
+        content: const Text('\u60a8\u7684\u4f1a\u5458\u4f53\u9a8c\u5df2\u5230\u671f\uff0c\u5df2\u6062\u590d\u4e3a\u514d\u8d39\u7528\u6237\u3002\n\u5347\u7ea7\u4f1a\u5458\u53ef\u7ee7\u7eed\u4eab\u53d7\u5168\u90e8\u529f\u80fd\uff01'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('\u77e5\u9053\u4e86')),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.push('/membership', extra: false);
+            },
+            child: const Text('\u67e5\u770b\u4f1a\u5458'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadSrs() async {
@@ -328,7 +382,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     _DailyGoalsCard(goals: goals),
                     const SizedBox(height: 20),
                   ],
-                  // ── 搜索栏 ──────────────────────────────────────
+                  // ── 辞书検索 ──────────────────────────────────────
+                  _SectionTitle(title: '辞书検索', icon: Icons.manage_search_rounded),
+                  const SizedBox(height: 10),
                   _SearchBar(),
                   const SizedBox(height: 20),
                   // ── SRS 提醒（加载完才判断）──────────────────────
@@ -336,6 +392,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     _SrsReviewBanner(dueCount: _srsStats!['due_today']),
                     const SizedBox(height: 20),
                   ],
+                  // ── 会员体验提示 ──────────────────────────────
+                  if (_user != null && !_user!.isMember && !_user!.trialActivated)
+                    _TrialPromptBanner(onTap: () => context.push('/membership', extra: false)),
+                  if (_user != null && _user!.isMember && _user!.isTrial && _user!.membershipDaysLeft != null)
+                    _TrialCountdownBanner(daysLeft: _user!.membershipDaysLeft!),
                   // ── 今日一词 ────────────────────────────────────
                   _SectionTitle(title: '今日一词', icon: Icons.auto_awesome_rounded),
                   const SizedBox(height: 10),
@@ -362,9 +423,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     ),
                   ]),
                   const SizedBox(height: 10),
-                  _CategoryGrid(items: _favFeatureIds
+                  _CategoryGrid(
+                      isMember: _user?.isMember ?? false,
+                      items: _favFeatureIds
                       .where((id) => _enabledFeatures.containsKey(id))
-                      .map((id) { final f = _enabledFeatures[id]!; return (icon: f.icon, label: f.label, sub: f.sub, path: f.path, color: f.color); })
+                      .map((id) { final f = _enabledFeatures[id]!; return (icon: f.icon, label: f.label, sub: f.sub, path: f.path, color: f.color, tierId: _featureTierMap[id]); })
                       .toList()),
                   const SizedBox(height: 8),
                 ]),
@@ -378,12 +441,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   // ── Sliver App Bar ─────────────────────────────────────────────────────────
   Widget _buildSliverHeader(ColorScheme cs, int totalXp, int streakDays, int todayXp, int todayMinutes) {
+    final isMember = _user?.isMember ?? false;
+    final isTrial = _user?.isTrial ?? false;
+    final daysLeft = _user?.membershipDaysLeft;
+    final memberLabel = isTrial && daysLeft != null ? '体验${daysLeft}天' : isMember ? '会员' : '免费';
     return SliverAppBar(
-      expandedHeight: 130,
+      expandedHeight: 120,
       floating: false,
       pinned: true,
       backgroundColor: cs.primary,
-      // title 仅在折叠后显示，展开时由 background 自绘内容
       title: Text(S.of(context).appTitle,
           style: const TextStyle(
             color: Colors.white,
@@ -392,6 +458,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             letterSpacing: 1.2,
           )),
       actions: [
+        // 会员入口（紧凑胶囊）
+        GestureDetector(
+          onTap: () => context.push('/membership', extra: isMember),
+          child: Container(
+            margin: const EdgeInsets.only(right: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isMember
+                  ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                  : Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(
+                isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
+                size: 13,
+                color: isMember ? const Color(0xFFFCD34D) : Colors.white70,
+              ),
+              const SizedBox(width: 3),
+              Text(
+                memberLabel,
+                style: TextStyle(
+                  color: isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                  fontSize: 11, fontWeight: FontWeight.w600,
+                ),
+              ),
+            ]),
+          ),
+        ),
         IconButton(
           icon: const Icon(Icons.person_outline, color: Colors.white),
           onPressed: () => context.push('/profile'),
@@ -399,7 +494,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ],
       flexibleSpace: FlexibleSpaceBar(
         collapseMode: CollapseMode.pin,
-        // ⚠️ 不设 title，避免与 background 中文字重叠
         background: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -410,65 +504,37 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 16, 8),
+              padding: const EdgeInsets.fromLTRB(20, 4, 16, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // 时间问候 + 用户名 + 等级（一行）
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _user != null
-                              ? '${_greeting()}　${_user!.username}さん'
-                              : '${_greeting()}　学生',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _StatBadge(
-                        icon: Icons.star,
-                        color: Colors.amber,
-                        label: _user?.level ?? 'N5',
-                      ),
-                    ],
+                  // 问候 + 用户名
+                  Text(
+                    _user != null
+                        ? '${_greeting()}　${_user!.username}さん'
+                        : '${_greeting()}　学生',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(children: [
-                      _StatBadge(
-                        icon: Icons.local_fire_department,
-                        color: Colors.orange,
-                        label: '$streakDays 天连续',
-                      ),
-                      const SizedBox(width: 8),
-                      _StatBadge(
-                        icon: Icons.diamond_rounded,
-                        color: Colors.amberAccent,
-                        label: '$totalXp XP',
-                      ),
-                      const SizedBox(width: 8),
-                      _StatBadge(
-                        icon: Icons.trending_up_rounded,
-                        color: Colors.greenAccent,
-                        label: '+$todayXp 今日',
-                      ),
-                      const SizedBox(width: 8),
-                      _StatBadge(
-                        icon: Icons.timer_outlined,
-                        color: Colors.lightBlueAccent,
-                        label: '$todayMinutes分',
-                      ),
-                    ]),
-                  ),
+                  const SizedBox(height: 8),
+                  // 统计数据行（紧凑）
+                  Row(children: [
+                    _StatBadge(icon: Icons.star, color: Colors.amber, label: _user?.level ?? 'N5'),
+                    const SizedBox(width: 8),
+                    _StatBadge(icon: Icons.local_fire_department, color: Colors.orange, label: '$streakDays天'),
+                    const SizedBox(width: 8),
+                    _StatBadge(icon: Icons.diamond_rounded, color: Colors.amberAccent, label: '${totalXp}XP'),
+                    const SizedBox(width: 8),
+                    _StatBadge(icon: Icons.trending_up_rounded, color: Colors.greenAccent, label: '+$todayXp'),
+                    const SizedBox(width: 8),
+                    _StatBadge(icon: Icons.timer_outlined, color: Colors.lightBlueAccent, label: '${todayMinutes}分'),
+                  ]),
                 ],
               ),
             ),
@@ -563,69 +629,49 @@ class _SearchBar extends StatefulWidget {
 }
 
 class _SearchBarState extends State<_SearchBar> {
-  final _ctrl = TextEditingController();
-
-  void _doSearch() {
-    final q = _ctrl.text.trim();
-    if (q.isEmpty) return;
-    context.push('/dictionary?q=${Uri.encodeComponent(q)}');
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return GestureDetector(
+      onTap: () => context.push('/dictionary'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [cs.primary.withValues(alpha: 0.08), cs.primary.withValues(alpha: 0.03)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: cs.primary.withValues(alpha: 0.2), width: 1),
+        ),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.search_rounded, color: cs.primary, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('输入日语、中文或罗马字搜索…',
+                  style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+                const SizedBox(height: 2),
+                Text('支持假名・汉字・中文释义・JLPT筛选',
+                  style: TextStyle(color: Colors.grey[400], fontSize: 11)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(Icons.arrow_forward_ios_rounded, color: cs.primary.withValues(alpha: 0.5), size: 16),
+        ]),
       ),
-      child: Row(children: [
-        Icon(Icons.search_rounded, color: cs.primary, size: 22),
-        const SizedBox(width: 8),
-        Expanded(
-          child: TextField(
-            controller: _ctrl,
-            style: const TextStyle(color: Color(0xFF333333), fontSize: 15),
-            decoration: const InputDecoration(
-              hintText: '输入日语、中文或罗马字搜索…',
-              hintStyle: TextStyle(color: Color(0xFF999999), fontSize: 13),
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(vertical: 8),
-              border: InputBorder.none,
-            ),
-            onSubmitted: (_) => _doSearch(),
-          ),
-        ),
-        const SizedBox(width: 6),
-        SizedBox(
-          height: 34,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: cs.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              elevation: 0,
-            ),
-            onPressed: _doSearch,
-            child: const Text('搜索', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-          ),
-        ),
-      ]),
     );
   }
 }
@@ -675,6 +721,96 @@ class _SrsReviewBanner extends StatelessWidget {
 }
 
 // ─── Word of Day ─────────────────────────────────────────────────────────────
+
+class _TrialPromptBanner extends StatelessWidget {
+  final VoidCallback onTap;
+  const _TrialPromptBanner({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(children: [
+            const Text('🎁', style: TextStyle(fontSize: 28)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+                Text('免费体验全部会员功能',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                Text('限时体验，每个账号仅限一次',
+                    style: TextStyle(color: Colors.white70, fontSize: 12)),
+              ]),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text('立即体验',
+                  style: TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 13)),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _TrialCountdownBanner extends StatelessWidget {
+  final int daysLeft;
+  const _TrialCountdownBanner({required this.daysLeft});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: GestureDetector(
+        onTap: () => context.push('/membership', extra: true),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(
+            color: daysLeft <= 1 ? const Color(0xFFFEF3C7) : const Color(0xFFEDE9FE),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: daysLeft <= 1 ? const Color(0xFFF59E0B) : const Color(0xFF8B5CF6), width: 0.5),
+          ),
+          child: Row(children: [
+            Text(daysLeft <= 1 ? '⏰' : '👑', style: const TextStyle(fontSize: 22)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                daysLeft <= 1 ? '体验即将到期，仅剩 $daysLeft 天' : '会员体验中，剩余 $daysLeft 天',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600, fontSize: 13,
+                  color: daysLeft <= 1 ? const Color(0xFF92400E) : const Color(0xFF5B21B6),
+                ),
+              ),
+            ),
+            if (daysLeft <= 1)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Text('升级会员', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
 
 class _WordOfDayCard extends StatelessWidget {
   final VocabularyModel word;
@@ -1062,11 +1198,12 @@ class _QuickActionBtn extends StatelessWidget {
 
 // ─── Category Grid (可复用的 3 列宫格) ──────────────────────────────────────────
 
-typedef _CatItem = ({IconData icon, String label, String sub, String path, Color color});
+typedef _CatItem = ({IconData icon, String label, String sub, String path, Color color, String? tierId});
 
 class _CategoryGrid extends StatelessWidget {
   final List<_CatItem> items;
-  const _CategoryGrid({required this.items});
+  final bool isMember;
+  const _CategoryGrid({required this.items, this.isMember = false});
 
   @override
   Widget build(BuildContext context) {
@@ -1082,7 +1219,11 @@ class _CategoryGrid extends StatelessWidget {
       itemCount: items.length,
       itemBuilder: (context, i) {
         final f = items[i];
-        return _FeatureTile(icon: f.icon, label: f.label, sub: f.sub, path: f.path, color: f.color);
+        return _FeatureTile(
+          icon: f.icon, label: f.label, sub: f.sub,
+          path: f.path, color: f.color,
+          tierId: f.tierId, isMember: isMember,
+        );
       },
     );
   }
@@ -1199,33 +1340,116 @@ class _FeatureTile extends StatelessWidget {
   final String sub;
   final String path;
   final Color color;
-  const _FeatureTile({required this.icon, required this.label, required this.sub, required this.path, required this.color});
+  final String? tierId;
+  final bool isMember;
+  const _FeatureTile({required this.icon, required this.label, required this.sub, required this.path, required this.color, this.tierId, this.isMember = false});
 
   @override
   Widget build(BuildContext context) {
+    final blocked = tierId != null && !isMember && membershipService.isBlocked(tierId!, isMember: isMember);
     return InkWell(
-      onTap: () => context.push(path),
+      onTap: () {
+        if (blocked) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Center(child: Text('👑', style: TextStyle(fontSize: 28))),
+                  ),
+                  const SizedBox(height: 14),
+                  Text('$label 仅限会员使用',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text('升级会员即可解锁全部功能',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('稍后再说'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    context.push('/membership', extra: false);
+                  },
+                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFFF59E0B)),
+                  child: const Text('查看权益'),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+        context.push(path);
+      },
       borderRadius: BorderRadius.circular(16),
       child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.10),
+          color: color.withValues(alpha: blocked ? 0.05 : 0.10),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.22)),
+          border: Border.all(color: color.withValues(alpha: blocked ? 0.12 : 0.22)),
         ),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.18),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 26),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: blocked ? 0.08 : 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: blocked ? color.withValues(alpha: 0.4) : color, size: 26),
+              ),
+              if (blocked)
+                Positioned(
+                  top: -2,
+                  right: -2,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: const Icon(Icons.workspace_premium, size: 11, color: Colors.white),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
-          Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: color)),
+          Text(label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: blocked ? color.withValues(alpha: 0.4) : color)),
           const SizedBox(height: 2),
-          Text(sub, style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.7))),
+          Text(blocked ? '会员专属' : sub,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 10, color: blocked ? Colors.grey : color.withValues(alpha: 0.7))),
         ]),
       ),
     );

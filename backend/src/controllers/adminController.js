@@ -811,6 +811,8 @@ async function getFeatureUsage(req, res) {
 const PLANS_FILE = path.join(__dirname, '../../config/membership.json');
 // ─── 功能开关配置（存储于 backend/config/feature_toggles.json）────────────
 const TOGGLES_FILE = path.join(__dirname, '../../config/feature_toggles.json');
+// ─── 功能分级配置（存储于 backend/config/feature_tiers.json）────────────────
+const TIERS_FILE = path.join(__dirname, '../../config/feature_tiers.json');
 // ─── AI 设置配置（存储于 backend/config/ai_settings.json）────────────────────
 const AI_SETTINGS_FILE = path.join(__dirname, '../../config/ai_settings.json');
 
@@ -830,18 +832,32 @@ const DEFAULT_FEATURE_TOGGLES = {
     { id: 'todofuken',     name: '都道府県', icon: '🗾', web: true,  mobile: true  },
     { id: 'dictionary',    name: '辞书检索', icon: '🔍', web: true,  mobile: true  },
     { id: 'news',          name: 'NHK新闻',  icon: '📰', web: true,  mobile: true  },
-    { id: 'anki',          name: 'Anki导入', icon: '📥', web: true,  mobile: true  },
+    { id: 'anki',          name: 'Anki导入', icon: '📥', web: false, mobile: true  },
+    { id: 'translate',     name: '翻译解析', icon: '🌐', web: true,  mobile: true  },
+    { id: 'localvocab',    name: 'Anki词库', icon: '📂', web: false, mobile: true  },
+    { id: 'wrong-answers', name: '错题集',   icon: '📋', web: false, mobile: true  },
+    { id: 'immersion',     name: '磨耳朵',   icon: '📺', web: false, mobile: true  },
+    { id: 'kana-writing-test', name: '假名书写', icon: '✍️', web: false, mobile: true  },
   ],
   updated_at: null,
 };
 
 function readFeatureToggles() {
+  let data;
   try {
     if (fs.existsSync(TOGGLES_FILE)) {
-      return JSON.parse(fs.readFileSync(TOGGLES_FILE, 'utf8'));
+      data = JSON.parse(fs.readFileSync(TOGGLES_FILE, 'utf8'));
     }
   } catch { /* ignore */ }
-  return JSON.parse(JSON.stringify(DEFAULT_FEATURE_TOGGLES));
+  if (!data) return JSON.parse(JSON.stringify(DEFAULT_FEATURE_TOGGLES));
+  // 自动合并新增的默认功能开关
+  const saved = data.features || [];
+  const savedIds = new Set(saved.map(f => f.id));
+  for (const def of DEFAULT_FEATURE_TOGGLES.features) {
+    if (!savedIds.has(def.id)) saved.push({ ...def });
+  }
+  data.features = saved;
+  return data;
 }
 
 async function getFeatureToggles(req, res) {
@@ -870,13 +886,82 @@ async function saveFeatureToggles(req, res) {
     res.status(500).json({ error: err.message });
   }
 }
+
+// ─── 功能分级配置 ──────────────────────────────────────────────────────────
+const DEFAULT_FEATURE_TIERS = {
+  tiers: [
+    { id: 'grammar_lessons', name: '语法课程', icon: '📝', type: 'limit', free_limit: 5, free_label: '前5课免费', member_label: '全部' },
+    { id: 'srs_daily', name: 'SRS复习', icon: '🗂️', type: 'daily_limit', free_limit: 30, free_label: '每日限30张', member_label: '无限制' },
+    { id: 'immersion_daily', name: '听力/磨耳朵', icon: '👂', type: 'daily_limit', free_limit: 3, free_label: '每日3个', member_label: '无限制' },
+    { id: 'ai_features', name: 'AI功能(翻译/解析)', icon: '🤖', type: 'blocked', free_label: '不可用', member_label: '可用' },
+    { id: 'pronunciation', name: '发音练习', icon: '🎤', type: 'blocked', free_label: '不可用', member_label: '可用' },
+    { id: 'anki_import', name: 'Anki导入', icon: '📥', type: 'blocked', free_label: '不可用', member_label: '可用' },
+    { id: 'game_levels', name: '游戏模式', icon: '🎮', type: 'limit', free_limit: 5, free_label: '前5关', member_label: '全部' },
+    { id: 'quiz_meaning_daily', name: '词汇测验(意思题)', icon: '✏️', type: 'daily_limit', free_limit: 10, free_label: '每日10题', member_label: '无限制' },
+    { id: 'quiz_reading_daily', name: '词汇测验(读音题)', icon: '📖', type: 'daily_limit', free_limit: 10, free_label: '每日10题', member_label: '无限制' },
+    { id: 'quiz_jlpt_levels', name: 'JLPT等级筛选', icon: '🏅', type: 'enum', free_values: ['N5','N4'], member_values: ['N5','N4','N3','N2','N1'], free_label: 'N5 / N4', member_label: 'N5~N1 全部' },
+    { id: 'quiz_count_options', name: '题目数量选择', icon: '🔢', type: 'enum', free_values: [10], member_values: [10,20,30], free_label: '仅10题', member_label: '10 / 20 / 30题' },
+    { id: 'kana_writing_modes', name: '假名手写测试', icon: '✍️', type: 'enum', free_values: ['basic'], member_values: ['basic','dakuon','mixed'], free_label: '基础清音', member_label: '全部(浊音/混合)' },
+    { id: 'flashcard_levels', name: '闪卡复习', icon: '🃏', type: 'enum', free_values: ['N5'], member_values: ['N5','N4','N3','N2','N1'], free_label: 'N5', member_label: '全等级' },
+    { id: 'anki_quiz', name: 'Anki本地卡组测验', icon: '📋', type: 'blocked', free_label: '不可用', member_label: '可用' },
+    { id: 'wrong_answers', name: '错题集', icon: '📝', type: 'blocked', free_label: '不可用', member_label: '可用' },
+    { id: 'dictionary_daily', name: '词典查询', icon: '🔍', type: 'daily_limit', free_limit: 20, free_label: '每日限20次', member_label: '无限制' },
+    { id: 'news_limit', name: 'NHK新闻', icon: '📰', type: 'limit', free_limit: 5, free_label: '最新5篇', member_label: '全部' },
+  ],
+  updated_at: null,
+};
+
+function readFeatureTiers() {
+  try {
+    if (fs.existsSync(TIERS_FILE)) {
+      return JSON.parse(fs.readFileSync(TIERS_FILE, 'utf8'));
+    }
+  } catch { /* ignore */ }
+  return JSON.parse(JSON.stringify(DEFAULT_FEATURE_TIERS));
+}
+
+async function getFeatureTiers(req, res) {
+  res.json({ ok: true, ...readFeatureTiers() });
+}
+
+async function saveFeatureTiers(req, res) {
+  try {
+    const { tiers } = req.body;
+    if (!Array.isArray(tiers)) return res.status(400).json({ error: '参数 tiers 必须为数组' });
+    const data = {
+      tiers: tiers.map(t => ({
+        id: String(t.id || ''),
+        name: String(t.name || ''),
+        icon: String(t.icon || ''),
+        type: String(t.type || 'blocked'),
+        ...(t.type === 'daily_limit' || t.type === 'limit' ? { free_limit: parseInt(t.free_limit) || 0 } : {}),
+        ...(t.type === 'enum' ? { free_values: t.free_values || [], member_values: t.member_values || [] } : {}),
+        free_label: String(t.free_label || ''),
+        member_label: String(t.member_label || ''),
+      })),
+      updated_at: new Date().toISOString(),
+    };
+    const dir = path.dirname(TIERS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(TIERS_FILE, JSON.stringify(data, null, 2), 'utf8');
+    res.json({ ok: true, ...data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 const DEFAULT_MEMBERSHIP = {
   plans: [
     { id: 'free',     name: '免费版',   price: 0,   period: 'forever', description: '基础学习功能，适合入门用户',   features: ['词汇浏览 (每天50词)', '文法课程', '每日限制50道练习题'], enabled: true  },
     { id: 'monthly',  name: '月度会员', price: 18,  period: 'month',   description: '完整功能解锁，按月计费，随时取消', features: ['无限练习题', 'SRS 间隔复习', '听力课程', '离线下载'], enabled: true  },
-    { id: 'yearly',   name: '年度会员', price: 128, period: 'year',    description: '全功能 + 年度优惠，比月付省41%',  features: ['无限练习题', 'SRS 间隔复习', '听力课程', '离线下载', '专属客服'], enabled: true  },
-    { id: 'lifetime', name: '终身会员', price: 398, period: 'forever', description: '一次购买永久使用，含未来所有新功能', features: ['全功能永久解锁', '未来新功能免费', '专属客服', '专属徽章'], enabled: false },
+    { id: 'yearly',   name: '年度会员', price: 128, period: 'year',    description: '全功能 + 年度优惠，比月付省41%',  features: ['无限练习题', 'SRS 间隔复习', '听力课程', '离线下载'], enabled: true  },
+    { id: 'lifetime', name: '终身会员', price: 398, period: 'forever', description: '一次购买永久使用，含未来所有新功能', features: ['全功能永久解锁', '未来新功能免费', '专属徽章'], enabled: false },
   ],
+  trial: {
+    enabled: true,
+    days: 3,
+    description: '免费体验全部会员功能',
+  },
   payment: {
     alipay_enabled: false,
     alipay_appid: '',
@@ -920,10 +1005,17 @@ async function getMembershipConfig(req, res) {
 async function saveMembershipConfig(req, res) {
   try {
     const current = readMembershipConfig();
-    const { plans, payment, notice } = req.body;
+    const { plans, payment, notice, trial } = req.body;
     if (Array.isArray(plans)) current.plans = plans;
     if (payment && typeof payment === 'object') current.payment = { ...current.payment, ...payment };
     if (notice !== undefined) current.notice = String(notice);
+    if (trial && typeof trial === 'object') {
+      current.trial = {
+        enabled: !!trial.enabled,
+        days: Math.max(1, Math.min(30, parseInt(trial.days) || 3)),
+        description: String(trial.description || '').slice(0, 200),
+      };
+    }
     const dir = path.dirname(PLANS_FILE);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(PLANS_FILE, JSON.stringify(current, null, 2), 'utf8');
@@ -1122,6 +1214,7 @@ module.exports = {
   getTrafficStats, getUserStats, getBehaviorStats, getFeatureUsage,
   getMembershipConfig, saveMembershipConfig,
   getFeatureToggles, saveFeatureToggles,
+  getFeatureTiers, saveFeatureTiers,
   uploadApp,
   listAppReleases,
   downloadApp,

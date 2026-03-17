@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
+import '../../widgets/membership_gate.dart';
 
 class WrongAnswersScreen extends StatefulWidget {
   const WrongAnswersScreen({super.key});
@@ -15,6 +16,7 @@ class _WrongAnswersScreenState extends State<WrongAnswersScreen> {
   String _filter = 'all';
   bool _loading = true;
   bool _syncing = false;
+  bool _isMember = true; // optimistic default
 
   static const _sourceLabels = {
     'quiz': '单词测验',
@@ -25,7 +27,15 @@ class _WrongAnswersScreenState extends State<WrongAnswersScreen> {
   @override
   void initState() {
     super.initState();
+    _checkMembership();
     _loadAndSync();
+  }
+
+  Future<void> _checkMembership() async {
+    try {
+      final user = await apiService.getMe();
+      if (mounted) setState(() => _isMember = user.isMember);
+    } catch (_) {}
   }
 
   /// 先加载本地，再与服务端同步
@@ -123,7 +133,10 @@ class _WrongAnswersScreenState extends State<WrongAnswersScreen> {
             ),
         ],
       ),
-      body: _loading
+      body: MembershipGate(
+        featureId: 'wrong_answers',
+        isMember: _isMember,
+        child: _loading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
@@ -153,6 +166,7 @@ class _WrongAnswersScreenState extends State<WrongAnswersScreen> {
                 ),
               ],
             ),
+      ),
     );
   }
 

@@ -7,6 +7,7 @@
 const router = require('express').Router();
 const asyncHandler = require('../utils/asyncHandler');
 const { authenticate } = require('../middlewares/auth');
+const { checkMembership } = require('../middlewares/membership');
 const { sequelize } = require('../config/database');
 const { DataTypes } = require('sequelize');
 
@@ -35,7 +36,7 @@ WrongAnswer.sync({ alter: false }).catch(() => {
 
 // ── 同步接口 ──────────────────────────────────────
 // 客户端将本地新增的错题上传，服务端返回全量列表
-router.post('/sync', authenticate, asyncHandler(async (req, res) => {
+router.post('/sync', authenticate, checkMembership('wrong_answers'), asyncHandler(async (req, res) => {
   const userId = req.user.id;
   const items = req.body.items;
 

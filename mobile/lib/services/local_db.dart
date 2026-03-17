@@ -130,9 +130,10 @@ class LocalDb {
     return (res.first['cnt'] as int?) ?? 0;
   }
 
-  /// 按牌组分页列出本地词汇
+  /// 按牌组分页列出本地词汇（支持 prefix 模式匹配子牌组）
   Future<List<LocalVocabModel>> listByDeck({
     String? deckName,
+    bool prefixMatch = false,
     String? level,
     String? query,
     int page = 1,
@@ -142,7 +143,15 @@ class LocalDb {
     final wheres = <String>[];
     final args   = <dynamic>[];
 
-    if (deckName != null) { wheres.add('deck_name = ?'); args.add(deckName); }
+    if (deckName != null) {
+      if (prefixMatch) {
+        wheres.add('(deck_name = ? OR deck_name LIKE ?)');
+        args.addAll([deckName, '$deckName::%']);
+      } else {
+        wheres.add('deck_name = ?');
+        args.add(deckName);
+      }
+    }
     if (level    != null) { wheres.add('jlpt_level = ?'); args.add(level);   }
     if (query    != null && query.isNotEmpty) {
       wheres.add('(word LIKE ? OR reading LIKE ? OR meaning_zh LIKE ?)');
@@ -162,12 +171,20 @@ class LocalDb {
     return rows.map(LocalVocabModel.fromMap).toList();
   }
 
-  /// 按牌组分页的总记录数
-  Future<int> countByDeck({String? deckName, String? level, String? query}) async {
+  /// 按牌组分页的总记录数（支持 prefix 模式匹配子牌组）
+  Future<int> countByDeck({String? deckName, bool prefixMatch = false, String? level, String? query}) async {
     final database = await db;
     final wheres = <String>[];
     final args   = <dynamic>[];
-    if (deckName != null) { wheres.add('deck_name = ?'); args.add(deckName); }
+    if (deckName != null) {
+      if (prefixMatch) {
+        wheres.add('(deck_name = ? OR deck_name LIKE ?)');
+        args.addAll([deckName, '$deckName::%']);
+      } else {
+        wheres.add('deck_name = ?');
+        args.add(deckName);
+      }
+    }
     if (level    != null) { wheres.add('jlpt_level = ?'); args.add(level);   }
     if (query    != null && query.isNotEmpty) {
       wheres.add('(word LIKE ? OR reading LIKE ? OR meaning_zh LIKE ?)');
@@ -190,7 +207,7 @@ class LocalDb {
              SUM(CASE WHEN synced=0 THEN 1 ELSE 0 END) AS pending
       FROM $tableVocab
       GROUP BY deck_name
-      ORDER BY MAX(created_at) DESC
+      ORDER BY deck_name ASC
     ''');
     return rows.map((r) => (
       deckName: (r['deck_name'] as String?) ?? 'Anki Import',
@@ -199,10 +216,15 @@ class LocalDb {
     )).toList();
   }
 
-  /// 删除整个牌组
+  /// 删除整个牌组（支持按前缀删除子牌组）
   Future<int> deleteDeck(String deckName) async {
     final database = await db;
-    return database.delete(tableVocab, where: 'deck_name = ?', whereArgs: [deckName]);
+    // 删除精确匹配 + 所有子牌组（deck_name LIKE 'deckName::%'）
+    return database.delete(
+      tableVocab,
+      where: 'deck_name = ? OR deck_name LIKE ?',
+      whereArgs: [deckName, '$deckName::%'],
+    );
   }
 
   // ─── 关闭 ────────────────────────────────────────────────────────────────

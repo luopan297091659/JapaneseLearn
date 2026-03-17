@@ -12,6 +12,7 @@ import '../../models/models.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/locale_provider.dart';
 import '../../utils/tts_helper.dart';
+import '../membership/membership_comparison_page.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -77,6 +78,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _logout() async {
     await apiService.logout();
     if (mounted) context.go('/login');
+  }
+
+  String _memberPlanLabel(String? plan) {
+    const labels = {
+      'monthly': '月度会员',
+      'yearly': '年度会员',
+      'lifetime': '终身会员',
+    };
+    return labels[plan] ?? plan ?? '标准会员';
   }
 
   // ── 学习目标 ───────────────────────────────────────────────────
@@ -557,20 +567,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  // Profile header
+                  // ── 个人信息卡片 ──
                   Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Row(
+                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+                      child: Column(
                         children: [
+                          // 头像 + 用户名 + 邮箱
                           Stack(
                             children: [
                               CircleAvatar(
-                                radius: 36,
+                                radius: 38,
                                 backgroundColor: cs.primaryContainer,
                                 child: Text(
                                   _user?.username.substring(0, 1).toUpperCase() ?? 'U',
-                                  style: TextStyle(fontSize: 28, color: cs.primary, fontWeight: FontWeight.bold),
+                                  style: TextStyle(fontSize: 30, color: cs.primary, fontWeight: FontWeight.bold),
                                 ),
                               ),
                               Positioned(
@@ -578,7 +590,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 child: GestureDetector(
                                   onTap: _editPersonalInfo,
                                   child: Container(
-                                    width: 22, height: 22,
+                                    width: 24, height: 24,
                                     decoration: BoxDecoration(
                                       color: cs.primary,
                                       shape: BoxShape.circle,
@@ -590,38 +602,108 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(children: [
-                                  Expanded(child: Text(_user?.username ?? '', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
-                                ]),
-                                Text(_user?.email ?? '', style: TextStyle(color: cs.outline)),
-                                const SizedBox(height: 4),
-                                GestureDetector(
-                                  onTap: _editJlptLevel,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: cs.primary, borderRadius: BorderRadius.circular(4)),
-                                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                      Text('JLPT ${_user?.level ?? 'N5'}',
-                                          style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                      const SizedBox(width: 4),
-                                      const Icon(Icons.edit, size: 10, color: Colors.white),
-                                    ]),
+                          const SizedBox(height: 12),
+                          Text(
+                            _user?.username ?? '',
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _user?.email ?? '',
+                            style: TextStyle(fontSize: 13, color: cs.outline),
+                          ),
+                          const SizedBox(height: 12),
+                          // 标签行：JLPT + 会员
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              GestureDetector(
+                                onTap: _editJlptLevel,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: cs.primary,
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
+                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                    Text('JLPT ${_user?.level ?? 'N5'}',
+                                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                                    const SizedBox(width: 4),
+                                    const Icon(Icons.edit, size: 10, color: Colors.white),
+                                  ]),
                                 ),
-                              ],
+                              ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () => context.push('/membership', extra: _user?.isMember ?? false),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: _user?.isMember == true
+                                        ? const Color(0xFFF59E0B)
+                                        : cs.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                    Text(
+                                      _user?.isMember == true ? '👑 会员' : '免费用户',
+                                      style: TextStyle(
+                                        color: _user?.isMember == true ? Colors.white : cs.outline,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Icon(Icons.chevron_right, size: 14,
+                                      color: _user?.isMember == true ? Colors.white : cs.outline),
+                                  ]),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          // ── 会员入口横幅（嵌入卡片底部）──
+                          GestureDetector(
+                            onTap: () => context.push('/membership', extra: _user?.isMember ?? false),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: _user?.isMember == true
+                                      ? [const Color(0xFFF59E0B), const Color(0xFFD97706)]
+                                      : [const Color(0xFF6366F1), const Color(0xFF4F46E5)],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.workspace_premium, color: Colors.white, size: 20),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      _user?.isMember == true
+                                          ? '${_memberPlanLabel(_user?.membershipPlan)} · 查看权益'
+                                          : '升级会员，解锁全部功能 →',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(Icons.arrow_forward_ios_rounded,
+                                      color: Colors.white.withValues(alpha: 0.7), size: 14),
+                                ],
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   // Settings section
                   Text(s.settings, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 8),
@@ -668,9 +750,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     const SizedBox(height: 16),
                   ],
                   Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     child: Column(
                       children: [
-                        // TTS 语音测试（放在最前面方便找到）
+                        // TTS 语音测试
                         ListTile(
                           leading: const Icon(Icons.record_voice_over_rounded),
                           title: const Text('TTS 语音测试'),
@@ -701,32 +784,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('EN', style: TextStyle(fontWeight: FontWeight.bold))),
                             ],
                           ),
-                        ),
-                        const Divider(height: 1, indent: 56),
-                        ListTile(
-                          leading: const Icon(Icons.person_outline_rounded),
-                          title: const Text('个人信息'),
-                          subtitle: Text(_user?.username ?? ''),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: _editPersonalInfo,
-                        ),
-                        const Divider(height: 1, indent: 56),
-                        ListTile(
-                          leading: const Icon(Icons.school_rounded),
-                          title: const Text('JLPT 等级'),
-                          subtitle: Text('当前级别：${_user?.level ?? 'N3'}'),
-                          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: cs.primary, borderRadius: BorderRadius.circular(4)),
-                              child: Text(_user?.level ?? 'N3',
-                                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.chevron_right),
-                          ]),
-                          onTap: _editJlptLevel,
                         ),
                         const Divider(height: 1, indent: 56),
                         ListTile(
@@ -769,14 +826,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       color: Theme.of(context).colorScheme.primary)),
                             ],
                           ),
-                        ),
-                        const Divider(height: 1, indent: 56),
-                        ListTile(
-                          leading: const Icon(Icons.upload_file_rounded),
-                          title: Text(s.ankiImport),
-                          subtitle: Text(s.ankiImportSubtitle),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () => context.push('/anki-import'),
                         ),
                         const Divider(height: 1, indent: 56),
                         ListTile(

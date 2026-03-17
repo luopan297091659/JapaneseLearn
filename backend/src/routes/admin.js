@@ -14,6 +14,7 @@ const {
   getTrafficStats, getUserStats, getBehaviorStats, getFeatureUsage,
   getMembershipConfig, saveMembershipConfig,
   getFeatureToggles, saveFeatureToggles,
+  getFeatureTiers, saveFeatureTiers,
   uploadApp, listAppReleases, downloadApp, deleteAppRelease,
   getAiSettings, saveAiSettings, getAiUsage, resetAiUsage,
   listAdmins, updateAdminPermissions, getAdminInfo,
@@ -103,6 +104,10 @@ router.post('/membership', superAdminAuth, asyncHandler(saveMembershipConfig));
 // 功能开关配置（仅高级管理员）
 router.get('/feature-toggles',  superAdminAuth, asyncHandler(getFeatureToggles));
 router.post('/feature-toggles', superAdminAuth, asyncHandler(saveFeatureToggles));
+
+// 功能分级配置（仅高级管理员）
+router.get('/feature-tiers',  superAdminAuth, asyncHandler(getFeatureTiers));
+router.post('/feature-tiers', superAdminAuth, asyncHandler(saveFeatureTiers));
 
 // App 管理（仅高级管理员）
 router.post('/uploadApp', superAdminAuth, appUpload.single('file'), asyncHandler(uploadApp));

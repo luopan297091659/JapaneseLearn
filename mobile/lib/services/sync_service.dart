@@ -16,6 +16,9 @@ class SyncService {
   // ── 功能开关缓存 ──
   Map<String, bool>? _featureToggles;
 
+  // ── 功能分级缓存 ──
+  List<Map<String, dynamic>>? _featureTiers;
+
   /// 从服务端拉取移动端功能开关，缓存到 SharedPreferences。
   /// 返回 {featureId: enabled}，离线时使用上次缓存结果。
   Future<Map<String, bool>> fetchFeatureToggles({bool force = false}) async {
@@ -47,6 +50,41 @@ class SyncService {
       return true; // 未拉取或未配置的功能默认开启
     }
     return _featureToggles![featureId]!;
+  }
+
+  /// 从服务端拉取功能分级配置（会员/免费差异）
+  Future<List<Map<String, dynamic>>> fetchFeatureTiers({bool force = false}) async {
+    if (_featureTiers != null && !force) return _featureTiers!;
+    final prefs = await SharedPreferences.getInstance();
+    try {
+      final resp = await apiService.get('/sync/tiers');
+      final tiers = (resp['tiers'] as List<dynamic>?)
+          ?.map((e) => Map<String, dynamic>.from(e as Map))
+          .toList() ?? [];
+      _featureTiers = tiers;
+      await prefs.setString('feature_tiers', jsonEncode(tiers));
+      return tiers;
+    } catch (_) {
+      final cached = prefs.getString('feature_tiers');
+      if (cached != null) {
+        final tiers = (jsonDecode(cached) as List<dynamic>)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+        _featureTiers = tiers;
+        return tiers;
+      }
+      return _featureTiers = [];
+    }
+  }
+
+  /// 获取某功能的分级配置，null 表示未配置（不受会员限制）
+  Map<String, dynamic>? getFeatureTier(String featureId) {
+    if (_featureTiers == null) return null;
+    try {
+      return _featureTiers!.firstWhere((t) => t['id'] == featureId);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// 将本地待同步词汇上传到服务器

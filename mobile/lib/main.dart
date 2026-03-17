@@ -25,6 +25,37 @@ void main() async {
       );
     });
   });
+  apiService.setOnMembershipLimit((data) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = rootNavigatorKey.currentContext;
+      if (ctx == null) return;
+      final error = data['error'] as String? ?? '';
+      final msg = data['message'] as String? ?? '此功能需要会员';
+      showDialog(
+        context: ctx,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(children: [
+            Icon(error == 'DAILY_LIMIT_REACHED' ? Icons.hourglass_empty : Icons.lock,
+                color: Colors.orange, size: 28),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('会员功能')),
+          ]),
+          content: Text(msg),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('关闭')),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                GoRouter.of(ctx).push('/membership', extra: false);
+              },
+              child: const Text('查看会员'),
+            ),
+          ],
+        ),
+      );
+    });
+  });
   // 启动时读取持久化语言设置
   final container = ProviderContainer();
   await container.read(localeProvider.notifier).init();
@@ -32,6 +63,8 @@ void main() async {
   syncService.checkContentVersion();
   // 后台拉取功能开关
   syncService.fetchFeatureToggles();
+  // 后台拉取功能分级配置
+  syncService.fetchFeatureTiers();
   // 预初始化 TTS 引擎诊断
   TtsHelper.instance.init();
   runApp(UncontrolledProviderScope(container: container, child: const JapaneseLearnApp()));

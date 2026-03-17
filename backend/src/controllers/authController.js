@@ -81,8 +81,22 @@ async function refreshToken(req, res) {
   }
 }
 
+const { isActiveMember } = require('../middlewares/membership');
+
 async function getMe(req, res) {
-  res.json({ user: req.user });
+  const user = req.user;
+  const userJson = user.toJSON ? user.toJSON() : { ...user };
+  // 附加会员状态
+  userJson.is_member = isActiveMember(user);
+  // 附加试用信息
+  userJson.is_trial = user.membership_plan === 'trial';
+  userJson.trial_activated = !!user.trial_activated;
+  if (user.membership_expire) {
+    const expire = new Date(user.membership_expire);
+    const now = new Date();
+    userJson.membership_days_left = Math.max(0, Math.ceil((expire - now) / (1000 * 60 * 60 * 24)));
+  }
+  res.json({ user: userJson });
 }
 
 module.exports = { register, login, refreshToken, getMe, registerValidation };
