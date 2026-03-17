@@ -369,10 +369,33 @@ ruby rt { font-size: 0.55em; color: var(--text-sub); font-weight: normal; }
 .news-article ruby rt { font-size: 10px; }
 
 /* ─── Profile ──────────────────────────────────────────────── */
-.profile-avatar { width: 80px; height: 80px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; margin: 0 auto 12px; }
-.profile-info { text-align: center; margin-bottom: 24px; }
-.profile-info h2 { font-size: 22px; font-weight: 700; }
-.profile-info p { color: var(--text-sub); }
+.profile-avatar { width: 80px; height: 80px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; margin: 0 auto 12px; position: relative; }
+.profile-avatar .avatar-edit { position: absolute; bottom: 0; right: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--primary); border: 2px solid var(--bg); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px; color: #fff; }
+.profile-info { text-align: center; margin-bottom: 16px; }
+.profile-info h2 { font-size: 22px; font-weight: 700; margin: 0 0 2px; }
+.profile-info p { color: var(--text-sub); margin: 0; }
+.profile-tags { display: flex; justify-content: center; gap: 8px; margin-bottom: 14px; }
+.profile-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.profile-tag.jlpt { background: var(--primary); color: #fff; }
+.profile-tag.member-vip { background: #f59e0b; color: #fff; }
+.profile-tag.member-free { background: var(--bg3); color: var(--text-sub); }
+.profile-banner { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 10px; cursor: pointer; color: #fff; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.profile-banner.vip { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.profile-banner.free { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+.profile-banner .banner-arrow { opacity: .7; margin-left: auto; }
+.profile-settings .setting-row { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); cursor: pointer; gap: 12px; }
+.profile-settings .setting-row:last-child { border-bottom: none; }
+.profile-settings .setting-icon { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; }
+.profile-settings .setting-body { flex: 1; min-width: 0; }
+.profile-settings .setting-title { font-size: 14px; font-weight: 500; }
+.profile-settings .setting-sub { font-size: 12px; color: var(--text-sub); margin-top: 1px; }
+.profile-settings .setting-trail { font-size: 14px; color: var(--text-sub); flex-shrink: 0; }
+.profile-switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+.profile-switch input { opacity: 0; width: 0; height: 0; }
+.profile-switch .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg3); border-radius: 22px; transition: .25s; }
+.profile-switch .slider::before { content: ''; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .25s; }
+.profile-switch input:checked + .slider { background: var(--primary); }
+.profile-switch input:checked + .slider::before { transform: translateX(18px); }
 
 /* ─── Sidebar 折叠（桌面端）───────────────────────────────────── */
 .sidebar-collapse-btn { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 8px; cursor: pointer; color: var(--text-sub); font-size: 13px; border-radius: var(--radius-sm); transition: all .15s; user-select: none; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
@@ -1398,6 +1421,8 @@ ruby rt { font-size: 0.55em; color: var(--text-sub); font-weight: normal; }
         <h2 style="margin-bottom:20px;font-size:22px">👤 我的</h2>
         <div class="card" id="profile-card">
           <div class="loading"><div class="spinner"></div></div>
+        </div>
+        <div class="card" id="profile-settings-card" style="margin-top:16px;display:none">
         </div>
       </div>
 
@@ -3941,59 +3966,103 @@ async function showNewsDetail(id) {
 // ══════════════════════════════════════════════════════════════════
 //  PROFILE
 // ══════════════════════════════════════════════════════════════════
+let _profileUser = null;
 async function loadProfile() {
   const el = document.getElementById('profile-card');
+  const settingsEl = document.getElementById('profile-settings-card');
   el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   try {
     const me = await GET('/auth/me');
     const u = me.user || me;
-    const prog = await GET('/progress/summary');
-    const daily = (prog.daily_stats || []).slice(-7).reverse();
-    const srsStats = prog.srs_stats || {};
+    _profileUser = u;
     const isMember = u.is_member || false;
-    const planName = isMember ? (u.membership_plan === 'yearly' ? '年度会员' : u.membership_plan === 'monthly' ? '月度会员' : '会员') : '免费版';
-    const expireStr = u.membership_expire ? new Date(u.membership_expire).toLocaleDateString('zh-CN') : '永久';
+    const planLabel = isMember
+      ? (u.membership_plan === 'yearly' ? '年度会员' : u.membership_plan === 'monthly' ? '月度会员' : u.membership_plan === 'lifetime' ? '终身会员' : '会员')
+      : '免费版';
+    const bannerText = isMember ? planLabel + ' · 查看权益' : '升级会员，解锁全部功能 →';
+    const notifChecked = u.notification_enabled !== false ? 'checked' : '';
     el.innerHTML = `
-      <div class="profile-avatar">${(u.username || '?')[0].toUpperCase()}</div>
+      <div class="profile-avatar">
+        ${(u.username || '?')[0].toUpperCase()}
+        <div class="avatar-edit" onclick="editUsername()" title="修改用户名">✎</div>
+      </div>
       <div class="profile-info">
-        <h2>${escHtml(u.username || '')}</h2>
+        <h2 id="prof-username-display">${escHtml(u.username || '')}</h2>
         <p>${escHtml(u.email || '')}</p>
-        <p style="margin-top:4px">${levelBadge(u.level || 'N5')}</p>
       </div>
-      <hr class="divider">
-      <div class="card-title" style="margin-top:8px">👑 会员状态</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--bg2);border-radius:10px;margin-bottom:12px">
-        <div>
-          <span class="member-badge ${isMember ? 'vip' : 'free'}">${isMember ? '👑 ' + escHtml(planName) : '免费版'}</span>
-          ${isMember ? '<div style="font-size:11px;color:var(--text-hint);margin-top:4px">到期：' + expireStr + '</div>' : ''}
+      <div class="profile-tags">
+        <span class="profile-tag jlpt" onclick="editJlptLevel()" title="修改级别">JLPT ${escHtml(u.level || 'N5')} ✎</span>
+        <span class="profile-tag ${isMember ? 'member-vip' : 'member-free'}" onclick="navigate('membership')">
+          ${isMember ? '👑 会员' : '免费用户'} ›
+        </span>
+      </div>
+      <div class="profile-banner ${isMember ? 'vip' : 'free'}" onclick="navigate('membership')">
+        <span>👑</span>
+        <span>${escHtml(bannerText)}</span>
+        <span class="banner-arrow">›</span>
+      </div>`;
+
+    // Settings card
+    settingsEl.style.display = '';
+    settingsEl.innerHTML = `
+      <div class="card-title" style="margin-bottom:4px">⚙ 设置</div>
+      <div class="profile-settings">
+        <div class="setting-row" onclick="editGoalDialog()">
+          <span class="setting-icon">📊</span>
+          <div class="setting-body">
+            <div class="setting-title">每日目标</div>
+            <div class="setting-sub" id="prof-goal-display">${u.daily_goal_minutes || 15} 分钟/天</div>
+          </div>
+          <span class="setting-trail">›</span>
         </div>
-        <button class="btn btn-sm ${isMember ? 'btn-outline' : 'btn-primary'}" onclick="navigate('membership')" style="font-size:12px">
-          ${isMember ? '查看权益' : '升级会员 →'}
-        </button>
-      </div>
-      <div class="card-title" style="margin-top:8px">⚙ 修改设置</div>
-      <div class="input-group">
-        <label>每日目标（分钟）</label>
-        <select class="input" id="prof-goal" onchange="updateProfile()">
-          ${[5,10,15,20,30,60].map(m => `<option value="${m}"${(u.daily_goal_minutes||15)==m?' selected':''}>${m} 分钟</option>`).join('')}
-        </select>
-      </div>
-      <div class="input-group">
-        <label>目标级别</label>
-        <select class="input" id="prof-level" onchange="updateProfile()">
-          ${['N5','N4','N3','N2','N1'].map(l => `<option value="${l}"${u.level===l?' selected':''}>${l}</option>`).join('')}
-        </select>
-      </div>
-      <div class="input-group">
-        <label>🐌 慢放速度</label>
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:11px;color:var(--text-sub)">0.2x</span>
-          <input type="range" id="slow-speed-slider" min="0.2" max="0.8" step="0.05" value="${_slowSpeed}" oninput="setSlowSpeed(parseFloat(this.value))" style="flex:1;accent-color:var(--primary)">
-          <span style="font-size:11px;color:var(--text-sub)">0.8x</span>
-          <span id="slow-speed-label" style="font-size:13px;font-weight:700;color:var(--primary);min-width:36px;text-align:center">${_slowSpeed}x</span>
+        <div class="setting-row" onclick="editLevelDialog()">
+          <span class="setting-icon">🎯</span>
+          <div class="setting-body">
+            <div class="setting-title">目标级别</div>
+            <div class="setting-sub" id="prof-level-display">${escHtml(u.level || 'N5')}</div>
+          </div>
+          <span class="setting-trail">›</span>
+        </div>
+        <div class="setting-row" style="cursor:default">
+          <span class="setting-icon">🐌</span>
+          <div class="setting-body">
+            <div class="setting-title">慢放速度</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+              <span style="font-size:11px;color:var(--text-sub)">0.2x</span>
+              <input type="range" id="slow-speed-slider" min="0.2" max="0.8" step="0.05" value="${_slowSpeed}" oninput="setSlowSpeed(parseFloat(this.value))" style="flex:1;accent-color:var(--primary)">
+              <span style="font-size:11px;color:var(--text-sub)">0.8x</span>
+              <span id="slow-speed-label" style="font-size:13px;font-weight:700;color:var(--primary);min-width:36px;text-align:center">${_slowSpeed}x</span>
+            </div>
+          </div>
+        </div>
+        <div class="setting-row" style="cursor:default">
+          <span class="setting-icon">🔔</span>
+          <div class="setting-body">
+            <div class="setting-title">学习提醒</div>
+          </div>
+          <label class="profile-switch">
+            <input type="checkbox" id="prof-notif-toggle" ${notifChecked} onchange="toggleNotification(this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="setting-row" onclick="showChangePassword()">
+          <span class="setting-icon">🔒</span>
+          <div class="setting-body">
+            <div class="setting-title">修改密码</div>
+          </div>
+          <span class="setting-trail">›</span>
+        </div>
+        <div class="setting-row" onclick="doLogout()" style="color:var(--danger)">
+          <span class="setting-icon">↩</span>
+          <div class="setting-body">
+            <div class="setting-title" style="color:var(--danger)">退出登录</div>
+          </div>
         </div>
       </div>`;
-  } catch(e) { el.innerHTML = `<p style="color:var(--danger)">加载失败: ${escHtml(e.message)}</p>`; }
+  } catch(e) {
+    el.innerHTML = `<p style="color:var(--danger)">加载失败: ${escHtml(e.message)}</p>`;
+    settingsEl.style.display = 'none';
+  }
 }
 
 async function updateProfile() {
@@ -4003,6 +4072,159 @@ async function updateProfile() {
     await PUT('/users/profile', { daily_goal_minutes: goal, level });
     toast('设置已保存 ✓');
   } catch(e) { toast('保存失败: ' + e.message); }
+}
+
+// ── 编辑用户名 ──
+function editUsername() {
+  const current = _profileUser?.username || '';
+  const html = `
+    <div class="input-group">
+      <label>用户名</label>
+      <input class="input" id="edit-username-input" value="${escHtml(current)}" maxlength="20" placeholder="请输入用户名">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveUsername()">保存</button>
+    </div>`;
+  openModal('修改用户名', html);
+  setTimeout(() => document.getElementById('edit-username-input')?.focus(), 100);
+}
+async function saveUsername() {
+  const val = document.getElementById('edit-username-input')?.value?.trim();
+  if (!val) { toast('用户名不能为空'); return; }
+  try {
+    await PUT('/users/profile', { username: val });
+    toast('用户名已更新 ✓');
+    closeModal();
+    loadProfile();
+  } catch(e) { toast('更新失败: ' + e.message); }
+}
+
+// ── 编辑 JLPT 级别 ──
+function editJlptLevel() {
+  const current = _profileUser?.level || 'N5';
+  const levels = ['N5','N4','N3','N2','N1'];
+  const html = `
+    <p style="color:var(--text-sub);font-size:14px;margin-bottom:16px">选择您当前的日语水平：</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+      ${levels.map(l => `<div onclick="selectJlptLevel('${l}')" id="jlpt-opt-${l}" style="width:60px;height:60px;display:flex;align-items:center;justify-content:center;border-radius:12px;font-size:18px;font-weight:700;cursor:pointer;transition:.2s;${l===current?'background:var(--primary);color:#fff':'background:var(--bg2);color:var(--text)'}"
+        >${l}</div>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" id="jlpt-save-btn" onclick="saveJlptLevel()">保存</button>
+    </div>`;
+  openModal('JLPT 等级', html);
+  window._selectedJlpt = current;
+}
+function selectJlptLevel(l) {
+  const levels = ['N5','N4','N3','N2','N1'];
+  levels.forEach(lv => {
+    const el = document.getElementById('jlpt-opt-' + lv);
+    if (el) { el.style.background = lv === l ? 'var(--primary)' : 'var(--bg2)'; el.style.color = lv === l ? '#fff' : 'var(--text)'; }
+  });
+  window._selectedJlpt = l;
+}
+async function saveJlptLevel() {
+  try {
+    await PUT('/users/profile', { level: window._selectedJlpt });
+    toast('级别已更新 ✓');
+    closeModal();
+    loadProfile();
+  } catch(e) { toast('更新失败: ' + e.message); }
+}
+
+// ── 编辑每日目标 ──
+function editGoalDialog() {
+  const current = _profileUser?.daily_goal_minutes || 15;
+  const presets = [5, 15, 30, 60, 90, 120];
+  const html = `
+    <p style="text-align:center;font-size:16px;font-weight:700;margin-bottom:12px" id="goal-display-val">每日学习目标：${current} 分钟</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:16px">
+      ${presets.map(m => `<div onclick="selectGoal(${m})" id="goal-opt-${m}" style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:.2s;${m===current?'background:var(--primary);color:#fff':'background:var(--bg2);color:var(--text)'}">${m}分</div>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveGoal()">保存</button>
+    </div>`;
+  openModal('学习目标', html);
+  window._selectedGoal = current;
+}
+function selectGoal(m) {
+  const presets = [5, 15, 30, 60, 90, 120];
+  presets.forEach(v => {
+    const el = document.getElementById('goal-opt-' + v);
+    if (el) { el.style.background = v === m ? 'var(--primary)' : 'var(--bg2)'; el.style.color = v === m ? '#fff' : 'var(--text)'; }
+  });
+  window._selectedGoal = m;
+  const d = document.getElementById('goal-display-val');
+  if (d) d.textContent = '每日学习目标：' + m + ' 分钟';
+}
+async function saveGoal() {
+  try {
+    await PUT('/users/profile', { daily_goal_minutes: window._selectedGoal });
+    toast('目标已更新 ✓');
+    closeModal();
+    const d = document.getElementById('prof-goal-display');
+    if (d) d.textContent = window._selectedGoal + ' 分钟/天';
+    if (_profileUser) _profileUser.daily_goal_minutes = window._selectedGoal;
+  } catch(e) { toast('更新失败: ' + e.message); }
+}
+
+// ── 编辑级别 (settings row) ──
+function editLevelDialog() { editJlptLevel(); }
+
+// ── 通知开关 ──
+async function toggleNotification(val) {
+  try {
+    await PUT('/users/profile', { notification_enabled: val });
+    toast(val ? '提醒已开启' : '提醒已关闭');
+  } catch(e) {
+    toast('设置失败: ' + e.message);
+    const cb = document.getElementById('prof-notif-toggle');
+    if (cb) cb.checked = !val;
+  }
+}
+
+// ── 修改密码 ──
+function showChangePassword() {
+  const html = `
+    <div id="pwd-error" style="display:none;padding:10px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:13px;margin-bottom:12px"></div>
+    <div class="input-group">
+      <label>当前密码</label>
+      <input class="input" type="password" id="pwd-current" placeholder="请输入当前密码">
+    </div>
+    <div class="input-group">
+      <label>新密码（至少8位）</label>
+      <input class="input" type="password" id="pwd-new" placeholder="请输入新密码">
+    </div>
+    <div class="input-group">
+      <label>确认新密码</label>
+      <input class="input" type="password" id="pwd-confirm" placeholder="再次输入新密码">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="doChangePassword()">确认修改</button>
+    </div>`;
+  openModal('修改密码', html);
+}
+async function doChangePassword() {
+  const errEl = document.getElementById('pwd-error');
+  const cur = document.getElementById('pwd-current')?.value;
+  const nw  = document.getElementById('pwd-new')?.value;
+  const cf  = document.getElementById('pwd-confirm')?.value;
+  if (!cur) { errEl.textContent = '请输入当前密码'; errEl.style.display = ''; return; }
+  if (nw.length < 8) { errEl.textContent = '新密码至少8个字符'; errEl.style.display = ''; return; }
+  if (nw !== cf) { errEl.textContent = '两次输入的新密码不一致'; errEl.style.display = ''; return; }
+  try {
+    await PUT('/users/change-password', { currentPassword: cur, newPassword: nw });
+    closeModal();
+    toast('密码已更新，请重新登录');
+    setTimeout(() => doLogout(), 1500);
+  } catch(e) {
+    errEl.textContent = '修改失败：当前密码不正确或网络错误';
+    errEl.style.display = '';
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -5768,10 +5990,18 @@ function renderFurigana(raw) {
   if (!raw) return '';
   raw = raw.replace(/!/g, '');
   const re = /([^\[\]]+)\[([^\]]+)\]/g;
+  const kanjiTailRe = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]+$/;
   let result = '', pos = 0, m;
   while ((m = re.exec(raw)) !== null) {
     if (m.index > pos) result += escHtml(raw.substring(pos, m.index));
-    result += '<ruby>' + escHtml(m[1]) + '<rp>(</rp><rt>' + escHtml(m[2]) + '</rt><rp>)</rp></ruby>';
+    const fullBase = m[1], reading = m[2];
+    const km = kanjiTailRe.exec(fullBase);
+    if (km && km.index > 0) {
+      result += escHtml(fullBase.substring(0, km.index));
+      result += '<ruby>' + escHtml(km[0]) + '<rp>(</rp><rt>' + escHtml(reading) + '</rt><rp>)</rp></ruby>';
+    } else {
+      result += '<ruby>' + escHtml(fullBase) + '<rp>(</rp><rt>' + escHtml(reading) + '</rt><rp>)</rp></ruby>';
+    }
     pos = m.index + m[0].length;
   }
   if (pos < raw.length) result += escHtml(raw.substring(pos));
