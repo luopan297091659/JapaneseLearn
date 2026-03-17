@@ -12,6 +12,7 @@ import '../../services/api_service.dart';
 import '../../config/app_config.dart';
 import '../../models/models.dart';
 import '../../utils/japanese_text_utils.dart';
+import '../../widgets/furigana_text.dart';
 import '../../utils/tts_helper.dart';
 import '../../services/permission_service.dart';
 import '../../widgets/membership_gate.dart';
@@ -567,9 +568,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
       ),
       child: Column(children: [
         // Word
-        Text(cleanWord(w.word), style: TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: cs.primary)),
-        const SizedBox(height: 4),
-        Text(cleanReading(w.reading).isNotEmpty ? cleanReading(w.reading) : _ttsText(w), style: TextStyle(fontSize: 18, color: cs.onSurfaceVariant)),
+        FuriganaText(text: w.word, fontSize: 48, color: cs.primary),
         const SizedBox(height: 2),
         Text(w.meaningZh, style: TextStyle(fontSize: 14, color: cs.outline)),
         const SizedBox(height: 24),

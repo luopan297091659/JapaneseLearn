@@ -520,7 +520,7 @@ class _KanaStrokeWidgetState extends State<KanaStrokeWidget>
             painter: _KanaCanvasPainter(
               shadowPaths: _shadowPaths,
               strokes: _strokes,
-              animValue: _animCtrl?.value ?? (widget.testMode ? 0.0 : 1.0),
+              animValue: _animCtrl?.value ?? (widget.testMode || (!widget.autoPlay && widget.animationOnly) ? 0.0 : 1.0),
               userStrokes: _userStrokes,
               showRef: widget.testMode ? false : _showRef,
               svgError: _svgError,

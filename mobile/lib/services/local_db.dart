@@ -82,7 +82,7 @@ class LocalDb {
           'part_of_speech':  c['part_of_speech'] ?? 'other',
           'jlpt_level':      c['jlpt_level'] ?? 'N3',
           'deck_name':       c['deck_name'],
-          'synced':          0,
+          'synced':          1,
           'created_at':      now,
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,

@@ -5,7 +5,7 @@ const path = require('path');
 const { adminAuth, superAdminAuth, permissionCheck } = require('../middlewares/adminAuth');
 const {
   getDashboard,
-  listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab,
+  listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, deduplicateVocab, fixVocabReadings,
   importVocab, importVocabFile,
   listGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar,
   listTracks, createTrack, updateTrack, deleteTrack,
@@ -72,6 +72,8 @@ router.post('/vocabulary',             permissionCheck('vocabulary'), asyncHandl
 router.put('/vocabulary/:id',          permissionCheck('vocabulary'), asyncHandler(updateVocab));
 router.delete('/vocabulary/:id',       permissionCheck('vocabulary'), asyncHandler(deleteVocab));
 router.post('/vocabulary/bulk-delete', permissionCheck('vocabulary'), asyncHandler(bulkDeleteVocab));
+router.post('/vocabulary/deduplicate', permissionCheck('vocabulary'), asyncHandler(deduplicateVocab));
+router.post('/vocabulary/fix-readings', permissionCheck('vocabulary'), asyncHandler(fixVocabReadings));
 router.post('/vocabulary/import',      permissionCheck('vocabulary'), asyncHandler(importVocab));
 router.post('/vocabulary/import-file', permissionCheck('vocabulary'), upload.single('file'), asyncHandler(importVocabFile));
 

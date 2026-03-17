@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/local_db.dart';
-import '../../services/sync_service.dart';
 import '../../services/api_service.dart';
 import '../../widgets/membership_gate.dart';
+import '../../widgets/furigana_text.dart';
 
 // ── 智能显示辅助 ──────────────────────────────────────────────────────────────
 // 部分 Anki 词库字段顺序颠倒：中文意思存入了 word，振假名日语存入了 reading
@@ -43,9 +43,7 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   // 搜索
   final _searchCtrl = TextEditingController();
 
-  // 同步状态
-  bool _syncing = false;
-  int  _pendingCount = 0;
+
 
   // 牌组树展开状态
   final Set<String> _expandedNodes = {};
@@ -74,11 +72,9 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   Future<void> _loadDecks() async {
     setState(() => _loading = true);
     final decks   = await localDb.listDecks();
-    final pending = await syncService.pendingCount();
     if (!mounted) return;
     setState(() {
       _decks        = decks;
-      _pendingCount = pending;
       _loading      = false;
     });
   }
@@ -111,22 +107,6 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
       _cardTotal    = total;
       _loadingCards = false;
     });
-  }
-
-  Future<void> _syncAll() async {
-    setState(() => _syncing = true);
-    final result = await syncService.syncVocabulary();
-    await _loadDecks();
-    if (!mounted) return;
-    setState(() => _syncing = false);
-    final s = S.of(context);
-    if (result != null && result.allDone) {
-      _showSnack(s.syncSuccess);
-    } else if (result != null && result.hasError) {
-      _showSnack('${s.syncFailed}（${result.failed} 条失败）');
-    } else {
-      _showSnack(s.syncFailed);
-    }
   }
 
   void _showSnack(String msg) =>
@@ -526,9 +506,9 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
                       subtitle: Text(_displaySub(card),
                           maxLines: 1, overflow: TextOverflow.ellipsis),
                       trailing: Icon(
-                        card.synced ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+                        Icons.chevron_right_rounded,
                         size: 18,
-                        color: card.synced ? Colors.green : Colors.orange,
+                        color: cs.outline,
                       ),
                       onTap: () => _openCardDetail(context, card),
                     );
@@ -661,15 +641,10 @@ class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
                         ),
                       ]),
                       const SizedBox(height: 20),
-                      // 单词（始终显示）
-                      Text(_displayWord(card),
-                          style: TextStyle(fontSize: 44, fontWeight: FontWeight.bold, color: cs.primary, height: 1)),
+                      // 单词（始终显示，振假名标注）
+                      FuriganaText(text: _displayWord(card), fontSize: 44, color: cs.primary),
                       const SizedBox(height: 8),
-                      // 读音（答案揭示后才显示；字段颠倒时 reading 已作为主词，此处不重复）
-                      if (_showAnswer && !_isSwapped(card))
-                        Text(card.reading,
-                            style: TextStyle(fontSize: 22, color: cs.secondary, fontWeight: FontWeight.w500))
-                      else if (!_showAnswer)
+                      if (!_showAnswer)
                         Text('点击卡片查看答案',
                             style: TextStyle(color: cs.outline, fontSize: 13)),
                     ]),
@@ -732,19 +707,6 @@ class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
                         visualDensity: VisualDensity.compact,
                       ),
                     const Spacer(),
-                    Icon(
-                      card.synced ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
-                      size: 16,
-                      color: card.synced ? Colors.green : Colors.orange,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      card.synced ? '已同步' : '未同步',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: card.synced ? Colors.green : Colors.orange,
-                      ),
-                    ),
                   ]),
                 ] else ...[
                   // 未揭示答案时的提示

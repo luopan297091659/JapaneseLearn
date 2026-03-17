@@ -18,7 +18,7 @@ const fs = require('fs');
 const multer = require('multer');
 const AdmZip = require('adm-zip');
 const { v4: uuidv4 } = require('uuid');
-const { Vocabulary, GrammarLesson, GrammarExample, ContentVersion } = require('../models');
+const { Vocabulary, UserVocabulary, GrammarLesson, GrammarExample, ContentVersion } = require('../models');
 
 // utilities moved to service for better separation
 const {
@@ -347,12 +347,16 @@ async function serverImport(req, res) {
       const eni = mapping.meaning_en;
       const exi = mapping.example    ?? mapping.example_sentence;
 
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: '未登录' });
+
       const rows = [];
       for (const { flds, audioUrl } of allItems) {
         const word = (flds[wi] || '').substring(0, 100).trim();
         if (!word) continue;
         rows.push({
           id:               uuidv4(),
+          user_id:          userId,
           word,
           reading:          ri  !== undefined ? (flds[ri]  || word).substring(0, 200) : word,
           meaning_zh:       zhi !== undefined ? (flds[zhi] || '-').substring(0, 1000) :
@@ -362,8 +366,9 @@ async function serverImport(req, res) {
           audio_url:        audioUrl,
           part_of_speech:   safePos,
           jlpt_level:       safeLevel,
-          category:         deck_name.substring(0, 50),
-          tags:             { source: 'anki', deck: deck_name },
+          deck_name:        String(deck_name).substring(0, 100),
+          source:           'anki',
+          tags:             { deck: deck_name },
         });
       }
 
@@ -373,11 +378,10 @@ async function serverImport(req, res) {
       for (let i = 0; i < rows.length; i += CHUNK) {
         const chunk = rows.slice(i, i + CHUNK);
         try {
-          await Vocabulary.bulkCreate(chunk, { ignoreDuplicates: true });
+          await UserVocabulary.bulkCreate(chunk, { ignoreDuplicates: true });
           imported += chunk.length;
         } catch { failed += chunk.length; }
       }
-      await bumpVersion('vocabulary');
     }
 
     res.json({
@@ -417,6 +421,9 @@ async function importAnki(req, res) {
     const ext  = path.extname(req.file.originalname).toLowerCase();
     const rows = [];
 
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: '未登录' });
+
     const buildRow = (flds) => {
       const wi  = mapping.word;
       const ri  = mapping.reading;
@@ -429,6 +436,7 @@ async function importAnki(req, res) {
 
       return {
         id: uuidv4(),
+        user_id:          userId,
         word,
         reading:          (stripHtml(flds[ri] || '') || word).substring(0, 200),
         meaning_zh:       (stripHtml(zhi !== undefined ? flds[zhi] : (eni !== undefined ? flds[eni] : '')) || '-').substring(0, 1000),
@@ -436,8 +444,9 @@ async function importAnki(req, res) {
         example_sentence: exi !== undefined ? stripHtml(flds[exi] || '').substring(0, 2000) : null,
         part_of_speech:   safePos,
         jlpt_level:       safeLevel,
-        category:         deck_name.substring(0, 50),
-        tags:             { source: 'anki', deck: deck_name },
+        deck_name:        String(deck_name).substring(0, 100),
+        source:           'anki',
+        tags:             { deck: deck_name },
       };
     };
 
@@ -468,7 +477,7 @@ async function importAnki(req, res) {
     for (let i = 0; i < rows.length; i += CHUNK) {
       const chunk = rows.slice(i, i + CHUNK);
       try {
-        await Vocabulary.bulkCreate(chunk, { ignoreDuplicates: true });
+        await UserVocabulary.bulkCreate(chunk, { ignoreDuplicates: true });
         imported += chunk.length;
       } catch (err) {
         failed += chunk.length;
@@ -483,17 +492,20 @@ async function importAnki(req, res) {
 
 // ─── API: 获取 Anki 导入记录（按 category + source=anki 统计）───────────────
 async function listAnkiDecks(req, res) {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: '未登录' });
+
   try {
     const { sequelize } = require('../models');
     const [rows] = await sequelize.query(`
-      SELECT category AS deck_name,
+      SELECT deck_name,
              COUNT(*) AS card_count,
              MIN(created_at) AS imported_at
-      FROM vocabulary
-      WHERE JSON_EXTRACT(tags, '$.source') = 'anki'
-      GROUP BY category
+      FROM user_vocabulary
+      WHERE user_id = :userId
+      GROUP BY deck_name
       ORDER BY imported_at DESC
-    `);
+    `, { replacements: { userId } });
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });

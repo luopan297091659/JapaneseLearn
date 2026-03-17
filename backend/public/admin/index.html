@@ -984,9 +984,9 @@ async function loadAppList() {
         </td>
       </tr>`;
     }).join('');
-    document.getElementById('app-list-body').innerHTML = rows || '<tr><td colspan="6" style="text-align:center;color:#aaa">暂无数据</td></tr>';
+    const alBody = document.getElementById('app-list-body'); if(alBody) alBody.innerHTML = rows || '<tr><td colspan="6" style="text-align:center;color:#aaa">暂无数据</td></tr>';
   } catch(e) {
-    document.getElementById('app-list-body').innerHTML = `<tr><td colspan="6" style="color:#e74c3c;text-align:center">${esc(e.message)}</td></tr>`;
+    const alBody2 = document.getElementById('app-list-body'); if(alBody2) alBody2.innerHTML = `<tr><td colspan="6" style="color:#e74c3c;text-align:center">${esc(e.message)}</td></tr>`;
   }
 }
 async function deleteAppRelease(id) {
@@ -1004,9 +1004,10 @@ function nav(page){
 }
 
 /* ───────────────────────────────── PAGINATION ────────────────────────────── */
-function renderPager(containerId, page, total, onPage){
+function renderPager(containerId, page, total, onPage, state){
   const el = document.getElementById(containerId);
-  if(!el || total<=1){ if(el) el.innerHTML=''; return; }
+  if(!el){ return; }
+  if(total<=1 && !state){ el.innerHTML=''; return; }
   const btns = [];
   for(let i=1;i<=total;i++){
     if(i===1||i===total||Math.abs(i-page)<=2)
@@ -1014,8 +1015,13 @@ function renderPager(containerId, page, total, onPage){
     else if(Math.abs(i-page)===3)
       btns.push('<span style="padding:0 4px;color:#aaa">…</span>');
   }
-  el.innerHTML = `<div class="pagination">${btns.join('')}<span class="page-info"> 共 ${total} 页</span></div>`;
+  const sizeSelect = state ? `<select style="margin-left:12px;padding:2px 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#fff" onchange="pageSizeChange('${containerId}',this.value)">
+    ${[20,50,100].map(n=>`<option value="${n}" ${state.limit===n?'selected':''}>${n}条/页</option>`).join('')}
+  </select>` : '';
+  el.innerHTML = `<div class="pagination">${btns.join('')}<span class="page-info"> 共 ${total} 页${sizeSelect}</span></div>`;
 }
+const _pagerMap = {'v-pager':{s:()=>vState,fn:()=>loadVocab()}, 'gr-pager':{s:()=>gState,fn:()=>loadGrammar()}, 'tr-pager':{s:()=>tState,fn:()=>loadTracks()}, 'us-pager':{s:()=>uState,fn:()=>loadUsers()}};
+function pageSizeChange(cid,v){ const m=_pagerMap[cid]; if(!m)return; const s=m.s(); s.limit=parseInt(v); s.page=1; m.fn(); }
 
 /* ───────────────────────────────── DASHBOARD ─────────────────────────────── */
 function buildQuickAccessHTML(){
@@ -1150,12 +1156,14 @@ async function renderVocab(){
     <button class="btn btn-primary" onclick="vocabSearch()">搜索</button>
     <button class="btn btn-ghost" onclick="openVocabModal()">＋ 添加</button>
     <button class="btn btn-ghost" onclick="openModal('modal-import')">📥 导入</button>
+    <button class="btn btn-ghost" onclick="dedupVocab()">🧹 去重</button>
+    <button class="btn btn-ghost" onclick="fixReadings()">🔧 修复读音</button>
     <button class="btn btn-danger btn-sm" id="v-del-btn" style="display:none" onclick="bulkDeleteVocab()">删除选中</button>
   </div>
   <div class="panel" style="padding:0">
     <table><thead><tr>
       <th><input type="checkbox" onchange="toggleAllVocab(this)" /></th>
-      <th>单词</th><th>读音</th><th>意思</th><th>词性</th><th>级别</th><th>操作</th>
+      <th>单词</th><th>读音</th><th>意思</th><th>词性</th><th>级别</th><th>例句</th><th>操作</th>
     </tr></thead><tbody id="vt-body"></tbody></table>
     <div style="padding:12px 16px" id="v-pager"></div>
   </div>`;
@@ -1166,7 +1174,8 @@ async function loadVocab(){
     const levelParam = vState.level ? `&level=${vState.level}` : '';
     const d = await api('GET',`/admin/vocabulary?page=${vState.page}&limit=${vState.limit}&q=${encodeURIComponent(vState.search)}${levelParam}`);
     vState.total = d.total||0;
-    document.getElementById('vt-body').innerHTML = (d.data||[]).map(v=>{
+    const vtBody = document.getElementById('vt-body'); if(!vtBody) return;
+    vtBody.innerHTML = (d.data||[]).map(v=>{
       _editCache['v_'+v.id] = v;
       return `
       <tr>
@@ -1174,17 +1183,20 @@ async function loadVocab(){
         <td><b>${esc(v.word)}</b></td><td>${esc(v.reading)}</td><td>${esc(v.meaning_zh)}</td>
         <td>${esc(v.part_of_speech||'')}</td>
         <td><span class="badge badge-blue">${esc(v.jlpt_level)}</span></td>
+        <td style="max-width:180px" title="${esc(v.example_sentence||'')}">${v.example_sentence?'<span style="display:inline-block;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#555;cursor:help">'+esc(v.example_sentence)+'</span>':'<span style="color:#ccc;font-size:11px">—</span>'}</td>
         <td>
           <button class="btn btn-ghost btn-sm" onclick="editVocab('${esc(String(v.id))}')">编辑</button>
           <button class="btn btn-danger btn-sm" onclick="deleteVocab('${esc(String(v.id))}')">删除</button>
         </td>
       </tr>`;
     }).join('');
-    renderPager('v-pager', vState.page, Math.ceil(vState.total/vState.limit), p=>{ vState.page=p; loadVocab(); });
+    renderPager('v-pager', vState.page, Math.ceil(vState.total/vState.limit), p=>{ vState.page=p; loadVocab(); }, vState);
   }catch(e){ toast(e.message,true) }
 }
 function vocabSearch(){ vState.page=1; vState.search=document.getElementById('v-search').value; loadVocab(); }
 function vocabFilterLevel(){ vState.page=1; vState.level=document.getElementById('v-level').value; loadVocab(); }
+async function dedupVocab(){ if(!confirm('确认对词汇数据去重？（按 word+jlpt_level 保留最早创建的记录）'))return; try{ const d=await api('POST','/admin/vocabulary/deduplicate'); toast(d.message); loadVocab(); }catch(e){ toast(e.message,true); } }
+async function fixReadings(){ if(!confirm('修复读音=单词的词汇？（从单词中提取[假名]作为读音）'))return; try{ const d=await api('POST','/admin/vocabulary/fix-readings'); toast(d.message); loadVocab(); }catch(e){ toast(e.message,true); } }
 function updateDelBtn(){ document.getElementById('v-del-btn').style.display=document.querySelectorAll('.v-cb:checked').length>0?'':'none'; }
 function toggleAllVocab(cb){ document.querySelectorAll('.v-cb').forEach(c=>c.checked=cb.checked); updateDelBtn(); }
 function openVocabModal(v=null){
@@ -1270,7 +1282,7 @@ async function renderGrammar(){
   <div class="panel" style="padding:0">
     <table><thead><tr>
       <th><input type="checkbox" onchange="toggleAllGrammar(this)" /></th>
-      <th>ID</th><th>标题</th><th>级别</th><th>例句数</th><th>操作</th></tr></thead>
+      <th>ID</th><th>标题</th><th>级别</th><th>例句数</th><th>例句</th><th>操作</th></tr></thead>
     <tbody id="gr-body"></tbody></table>
     <div style="padding:12px 16px" id="gr-pager"></div>
   </div>`;
@@ -1281,21 +1293,23 @@ async function loadGrammar(){
     const levelParam = gState.level ? `&level=${gState.level}` : '';
     const d=await api('GET',`/admin/grammar?page=${gState.page}&limit=${gState.limit}&q=${encodeURIComponent(gState.search)}${levelParam}`);
     gState.total=d.total||0;
-    document.getElementById('gr-body').innerHTML=(d.data||[]).map(g=>{
+    const grBody = document.getElementById('gr-body'); if(!grBody) return;
+    grBody.innerHTML=(d.data||[]).map(g=>{
       _editCache['g_'+g.id] = g;
       return `
       <tr>
         <td><input type="checkbox" class="gr-cb" value="${g.id}" onchange="updateGrDelBtn()" /></td>
         <td>${g.id}</td><td>${esc(g.title||g.pattern)}</td>
         <td><span class="badge badge-orange">${esc(g.jlpt_level)}</span></td>
-        <td>${g.examples?.length||0}</td>
+        <td>${g.example_count||0}</td>
+        <td style="max-width:200px" title="${esc(g.example_summary||'')}">${g.example_summary?'<span style="display:inline-block;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#555;cursor:help">'+esc(g.example_summary)+'</span>':'<span style="color:#ccc;font-size:11px">—</span>'}</td>
         <td>
           <button class="btn btn-ghost btn-sm" onclick="editGrammar('${esc(String(g.id))}')">编辑</button>
           <button class="btn btn-danger btn-sm" onclick="deleteGrammar('${esc(String(g.id))}')">删除</button>
         </td>
       </tr>`;
     }).join('');
-    renderPager('gr-pager', gState.page, Math.ceil(gState.total/gState.limit), p=>{ gState.page=p; loadGrammar(); });
+    renderPager('gr-pager', gState.page, Math.ceil(gState.total/gState.limit), p=>{ gState.page=p; loadGrammar(); }, gState);
   }catch(e){ toast(e.message,true) }
 }
 function grammarSearch(){ gState.page=1; gState.search=document.getElementById('gr-search').value; loadGrammar(); }
@@ -1358,7 +1372,8 @@ async function loadTracks(){
   try{
     const d=await api('GET',`/admin/tracks?page=${tState.page}&limit=${tState.limit}&q=${encodeURIComponent(tState.search)}`);
     tState.total=d.total||0;
-    document.getElementById('tr-body').innerHTML=(d.data||[]).map(t=>{
+    const trBody = document.getElementById('tr-body'); if(!trBody) return;
+    trBody.innerHTML=(d.data||[]).map(t=>{
       _editCache['t_'+t.id] = t;
       return `
       <tr>
@@ -1371,7 +1386,7 @@ async function loadTracks(){
         </td>
       </tr>`;
     }).join('');
-    renderPager('tr-pager', tState.page, Math.ceil(tState.total/tState.limit), p=>{ tState.page=p; loadTracks(); });
+    renderPager('tr-pager', tState.page, Math.ceil(tState.total/tState.limit), p=>{ tState.page=p; loadTracks(); }, tState);
   }catch(e){ toast(e.message,true) }
 }
 function trackSearch(){ tState.page=1; tState.search=document.getElementById('tr-search').value; loadTracks(); }
@@ -1425,11 +1440,23 @@ async function loadUsers(){
   try{
     const d=await api('GET',`/admin/users?page=${uState.page}&limit=${uState.limit}&q=${encodeURIComponent(uState.search)}`);
     uState.total=d.total||0;
-    document.getElementById('us-body').innerHTML=(d.data||[]).map(u=>{
+    const usBody = document.getElementById('us-body'); if(!usBody) return;
+    usBody.innerHTML=(d.data||[]).map(u=>{
       const mp = u.membership_plan;
       const me = u.membership_expire;
       const isExpired = me && new Date(me) < new Date();
-      const memBadge = mp ? `<span class="badge ${isExpired?'badge-orange':'badge-green'}">${esc(mp)}${isExpired?' (已过期)':''}</span>` : '<span style="color:#aaa;font-size:11px">无</span>';
+      const isTrial = mp === 'trial';
+      let memBadge;
+      if (!mp) {
+        memBadge = '<span style="color:#aaa;font-size:11px">无</span>';
+      } else if (isTrial) {
+        const expDay = new Date(me); const todDay = new Date();
+        expDay.setHours(0,0,0,0); todDay.setHours(0,0,0,0);
+        const left = Math.max(0, Math.round((expDay - todDay) / 86400000));
+        memBadge = `<span class="badge ${isExpired?'badge-orange':'badge-purple'}" style="${!isExpired?'background:#f3e8ff;color:#7c3aed;border-color:#c4b5fd':''}">🎁 体验会员${isExpired?' (已过期)':` (剩${left}天)`}</span>`;
+      } else {
+        memBadge = `<span class="badge ${isExpired?'badge-orange':'badge-green'}">${esc(mp)}${isExpired?' (已过期)':''}</span>`;
+      }
       const memExpire = me ? `<br/><small style="color:#888">${new Date(me).toLocaleDateString('zh-CN')}</small>` : '';
       const sid = esc(String(u.id));
       return `<tr>
@@ -1445,7 +1472,7 @@ async function loadUsers(){
         </td>
       </tr>`;
     }).join('');
-    renderPager('us-pager', uState.page, Math.ceil(uState.total/uState.limit), p=>{ uState.page=p; loadUsers(); });
+    renderPager('us-pager', uState.page, Math.ceil(uState.total/uState.limit), p=>{ uState.page=p; loadUsers(); }, uState);
   }catch(e){ toast(e.message,true) }
 }
 function userSearch(){ uState.page=1; uState.search=document.getElementById('us-search').value; loadUsers(); }
@@ -1464,7 +1491,7 @@ async function openMembershipModal(userId, username, currentPlan, currentExpire)
       <h2>绑定会员 — ${esc(username)}</h2>
       <input type="hidden" id="um-uid" value="${userId}" />
       <div class="form-row"><label>会员套餐</label>
-        <select id="um-plan">
+        <select id="um-plan" onchange="autoFillExpire()">
           <option value="">无会员</option>
           ${planOptions}
         </select>
@@ -1486,6 +1513,19 @@ async function openMembershipModal(userId, username, currentPlan, currentExpire)
   }
   overlay.innerHTML = modalHtml;
   overlay.classList.add('open');
+}
+function autoFillExpire(){
+  const planId = document.getElementById('um-plan').value;
+  const dateEl = document.getElementById('um-expire');
+  if (!planId) { dateEl.value = ''; return; }
+  const plan = (_membershipPlansCache||[]).find(p=>p.id===planId);
+  if (!plan) return;
+  const d = new Date();
+  if (plan.period === 'month') d.setMonth(d.getMonth()+1);
+  else if (plan.period === 'year') d.setFullYear(d.getFullYear()+1);
+  else if (plan.period === 'forever') { dateEl.value = ''; return; }
+  else { d.setMonth(d.getMonth()+1); }
+  dateEl.value = d.toISOString().slice(0,10);
 }
 async function saveUserMembership(){
   const uid = document.getElementById('um-uid').value;
@@ -1718,7 +1758,7 @@ function _buildMembershipUI() {
       <td style="font-size:15px;font-weight:700">${p.price==0?'<span class="badge badge-blue">免费</span>':'&#165;'+p.price}</td>
       <td>${PERIOD_LABEL[p.period]||p.period}</td>
       <td style="max-width:240px;color:#555">${(p.features||[]).map(f=>`<span style="display:inline-block;background:#f5f5f5;border-radius:10px;padding:1px 8px;margin:1px;font-size:11px">${esc(f)}</span>`).join(' ')}</td>
-      <td style="max-width:200px">${(p.bound_features||[]).map(f=>`<span style="display:inline-block;background:#e0f2fe;border-radius:10px;padding:1px 8px;margin:1px;font-size:11px;color:#0369a1">${esc(f)}</span>`).join(' ')||'<span style="color:#aaa;font-size:11px">未绑定</span>'}</td>
+      <td style="max-width:200px">${(Array.isArray(p.bound_features)?p.bound_features:typeof p.bound_features==='string'?JSON.parse(p.bound_features||'[]'):[]).map(f=>`<span style="display:inline-block;background:#e0f2fe;border-radius:10px;padding:1px 8px;margin:1px;font-size:11px;color:#0369a1">${esc(f)}</span>`).join(' ')||'<span style="color:#aaa;font-size:11px">未绑定</span>'}</td>
       <td>${esc(p.description||'')}</td>
       <td>
         <button class="btn btn-ghost btn-sm" onclick="editPlan(${i})">编辑</button>
@@ -1847,7 +1887,7 @@ async function editPlan(idx) {
   document.getElementById('mp-desc').value  = p.description||'';
   document.getElementById('mp-features').value = (p.features||[]).join('\n');
   document.getElementById('mp-enabled').checked = !!p.enabled;
-  renderBoundFeatures(p.bound_features || []);
+  renderBoundFeatures(Array.isArray(p.bound_features)?p.bound_features:typeof p.bound_features==='string'?JSON.parse(p.bound_features||'[]'):[]);
   openModal('modal-plan');
 }
 
@@ -1925,7 +1965,8 @@ async function loadSyncInfo(){
   try{
     const d=await api('GET','/admin/content-version');
     const v=d.version||d;
-    document.getElementById('sync-info').innerHTML=`
+    const syncInfo = document.getElementById('sync-info'); if(!syncInfo) return;
+    syncInfo.innerHTML=`
       <b>当前内容版本：</b>${v.version||'—'}<br/>
       <b>词汇版本：</b>${v.vocab_version||0}<br/>
       <b>语法版本：</b>${v.grammar_version||0}<br/>
@@ -1935,7 +1976,7 @@ async function loadSyncInfo(){
 async function publishContent(type){
   try{
     const d=await api('POST','/admin/content-version/publish',{type});
-    document.getElementById('sync-msg').textContent=`✅ 发布成功，新版本：${d.version}`;
+    const syncMsg = document.getElementById('sync-msg'); if(syncMsg) syncMsg.textContent=`✅ 发布成功，新版本：${d.version}`;
     await loadSyncInfo();
   }catch(e){ toast(e.message,true) }
 }
@@ -1966,7 +2007,8 @@ function setImportStep(n) {
 
 function renderImportStep1() {
   setImportStep(1);
-  document.getElementById('import-body').innerHTML = `
+  const ib = document.getElementById('import-body'); if(!ib) return;
+  ib.innerHTML = `
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
     <div class="form-row" style="margin:0">
       <label>导入类型</label>
@@ -2098,7 +2140,8 @@ function renderImportStep2() {
     <tbody>${samples.map(s=>`<tr>${fields.map(f=>`<td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(String(s[f]||''))}</td>`).join('')}</tr>`).join('')}</tbody>
     </table></div>` : '<p style="color:var(--text-muted);font-size:13px">无预览数据</p>';
 
-  document.getElementById('import-body').innerHTML = `
+  const ib2 = document.getElementById('import-body'); if(!ib2) return;
+  ib2.innerHTML = `
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
     <div>
       <h4 style="margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted)">字段映射</h4>
@@ -2137,7 +2180,8 @@ async function doServerImport() {
   }
   const pos = document.getElementById('i-pos')?.value || 'other';
 
-  document.getElementById('import-body').innerHTML = `
+  const importBody = document.getElementById('import-body'); if(!importBody) return;
+  importBody.innerHTML = `
   <div style="text-align:center;padding:60px 20px">
     <div style="font-size:48px;margin-bottom:16px">⏳</div>
     <div style="font-weight:600;font-size:16px;color:var(--text)">正在导入，请稍候…</div>
@@ -2172,7 +2216,8 @@ function renderImportStep3(result) {
   setImportStep(3);
   const ok      = result.failed === 0;
   const typeZh  = result.import_type === 'grammar' ? '语法' : '词汇';
-  document.getElementById('import-body').innerHTML = `
+  const ib3 = document.getElementById('import-body'); if(!ib3) return;
+  ib3.innerHTML = `
   <div style="text-align:center;padding:32px 20px">
     <div style="font-size:60px;margin-bottom:12px">${ok ? '✅' : '⚠️'}</div>
     <h2 style="margin:0 0 6px;color:var(--text)">${typeZh}导入${ok ? '成功' : '部分成功'}</h2>
@@ -2386,6 +2431,7 @@ function onProviderChange() {
 
 function updateModelSelect(models, selected) {
   const sel = document.getElementById('ai-model');
+  if (!sel) return;
   sel.innerHTML = '';
   if (models.length === 0) {
     sel.innerHTML = '<option value="">请手动输入模型名称</option>';
@@ -2452,7 +2498,8 @@ async function renderChannels(){
 async function loadChannels(){
   try{
     const d=await api('GET','/admin/channels');
-    document.getElementById('ch-body').innerHTML=(d.data||[]).map(c=>{
+    const chBody = document.getElementById('ch-body'); if(!chBody) return;
+    chBody.innerHTML=(d.data||[]).map(c=>{
       const vcount = (c.video_cache||[]).length;
       const platIcon = c.platform==='youtube'?'▶️ YouTube':'📺 Bilibili';
       const sid = esc(String(c.id));

@@ -80,6 +80,7 @@ async function getDashboard(req, res) {
 // ─── 词汇管理 ─────────────────────────────────────────────────────────────────
 async function listVocab(req, res) {
   const { level, q, page = 1, limit = 30, category } = req.query;
+  const lim = Math.min(parseInt(limit) || 30, 200);
   const where = {};
   if (level) where.jlpt_level = level;
   if (category) where.category = category;
@@ -90,13 +91,13 @@ async function listVocab(req, res) {
       { meaning_zh: { [Op.like]: `%${q}%` } },
     ];
   }
-  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const offset = (parseInt(page) - 1) * lim;
   try {
     const { count, rows } = await Vocabulary.findAndCountAll({
-      where, limit: parseInt(limit), offset,
+      where, limit: lim, offset,
       order: [['jlpt_level', 'ASC'], ['word', 'ASC']],
     });
-    res.json({ total: count, page: parseInt(page), limit: parseInt(limit), data: rows });
+    res.json({ total: count, page: parseInt(page), limit: lim, data: rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -149,6 +150,54 @@ async function bulkDeleteVocab(req, res) {
   }
 }
 
+// ─── 词汇去重 ─────────────────────────────────────────────────────────────────
+async function deduplicateVocab(req, res) {
+  try {
+    // 按 word + jlpt_level 分组，保留最早创建的那条
+    const [dupes] = await sequelize.query(`
+      SELECT v.id FROM vocabulary v
+      INNER JOIN (
+        SELECT word, jlpt_level, MIN(created_at) AS minCreated
+        FROM vocabulary
+        GROUP BY word, jlpt_level
+        HAVING COUNT(*) > 1
+      ) d ON v.word = d.word AND v.jlpt_level = d.jlpt_level AND v.created_at > d.minCreated
+    `);
+    if (dupes.length === 0) return res.json({ deleted: 0, message: '没有发现重复数据' });
+    const ids = dupes.map(r => r.id);
+    const count = await Vocabulary.destroy({ where: { id: { [Op.in]: ids } } });
+    await bumpVersion('vocab_version');
+    res.json({ deleted: count, message: `已删除 ${count} 条重复词汇` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// 修复 reading=word 的词汇：从 word 中提取 [假名] 拼成正确读音
+async function fixVocabReadings(req, res) {
+  try {
+    const rows = await Vocabulary.findAll({
+      where: sequelize.where(sequelize.col('reading'), sequelize.col('word')),
+      attributes: ['id', 'word', 'reading'],
+    });
+    let fixed = 0;
+    for (const row of rows) {
+      const brackets = (row.word || '').match(/\[([^\]]*)\]/g);
+      if (brackets && brackets.length > 0) {
+        const newReading = brackets.map(b => b.slice(1, -1)).join('');
+        if (newReading && newReading !== row.reading) {
+          await row.update({ reading: newReading });
+          fixed++;
+        }
+      }
+    }
+    if (fixed > 0) await bumpVersion('vocab_version');
+    res.json({ total: rows.length, fixed, message: `已修复 ${fixed} 条词汇读音` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 // ─── Anki / CSV 批量导入词汇 ──────────────────────────────────────────────────
 // reuse shared html stripping from ankiService (imported above)
 
@@ -164,10 +213,20 @@ async function importVocab(req, res) {
   const safeLevel = VALID_LEVELS.includes(jlpt_level) ? jlpt_level : 'N3';
   const safePos   = VALID_POS.includes(part_of_speech) ? part_of_speech : 'other';
 
+  // 从 word 字段中提取假名读音，如 "吉[よし]野[の]山[やま]" → "よしのやま"
+  function extractReading(word) {
+    const w = stripHtml(String(word));
+    const brackets = w.match(/\[([^\]]*)\]/g);
+    if (brackets && brackets.length > 0) {
+      return brackets.map(b => b.slice(1, -1)).join('');
+    }
+    return w; // 没有方括号标注，原样返回
+  }
+
   const rows = cards.filter(c => c.word && String(c.word).trim()).map(c => ({
     id: uuidv4(),
     word: stripHtml(String(c.word)).substring(0, 100),
-    reading: stripHtml(c.reading ? String(c.reading) : String(c.word)).substring(0, 200),
+    reading: (c.reading ? stripHtml(String(c.reading)) : extractReading(c.word)).substring(0, 200),
     meaning_zh: stripHtml(c.meaning_zh || c.meaning_en || '-').substring(0, 1000),
     meaning_en: c.meaning_en ? stripHtml(String(c.meaning_en)).substring(0, 1000) : null,
     example_sentence: c.example_sentence ? stripHtml(String(c.example_sentence)).substring(0, 2000) : null,
@@ -231,6 +290,7 @@ async function importVocabFile(req, res) {
 // ─── 文法管理 ─────────────────────────────────────────────────────────────────
 async function listGrammar(req, res) {
   const { level, q, page = 1, limit = 30 } = req.query;
+  const lim = Math.min(parseInt(limit) || 30, 200);
   const where = {};
   if (level) where.jlpt_level = level;
   if (q) {
@@ -240,14 +300,23 @@ async function listGrammar(req, res) {
       { explanation_zh: { [Op.like]: `%${q}%` } },
     ];
   }
-  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const offset = (parseInt(page) - 1) * lim;
   try {
     const { count, rows } = await GrammarLesson.findAndCountAll({
-      where, limit: parseInt(limit), offset,
-      include: [{ model: GrammarExample, as: 'examples' }],
+      where, limit: lim, offset,
+      include: [{ model: GrammarExample, as: 'examples', attributes: ['sentence', 'meaning_zh'] }],
       order: [['jlpt_level', 'ASC'], ['order_index', 'ASC']],
+      distinct: true,
     });
-    res.json({ total: count, page: parseInt(page), limit: parseInt(limit), data: rows });
+    // 附加 example_count 并截取例句摘要
+    const data = rows.map(r => {
+      const j = r.toJSON();
+      j.example_count = (j.examples || []).length;
+      j.example_summary = (j.examples || []).slice(0, 2).map(e => e.sentence).join('；');
+      delete j.examples;
+      return j;
+    });
+    res.json({ total: count, page: parseInt(page), limit: lim, data });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -369,6 +438,7 @@ async function deleteTrack(req, res) {
 // ─── 用户管理 ─────────────────────────────────────────────────────────────────
 async function listUsers(req, res) {
   const { q, page = 1, limit = 30, role } = req.query;
+  const lim = Math.min(parseInt(limit) || 30, 200);
   const where = {};
   if (role) where.role = role;
   if (q) {
@@ -377,14 +447,18 @@ async function listUsers(req, res) {
       { email: { [Op.like]: `%${q}%` } },
     ];
   }
-  const offset = (parseInt(page) - 1) * parseInt(limit);
+  // 非超级管理员不能看到其他管理员
+  if (!req.isSuperAdmin) {
+    where.admin_level = { [Op.or]: [null, { [Op.ne]: 'super_admin' }] };
+  }
+  const offset = (parseInt(page) - 1) * lim;
   try {
     const { count, rows } = await User.findAndCountAll({
-      where, limit: parseInt(limit), offset,
+      where, limit: lim, offset,
       order: [['createdAt', 'DESC']],
       attributes: { exclude: ['password_hash'] },
     });
-    res.json({ total: count, page: parseInt(page), limit: parseInt(limit), data: rows });
+    res.json({ total: count, page: parseInt(page), limit: lim, data: rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -394,10 +468,18 @@ async function updateUser(req, res) {
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ error: 'Not found' });
+    // 非超级管理员不能修改管理员用户
+    if (!req.isSuperAdmin && (user.role === 'admin' || user.admin_level === 'super_admin')) {
+      return res.status(403).json({ error: '权限不足，不能修改管理员用户' });
+    }
     const { is_active, role, level, daily_goal_minutes } = req.body;
     const updates = {};
     if (is_active !== undefined) updates.is_active = is_active;
-    if (role !== undefined) updates.role = role;
+    // 非超级管理员不能设置角色为 admin
+    if (role !== undefined) {
+      if (role === 'admin' && !req.isSuperAdmin) return res.status(403).json({ error: '权限不足，不能授予管理员角色' });
+      updates.role = role;
+    }
     if (level !== undefined) updates.level = level;
     if (daily_goal_minutes !== undefined) updates.daily_goal_minutes = daily_goal_minutes;
     await user.update(updates);
@@ -994,7 +1076,9 @@ async function getMembershipConfig(req, res) {
       dbPlans.forEach(p => { dbMap[p.plan_id] = p; });
       config.plans.forEach(p => {
         if (dbMap[p.id]) {
-          p.bound_features = dbMap[p.id].bound_features || [];
+          let bf = dbMap[p.id].bound_features || [];
+          if (typeof bf === 'string') { try { bf = JSON.parse(bf); } catch { bf = []; } }
+          p.bound_features = Array.isArray(bf) ? bf : [];
         }
       });
     }
@@ -1205,7 +1289,7 @@ async function resetAiUsage(req, res) {
 
 module.exports = {
   getDashboard,
-  listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab,
+  listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, deduplicateVocab, fixVocabReadings,
   importVocab, importVocabFile,
   listGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar,
   listTracks, createTrack, updateTrack, deleteTrack,

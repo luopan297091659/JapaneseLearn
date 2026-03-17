@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../utils/japanese_text_utils.dart';
+import '../../widgets/furigana_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/app_config.dart';
 import 'vocab_whiteboard_screen.dart';
@@ -367,15 +368,16 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                         const SnackBar(content: Text('已复制'), behavior: SnackBarBehavior.floating,
                             duration: Duration(seconds: 1)));
                   },
-                  child: Text(cleanWord(v.word),
-                      style: TextStyle(fontSize: 52, fontWeight: FontWeight.bold,
-                          color: cs.primary, height: 1.2)),
+                  child: FuriganaText(text: v.word, fontSize: 52, color: cs.primary),
                 ),
-                if (_showAnswer) ...[  
-                  const SizedBox(height: 8),
-                  Text(cleanReading(v.reading).isNotEmpty ? cleanReading(v.reading) : ttsText(v.word, v.reading),
-                      style: TextStyle(fontSize: 24, color: cs.secondary, fontWeight: FontWeight.w500)),
-                ],
+                if (v.reading.isNotEmpty && cleanReading(v.reading) != cleanWord(v.word))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      cleanReading(v.reading),
+                      style: TextStyle(fontSize: 16, color: cs.primary.withValues(alpha: 0.7)),
+                    ),
+                  ),
                 const SizedBox(height: 12),
                 // ── 级别 + 词性 + 喇叭按钮 ──
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -406,7 +408,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
           // 未显示答案时提示点击
           if (!_showAnswer) ...[  
             const SizedBox(height: 40),
-            Text('点击卡片或「显示答案」查看释义',
+            Text('点击卡片或「显示意思」查看释义',
                 style: TextStyle(color: cs.outline, fontSize: 14)),
             const SizedBox(height: 40),
           ],
@@ -457,11 +459,17 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(v.exampleSentence!, 
-                                  style: const TextStyle(fontSize: 18, height: 1.6)),
-                              if (v.exampleReading != null)
-                                Text(v.exampleReading!,
-                                    style: TextStyle(fontSize: 14, color: cs.primary, height: 1.4)),
+                              if (v.exampleReading != null && hasFurigana(v.exampleReading!))
+                                  FuriganaText(
+                                    text: v.exampleReading!,
+                                    fontSize: 18,
+                                    color: cs.onSurface,
+                                    fontWeight: FontWeight.normal,
+                                    textAlign: TextAlign.start,
+                                  )
+                                else
+                                  Text(v.exampleSentence!, 
+                                      style: const TextStyle(fontSize: 18, height: 1.6)),
                               if (v.exampleMeaningZh != null) ...[
                                 const SizedBox(height: 4),
                                 Text(v.exampleMeaningZh!,

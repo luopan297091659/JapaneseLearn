@@ -379,16 +379,25 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
   Timer? _tickTimer;
   static const _tickMs = 50;
 
-  // ── 存储 key 按游戏类型区分 ──
-  String get _keyPrefix => widget.gameType;
+  // ── 存储 key 按游戏类型 + 用户 ID 区分 ──
+  String _userId = 'guest';
+  String get _keyPrefix => '${widget.gameType}_$_userId';
   String get _keyUnlocked => 'g_unlocked_to_$_keyPrefix';
   String get _keyScores => 'g_level_scores_$_keyPrefix';
   String get _gameTitle => widget.gameType == 'verbs' ? '🎮 动词方块' : '🎮 助词方块';
 
   @override
-  void initState() { super.initState(); _loadLocal(); _fetchConfig(); }
+  void initState() { super.initState(); _initUserId(); _fetchConfig(); }
   @override
   void dispose() { _tickTimer?.cancel(); super.dispose(); }
+
+  Future<void> _initUserId() async {
+    try {
+      final me = await ApiService().getMe();
+      _userId = me.id;
+    } catch (_) {}
+    _loadLocal();
+  }
 
   Future<void> _fetchConfig() async {
     try {
@@ -418,23 +427,22 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
       if (res['ok'] != true) return;
       final serverUnlocked = (res['unlocked_to'] as num?)?.toInt() ?? 1;
       final serverScores   = (res['level_scores'] as Map<String, dynamic>?) ?? {};
-      bool changed = false;
-      if (serverUnlocked > _unlockedTo) { _unlockedTo = serverUnlocked; changed = true; }
-      serverScores.forEach((k, v) {
-        final lv = int.tryParse(k); if (lv == null) return;
-        final sv    = v as Map<String, dynamic>;
+      // 以服务端为准，覆盖本地进度
+      _unlockedTo = serverUnlocked;
+      for (final entry in serverScores.entries) {
+        final lv = int.tryParse(entry.key); if (lv == null) continue;
+        final sv = entry.value as Map<String, dynamic>;
         final local = _levelScores[lv];
         if (local == null || (sv['score'] as num? ?? 0) > (local['score'] as num? ?? 0)) {
           _levelScores[lv] = {'score': (sv['score'] as num?)?.toInt() ?? 0, 'stars': (sv['stars'] as num?)?.toInt() ?? 1, 'combo': (sv['combo'] as num?)?.toInt() ?? 0};
-          changed = true;
         }
-      });
-      if (changed) {
-        final p = await SharedPreferences.getInstance();
-        await p.setInt(_keyUnlocked, _unlockedTo);
-        await p.setString(_keyScores, jsonEncode(_levelScores.map((k, v) => MapEntry(k.toString(), v))));
-        if (mounted) setState(() {});
       }
+      // 移除本地有但服务器没有的旧数据
+      _levelScores.removeWhere((lv, _) => !serverScores.containsKey(lv.toString()) && lv < serverUnlocked);
+      final p = await SharedPreferences.getInstance();
+      await p.setInt(_keyUnlocked, _unlockedTo);
+      await p.setString(_keyScores, jsonEncode(_levelScores.map((k, v) => MapEntry(k.toString(), v))));
+      if (mounted) setState(() {});
     } catch (_) {} // 未登录或网络失败时静默降级为本地模式
   }
 

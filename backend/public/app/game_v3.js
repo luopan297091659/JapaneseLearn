@@ -333,8 +333,16 @@ function gLvlCfg(lv) {
   };
 }
 
-// ── localStorage 存档 ──
-function gStorageKey(name) { return name + '_' + gGameType; }
+// ── localStorage 存档（按用户区分） ──
+function gGetUserId() {
+  try {
+    var token = (typeof getToken === 'function') ? getToken() : localStorage.getItem('access_token');
+    if (!token) return 'guest';
+    var payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.id || 'guest';
+  } catch(e) { return 'guest'; }
+}
+function gStorageKey(name) { return name + '_' + gGameType + '_' + gGetUserId(); }
 function gLoadLocalSaves() {
   try {
     gUnlockedTo  = parseInt(localStorage.getItem(gStorageKey('gUnlockedTo')) || '1');
@@ -349,9 +357,9 @@ function gSaveLocalProgress(lv, score, stars, combo) {
   }
 }
 
-// ── 从服务器同步进度（登录用户） ──
+// ── 从服务器同步进度（登录用户）——以服务端为准 ──
 function gSyncServerProgress() {
-  const token = (typeof getToken === 'function') ? getToken() : localStorage.getItem('token');
+  const token = (typeof getToken === 'function') ? getToken() : localStorage.getItem('access_token');
   if (!token) return;
   fetch('/api/v1/game/my-progress?game_type=' + gGameType, {
     headers: { 'Authorization': 'Bearer ' + token }
@@ -359,28 +367,27 @@ function gSyncServerProgress() {
     .then(r => r.json())
     .then(d => {
       if (!d.ok) return;
-      let changed = false;
-      // 合并 unlocked_to（取最大值）
+      // 以服务端数据为准，覆盖本地
       const serverUnlocked = parseInt(d.unlocked_to) || 1;
-      if (serverUnlocked > gUnlockedTo) {
-        gUnlockedTo = serverUnlocked;
-        try { localStorage.setItem(gStorageKey('gUnlockedTo'), gUnlockedTo); } catch {}
-        changed = true;
-      }
-      // 合并各关分数（取最高分）
+      gUnlockedTo = serverUnlocked;
+      try { localStorage.setItem(gStorageKey('gUnlockedTo'), gUnlockedTo); } catch {}
       const serverScores = d.level_scores || {};
+      // 合并：本地有而服务器没有的保留（当前会话新过关），服务器有的以服务器为准
       for (const lv of Object.keys(serverScores)) {
         const sv = serverScores[lv];
         const lo = gLevelScores[lv];
         if (!lo || (sv.score || 0) > (lo.score || 0)) {
           gLevelScores[lv] = sv;
-          changed = true;
         }
       }
-      if (changed) {
-        try { localStorage.setItem(gStorageKey('gLevelScores'), JSON.stringify(gLevelScores)); } catch {}
-        gRenderLevelGrid();
+      // 移除本地有但服务器没有且不是当前会话产生的关卡数据
+      for (const lv of Object.keys(gLevelScores)) {
+        if (!serverScores[lv] && parseInt(lv) < serverUnlocked) {
+          delete gLevelScores[lv];
+        }
       }
+      try { localStorage.setItem(gStorageKey('gLevelScores'), JSON.stringify(gLevelScores)); } catch {}
+      gRenderLevelGrid();
     })
     .catch(() => {});
 }

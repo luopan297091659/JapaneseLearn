@@ -1,6 +1,16 @@
 const { Op, Sequelize } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
-const { Vocabulary } = require('../models');
+const { Vocabulary, UserVocabulary } = require('../models');
+
+// 从 word 字段中提取假名读音，如 "吉[よし]野[の]山[やま]" → "よしのやま"
+function extractReading(word) {
+  const w = String(word);
+  const brackets = w.match(/\[([^\]]*)\]/g);
+  if (brackets && brackets.length > 0) {
+    return brackets.map(b => b.slice(1, -1)).join('');
+  }
+  return w;
+}
 
 // 每日更新的随机种子，保证分页一致性
 const _dailySeed = () => Math.floor(Date.now() / 86400000);
@@ -74,7 +84,7 @@ async function getIdsByLevel(req, res) {
   }
 }
 
-// ─── Bulk import (from client-side Anki parser) ───────────────────────────────
+// ─── Bulk import (from client-side Anki parser → user_vocabulary) ─────────────
 async function bulkImport(req, res) {
   const {
     cards,
@@ -87,6 +97,9 @@ async function bulkImport(req, res) {
     return res.status(400).json({ error: 'cards 数组不能为空' });
   }
 
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: '未登录' });
+
   const VALID_LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1'];
   const VALID_POS    = ['noun','verb','adjective','adverb','particle','conjunction','interjection','other'];
   const safeLevel = VALID_LEVELS.includes(jlpt_level) ? jlpt_level : 'N3';
@@ -95,9 +108,10 @@ async function bulkImport(req, res) {
   const rows = cards
     .filter(c => c.word && String(c.word).trim())
     .map(c => ({
-      id:              uuidv4(),
+      id:              c.id || uuidv4(),
+      user_id:         userId,
       word:            String(c.word).substring(0, 100),
-      reading:         (c.reading ? String(c.reading) : String(c.word)).substring(0, 200),
+      reading:         (c.reading ? String(c.reading) : extractReading(c.word)).substring(0, 200),
       meaning_zh:      (c.meaning_zh ? String(c.meaning_zh) : (c.meaning_en ? String(c.meaning_en) : '-')).substring(0, 1000),
       meaning_en:      c.meaning_en  ? String(c.meaning_en).substring(0, 1000)  : null,
       example_sentence:c.example_sentence ? String(c.example_sentence).substring(0, 2000) : null,
@@ -105,8 +119,9 @@ async function bulkImport(req, res) {
                        ? String(c.audio_url).substring(0, 500) : null,
       part_of_speech:  safePos,
       jlpt_level:      safeLevel,
-      category:        String(deck_name).substring(0, 50),
-      tags:            JSON.stringify({ source: 'anki', deck: deck_name }),
+      deck_name:       String(deck_name).substring(0, 100),
+      source:          'anki',
+      tags:            { deck: deck_name },
     }));
 
   if (rows.length === 0) {
@@ -118,7 +133,7 @@ async function bulkImport(req, res) {
   for (let i = 0; i < rows.length; i += CHUNK) {
     const chunk = rows.slice(i, i + CHUNK);
     try {
-      await Vocabulary.bulkCreate(chunk, { ignoreDuplicates: true });
+      await UserVocabulary.bulkCreate(chunk, { ignoreDuplicates: true });
       imported += chunk.length;
     } catch {
       failed += chunk.length;
@@ -128,4 +143,73 @@ async function bulkImport(req, res) {
   res.json({ success: true, imported, failed, total: rows.length, deck_name });
 }
 
-module.exports = { list, getById, getByLevel, getIdsByLevel, bulkImport };
+// ─── 用户词库列表 ───────────────────────────────────────────────────────────
+async function listUserVocab(req, res) {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: '未登录' });
+
+  const { deck_name, level, q, page = 1, limit = 30 } = req.query;
+  const where = { user_id: userId };
+  if (deck_name) where.deck_name = deck_name;
+  if (level) where.jlpt_level = level;
+  if (q) {
+    where[Op.or] = [
+      { word: { [Op.like]: `%${q}%` } },
+      { reading: { [Op.like]: `%${q}%` } },
+      { meaning_zh: { [Op.like]: `%${q}%` } },
+    ];
+  }
+
+  try {
+    const { count, rows } = await UserVocabulary.findAndCountAll({
+      where,
+      limit: Math.min(parseInt(limit), 200),
+      offset: (parseInt(page) - 1) * parseInt(limit),
+      order: [['created_at', 'DESC']],
+    });
+    res.json({ total: count, page: parseInt(page), data: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// ─── 用户牌组列表 ───────────────────────────────────────────────────────────
+async function listUserDecks(req, res) {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: '未登录' });
+
+  try {
+    const { sequelize } = require('../models');
+    const [rows] = await sequelize.query(`
+      SELECT deck_name, COUNT(*) AS card_count,
+             MIN(created_at) AS first_import, MAX(created_at) AS last_import
+      FROM user_vocabulary
+      WHERE user_id = :userId
+      GROUP BY deck_name
+      ORDER BY last_import DESC
+    `, { replacements: { userId } });
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// ─── 删除用户牌组 ───────────────────────────────────────────────────────────
+async function deleteUserDeck(req, res) {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: '未登录' });
+
+  const { deck_name } = req.body;
+  if (!deck_name) return res.status(400).json({ error: '缺少 deck_name' });
+
+  try {
+    const count = await UserVocabulary.destroy({
+      where: { user_id: userId, deck_name },
+    });
+    res.json({ deleted: count, message: `已删除牌组「${deck_name}」的 ${count} 张卡片` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+module.exports = { list, getById, getByLevel, getIdsByLevel, bulkImport, listUserVocab, listUserDecks, deleteUserDeck };

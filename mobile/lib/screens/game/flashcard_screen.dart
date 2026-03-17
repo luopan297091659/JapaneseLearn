@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../services/membership_service.dart';
 import '../../models/models.dart';
 import '../../widgets/membership_gate.dart';
+import '../../widgets/furigana_text.dart';
 
 class FlashcardScreen extends StatefulWidget {
   const FlashcardScreen({super.key});
@@ -382,11 +383,8 @@ class _CardFront extends StatelessWidget {
             child: Text(word.jlptLevel, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 24),
-          // 日文大字
-          Text(word.word, style: TextStyle(fontSize: 56, fontWeight: FontWeight.bold, color: cs.primary)),
-          const SizedBox(height: 8),
-          // 假名
-          Text(word.reading, style: TextStyle(fontSize: 22, color: cs.secondary, fontWeight: FontWeight.w500)),
+          // 日文大字 + 假名
+          FuriganaText(text: word.word, fontSize: 56, color: cs.primary),
           const SizedBox(height: 16),
           // 词性标签
           Container(
@@ -429,9 +427,7 @@ class _CardBack extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // 日文 + 假名（小号）
-          Text(word.word, style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: cs.primary)),
-          const SizedBox(height: 4),
-          Text(word.reading, style: TextStyle(fontSize: 18, color: cs.secondary)),
+          FuriganaText(text: word.word, fontSize: 36, color: cs.primary),
           const SizedBox(height: 20),
           // 释义
           Container(

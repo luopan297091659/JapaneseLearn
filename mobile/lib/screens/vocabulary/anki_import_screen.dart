@@ -5,9 +5,8 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/anki_parser.dart';
-import '../../services/api_service.dart';
 import '../../services/local_db.dart';
-import '../../services/sync_service.dart';
+import '../../services/api_service.dart';
 import '../../widgets/membership_gate.dart';
 
 enum _Step { pick, parsing, preview, importing, done, error }
@@ -41,9 +40,7 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
   Map<String, dynamic> _result = {};
   String _errorMsg = '';
 
-  // 同步状态
   bool _savedLocally = false;
-  bool _syncedToServer = false;
   int  _localCount = 0;
   bool _isMember = true;
 
@@ -168,32 +165,11 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
       _savedLocally = true;
       _localCount   = localCount;
 
-      // ── 3. 尝试同步到服务端（失败不影响本地保存）──────────────────────────
-      bool serverOk = false;
-      Map<String, dynamic> serverResult = {};
-      try {
-        serverResult = await apiService.bulkImportVocabulary(
-          cards:        rows,
-          deckName:     deckName,
-          jlptLevel:    _jlptLevel,
-          partOfSpeech: _partOfSpeech,
-        );
-        // 将刚插入的 id 标记为已同步
-        final ids = rows.map((r) => r['id'] as String).toList();
-        await localDb.markSynced(ids);
-        serverOk = true;
-      } catch (_) {
-        // 网络不可用 / 服务器错误 → 保持 synced=0，稍后手动同步
-        serverOk = false;
-      }
-
-      _syncedToServer = serverOk;
       setState(() {
         _result = {
-          'imported':  serverOk ? (serverResult['imported'] ?? localCount) : localCount,
-          'failed':    serverOk ? (serverResult['failed']   ?? 0)          : 0,
+          'imported':  localCount,
+          'failed':    0,
           'deck_name': deckName,
-          'local_only': !serverOk,
         };
         _step = _Step.done;
       });
@@ -213,7 +189,6 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
         _filePath = null;
         _fileName = null;
         _savedLocally   = false;
-        _syncedToServer = false;
         _localCount     = 0;
       });
 
@@ -521,7 +496,6 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
   Widget _buildDoneStep(ColorScheme cs, S s) {
     final imported  = _result['imported']   as int?  ?? 0;
     final failed    = _result['failed']     as int?  ?? 0;
-    final localOnly = _result['local_only'] as bool? ?? false;
 
     return Center(
       child: Padding(
@@ -544,31 +518,12 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
             if (failed > 0) _ResultRow(label: s.skippedCount, value: '$failed', color: Colors.orange),
             _ResultRow(label: s.deckName, value: _result['deck_name']?.toString() ?? ''),
             const SizedBox(height: 12),
-            // 本地 / 同步状态徽标
             _StatusChip(
               icon: Icons.storage_rounded,
               label: s.savedLocally,
               active: _savedLocally,
               activeColor: Colors.blue,
             ),
-            const SizedBox(height: 6),
-            _StatusChip(
-              icon: _syncedToServer ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
-              label: _syncedToServer ? s.syncedToServer : s.pendingSync,
-              active: _syncedToServer,
-              activeColor: Colors.green,
-              inactiveColor: Colors.orange,
-            ),
-            if (localOnly)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.sync_rounded),
-                  onPressed: () => _syncNow(s),
-                  label: Text(s.syncNow),
-                  style: OutlinedButton.styleFrom(foregroundColor: Colors.orange),
-                ),
-              ),
             const SizedBox(height: 32),
             Row(children: [
               Expanded(
@@ -591,21 +546,6 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _syncNow(S s) async {
-    _showSnack(s.syncing);
-    final result = await syncService.syncVocabulary(
-      jlptLevel:    _jlptLevel,
-      partOfSpeech: _partOfSpeech,
-    );
-    if (!mounted) return;
-    if (result != null && result.allDone) {
-      setState(() => _syncedToServer = true);
-      _showSnack(s.syncSuccess);
-    } else {
-      _showSnack(s.syncFailed);
-    }
   }
 
   // ── 错误 ──────────────────────────────────────────────────────────────────

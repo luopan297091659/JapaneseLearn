@@ -95,6 +95,9 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         _loading = false;
         _hasSearched = true;
       });
+      if (reset) {
+        apiService.logActivity(activityType: 'dictionary', durationSeconds: 0);
+      }
     } catch (e) {
       setState(() {
         _loading = false;

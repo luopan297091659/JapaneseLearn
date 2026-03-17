@@ -204,6 +204,11 @@ ul { list-style: none; }
 .modal-title { font-size: 18px; font-weight: 700; }
 .modal-close { font-size: 22px; cursor: pointer; color: var(--text-hint); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background .15s; }
 .modal-close:hover { background: var(--border); }
+.modal-nav { display:flex; justify-content:space-between; align-items:center; margin-top:18px; padding-top:14px; border-top:1px solid var(--border); }
+.modal-nav button { background:none; border:1px solid var(--border); border-radius:8px; padding:6px 14px; font-size:13px; cursor:pointer; color:var(--text-main); transition:all .15s; display:flex; align-items:center; gap:4px; }
+.modal-nav button:hover:not(:disabled) { background:var(--primary); color:#fff; border-color:var(--primary); }
+.modal-nav button:disabled { opacity:.35; cursor:not-allowed; }
+.modal-nav .nav-info { font-size:12px; color:var(--text-hint); }
 
 /* ─── 登录页 ─────────────────────────────────────────────────── */
 #auth-page {
@@ -275,6 +280,8 @@ ul { list-style: none; }
 .vocab-detail .example { background: var(--surface2); border-left: 3px solid var(--primary); padding: 12px; border-radius: 0 8px 8px 0; }
 .vocab-detail .example .jp { font-size: 16px; font-weight: 600; }
 .vocab-detail .example .zh { font-size: 13px; color: var(--text-sub); margin-top: 4px; }
+ruby { ruby-align: center; }
+ruby rt { font-size: 0.55em; color: var(--text-sub); font-weight: normal; }
 
 /* ─── SRS ──────────────────────────────────────────────────── */
 .srs-card { cursor: pointer; }
@@ -777,9 +784,7 @@ ul { list-style: none; }
         <div id="vocab-count" style="font-size:13px;color:var(--text-sub);margin-bottom:14px"></div>
         <div class="grid-3" id="vocab-list"></div>
         <div id="vocab-loading" class="loading"><div class="spinner"></div></div>
-        <div id="vocab-load-more" style="text-align:center;margin-top:20px;display:none">
-          <button class="btn btn-outline" onclick="loadMoreVocab()">加载更多</button>
-        </div>
+        <div id="vocab-pager" class="grammar-pager"></div>
       </div>
 
       <!-- 文法页 -->
@@ -1405,6 +1410,7 @@ ul { list-style: none; }
         <div id="membership-status-card" class="card" style="margin-bottom:16px">
           <div class="loading"><div class="spinner"></div></div>
         </div>
+        <div id="membership-trial-card"></div>
         <div id="membership-usage-card" class="card usage-card">
           <div class="card-title">📊 今日用量</div>
           <div class="usage-grid" id="membership-usage-grid">
@@ -1896,6 +1902,7 @@ async function homeSearchDict() {
     }).join('') + `<div style="text-align:center;margin-top:8px">
       <button class="btn btn-sm btn-outline" onclick="navigate('dictionary');document.getElementById('dict-input').value='${escHtml(q)}';searchDict()">查看更多结果 →</button>
     </div>`;
+    try { POST('/progress/log', { activity_type: 'dictionary', duration_seconds: 0 }); } catch(_){}
   } catch(e) {
     el.innerHTML = `<div style="color:var(--danger);padding:8px">搜索失败: ${escHtml(e.message)}</div>`;
   }
@@ -1916,8 +1923,12 @@ async function loadHome() {
     // 更新会员徽章
     const isMember = u.is_member || false;
     _isMember = isMember;
-    const planName = u.membership_plan === 'yearly' ? '年度会员' : u.membership_plan === 'monthly' ? '月度会员' : '会员';
-    updateMemberBadge(isMember, planName);
+    _isTrial = u.is_trial || false;
+    _trialActivated = u.trial_activated || false;
+    const planName = _isTrial ? '体验中' : u.membership_plan === 'yearly' ? '年度会员' : u.membership_plan === 'monthly' ? '月度会员' : '会员';
+    updateMemberBadge(isMember, planName, _isTrial, u.membership_days_left);
+    // 加载体验配置（供升级弹窗使用）
+    try { const tc = await GET('/users/trial-config'); _trialEnabled = tc.enabled !== false; _trialDays = tc.days || 3; } catch(_){}
   } catch(e) {
     errorCount++;
     updateWelcomeGreeting('');
@@ -2098,7 +2109,7 @@ function nextWod() {
 // ══════════════════════════════════════════════════════════════════
 let vocabLoaded = false;
 let vocabLevel = 'N5', vocabPage = 1, vocabTotal = 0, vocabWords = [],
-    vocabQuery = '', vocabLoadingMore = false;
+    vocabQuery = '', vocabLimit = 30;
 let _vocabDebounce;
 
 function selectVocabLevel(l) {
@@ -2120,32 +2131,56 @@ function onVocabSearch() {
 
 async function loadVocab() {
   document.getElementById('vocab-loading').style.display = '';
-  document.getElementById('vocab-load-more').style.display = 'none';
-  let url = `/vocabulary?level=${vocabLevel}&page=${vocabPage}&limit=30`;
+  document.getElementById('vocab-pager').innerHTML = '';
+  let url = `/vocabulary?level=${vocabLevel}&page=${vocabPage}&limit=${vocabLimit}`;
   if (vocabQuery) url += `&q=${encodeURIComponent(vocabQuery)}`;
   try {
     const res = await GET(url);
-    const words = res.data || [];
+    vocabWords = res.data || [];
     vocabTotal = res.total || 0;
-    vocabWords = vocabPage === 1 ? words : [...vocabWords, ...words];
     renderVocabList();
+    renderVocabPager();
     vocabLoaded = true;
     document.getElementById('vocab-count').textContent = `共 ${vocabTotal} 词`;
-    if (vocabWords.length < vocabTotal) {
-      document.getElementById('vocab-load-more').style.display = '';
-    }
   } catch(e) {
     toast('词汇加载失败: ' + e.message);
   }
   document.getElementById('vocab-loading').style.display = 'none';
 }
 
-async function loadMoreVocab() {
-  if (vocabLoadingMore) return;
-  vocabLoadingMore = true;
-  vocabPage++;
-  await loadVocab();
-  vocabLoadingMore = false;
+function renderVocabPager() {
+  const totalPages = Math.ceil(vocabTotal / vocabLimit);
+  if (totalPages <= 1 && vocabTotal <= vocabLimit) { document.getElementById('vocab-pager').innerHTML = ''; return; }
+  let html = `<button ${vocabPage <= 1 ? 'disabled' : ''} onclick="vocabGoPage(${vocabPage - 1})">‹</button>`;
+  const range = [];
+  for (let p = 1; p <= totalPages; p++) {
+    if (p === 1 || p === totalPages || (p >= vocabPage - 2 && p <= vocabPage + 2)) range.push(p);
+    else if (range[range.length - 1] !== '...') range.push('...');
+  }
+  range.forEach(p => {
+    if (p === '...') { html += `<span class="page-info">…</span>`; }
+    else { html += `<button class="${p === vocabPage ? 'active' : ''}" onclick="vocabGoPage(${p})">${p}</button>`; }
+  });
+  html += `<button ${vocabPage >= totalPages ? 'disabled' : ''} onclick="vocabGoPage(${vocabPage + 1})">›</button>`;
+  html += `<span class="page-info">${vocabTotal} 条</span>`;
+  html += `<select style="margin-left:8px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--card-bg)" onchange="vocabChangeSize(this.value)">
+    ${[30,50,100].map(n=>`<option value="${n}" ${vocabLimit===n?'selected':''}>${n}条/页</option>`).join('')}
+  </select>`;
+  document.getElementById('vocab-pager').innerHTML = html;
+}
+
+function vocabChangeSize(val) {
+  vocabLimit = parseInt(val) || 30;
+  vocabPage = 1;
+  loadVocab();
+}
+
+function vocabGoPage(p) {
+  const totalPages = Math.ceil(vocabTotal / vocabLimit);
+  if (p < 1 || p > totalPages) return;
+  vocabPage = p;
+  loadVocab();
+  document.getElementById('page-vocab').scrollIntoView({ behavior: 'smooth' });
 }
 
 function levelBadge(l) {
@@ -2173,6 +2208,7 @@ function renderVocabList() {
 }
 
 async function showVocabDetail(id) {
+  const curIdx = vocabWords.findIndex(w => String(w.id) === String(id));
   openModal('単語詳細', '<div class="loading"><div class="spinner"></div></div>');
   try {
     const w = await GET(`/vocabulary/${id}`);
@@ -2195,8 +2231,7 @@ async function showVocabDetail(id) {
         ${w.example_sentence ? `
           <div class="example" style="display:flex;align-items:flex-start;gap:8px">
             <div style="flex:1">
-              <div class="jp">${escHtml(w.example_sentence)}</div>
-              ${w.example_reading ? `<div style="font-size:12px;color:var(--text-sub)">${escHtml(w.example_reading)}</div>` : ''}
+              <div class="jp">${hasBracketFurigana(w.example_reading) ? renderFurigana(w.example_reading) : escHtml(w.example_sentence)}</div>
               ${w.example_meaning_zh ? `<div class="zh">${escHtml(w.example_meaning_zh)}</div>` : ''}
             </div>
             ${exAudioHtml}
@@ -2207,6 +2242,12 @@ async function showVocabDetail(id) {
           ${srsHtml}
         </div>
         <div id="vocab-pron-result" style="margin-top:12px"></div>
+        ${vocabWords.length > 1 && curIdx >= 0 ? `
+        <div class="modal-nav">
+          <button ${curIdx <= 0 ? 'disabled' : ''} onclick="showVocabDetail('${curIdx > 0 ? escHtml(vocabWords[curIdx-1].id) : ''}')">‹ 上一个</button>
+          <span class="nav-info">${curIdx + 1} / ${vocabWords.length}</span>
+          <button ${curIdx >= vocabWords.length - 1 ? 'disabled' : ''} onclick="showVocabDetail('${curIdx < vocabWords.length - 1 ? escHtml(vocabWords[curIdx+1].id) : ''}')">下一个 ›</button>
+        </div>` : ''}
       </div>`;
   } catch(e) {
     document.getElementById('modal-body').innerHTML = `<p style="color:var(--danger)">加载失败: ${escHtml(e.message)}</p>`;
@@ -2224,7 +2265,7 @@ async function addToSrs(refId) {
 // ══════════════════════════════════════════════════════════════════
 //  GRAMMAR
 // ══════════════════════════════════════════════════════════════════
-let grammarLoaded = false, grammarLevel = 'N5', grammarPage = 1, grammarTotal = 0, grammarLimit = 20;
+let grammarLoaded = false, grammarLevel = 'N5', grammarPage = 1, grammarTotal = 0, grammarLimit = 20, grammarLessons = [];
 
 function selectGrammarLevel(l) {
   grammarLevel = l; grammarPage = 1; grammarLoaded = false;
@@ -2241,6 +2282,7 @@ async function loadGrammar() {
   try {
     const res = await GET(`/grammar?level=${grammarLevel}&page=${grammarPage}&limit=${grammarLimit}`);
     const lessons = res.data || [];
+    grammarLessons = lessons;
     grammarTotal = res.total || 0;
     grammarLoaded = true;
     const el = document.getElementById('grammar-list');
@@ -2267,7 +2309,7 @@ async function loadGrammar() {
 
 function renderGrammarPager() {
   const totalPages = Math.ceil(grammarTotal / grammarLimit);
-  if (totalPages <= 1) { document.getElementById('grammar-pager').innerHTML = ''; return; }
+  if (totalPages <= 1 && grammarTotal <= 20) { document.getElementById('grammar-pager').innerHTML = ''; return; }
   let html = `<button ${grammarPage <= 1 ? 'disabled' : ''} onclick="grammarGoPage(${grammarPage - 1})">‹</button>`;
   const range = [];
   for (let p = 1; p <= totalPages; p++) {
@@ -2280,8 +2322,12 @@ function renderGrammarPager() {
   });
   html += `<button ${grammarPage >= totalPages ? 'disabled' : ''} onclick="grammarGoPage(${grammarPage + 1})">›</button>`;
   html += `<span class="page-info">${grammarTotal} 条</span>`;
+  html += `<select style="margin-left:8px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--card-bg)" onchange="grammarChangeSize(this.value)">
+    ${[20,50,100].map(n=>`<option value="${n}" ${grammarLimit===n?'selected':''}>${n}条/页</option>`).join('')}
+  </select>`;
   document.getElementById('grammar-pager').innerHTML = html;
 }
+function grammarChangeSize(v){ grammarLimit=parseInt(v); grammarPage=1; loadGrammar(); }
 
 function grammarGoPage(p) {
   const totalPages = Math.ceil(grammarTotal / grammarLimit);
@@ -2292,17 +2338,17 @@ function grammarGoPage(p) {
 }
 
 async function showGrammarDetail(id) {
+  const gIdx = grammarLessons.findIndex(g => String(g.id) === String(id));
   openModal('文法詳細', '<div class="loading"><div class="spinner"></div></div>');
   try {
     const g = await GET(`/grammar/${id}`);
     const exHtml = (g.examples || []).map((ex, idx) => `
       <div class="grammar-example-item">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <div style="font-size:15px;font-weight:600;flex:1">${escHtml(ex.sentence)}</div>
+          <div style="font-size:15px;font-weight:600;flex:1">${hasBracketFurigana(ex.reading) ? renderFurigana(ex.reading) : escHtml(ex.sentence)}</div>
           <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();speakJa('${escHtml(ex.sentence)}')">🔊</button>
           <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px;color:var(--warning);border-color:var(--warning)" onclick="event.stopPropagation();speakJaSlow('${escHtml(ex.sentence)}')">🐌</button>
         </div>
-        ${ex.reading ? `<div style="font-size:12px;color:var(--text-sub)">${escHtml(ex.reading)}</div>` : ''}
         <div style="font-size:13px;color:var(--text-sub);margin-top:4px">${escHtml(ex.meaning_zh)}</div>
       </div>
     `).join('');
@@ -2317,6 +2363,12 @@ async function showGrammarDetail(id) {
         ${g.explanation_zh ? `<div class="explanation" style="margin-top:8px">${escHtml(g.explanation_zh)}</div>` : ''}
         ${g.usage_notes ? `<div style="background:#fff3e0;padding:12px;border-radius:8px;font-size:13px;margin-top:10px">💡 ${escHtml(g.usage_notes)}</div>` : ''}
         ${exHtml ? `<div style="margin-top:16px"><div style="font-weight:700;margin-bottom:8px">例句</div>${exHtml}</div>` : ''}
+        ${grammarLessons.length > 1 && gIdx >= 0 ? `
+        <div class="modal-nav">
+          <button ${gIdx <= 0 ? 'disabled' : ''} onclick="showGrammarDetail('${gIdx > 0 ? escHtml(grammarLessons[gIdx-1].id) : ''}')">‹ 上一个</button>
+          <span class="nav-info">${gIdx + 1} / ${grammarLessons.length}</span>
+          <button ${gIdx >= grammarLessons.length - 1 ? 'disabled' : ''} onclick="showGrammarDetail('${gIdx < grammarLessons.length - 1 ? escHtml(grammarLessons[gIdx+1].id) : ''}')">下一个 ›</button>
+        </div>` : ''}
       </div>`;
   } catch(e) {
     document.getElementById('modal-body').innerHTML = `<p style="color:var(--danger)">加载失败: ${escHtml(e.message)}</p>`;
@@ -2710,6 +2762,7 @@ async function searchDict() {
         <div class="dict-def" style="margin-top:8px">${defsHtml}</div>
       </div>`;
     }).join('');
+    try { POST('/progress/log', { activity_type: 'dictionary', duration_seconds: 0 }); } catch(_){}
   } catch(e) {
     el.innerHTML = `<p style="color:var(--danger);padding:16px">搜索失败: ${escHtml(e.message)}</p>`;
   }
@@ -3120,7 +3173,9 @@ function cleanWord(raw) {
 }
 function cleanReading(raw) {
   if (!raw) return '';
-  return raw.replace(/!/g, '').replace(/@\d+/g, '').replace(/\[[^\]]*\]/g, '').replace(/[（(][^)）]*[)）]/g, '').trim();
+  const r = raw.replace(/!/g, '').replace(/@\d+/g, '').replace(/\[[^\]]*\]/g, '').replace(/[（(][^)）]*[)）]/g, '').trim();
+  if (r && !/[\u3040-\u30ff]/.test(r)) return '';
+  return r;
 }
 function posLabelZh(pos) {
   const map = {noun:'名词',verb:'动词',adjective:'形容词',adverb:'副词',particle:'助词',conjunction:'接续词',interjection:'感叹词',other:'其他'};
@@ -4006,20 +4061,31 @@ async function loadMembership() {
   // 状态卡
   const statusEl = document.getElementById('membership-status-card');
   try {
-    const me = await GET('/auth/me');
-    const u = me.user || me;
+    const [meRes, trialCfg] = await Promise.all([GET('/auth/me'), GET('/users/trial-config')]);
+    const u = meRes.user || meRes;
     const isMember = u.is_member || false;
-    const planName = isMember ? (u.membership_plan === 'yearly' ? '年度会员' : u.membership_plan === 'monthly' ? '月度会员' : '会员') : '免费版';
+    const isTrial = u.is_trial || false;
+    const trialActivated = u.trial_activated || false;
+    const daysLeft = u.membership_days_left || 0;
+    _isMember = isMember;
+    _isTrial = isTrial;
+    _trialActivated = trialActivated;
+    _trialEnabled = trialCfg.enabled !== false;
+    _trialDays = trialCfg.days || 3;
+    const planName = isTrial ? '体验中' : isMember ? (u.membership_plan === 'yearly' ? '年度会员' : u.membership_plan === 'monthly' ? '月度会员' : '会员') : '免费版';
     const expireStr = u.membership_expire ? new Date(u.membership_expire).toLocaleDateString('zh-CN') : '永久';
+    const statusText = isTrial ? `体验剩余 ${daysLeft} 天` : isMember ? `到期：${expireStr}` : '升级后解锁全部功能';
     statusEl.innerHTML = `
       <div style="display:flex;align-items:center;gap:16px">
         <div style="font-size:40px">${isMember ? '👑' : '🆓'}</div>
         <div style="flex:1">
           <div style="font-size:16px;font-weight:700">${escHtml(u.username || '')}</div>
-          <div style="margin-top:4px"><span class="member-badge ${isMember ? 'vip' : 'free'}">${isMember ? '👑 ' + escHtml(planName) : '免费版'}</span></div>
-          ${isMember ? '<div style="font-size:12px;color:var(--text-sub);margin-top:4px">到期：' + expireStr + '</div>' : '<div style="font-size:12px;color:var(--text-sub);margin-top:4px">升级后解锁全部功能</div>'}
+          <div style="margin-top:4px"><span class="member-badge ${isMember ? 'vip' : 'free'}">${isMember ? (isTrial ? '🎁 体验中' : '👑 ' + escHtml(planName)) : '免费版'}</span></div>
+          <div style="font-size:12px;color:var(--text-sub);margin-top:4px">${statusText}</div>
         </div>
       </div>`;
+    // 渲染 trial 卡片
+    renderTrialCard(isMember, trialActivated, _trialEnabled, _trialDays);
     // 渲染套餐对比
     renderMembershipPlans(isMember);
   } catch(e) { statusEl.innerHTML = `<p style="color:var(--danger)">加载失败</p>`; }
@@ -4069,9 +4135,54 @@ function renderMembershipPlans(isMember) {
     </div>`;
 }
 
+function renderTrialCard(isMember, trialActivated, trialEnabled, trialDays) {
+  const el = document.getElementById('membership-trial-card');
+  if (!el) return;
+  if (isMember) { el.innerHTML = ''; return; }
+  if (trialActivated) {
+    el.innerHTML = `<div class="card" style="margin-bottom:16px;background:var(--bg-card);border:1px dashed var(--border);text-align:center;padding:16px">
+      <div style="font-size:14px;color:var(--text-sub)">✅ 已使用过会员体验，每个账号仅限一次</div>
+    </div>`;
+    return;
+  }
+  if (!trialEnabled) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#7c3aed22,#a855f722);border:1px solid #a855f755;overflow:hidden;position:relative">
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="font-size:36px">🎁</div>
+      <div style="flex:1">
+        <div style="font-size:16px;font-weight:700;color:#7c3aed">免费体验会员</div>
+        <div style="font-size:13px;color:var(--text-sub);margin-top:4px">免费体验 ${trialDays} 天全部会员功能，无需付费</div>
+      </div>
+    </div>
+    <button class="btn" style="width:100%;justify-content:center;margin-top:12px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;font-weight:600" onclick="activateTrial()">🎁 立即开通 ${trialDays} 天免费体验</button>
+  </div>`;
+}
+
+async function activateTrial() {
+  try {
+    const res = await POST('/users/activate-trial');
+    if (res.ok) {
+      toast('🎉 ' + (res.message || '会员体验已开通！'), 3000);
+      _isMember = true;
+      _isTrial = true;
+      _trialActivated = true;
+      // 刷新状态
+      await loadFeatureTiers();
+      loadMembership();
+      updateMemberBadge(true, '体验中', true, res.trial_days || _trialDays);
+      document.querySelectorAll('.nav-lock').forEach(el => el.style.display = 'none');
+    }
+  } catch(e) {
+    toast(e.message || '开通失败，请稍后重试');
+  }
+}
+
 function showUpgradeModal(tip) {
   const title = '🔒 功能受限';
   document.getElementById('modal-title').textContent = title;
+  const trialBtn = (!_isMember && !_trialActivated && _trialEnabled)
+    ? `<button class="btn" style="width:100%;justify-content:center;margin-bottom:8px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none" onclick="closeModal();activateTrial()">🎁 免费体验 ${_trialDays} 天会员</button>`
+    : '';
   document.getElementById('modal-body').innerHTML = `
     <div class="upgrade-modal-content">
       <div class="upgrade-icon">👑</div>
@@ -4084,18 +4195,23 @@ function showUpgradeModal(tip) {
         <li>闯关游戏全部关卡</li>
         <li>Anki 导入、错题集</li>
       </ul>
+      ${trialBtn}
       <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="closeModal();navigate('membership')">查看会员详情</button>
     </div>`;
   document.getElementById('modal-overlay').classList.add('open');
 }
 
-function updateMemberBadge(isMember, planName) {
+function updateMemberBadge(isMember, planName, isTrial, daysLeft) {
   const badge = document.getElementById('topbar-member-badge');
   if (!badge) return;
   badge.style.display = '';
   if (isMember) {
     badge.className = 'member-badge vip';
-    badge.textContent = '👑 ' + (planName || '会员');
+    if (isTrial) {
+      badge.textContent = '🎁 体验' + (daysLeft ? ' ' + daysLeft + '天' : '中');
+    } else {
+      badge.textContent = '👑 ' + (planName || '会员');
+    }
   } else {
     badge.className = 'member-badge free';
     badge.textContent = '免费版';
@@ -5572,6 +5688,10 @@ function setSlowSpeed(speed) {
 // ══════════════════════════════════════════════════════════════════
 let _featureToggles = {}; // id -> bool
 let _isMember = false;
+let _isTrial = false;
+let _trialActivated = false;
+let _trialDays = 3;
+let _trialEnabled = true;
 let _featureTiers = []; // tier rules from server
 
 // 页面 ID 到 tier ID 的映射
@@ -5597,6 +5717,8 @@ function isFeatureBlocked(page) {
   if (_isMember) return false;
   const tierId = _pageTierMap[page];
   if (!tierId) return false;
+  // tier 数据未加载时，默认拦截已知被限制的页面
+  if (_featureTiers.length === 0) return true;
   const tier = getFeatureTier(tierId);
   return tier && tier.type === 'blocked';
 }
@@ -5642,6 +5764,20 @@ function escHtml(str) {
   if (str == null) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+function renderFurigana(raw) {
+  if (!raw) return '';
+  raw = raw.replace(/!/g, '');
+  const re = /([^\[\]]+)\[([^\]]+)\]/g;
+  let result = '', pos = 0, m;
+  while ((m = re.exec(raw)) !== null) {
+    if (m.index > pos) result += escHtml(raw.substring(pos, m.index));
+    result += '<ruby>' + escHtml(m[1]) + '<rp>(</rp><rt>' + escHtml(m[2]) + '</rt><rp>)</rp></ruby>';
+    pos = m.index + m[0].length;
+  }
+  if (pos < raw.length) result += escHtml(raw.substring(pos));
+  return result;
+}
+function hasBracketFurigana(s) { return s && /[^\[\]]+\[[^\]]+\]/.test(s); }
 
 // ══════════════════════════════════════════════════════════════════
 //  INIT
@@ -5660,7 +5796,7 @@ function escHtml(str) {
       return;
     }
     loadFeatureToggles();
-    loadFeatureTiers();
+    await loadFeatureTiers();
     loadHome();
     updateDictLangBtns();
   } else {

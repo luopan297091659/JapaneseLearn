@@ -8,6 +8,7 @@ import '../../services/membership_service.dart';
 import '../../models/models.dart';
 import '../../l10n/app_localizations.dart';
 import '../../utils/japanese_text_utils.dart';
+import '../../widgets/furigana_text.dart';
 
 // ── 首页功能 ID → 分级 tier ID 映射 ──
 const _featureTierMap = <String, String>{
@@ -873,11 +874,13 @@ class _WordOfDayCard extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 14),
-          Text(word.word,
-              style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: cs.primary, height: 1.1)),
-          const SizedBox(height: 4),
-          Text(cleanReading(word.reading),
-              style: TextStyle(fontSize: 18, color: cs.secondary, fontWeight: FontWeight.w500)),
+          FuriganaText(text: word.word, fontSize: 36, color: cs.primary),
+          if (word.reading.isNotEmpty && cleanReading(word.reading) != cleanWord(word.word))
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(cleanReading(word.reading),
+                  style: TextStyle(fontSize: 16, color: cs.primary.withValues(alpha: 0.7))),
+            ),
           const SizedBox(height: 14),
           // 意思遮挡翻转
           GestureDetector(
@@ -907,8 +910,22 @@ class _WordOfDayCard extends StatelessWidget {
                               style: TextStyle(fontSize: 16, color: cs.onSurface, fontWeight: FontWeight.w500)),
                           if (word.exampleSentence != null) ...[
                             const SizedBox(height: 8),
-                            Text(word.exampleSentence!,
-                                style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, height: 1.5)),
+                            if (word.exampleReading != null && hasFurigana(word.exampleReading!))
+                              FuriganaText(
+                                text: word.exampleReading!,
+                                fontSize: 14,
+                                color: cs.onSurfaceVariant,
+                                fontWeight: FontWeight.normal,
+                                textAlign: TextAlign.start,
+                              )
+                            else
+                              Text(word.exampleSentence!,
+                                  style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant, height: 1.5)),
+                            if (word.exampleMeaningZh != null) ...[
+                              const SizedBox(height: 4),
+                              Text(word.exampleMeaningZh!,
+                                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant.withValues(alpha: 0.7), height: 1.4)),
+                            ],
                           ],
                         ],
                       ),

@@ -24,6 +24,26 @@ const Vocabulary = sequelize.define('Vocabulary', {
   tags: { type: DataTypes.JSON, allowNull: true },
 }, { tableName: 'vocabulary' });
 
+// ────────── User Vocabulary (Anki 导入 — 与系统词库分离) ──────────
+const UserVocabulary = sequelize.define('UserVocabulary', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  user_id: { type: DataTypes.UUID, allowNull: false, comment: '导入用户' },
+  word: { type: DataTypes.STRING(100), allowNull: false },
+  reading: { type: DataTypes.STRING(200), allowNull: false },
+  meaning_zh: { type: DataTypes.TEXT, allowNull: false },
+  meaning_en: { type: DataTypes.TEXT, allowNull: true },
+  part_of_speech: {
+    type: DataTypes.ENUM('noun','verb','adjective','adverb','particle','conjunction','interjection','other'),
+    defaultValue: 'other',
+  },
+  jlpt_level: { type: DataTypes.ENUM('N5','N4','N3','N2','N1'), allowNull: false, defaultValue: 'N3' },
+  example_sentence: { type: DataTypes.TEXT, allowNull: true },
+  audio_url: { type: DataTypes.STRING(500), allowNull: true },
+  deck_name: { type: DataTypes.STRING(100), allowNull: true, comment: 'Anki 牌组名' },
+  source: { type: DataTypes.STRING(50), defaultValue: 'anki', comment: 'anki / manual' },
+  tags: { type: DataTypes.JSON, allowNull: true },
+}, { tableName: 'user_vocabulary' });
+
 // ────────── Grammar ──────────
 const GrammarLesson = sequelize.define('GrammarLesson', {
   id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
@@ -278,6 +298,7 @@ const AppRelease = require('./AppRelease');
 
 module.exports = {
   Vocabulary,
+  UserVocabulary,
   GrammarLesson,
   GrammarExample,
   ListeningTrack,

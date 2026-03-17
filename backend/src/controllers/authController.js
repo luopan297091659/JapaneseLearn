@@ -94,7 +94,10 @@ async function getMe(req, res) {
   if (user.membership_expire) {
     const expire = new Date(user.membership_expire);
     const now = new Date();
-    userJson.membership_days_left = Math.max(0, Math.ceil((expire - now) / (1000 * 60 * 60 * 24)));
+    // 按日历天计算剩余天数（去掉时分秒，避免 ceil 导致首日不递减）
+    const expireDay = new Date(expire.getFullYear(), expire.getMonth(), expire.getDate());
+    const todayDay  = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    userJson.membership_days_left = Math.max(0, Math.round((expireDay - todayDay) / (1000 * 60 * 60 * 24)));
   }
   res.json({ user: userJson });
 }

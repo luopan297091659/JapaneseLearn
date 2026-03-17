@@ -31,7 +31,7 @@ const DAILY_ACTIVITY_MAP = {
   srs_daily: 'srs_review',
   quiz_meaning_daily: 'quiz',
   immersion_daily: 'listening',
-  dictionary_daily: 'dictionary_search',
+  dictionary_daily: 'dictionary',
 };
 
 router.get('/usage', authenticate, asyncHandler(async (req, res) => {
