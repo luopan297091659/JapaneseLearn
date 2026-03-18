@@ -94,6 +94,14 @@ class TestTab extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _TestCard(
+            icon: Icons.menu_book_rounded,
+            title: '文法测验',
+            subtitle: '阅读例句 · 选择正确的中文翻译',
+            color: const Color(0xFF7B1FA2),
+            onTap: () => context.push('/grammar-quiz'),
+          ),
+          const SizedBox(height: 12),
+          _TestCard(
             icon: Icons.hearing_rounded,
             title: '听力测验',
             subtitle: '听句选义 · N5-N1 例句听力测验',

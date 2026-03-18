@@ -228,6 +228,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item" onclick="nav('tracks')"  id="nav-tracks"> <span class="icon">🎧</span>听力管理</div>
   <div class="nav-item" onclick="nav('channels')" id="nav-channels"><span class="icon">📺</span>频道管理</div>
   <div class="nav-item" onclick="nav('users')"   id="nav-users">  <span class="icon">👥</span>用户管理</div>
+  <div class="nav-item" onclick="nav('reports')" id="nav-reports"><span class="icon">🐛</span>问题反馈</div>
   <div class="sidebar-section">数据分析</div>
   <div class="nav-item" onclick="nav('stat-users')"    id="nav-stat-users">   <span class="icon">📈</span>用户统计</div>
   <div class="nav-item" onclick="nav('stat-traffic')"  id="nav-stat-traffic"> <span class="icon">🌐</span>流量监控</div>
@@ -532,7 +533,7 @@ function applySidebarPermissions(){
   const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-ai-settings','nav-admin-mgmt'];
   const permNavMap = {
     'nav-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-tracks': 'tracks',
-    'nav-users': 'users', 'nav-stat-users': 'stats', 'nav-stat-traffic': 'stats',
+    'nav-users': 'users', 'nav-reports': 'reports', 'nav-stat-users': 'stats', 'nav-stat-traffic': 'stats',
     'nav-stat-feature': 'stats', 'nav-membership': 'membership', 'nav-sync': 'sync',
     'nav-import': 'vocabulary',
   };
@@ -554,7 +555,7 @@ function applySidebarPermissions(){
 /* ───────────────────────────────── NAV ───────────────────────────────────── */
 const PAGE_TITLES = {
   dashboard:'仪表板', vocab:'词汇管理', grammar:'文法管理',
-  tracks:'听力管理', channels:'频道管理', users:'用户管理',
+  tracks:'听力管理', channels:'频道管理', users:'用户管理', reports:'问题反馈',
   'stat-users':'用户统计', 'stat-traffic':'流量监控',
   'stat-feature':'功能频率',
   membership:'会员配置', import:'内容导入', sync:'全局同步', 'feature-tiers':'功能分级',
@@ -563,7 +564,7 @@ const PAGE_TITLES = {
 };
 const PAGE_ICONS = {
   dashboard:'📊', vocab:'📚', grammar:'📖',
-  tracks:'🎧', channels:'📺', users:'👥',
+  tracks:'🎧', channels:'📺', users:'👥', reports:'🐛',
   'stat-users':'📈', 'stat-traffic':'🌐',
   'stat-feature':'📊',
   membership:'👑', import:'📥', sync:'🔄', 'feature-tiers':'🎯',
@@ -571,7 +572,7 @@ const PAGE_ICONS = {
   'admin-mgmt':'🔐'
 };
 const PAGE_DESCS = {
-  vocab:'管理词汇条目', grammar:'管理文法条目',
+  vocab:'管理词汇条目', grammar:'管理文法条目', reports:'查看用户反馈的问题',
   tracks:'管理听力素材', channels:'管理YouTube/B站频道', users:'查看管理用户',
   'stat-users':'用户数据分析', 'stat-traffic':'API流量监控',
   'stat-feature':'功能使用频率分析',
@@ -608,7 +609,7 @@ const PAGE_FNS = {
   'stat-feature': renderStatFeature,
   membership: renderMembership, import: renderImport, sync: renderSync,
   app: renderAppManage, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings,
-  'admin-mgmt': renderAdminMgmt,
+  'admin-mgmt': renderAdminMgmt, reports: renderReports,
 };
 /* ─────────────────────────── 功能分级（会员权益）───────────────────────────── */
 let _tierData = [];
@@ -1020,7 +1021,7 @@ function renderPager(containerId, page, total, onPage, state){
   </select>` : '';
   el.innerHTML = `<div class="pagination">${btns.join('')}<span class="page-info"> 共 ${total} 页${sizeSelect}</span></div>`;
 }
-const _pagerMap = {'v-pager':{s:()=>vState,fn:()=>loadVocab()}, 'gr-pager':{s:()=>gState,fn:()=>loadGrammar()}, 'tr-pager':{s:()=>tState,fn:()=>loadTracks()}, 'us-pager':{s:()=>uState,fn:()=>loadUsers()}};
+const _pagerMap = {'v-pager':{s:()=>vState,fn:()=>loadVocab()}, 'gr-pager':{s:()=>gState,fn:()=>loadGrammar()}, 'tr-pager':{s:()=>tState,fn:()=>loadTracks()}, 'us-pager':{s:()=>uState,fn:()=>loadUsers()}, 'rp-pager':{s:()=>rpState,fn:()=>loadReports()}};
 function pageSizeChange(cid,v){ const m=_pagerMap[cid]; if(!m)return; const s=m.s(); s.limit=parseInt(v); s.page=1; m.fn(); }
 
 /* ───────────────────────────────── DASHBOARD ─────────────────────────────── */
@@ -1144,7 +1145,7 @@ let vState = {page:1, limit:20, search:'', level:'', total:0};
 async function renderVocab(){
   document.getElementById('content').innerHTML = `
   <div class="toolbar">
-    <input type="text" id="v-search" placeholder="搜索单词/意思…" value="${esc(vState.search)}" onkeydown="if(event.key==='Enter')vocabSearch()" />
+    <input type="text" id="v-search" placeholder="搜索单词/意思/例句…" value="${esc(vState.search)}" onkeydown="if(event.key==='Enter')vocabSearch()" />
     <select id="v-level" onchange="vocabFilterLevel()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;background:#fff">
       <option value="">全部级别</option>
       <option value="N5" ${vState.level==='N5'?'selected':''}>N5</option>
@@ -1266,7 +1267,7 @@ let gState = {page:1, limit:20, search:'', level:'', total:0};
 async function renderGrammar(){
   document.getElementById('content').innerHTML = `
   <div class="toolbar">
-    <input type="text" id="gr-search" placeholder="搜索文法标题…" onkeydown="if(event.key==='Enter')grammarSearch()" />
+    <input type="text" id="gr-search" placeholder="搜索文法标题/例句…" onkeydown="if(event.key==='Enter')grammarSearch()" />
     <select id="gr-level" onchange="grammarFilterLevel()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;background:#fff">
       <option value="">全部级别</option>
       <option value="N5" ${gState.level==='N5'?'selected':''}>N5</option>
@@ -1485,7 +1486,7 @@ async function openMembershipModal(userId, username, currentPlan, currentExpire)
     try{ const c = await api('GET','/admin/membership'); _membershipPlansCache = c.plans || []; }catch{ _membershipPlansCache = []; }
   }
   const plans = _membershipPlansCache;
-  const planOptions = plans.filter(p=>p.enabled).map(p=>`<option value="${esc(p.id)}" ${currentPlan===p.id?'selected':''}>${esc(p.name)} (¥${p.price}/${p.period})</option>`).join('');
+  const planOptions = plans.map(p=>`<option value="${esc(p.id)}" ${currentPlan===p.id?'selected':''}>${esc(p.name)}${p.period==='forever'?' (永久)':` (¥${p.price}/${p.period})`}${!p.enabled?' [停用]':''}</option>`).join('');
   const modalHtml = `
     <div class="modal" style="width:480px">
       <h2>绑定会员 — ${esc(username)}</h2>
@@ -2575,6 +2576,117 @@ async function toggleChannel(id,active){
 }
 async function refreshChannel(id){
   try{ toast('刷新中…'); await api('POST',`/admin/channels/${id}/refresh`); toast('刷新成功'); loadChannels(); }catch(e){ toast(e.message,true) }
+}
+
+/* ───────────────────────────── 问题反馈 (REPORTS) ──────────────────────────── */
+let rpState = {page:1, limit:20, status:'', ref_type:'', search:'', total:0};
+async function renderReports(){
+  document.getElementById('content').innerHTML = `
+  <div class="toolbar">
+    <select id="rp-status" onchange="rpFilter()" style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px">
+      <option value="">全部状态</option>
+      <option value="pending">待处理</option>
+      <option value="resolved">已解决</option>
+      <option value="rejected">已驳回</option>
+    </select>
+    <select id="rp-type" onchange="rpFilter()" style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;margin-left:8px">
+      <option value="">全部类型</option>
+      <option value="vocabulary">词汇</option>
+      <option value="grammar">文法</option>
+    </select>
+    <input type="text" id="rp-search" placeholder="搜索用户/标题…" style="margin-left:8px" onkeydown="if(event.key==='Enter')rpFilter()" />
+    <button class="btn btn-primary" onclick="rpFilter()" style="margin-left:8px">搜索</button>
+  </div>
+  <div class="panel" style="padding:0">
+    <table><thead><tr>
+      <th>用户</th><th>类型</th><th>内容标题</th><th>问题类型</th><th>描述</th><th>状态</th><th>时间</th><th>操作</th>
+    </tr></thead>
+    <tbody id="rp-body"></tbody></table>
+    <div style="padding:12px 16px" id="rp-pager"></div>
+  </div>`;
+  await loadReports();
+}
+async function loadReports(){
+  try{
+    const q = rpState.search ? `&q=${encodeURIComponent(rpState.search)}` : '';
+    const st = rpState.status ? `&status=${rpState.status}` : '';
+    const rt = rpState.ref_type ? `&ref_type=${rpState.ref_type}` : '';
+    const d = await api('GET',`/admin/reports?page=${rpState.page}&limit=${rpState.limit}${st}${rt}${q}`);
+    rpState.total = d.total || 0;
+    const body = document.getElementById('rp-body'); if(!body) return;
+    body.innerHTML = (d.data||[]).map(r=>{
+      const statusMap = {pending:'<span class="badge badge-orange">待处理</span>', resolved:'<span class="badge badge-green">已解决</span>', rejected:'<span class="badge badge-red">已驳回</span>'};
+      const typeMap = {vocabulary:'词汇', grammar:'文法'};
+      const sid = esc(String(r.id));
+      return `<tr>
+        <td>${esc(r.username||'')}</td>
+        <td><span class="badge badge-blue">${typeMap[r.ref_type]||r.ref_type}</span></td>
+        <td title="${esc(r.ref_title||'')}">${esc((r.ref_title||'').slice(0,20))}</td>
+        <td>${esc(r.issue_type||'')}</td>
+        <td title="${esc(r.description||'')}" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((r.description||'').slice(0,40))}</td>
+        <td>${statusMap[r.status]||r.status}</td>
+        <td>${new Date(r.createdAt).toLocaleDateString('zh-CN')}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="openReportDetail('${sid}')">详情</button>
+          ${r.status==='pending'?`<button class="btn btn-ghost btn-sm" style="color:#27ae60" onclick="resolveReport('${sid}')">解决</button><button class="btn btn-ghost btn-sm" style="color:#e74c3c" onclick="rejectReport('${sid}')">驳回</button>`:''}
+          <button class="btn btn-danger btn-sm" onclick="deleteReport('${sid}')">删除</button>
+        </td>
+      </tr>`;
+    }).join('');
+    renderPager('rp-pager', rpState.page, Math.ceil(rpState.total/rpState.limit), p=>{ rpState.page=p; loadReports(); }, rpState);
+  }catch(e){ toast(e.message,true) }
+}
+function rpFilter(){ rpState.page=1; rpState.status=document.getElementById('rp-status').value; rpState.ref_type=document.getElementById('rp-type').value; rpState.search=document.getElementById('rp-search').value; loadReports(); }
+function openReportDetail(id){
+  const list = document.querySelectorAll('#rp-body tr');
+  // find report data from the rendered row - refetch from API
+  api('GET',`/admin/reports?page=1&limit=1&q=${id}`).catch(()=>{});
+  // simple modal approach: use the row data
+  const overlay = document.createElement('div');
+  overlay.className='modal-overlay open'; overlay.id='modal-report-detail';
+  overlay.innerHTML=`<div class="modal" style="width:520px"><h2>反馈详情</h2><p style="color:#aaa">加载中…</p></div>`;
+  document.body.appendChild(overlay);
+  api('GET',`/admin/reports?page=1&limit=500`).then(d=>{
+    const r=(d.data||[]).find(x=>String(x.id)===String(id));
+    if(!r){ overlay.querySelector('.modal').innerHTML='<p>未找到</p>'; return; }
+    const statusMap={pending:'待处理',resolved:'已解决',rejected:'已驳回'};
+    const typeMap={vocabulary:'词汇',grammar:'文法'};
+    overlay.querySelector('.modal').innerHTML=`
+      <h2>🐛 反馈详情 #${r.id}</h2>
+      <div style="display:grid;grid-template-columns:100px 1fr;gap:8px 12px;font-size:13px;margin:16px 0">
+        <span style="color:#888">用户</span><span>${esc(r.username)}</span>
+        <span style="color:#888">类型</span><span>${typeMap[r.ref_type]||r.ref_type}</span>
+        <span style="color:#888">内容标题</span><span>${esc(r.ref_title||'')}</span>
+        <span style="color:#888">问题类型</span><span>${esc(r.issue_type)}</span>
+        <span style="color:#888">状态</span><span>${statusMap[r.status]||r.status}</span>
+        <span style="color:#888">提交时间</span><span>${new Date(r.createdAt).toLocaleString('zh-CN')}</span>
+      </div>
+      <div style="margin:12px 0"><strong>问题描述：</strong><p style="background:#f8fafc;padding:12px;border-radius:8px;margin-top:6px;white-space:pre-wrap;font-size:13px">${esc(r.description||'无')}</p></div>
+      <div style="margin:12px 0"><strong>管理员回复：</strong>
+        <textarea id="rp-reply" rows="3" style="width:100%;margin-top:6px;padding:8px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;resize:vertical">${esc(r.admin_reply||'')}</textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('modal-report-detail')">关闭</button>
+        <button class="btn btn-primary" onclick="saveReportReply('${r.id}')">保存回复</button>
+      </div>`;
+  }).catch(e=>{ overlay.querySelector('.modal').innerHTML=`<p style="color:#e74c3c">${esc(e.message)}</p>`; });
+}
+async function saveReportReply(id){
+  try{
+    const reply=document.getElementById('rp-reply').value;
+    await api('PUT',`/admin/reports/${id}`,{admin_reply:reply});
+    toast('已保存'); closeModal('modal-report-detail'); loadReports();
+  }catch(e){ toast(e.message,true) }
+}
+async function resolveReport(id){
+  try{ await api('PUT',`/admin/reports/${id}`,{status:'resolved'}); toast('已标记为已解决'); loadReports(); }catch(e){ toast(e.message,true) }
+}
+async function rejectReport(id){
+  try{ await api('PUT',`/admin/reports/${id}`,{status:'rejected'}); toast('已驳回'); loadReports(); }catch(e){ toast(e.message,true) }
+}
+async function deleteReport(id){
+  if(!confirm('确定要删除这条反馈吗？')) return;
+  try{ await api('DELETE',`/admin/reports/${id}`); toast('已删除'); loadReports(); }catch(e){ toast(e.message,true) }
 }
 
 /* ───────────────────────────── ADMIN MGMT ──────────────────────────────── */

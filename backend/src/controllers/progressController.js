@@ -30,7 +30,7 @@ async function getDailyGoals(req, res) {
     const today = new Date().toISOString().split('T')[0];
 
     // 合并查询：今日统计 + 今日 SRS 复习数 + 总 XP + 测验数并行执行
-    const [todayStats, todayByType, totalXpRow, todayQuizCount, srsDueCount] = await Promise.all([
+    const [todayStats, todayByType, totalXpRow, todayQuizCount, srsDueCount, todayQuizByType] = await Promise.all([
       UserProgress.findAll({
         where: { user_id: userId, studied_at: today },
         attributes: [
@@ -60,6 +60,17 @@ async function getDailyGoals(req, res) {
       SrsCard.count({
         where: { user_id: userId, due_date: { [Op.lte]: today } },
       }),
+      QuizSession.findAll({
+        where: {
+          user_id: userId,
+          completed_at: { [Op.gte]: new Date(today) },
+        },
+        attributes: [
+          'quiz_type',
+          [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        ],
+        group: ['quiz_type'],
+      }),
     ]);
 
     // 今日 SRS 复习数
@@ -79,6 +90,12 @@ async function getDailyGoals(req, res) {
       realStreak = 0;
     }
 
+    // 测验分类统计
+    const quizBreakdown = {};
+    for (const row of todayQuizByType) {
+      quizBreakdown[row.quiz_type] = parseInt(row.dataValues.count) || 0;
+    }
+
     res.json({
       streak_days: realStreak,
       total_xp: totalXp,
@@ -88,6 +105,7 @@ async function getDailyGoals(req, res) {
         xp_earned: todayXp,
         activity_count: todayActivities,
         quiz_count: todayQuizCount,
+        quiz_breakdown: quizBreakdown,
         srs_review_count: parseInt(todaySrsCount?.dataValues?.count) || 0,
       },
       goals: {
@@ -125,6 +143,17 @@ async function getSummary(req, res) {
         [sequelize.fn('AVG', sequelize.col('score_percent')), 'avg_score'],
         [sequelize.fn('COUNT', sequelize.col('id')), 'total_quizzes'],
       ],
+    });
+
+    // 测验分类统计（30天内按类型分组）
+    const quizByType = await QuizSession.findAll({
+      where: { user_id: userId, completed_at: { [Op.gte]: thirtyDaysAgo } },
+      attributes: [
+        'quiz_type',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        [sequelize.fn('AVG', sequelize.col('score_percent')), 'avg_score'],
+      ],
+      group: ['quiz_type'],
     });
 
     const srsStats = await SrsCard.findAll({
@@ -170,6 +199,15 @@ async function getSummary(req, res) {
       realStreak = 0; // 链条已断，实时归零
     }
 
+    // 测验分类明细
+    const quizBreakdown = {};
+    for (const row of quizByType) {
+      quizBreakdown[row.quiz_type] = {
+        count: parseInt(row.dataValues.count) || 0,
+        avg_score: Math.round(parseFloat(row.dataValues.avg_score) || 0),
+      };
+    }
+
     res.json({
       user: {
         streak_days: realStreak,
@@ -179,6 +217,7 @@ async function getSummary(req, res) {
       },
       daily_stats: dailyStats,
       quiz_stats: quizStats[0],
+      quiz_breakdown: quizBreakdown,
       srs_stats: srsStats[0],
       weekly_stats: {
         xp: parseInt(weeklyAgg[0]?.dataValues?.week_xp) || 0,

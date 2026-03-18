@@ -34,6 +34,7 @@ import '../screens/news/nhk_detail_screen.dart';
 import '../screens/tools/todofuken_quiz_screen.dart';
 import '../screens/tools/translate_screen.dart';
 import '../screens/quiz/kana_writing_test_screen.dart';
+import '../screens/quiz/grammar_quiz_screen.dart';
 import '../screens/tools/wrong_answers_screen.dart';
 import '../screens/listening/immersion_screen.dart';
 import '../screens/membership/membership_comparison_page.dart';
@@ -92,6 +93,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/listening', builder: (_, __) => const ListeningScreen()),
           GoRoute(path: '/listening-exercise', builder: (_, __) => const ListeningExerciseScreen()),
           GoRoute(path: '/quiz', builder: (_, __) => const QuizScreen()),
+          GoRoute(path: '/grammar-quiz', builder: (_, __) => const GrammarQuizScreen()),
           GoRoute(
             path: '/quiz/result',
             builder: (_, state) => QuizResultScreen(
@@ -184,6 +186,7 @@ class _MainShellState extends State<MainShell> {
           location.startsWith('/nhk-news')) {
         idx = 1; // 学习
       } else if (location.startsWith('/quiz') ||
+          location.startsWith('/grammar-quiz') ||
           location.startsWith('/game') ||
           location.startsWith('/listening-exercise')) {
         idx = 2; // 测试

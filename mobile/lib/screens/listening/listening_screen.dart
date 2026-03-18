@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../services/api_service.dart';
+import '../../widgets/furigana_text.dart';
 
 class ListeningScreen extends StatefulWidget {
   const ListeningScreen({super.key});
@@ -431,7 +432,10 @@ class _ListeningScreenState extends State<ListeningScreen> {
               Text(s['sentence'], style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cs.onSurface)),
               if ((s['reading'] as String).isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Text(s['reading'], style: TextStyle(fontSize: 13, color: cs.outline)),
+                if (hasFurigana(s['reading']))
+                  FuriganaText(text: s['reading'], fontSize: 13, color: cs.outline, fontWeight: FontWeight.normal, textAlign: TextAlign.left)
+                else
+                  Text(s['reading'], style: TextStyle(fontSize: 13, color: cs.outline)),
               ],
               const SizedBox(height: 8),
               Text('💬 ${s['meaning']}', style: TextStyle(fontSize: 14, color: cs.primary)),

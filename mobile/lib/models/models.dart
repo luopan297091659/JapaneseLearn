@@ -227,6 +227,7 @@ class QuizQuestionModel {
   final List<String>? options;
   final String? explanation;
   final String jlptLevel;
+  final String? meaningZh;
   String? userAnswer;
 
   QuizQuestionModel({
@@ -237,6 +238,7 @@ class QuizQuestionModel {
     this.options,
     this.explanation,
     required this.jlptLevel,
+    this.meaningZh,
     this.userAnswer,
   });
 
@@ -262,6 +264,7 @@ class QuizQuestionModel {
       options:       optionsList,
       explanation:   json['explanation']?.toString(),
       jlptLevel:     json['jlpt_level']?.toString() ?? 'N5',
+      meaningZh:     json['meaning_zh']?.toString(),
     );
   }
 

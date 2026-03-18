@@ -381,6 +381,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     _SectionTitle(title: '今日目标', icon: Icons.flag_rounded),
                     const SizedBox(height: 10),
                     _DailyGoalsCard(goals: goals),
+                    const SizedBox(height: 10),
+                    if (_dailyGoals?['today']?['quiz_breakdown'] != null &&
+                        (_dailyGoals!['today']['quiz_breakdown'] as Map).isNotEmpty)
+                      _QuizBreakdownCard(
+                        breakdown: Map<String, dynamic>.from(_dailyGoals!['today']['quiz_breakdown']),
+                      ),
                     const SizedBox(height: 20),
                   ],
                   // ── 辞书検索 ──────────────────────────────────────
@@ -410,7 +416,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       onReveal: () => setState(() => _wordRevealed = true),
                       onNext: _nextWord,
                     ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
                   // ── 常用功能（可自定义，最多6个）────────────────
                   Row(children: [
                     const Expanded(child: _SectionTitle(title: '常用功能', icon: Icons.apps_rounded)),
@@ -1150,6 +1156,60 @@ class _CompactGoalItem extends StatelessWidget {
         ),
       ),
     ]);
+  }
+}
+
+// ─── 测验细分卡片 ──────────────────────────────────────────────────────────────
+
+class _QuizBreakdownCard extends StatelessWidget {
+  final Map<String, dynamic> breakdown;
+  const _QuizBreakdownCard({required this.breakdown});
+
+  static const _labels = {
+    'vocabulary': '单词测验',
+    'grammar': '文法测验',
+    'listening': '听力测验',
+    'mixed': '综合测验',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final entries = breakdown.entries.where((e) {
+      final v = e.value;
+      return v is int ? v > 0 : true;
+    }).toList();
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('📝 今日测验', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: cs.onSurface)),
+          const SizedBox(height: 6),
+          ...entries.map((e) {
+            final label = _labels[e.key] ?? e.key;
+            final count = e.value is int ? e.value : 0;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(label, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                  Text('$count 次', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: cs.onSurface)),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
   }
 }
 

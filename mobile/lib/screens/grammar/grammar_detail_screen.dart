@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../widgets/audio_player_widget.dart';
+import '../../widgets/report_dialog.dart';
 
 // ─── 段落标题 ──────────────────────────────────────────────────────────────────
 class _SectionHeader extends StatelessWidget {
@@ -156,7 +157,21 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
           onPressed: () => context.canPop() ? context.pop() : context.go('/grammar'),
         ),
         title: Text(_lesson?.pattern ?? '文法'),
-        actions: [],
+        actions: [
+          if (_lesson != null)
+            IconButton(
+              tooltip: '问题反馈',
+              icon: const Icon(Icons.info_outline_rounded, size: 22),
+              onPressed: () => showDialog(
+                context: context,
+                builder: (_) => ReportDialog(
+                  refType: 'grammar',
+                  refId: _lesson!.id,
+                  refTitle: _lesson!.pattern,
+                ),
+              ),
+            ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

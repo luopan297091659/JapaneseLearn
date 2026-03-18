@@ -20,6 +20,7 @@ class _WrongAnswersScreenState extends State<WrongAnswersScreen> {
 
   static const _sourceLabels = {
     'quiz': '单词测验',
+    'grammar_quiz': '文法测验',
     'listening': '听力测验',
     'game': '闯关游戏',
   };
@@ -146,6 +147,7 @@ class _WrongAnswersScreenState extends State<WrongAnswersScreen> {
                   child: Row(children: [
                     _buildChip('全部', 'all'), const SizedBox(width: 8),
                     _buildChip('单词测验', 'quiz'), const SizedBox(width: 8),
+                    _buildChip('文法测验', 'grammar_quiz'), const SizedBox(width: 8),
                     _buildChip('听力测验', 'listening'), const SizedBox(width: 8),
                     _buildChip('闯关游戏', 'game'),
                   ]),

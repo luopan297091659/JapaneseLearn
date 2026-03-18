@@ -48,8 +48,10 @@ function cleanFurigana(text) {
 // ── 提取读音：山[やま]田[だ]さん → やまださん ──
 function extractReading(text) {
   if (!text) return '';
-  // 把 汉字[读音] 替换为 读音，保留非注音文字
-  let result = text.replace(/([^\[\]\s]*)\[([^\]]+)\]/g, '$2');
+  // 只匹配汉字+[读音]，保留汉字前面的假名不被吞掉
+  let result = text.replace(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]+\[([^\]]+)\]/g, '$1');
+  // 去掉残留的空括号（以防万一）
+  result = result.replace(/\[[^\]]*\]/g, '');
   // 清除多余空格
   result = result.replace(/\s+/g, '').trim();
   return result;

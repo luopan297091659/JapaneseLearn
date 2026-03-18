@@ -14,9 +14,16 @@ class MembershipService {
   bool isBlocked(String featureId, {required bool isMember}) {
     if (isMember) return false;
     final tier = syncService.getFeatureTier(featureId);
-    if (tier == null) return false;
+    // tier 未加载或未配置时，对已知 blocked 功能仍做拦截
+    if (tier == null) {
+      return _defaultBlockedFeatures.contains(featureId);
+    }
     return tier['type'] == 'blocked';
   }
+
+  static const _defaultBlockedFeatures = {
+    'ai_features', 'pronunciation', 'anki_import', 'anki_quiz', 'wrong_answers',
+  };
 
   /// 获取免费用户的每日/数量限额，null 表示无限制
   int? getFreeLimit(String featureId) {

@@ -9,6 +9,7 @@ import '../../widgets/furigana_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/app_config.dart';
 import 'vocab_whiteboard_screen.dart';
+import '../../widgets/report_dialog.dart';
 
 class VocabularyDetailScreen extends StatefulWidget {
   final String id;
@@ -280,6 +281,19 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
               icon: const Icon(Icons.add_card),
               label: const Text('加入SRS'),
               onPressed: _addToSrs,
+            ),
+          if (_vocab != null)
+            IconButton(
+              tooltip: '问题反馈',
+              icon: const Icon(Icons.info_outline_rounded, size: 22),
+              onPressed: () => showDialog(
+                context: context,
+                builder: (_) => ReportDialog(
+                  refType: 'vocabulary',
+                  refId: _vocab!.id,
+                  refTitle: _vocab!.word,
+                ),
+              ),
             ),
         ],
       ),

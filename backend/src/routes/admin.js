@@ -18,6 +18,7 @@ const {
   uploadApp, listAppReleases, downloadApp, deleteAppRelease,
   getAiSettings, saveAiSettings, getAiUsage, resetAiUsage,
   listAdmins, updateAdminPermissions, getAdminInfo,
+  listReports, updateReport, deleteReport,
 } = require('../controllers/adminController');
 const {
   adminListChannels, adminCreateChannel, adminUpdateChannel, adminDeleteChannel, adminRefreshChannel,
@@ -132,5 +133,10 @@ router.post('/channels/:id/refresh', permissionCheck('tracks'), asyncHandler(adm
 // 管理员权限管理（仅高级管理员）
 router.get('/admins',             superAdminAuth, asyncHandler(listAdmins));
 router.put('/admins/:id/permissions', superAdminAuth, asyncHandler(updateAdminPermissions));
+
+// 用户报错管理
+router.get('/reports',        permissionCheck('reports'), asyncHandler(listReports));
+router.put('/reports/:id',    permissionCheck('reports'), asyncHandler(updateReport));
+router.delete('/reports/:id', permissionCheck('reports'), asyncHandler(deleteReport));
 
 module.exports = router;

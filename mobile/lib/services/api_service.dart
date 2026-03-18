@@ -549,6 +549,23 @@ class ApiService {
     _cache.invalidate('progress:');
   }
 
+  // ─── Reports ──────────────────────────────────────────────────────────────
+  Future<void> submitReport({
+    required String refType,
+    required String refId,
+    required String refTitle,
+    required String issueType,
+    required String description,
+  }) async {
+    await _dio.post('/reports', data: {
+      'ref_type': refType,
+      'ref_id': refId,
+      'ref_title': refTitle,
+      'issue_type': issueType,
+      'description': description,
+    });
+  }
+
   // ─── Quiz ─────────────────────────────────────────────────────────────────
   Future<List<QuizQuestionModel>> generateQuiz({
     String level = 'N5',
@@ -603,14 +620,15 @@ class ApiService {
     return data;
   }
 
-  Future<Map<String, dynamic>> getListeningTracks({String? level, String? category, int page = 1}) async {
-    final key = 'listening:${level}:${category}:$page';
+  Future<Map<String, dynamic>> getListeningTracks({String? level, String? category, int page = 1, int limit = 200}) async {
+    final key = 'listening:${level}:${category}:$page:$limit';
     final cached = _cache.get(key);
     if (cached != null) return cached as Map<String, dynamic>;
     final res = await _dio.get('/listening', queryParameters: {
       if (level != null) 'level': level,
       if (category != null) 'category': category,
       'page': page,
+      'limit': limit,
     });
     _cache.set(key, res.data as Map<String, dynamic>, AppConfig.cacheTtlLong);
     return res.data;

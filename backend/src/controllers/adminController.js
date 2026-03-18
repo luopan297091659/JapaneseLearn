@@ -89,6 +89,7 @@ async function listVocab(req, res) {
       { word: { [Op.like]: `%${q}%` } },
       { reading: { [Op.like]: `%${q}%` } },
       { meaning_zh: { [Op.like]: `%${q}%` } },
+      { example_sentence: { [Op.like]: `%${q}%` } },
     ];
   }
   const offset = (parseInt(page) - 1) * lim;
@@ -298,6 +299,8 @@ async function listGrammar(req, res) {
       { title: { [Op.like]: `%${q}%` } },
       { pattern: { [Op.like]: `%${q}%` } },
       { explanation_zh: { [Op.like]: `%${q}%` } },
+      { '$examples.sentence$': { [Op.like]: `%${q}%` } },
+      { '$examples.meaning_zh$': { [Op.like]: `%${q}%` } },
     ];
   }
   const offset = (parseInt(page) - 1) * lim;
@@ -307,6 +310,7 @@ async function listGrammar(req, res) {
       include: [{ model: GrammarExample, as: 'examples', attributes: ['sentence', 'meaning_zh'] }],
       order: [['jlpt_level', 'ASC'], ['order_index', 'ASC']],
       distinct: true,
+      subQuery: false,
     });
     // 附加 example_count 并截取例句摘要
     const data = rows.map(r => {
@@ -511,6 +515,7 @@ const ADMIN_PERMISSIONS = [
   { key: 'grammar', name: '文法管理', icon: '📖' },
   { key: 'tracks', name: '听力管理', icon: '🎧' },
   { key: 'users', name: '用户管理', icon: '👥' },
+  { key: 'reports', name: '问题反馈', icon: '🐛' },
   { key: 'stats', name: '数据分析', icon: '📈' },
   { key: 'membership', name: '会员配置', icon: '👑' },
   { key: 'sync', name: '内容同步', icon: '🔄' },
@@ -918,6 +923,7 @@ const DEFAULT_FEATURE_TOGGLES = {
     { id: 'translate',     name: '翻译解析', icon: '🌐', web: true,  mobile: true  },
     { id: 'localvocab',    name: 'Anki词库', icon: '📂', web: false, mobile: true  },
     { id: 'wrong-answers', name: '错题集',   icon: '📋', web: false, mobile: true  },
+    { id: 'grammar-quiz',  name: '文法测验', icon: '📖', web: true,  mobile: true  },
     { id: 'immersion',     name: '磨耳朵',   icon: '📺', web: false, mobile: true  },
     { id: 'kana-writing-test', name: '假名书写', icon: '✍️', web: false, mobile: true  },
   ],
@@ -987,6 +993,7 @@ const DEFAULT_FEATURE_TIERS = {
     { id: 'flashcard_levels', name: '闪卡复习', icon: '🃏', type: 'enum', free_values: ['N5'], member_values: ['N5','N4','N3','N2','N1'], free_label: 'N5', member_label: '全等级' },
     { id: 'anki_quiz', name: 'Anki本地卡组测验', icon: '📋', type: 'blocked', free_label: '不可用', member_label: '可用' },
     { id: 'wrong_answers', name: '错题集', icon: '📝', type: 'blocked', free_label: '不可用', member_label: '可用' },
+    { id: 'grammar_quiz_daily', name: '文法测验', icon: '📖', type: 'daily_limit', free_limit: 10, free_label: '每日10题', member_label: '无限制' },
     { id: 'dictionary_daily', name: '词典查询', icon: '🔍', type: 'daily_limit', free_limit: 20, free_label: '每日限20次', member_label: '无限制' },
     { id: 'news_limit', name: 'NHK新闻', icon: '📰', type: 'limit', free_limit: 5, free_label: '最新5篇', member_label: '全部' },
   ],
@@ -1287,6 +1294,48 @@ async function resetAiUsage(req, res) {
   }
 }
 
+// ── 用户报错管理 ────────────────────────────────────
+const { UserReport } = require('../routes/reports');
+
+async function listReports(req, res) {
+  const { status, ref_type, page = 1, limit = 20, q } = req.query;
+  const where = {};
+  if (status) where.status = status;
+  if (ref_type) where.ref_type = ref_type;
+  if (q) {
+    where[Op.or] = [
+      { ref_title: { [Op.like]: `%${q}%` } },
+      { username: { [Op.like]: `%${q}%` } },
+      { description: { [Op.like]: `%${q}%` } },
+    ];
+  }
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const { count, rows } = await UserReport.findAndCountAll({
+    where,
+    order: [['createdAt', 'DESC']],
+    limit: parseInt(limit),
+    offset,
+  });
+  res.json({ total: count, data: rows });
+}
+
+async function updateReport(req, res) {
+  const { id } = req.params;
+  const { status, admin_reply } = req.body;
+  const report = await UserReport.findByPk(id);
+  if (!report) return res.status(404).json({ error: '未找到该报告' });
+  if (status) report.status = status;
+  if (admin_reply !== undefined) report.admin_reply = admin_reply;
+  await report.save();
+  res.json({ success: true, data: report });
+}
+
+async function deleteReport(req, res) {
+  const { id } = req.params;
+  const deleted = await UserReport.destroy({ where: { id } });
+  res.json({ success: true, deleted });
+}
+
 module.exports = {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, deduplicateVocab, fixVocabReadings,
@@ -1305,4 +1354,5 @@ module.exports = {
   deleteAppRelease,
   getAiSettings, saveAiSettings, getAiUsage, resetAiUsage, readAiSettings, saveAiSettingsFile,
   listAdmins, updateAdminPermissions, getAdminInfo,
+  listReports, updateReport, deleteReport,
 };

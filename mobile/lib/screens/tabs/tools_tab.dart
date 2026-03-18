@@ -137,7 +137,7 @@ class _ToolsTabState extends State<ToolsTab> {
           _ToolCard(
             icon: Icons.headphones_rounded,
             title: '磨耳朵',
-            subtitle: '沉浸式听力 · Bilibili/YouTube 日语视频',
+            subtitle: '沉浸式听力 · 日语频道/短文视频',
             color: const Color(0xFFE65100),
             onTap: () => context.push('/immersion'),
           ),
