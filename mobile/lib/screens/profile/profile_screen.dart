@@ -341,7 +341,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       // 3. 配置并测试
       await tts.awaitSpeakCompletion(false);
-      try { await tts.setLanguage('ja-JP'); } catch (_) {}
+      try { await TtsHelper.setJapaneseVoice(tts); } catch (_) {}
       await tts.setVolume(1.0);
       await tts.setSpeechRate(0.45);
       await tts.setPitch(1.0);

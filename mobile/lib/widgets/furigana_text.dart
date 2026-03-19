@@ -68,7 +68,7 @@ class FuriganaText extends StatelessWidget {
     final parts = _parseFurigana(text);
     final cs = Theme.of(context).colorScheme;
     final baseColor = color ?? cs.primary;
-    final readingSize = (fontSize * 0.42).clamp(9.0, 18.0);
+    final readingSize = (fontSize * 0.55).clamp(10.0, 20.0);
 
     final baseStyle = TextStyle(
       fontSize: fontSize,

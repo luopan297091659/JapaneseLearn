@@ -101,7 +101,7 @@ class _KanaWritingTestScreenState extends State<KanaWritingTestScreen> {
     if (_questions.isEmpty) return;
     final q = _questions[_current];
     try {
-      try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+      try { await TtsHelper.setJapaneseVoice(_tts); } catch (_) {}
       await _tts.setVolume(1.0);
       await _tts.speak(q['kana']!);
     } catch (e) {

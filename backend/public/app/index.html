@@ -1444,20 +1444,8 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
       <!-- 磨耳朵页 -->
       <div class="page" id="page-immersion">
         <h2 style="margin-bottom:8px;font-size:22px">👂 磨耳朵</h2>
-        <p style="color:var(--text-sub);margin-bottom:12px">沉浸式听力·阅读</p>
-        <!-- Tab bar -->
-        <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px" id="imm-tabs">
-          <div class="imm-tab active" data-tab="channels" onclick="switchImmTab('channels')" style="padding:8px 20px;cursor:pointer;font-weight:700;font-size:14px;border-bottom:2px solid var(--primary);margin-bottom:-2px;color:var(--primary)">📺 频道视频</div>
-          <div class="imm-tab" data-tab="tracks" onclick="switchImmTab('tracks')" style="padding:8px 20px;cursor:pointer;font-weight:500;font-size:14px;color:var(--text-sub)">📖 短文阅读</div>
-        </div>
-        <div id="imm-tab-channels">
-          <div id="imm-channels"></div>
-        </div>
-        <div id="imm-tab-tracks" style="display:none">
-          <div id="imm-tracks-filter" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap"></div>
-          <div id="imm-track-player" style="display:none"></div>
-          <div id="imm-tracks-list"></div>
-        </div>
+        <p style="color:var(--text-sub);margin-bottom:12px">沉浸式听力</p>
+        <div id="imm-channels"></div>
         <!-- 视频播放模态框 -->
         <div id="imm-player-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:10000;display:none;align-items:center;justify-content:center;flex-direction:column">
           <div style="position:relative;width:90%;max-width:900px;aspect-ratio:16/9">
@@ -2321,6 +2309,80 @@ function renderVocabList() {
   `).join('');
 }
 
+// ── Verb Conjugation Engine ─────────────────────────────────────
+function conjugateVerb(word, reading) {
+  const w = (word||'').trim(), r = (reading||'').trim();
+  if (!w) return [];
+  if (w === 'する' || w.endsWith('する')) return conjugateSuru(w, r);
+  if (w === '来る' || w === 'くる' || w.endsWith('来る') || w.endsWith('くる')) return conjugateKuru(w, r);
+  if (isIchidan(w, r)) return conjugateIchidan(w, r);
+  return conjugateGodan(w, r);
+}
+const _godanExceptions = new Set(['帰る','切る','知る','入る','走る','要る','参る','散る','滑る','握る','練る','蹴る','減る','照る','焦る','限る']);
+function isIchidan(w, r) {
+  if (!w.endsWith('る')) return false;
+  if (_godanExceptions.has(w)) return false;
+  const rd = r || w;
+  if (rd.length < 2) return false;
+  const before = rd[rd.length - 2];
+  return 'いきしちにひみりぎじぢびぴえけせてねへめれげぜでべぺ'.includes(before);
+}
+const _godanTe = {'う':'って','く':'いて','ぐ':'いで','す':'して','つ':'って','ぬ':'んで','ぶ':'んで','む':'んで','る':'って'};
+const _godanTa = {'う':'った','く':'いた','ぐ':'いだ','す':'した','つ':'った','ぬ':'んだ','ぶ':'んだ','む':'んだ','る':'った'};
+const _godanI = {'う':'い','く':'き','ぐ':'ぎ','す':'し','つ':'ち','ぬ':'に','ぶ':'び','む':'み','る':'り'};
+const _godanA = {'う':'わ','く':'か','ぐ':'が','す':'さ','つ':'た','ぬ':'な','ぶ':'ば','む':'ま','る':'ら'};
+const _godanE = {'う':'え','く':'け','ぐ':'げ','す':'せ','つ':'て','ぬ':'ね','ぶ':'べ','む':'め','る':'れ'};
+const _godanO = {'う':'お','く':'こ','ぐ':'ご','す':'そ','つ':'と','ぬ':'の','ぶ':'ぼ','む':'も','る':'ろ'};
+function conjugateGodan(w, r) {
+  const rd = r || w;
+  const e = rd[rd.length-1], s = w.slice(0,-1);
+  if (!_godanI[e]) return [];
+  const isIku = w === '行く';
+  return [
+    {form:'ます形', value: s+_godanI[e]+'ます'},
+    {form:'ない形', value: s+_godanA[e]+'ない'},
+    {form:'て形', value: isIku ? s+'って' : s+_godanTe[e]},
+    {form:'た形', value: isIku ? s+'った' : s+_godanTa[e]},
+    {form:'可能形', value: s+_godanE[e]+'る'},
+    {form:'意向形', value: s+_godanO[e]+'う'},
+    {form:'命令形', value: s+_godanE[e]},
+    {form:'受身形', value: s+_godanA[e]+'れる'},
+  ];
+}
+function conjugateIchidan(w, r) {
+  const s = w.slice(0,-1);
+  return [
+    {form:'ます形', value: s+'ます'}, {form:'ない形', value: s+'ない'},
+    {form:'て形', value: s+'て'}, {form:'た形', value: s+'た'},
+    {form:'可能形', value: s+'られる'}, {form:'意向形', value: s+'よう'},
+    {form:'命令形', value: s+'ろ'}, {form:'受身形', value: s+'られる'},
+  ];
+}
+function conjugateSuru(w, r) {
+  const p = w.endsWith('する') ? w.slice(0,-2) : '';
+  return [
+    {form:'ます形', value: p+'します'}, {form:'ない形', value: p+'しない'},
+    {form:'て形', value: p+'して'}, {form:'た形', value: p+'した'},
+    {form:'可能形', value: p+'できる'}, {form:'意向形', value: p+'しよう'},
+    {form:'命令形', value: p+'しろ'}, {form:'受身形', value: p+'される'},
+  ];
+}
+function conjugateKuru(w, r) {
+  const p = w.endsWith('来る') ? w.slice(0,-2) : w.endsWith('くる') ? w.slice(0,-2) : '';
+  return [
+    {form:'ます形', value: p+'来ます'}, {form:'ない形', value: p+'来ない'},
+    {form:'て形', value: p+'来て'}, {form:'た形', value: p+'来た'},
+    {form:'可能形', value: p+'来られる'}, {form:'意向形', value: p+'来よう'},
+    {form:'命令形', value: p+'来い'}, {form:'受身形', value: p+'来られる'},
+  ];
+}
+function buildConjugationHtml(w) {
+  if (w.part_of_speech !== 'verb') return '';
+  const conjs = conjugateVerb(w.word, w.reading);
+  if (!conjs.length) return '';
+  return `<div class="example" style="margin-top:12px"><div style="font-weight:700;font-size:14px;margin-bottom:8px">🔀 动词变形</div><table style="width:100%;border-collapse:collapse;font-size:14px">${conjs.map(c=>`<tr><td style="padding:3px 8px 3px 0;color:var(--primary);font-weight:600;white-space:nowrap;width:60px">${escHtml(c.form)}</td><td style="padding:3px 0;font-size:16px">${escHtml(c.value)}</td></tr>`).join('')}</table></div>`;
+}
+
 async function showVocabDetail(id) {
   const curIdx = vocabWords.findIndex(w => String(w.id) === String(id));
   openModal('単語詳細', '<div class="loading"><div class="spinner"></div></div>');
@@ -2329,12 +2391,12 @@ async function showVocabDetail(id) {
     const srsCard = await (async () => {
       try { const r = await GET(`/srs/card/${id}`); return r; } catch(_) { return null; }
     })();
-    const audioHtml = w.audio_url ? `<button class="btn btn-sm btn-outline" onclick="playAudio('${escHtml(w.audio_url)}')">🔊 发音</button><button class="btn btn-sm btn-outline" onclick="playAudioSlow('${escHtml(w.audio_url)}')" style="color:var(--warning);border-color:var(--warning)">🐌 慢速</button>` : '';
+    const audioHtml = w.audio_url ? `<button class="btn btn-sm btn-outline" onclick="playAudio('${escHtml(w.audio_url)}')">🔊 发音</button><button class="btn btn-sm btn-outline" onclick="playAudioSlow('${escHtml(w.audio_url)}')" style="color:var(--warning);border-color:var(--warning)">🐌 慢速</button>` : `<button class="btn btn-sm btn-outline" onclick="speakJa('${escHtml(ttsText(w))}')">🔊 发音</button><button class="btn btn-sm btn-outline" onclick="speakJaSlow('${escHtml(ttsText(w))}')" style="color:var(--warning);border-color:var(--warning)">🐌 慢速</button>`;
     const srsHtml = srsCard
       ? `<button class="btn btn-sm btn-outline" style="color:var(--success);border-color:var(--success)" disabled>✓ 已加入 SRS</button>`
       : `<button class="btn btn-sm btn-primary" onclick="addToSrs('${escHtml(w.id)}')">+ 加入 SRS 复习</button>`;
     const posRaw = w.part_of_speech_raw || w.part_of_speech || '';
-    const exAudioHtml = w.example_audio_url ? `<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();playAudio('${escHtml(w.example_audio_url)}')" title="正常速度">🔊</button><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();playAudioSlow('${escHtml(w.example_audio_url)}')" title="慢速" style="color:var(--warning);border-color:var(--warning);font-size:10px">🐌</button></div>` : '';
+    const exAudioHtml = w.example_audio_url ? `<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();playAudio('${escHtml(w.example_audio_url)}')" title="正常速度">🔊</button><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();playAudioSlow('${escHtml(w.example_audio_url)}')" title="慢速" style="color:var(--warning);border-color:var(--warning);font-size:10px">🐌</button></div>` : (w.example_sentence ? `<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();speakJa('${escHtml(w.example_sentence)}')" title="正常速度">🔊</button><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();speakJaSlow('${escHtml(w.example_sentence)}')" title="慢速" style="color:var(--warning);border-color:var(--warning);font-size:10px">🐌</button></div>` : '');
     document.getElementById('modal-body').innerHTML = `
       <div class="vocab-detail">
         ${vocabWords.length > 1 && curIdx >= 0 ? `
@@ -2356,6 +2418,7 @@ async function showVocabDetail(id) {
             </div>
             ${exAudioHtml}
           </div>` : ''}
+        ${buildConjugationHtml(w)}
         <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap">
           ${audioHtml}
           <button class="btn btn-sm btn-primary" onclick="event.stopPropagation();startPronPractice('${escHtml(ttsText(w))}','vocab-pron-result')">🎤 跟读练习</button>
@@ -2364,6 +2427,8 @@ async function showVocabDetail(id) {
         </div>
         <div id="vocab-pron-result" style="margin-top:12px"></div>
       </div>`;
+    // 自动播放单词发音
+    if (w.audio_url) { playAudio(w.audio_url); } else { speakJa(ttsText(w)); }
   } catch(e) {
     document.getElementById('modal-body').innerHTML = `<p style="color:var(--danger)">加载失败: ${escHtml(e.message)}</p>`;
   }
@@ -3497,11 +3562,30 @@ function renderPronWord() {
 }
 
 // 通用日语 TTS 朗读
+let _jaVoice = null;
+let _jaVoiceSearched = false;
+function _findJaVoice() {
+  if (_jaVoiceSearched) return _jaVoice;
+  const voices = speechSynthesis.getVoices();
+  if (!voices.length) return null; // voices not loaded yet
+  _jaVoiceSearched = true;
+  // 优先精确匹配 ja-JP，其次 ja 开头
+  _jaVoice = voices.find(v => v.lang === 'ja-JP')
+    || voices.find(v => v.lang.startsWith('ja'))
+    || null;
+  return _jaVoice;
+}
+// 浏览器异步加载 voices 列表
+if (typeof speechSynthesis !== 'undefined') {
+  speechSynthesis.onvoiceschanged = () => { _jaVoiceSearched = false; _jaVoice = null; };
+}
 function speakJa(text, rate = 0.8) {
   if (!text) return;
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = 'ja-JP';
   utter.rate = rate;
+  const v = _findJaVoice();
+  if (v) utter.voice = v;
   speechSynthesis.cancel();
   speechSynthesis.speak(utter);
 }
@@ -4494,7 +4578,8 @@ async function doChangePassword() {
 //  MEMBERSHIP
 // ══════════════════════════════════════════════════════════════════
 const FEATURE_NAMES = {
-  grammar_lessons: '文法课程', srs_daily: 'SRS 复习', immersion_daily: '磨耳朵',
+  grammar_lessons: '文法课程', srs_daily: 'SRS 复习', listening_daily: '听力学习',
+  listening_exercise_daily: '听力测验', immersion_daily: '磨耳朵',
   ai_features: 'AI 功能', pronunciation: '发音练习', anki_import: 'Anki 导入',
   game_levels: '闯关游戏', quiz_meaning_daily: '词义测验', quiz_reading_daily: '读音测验',
   dictionary_daily: '词典查询', news_limit: '新闻阅读', anki_quiz: 'Anki 测验',
@@ -4505,38 +4590,31 @@ const FEATURE_NAMES = {
 function renderUsageGrid(usage, targetId) {
   const grid = document.getElementById(targetId);
   if (!grid) return;
-  const dailyKeys = ['srs_daily', 'quiz_meaning_daily', 'quiz_reading_daily', 'dictionary_daily', 'immersion_daily'];
-  const limitKeys = ['grammar_lessons', 'game_levels', 'news_limit'];
-  const blockedKeys = ['ai_features', 'pronunciation', 'anki_import', 'anki_quiz'];
   let html = '';
-  // daily limits
-  for (const key of dailyKeys) {
-    const u = usage[key]; if (!u) continue;
+  for (const key of Object.keys(usage)) {
+    const u = usage[key];
+    const name = FEATURE_NAMES[key] || key;
     if (u.unlimited) {
-      html += `<div class="usage-item ok"><div class="usage-label">${FEATURE_NAMES[key]}</div><div class="usage-val">无限</div></div>`;
-    } else {
+      if (u.type === 'blocked') {
+        html += `<div class="usage-item ok"><div class="usage-label">${name}</div><div class="usage-val">已解锁</div></div>`;
+      } else if (u.type === 'daily_limit') {
+        html += `<div class="usage-item ok"><div class="usage-label">${name}</div><div class="usage-val">无限</div></div>`;
+      } else if (u.type === 'limit') {
+        html += `<div class="usage-item ok"><div class="usage-label">${name}</div><div class="usage-val">全部</div></div>`;
+      } else {
+        html += `<div class="usage-item ok"><div class="usage-label">${name}</div><div class="usage-val">无限</div></div>`;
+      }
+    } else if (u.type === 'daily_limit') {
       const pct = u.limit > 0 ? Math.round((u.used / u.limit) * 100) : 100;
       const cls = u.remaining <= 0 ? 'blocked' : pct >= 70 ? 'warning' : 'ok';
       const color = cls === 'blocked' ? 'var(--danger)' : cls === 'warning' ? '#f59e0b' : '#22c55e';
-      html += `<div class="usage-item ${cls}"><div class="usage-label">${FEATURE_NAMES[key]}</div><div class="usage-val">${u.remaining}/${u.limit}</div><div class="usage-bar"><div class="usage-bar-inner" style="width:${Math.min(100,pct)}%;background:${color}"></div></div></div>`;
-    }
-  }
-  // total limits
-  for (const key of limitKeys) {
-    const u = usage[key]; if (!u) continue;
-    if (u.unlimited) {
-      html += `<div class="usage-item ok"><div class="usage-label">${FEATURE_NAMES[key]}</div><div class="usage-val">全部</div></div>`;
-    } else {
-      html += `<div class="usage-item warning"><div class="usage-label">${FEATURE_NAMES[key]}</div><div class="usage-val">前${u.limit}个</div></div>`;
-    }
-  }
-  // blocked
-  for (const key of blockedKeys) {
-    const u = usage[key]; if (!u) continue;
-    if (u.unlimited) {
-      html += `<div class="usage-item ok"><div class="usage-label">${FEATURE_NAMES[key]}</div><div class="usage-val">已解锁</div></div>`;
-    } else {
-      html += `<div class="usage-item blocked"><div class="usage-label">${FEATURE_NAMES[key]}</div><div class="usage-val">🔒 未解锁</div></div>`;
+      html += `<div class="usage-item ${cls}"><div class="usage-label">${name}</div><div class="usage-val">${u.remaining}/${u.limit}</div><div class="usage-bar"><div class="usage-bar-inner" style="width:${Math.min(100,pct)}%;background:${color}"></div></div></div>`;
+    } else if (u.type === 'limit') {
+      html += `<div class="usage-item warning"><div class="usage-label">${name}</div><div class="usage-val">前${u.limit}个</div></div>`;
+    } else if (u.type === 'blocked') {
+      html += `<div class="usage-item blocked"><div class="usage-label">${name}</div><div class="usage-val">🔒 未解锁</div></div>`;
+    } else if (u.type === 'enum') {
+      html += `<div class="usage-item warning"><div class="usage-label">${name}</div><div class="usage-val">${(u.allowed||[]).join('/')}</div></div>`;
     }
   }
   grid.innerHTML = html || '<div style="color:var(--text-sub);font-size:13px">暂无数据</div>';
@@ -6136,121 +6214,6 @@ function closeImmPlayer() {
   document.body.style.overflow = '';
 }
 
-// ── 磨耳朵 Tab 切换 ──
-let _immActiveTab = 'channels';
-let _immTracksLoaded = false;
-let _immTrackLevel = 'all';
-let _immPlayingTrackId = null;
-function switchImmTab(tab) {
-  _immActiveTab = tab;
-  document.querySelectorAll('#imm-tabs .imm-tab').forEach(el => {
-    const isActive = el.dataset.tab === tab;
-    el.style.fontWeight = isActive ? '700' : '500';
-    el.style.color = isActive ? 'var(--primary)' : 'var(--text-sub)';
-    el.style.borderBottom = isActive ? '2px solid var(--primary)' : 'none';
-  });
-  document.getElementById('imm-tab-channels').style.display = tab === 'channels' ? '' : 'none';
-  document.getElementById('imm-tab-tracks').style.display = tab === 'tracks' ? '' : 'none';
-  if (tab === 'tracks' && !_immTracksLoaded) loadImmTracks();
-}
-function selectImmTrackLevel(lv) {
-  _immTrackLevel = lv;
-  _immTracksLoaded = false;
-  loadImmTracks();
-}
-async function loadImmTracks() {
-  _immTracksLoaded = true;
-  const filterEl = document.getElementById('imm-tracks-filter');
-  const listEl = document.getElementById('imm-tracks-list');
-  // 级别筛选 chips
-  const levels = ['all','N5','N4','N3','N2','N1'];
-  const labels = {all:'全部',N5:'N5',N4:'N4',N3:'N3',N2:'N2',N1:'N1'};
-  filterEl.innerHTML = levels.map(lv =>
-    `<div class="chip${_immTrackLevel===lv?' active':''}" onclick="selectImmTrackLevel('${lv}')" style="cursor:pointer">${labels[lv]}</div>`
-  ).join('');
-  listEl.innerHTML = '<p style="text-align:center;padding:40px;color:var(--text-sub)">加载中…</p>';
-  try {
-    const params = new URLSearchParams({ category: '日语短文', limit: '200' });
-    if (_immTrackLevel !== 'all') params.set('level', _immTrackLevel);
-    const data = await GET('/listening?' + params.toString());
-    const tracks = data.data || [];
-    if (!tracks.length) { listEl.innerHTML = '<p style="text-align:center;padding:40px;color:var(--text-sub)">暂无短文</p>'; return; }
-    const levelColors = { N5:'#22c55e', N4:'#3b82f6', N3:'#f59e0b', N2:'#f97316', N1:'#ef4444' };
-    let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px">';
-    tracks.forEach((t, i) => {
-      const title = escHtml(t.title_zh || t.title || '');
-      const lvl = t.jlpt_level || '';
-      const lc = levelColors[lvl] || '#888';
-      const id = t.id;
-      html += `<div id="imm-track-${id}" onclick="playImmTrack('${id}','${escHtml(t.audio_url||'')}','${title.replace(/'/g,"\\'")}','${lvl}')" style="cursor:pointer;border-radius:10px;overflow:hidden;background:var(--surface);box-shadow:0 2px 8px rgba(0,0,0,.08);transition:transform .2s;border:2px solid transparent" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform=''">`;
-      html += `<div style="position:relative;width:100%;padding-top:56.25%;background:#1a1a1a">`;
-      html += `<div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center">`;
-      html += `<span id="imm-track-icon-${id}" style="font-size:36px;color:rgba(255,255,255,.6)">▶</span>`;
-      html += `</div>`;
-      html += `<span style="position:absolute;top:4px;right:4px;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:700;color:#fff;background:${lc}">${escHtml(lvl)}</span>`;
-      html += `<span style="position:absolute;bottom:4px;left:4px;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:700;color:#fff;background:rgba(0,0,0,.6)">${i+1}</span>`;
-      html += `</div>`;
-      html += `<div style="padding:8px 10px"><div style="font-size:13px;font-weight:500;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${title}</div></div>`;
-      html += `</div>`;
-    });
-    html += '</div>';
-    listEl.innerHTML = html;
-  } catch(e) {
-    listEl.innerHTML = `<p style="color:var(--danger);text-align:center;padding:40px">加载失败: ${escHtml(e.message)}</p>`;
-  }
-}
-function playImmTrack(id, audioUrl, title, level) {
-  if (!audioUrl) return;
-  const url = audioUrl.startsWith('http') ? audioUrl : (API.replace('/api/v1','') + audioUrl);
-  const playerEl = document.getElementById('imm-track-player');
-  // Toggle if same track
-  if (_immPlayingTrackId === id) {
-    stopImmTrack();
-    return;
-  }
-  // Stop previous
-  if (_immPlayingTrackId) {
-    const prev = document.getElementById('imm-track-' + _immPlayingTrackId);
-    if (prev) prev.style.borderColor = 'transparent';
-    const prevIcon = document.getElementById('imm-track-icon-' + _immPlayingTrackId);
-    if (prevIcon) { prevIcon.textContent = '▶'; prevIcon.style.color = 'rgba(255,255,255,.6)'; }
-  }
-  _immPlayingTrackId = id;
-  const card = document.getElementById('imm-track-' + id);
-  if (card) card.style.borderColor = 'var(--primary)';
-  const icon = document.getElementById('imm-track-icon-' + id);
-  if (icon) { icon.textContent = '🎬'; icon.style.color = 'var(--primary)'; }
-  // Video player
-  playerEl.style.display = '';
-  playerEl.innerHTML = `
-    <div style="background:#000;border-radius:10px;overflow:hidden;margin-bottom:12px">
-      <video src="${escHtml(url)}" controls autoplay playsinline style="width:100%;display:block;max-height:50vh;object-fit:contain"></video>
-      <div style="display:flex;align-items:center;padding:8px 14px;background:#1a1a1a">
-        <span style="flex:1;font-size:13px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(title)}</span>
-        <button onclick="stopImmTrack()" style="border:none;background:none;cursor:pointer;font-size:18px;color:#aaa">✕</button>
-      </div>
-    </div>`;
-  const videoEl = playerEl.querySelector('video');
-  if (videoEl) {
-    videoEl.onended = () => {
-      if (icon) { icon.textContent = '▶'; icon.style.color = 'rgba(255,255,255,.6)'; }
-      if (card) card.style.borderColor = 'transparent';
-    };
-  }
-}
-function stopImmTrack() {
-  const playerEl = document.getElementById('imm-track-player');
-  const videoEl = playerEl ? playerEl.querySelector('video') : null;
-  if (videoEl) { videoEl.pause(); videoEl.src = ''; }
-  if (_immPlayingTrackId) {
-    const prev = document.getElementById('imm-track-' + _immPlayingTrackId);
-    if (prev) prev.style.borderColor = 'transparent';
-    const prevIcon = document.getElementById('imm-track-icon-' + _immPlayingTrackId);
-    if (prevIcon) { prevIcon.textContent = '▶'; prevIcon.style.color = 'rgba(255,255,255,.6)'; }
-  }
-  _immPlayingTrackId = null;
-  if (playerEl) playerEl.style.display = 'none';
-}
 
 </script>
 <script src="/app/game_v3.js?v=20260308"></script>
@@ -6300,6 +6263,20 @@ const _pageTierMap = {
   'pronunciation': 'pronunciation',
   'translate': 'ai_features',
   'wrong-answers': 'wrong_answers',
+  'immersion': 'immersion_daily',
+  'listening': 'listening_daily',
+  'listening-exercise': 'listening_exercise_daily',
+  'game': 'game_levels',
+  'news': 'news_limit',
+  'grammar-quiz': 'grammar_quiz_daily',
+  'quiz': 'quiz_meaning_daily',
+  'dictionary': 'dictionary_daily',
+  'srs': 'srs_daily',
+  'grammar': 'grammar_lessons',
+  'flashcard': 'flashcard_levels',
+  'kana-writing': 'kana_writing_modes',
+  'local-vocab': 'anki_quiz',
+  'anki-import': 'anki_import',
 };
 
 async function loadFeatureTiers() {
@@ -6318,8 +6295,10 @@ function isFeatureBlocked(page) {
   if (_isMember) return false;
   const tierId = _pageTierMap[page];
   if (!tierId) return false;
-  // tier 数据未加载时，默认拦截已知被限制的页面
-  if (_featureTiers.length === 0) return true;
+  if (_featureTiers.length === 0) {
+    // tier 数据未加载时，仅拦截已知默认被锁定的页面
+    return ['pronunciation','translate','wrong-answers','local-vocab','anki-import'].includes(page);
+  }
   const tier = getFeatureTier(tierId);
   return tier && tier.type === 'blocked';
 }

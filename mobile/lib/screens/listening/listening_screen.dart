@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../services/api_service.dart';
 import '../../widgets/furigana_text.dart';
+import '../../utils/tts_helper.dart';
 
 class ListeningScreen extends StatefulWidget {
   const ListeningScreen({super.key});
@@ -49,9 +50,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
 
   Future<void> _initTts() async {
     try {
-      await _tts.setLanguage('ja-JP');
-      await _tts.setSpeechRate(0.45);
-      await _tts.setVolume(1.0);
+      await TtsHelper.configureForJapanese(_tts);
     } catch (_) {}
   }
 

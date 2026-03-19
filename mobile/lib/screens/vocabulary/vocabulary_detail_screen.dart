@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../utils/japanese_text_utils.dart';
+import '../../utils/tts_helper.dart';
 import '../../widgets/furigana_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/app_config.dart';
 import 'vocab_whiteboard_screen.dart';
 import '../../widgets/report_dialog.dart';
+import '../../utils/verb_conjugation.dart';
 
 class VocabularyDetailScreen extends StatefulWidget {
   final String id;
@@ -41,6 +44,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
   // ── 音频播放器 ──────────────────────────────────────────────────────
   AudioPlayer? _wordPlayer;
   AudioPlayer? _examplePlayer;
+  FlutterTts? _tts;
   bool _wordPlaying = false;
   bool _examplePlaying = false;
   bool _wordLoading = false;
@@ -55,10 +59,71 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
     _load();
   }
 
-  /// 播放音频：首次点击播放，再次点击重新播放
+  /// 获取或初始化 TTS 实例
+  Future<FlutterTts> _getOrInitTts() async {
+    if (_tts == null) {
+      _tts = FlutterTts();
+      await TtsHelper.configureForJapanese(_tts!);
+    }
+    return _tts!;
+  }
+
+  /// 使用 TTS 朗读文本
+  Future<void> _speakTts(String text, {bool isExample = false, bool slow = false}) async {
+    if (!mounted) return;
+    setState(() {
+      if (isExample) { _exampleLoading = true; } else { _wordLoading = true; }
+    });
+    try {
+      // 停止另一个播放器
+      if (isExample) {
+        await _wordPlayer?.stop();
+        if (mounted) setState(() => _wordPlaying = false);
+      } else {
+        await _examplePlayer?.stop();
+        if (mounted) setState(() => _examplePlaying = false);
+      }
+      final tts = await _getOrInitTts();
+      await tts.stop();
+      final rate = slow ? 0.25 : 0.45;
+      await tts.setSpeechRate(rate);
+      if (mounted) setState(() {
+        if (isExample) { _exampleLoading = false; _examplePlaying = true; }
+        else { _wordLoading = false; _wordPlaying = true; }
+      });
+      tts.setCompletionHandler(() {
+        if (mounted) setState(() {
+          if (isExample) _examplePlaying = false; else _wordPlaying = false;
+        });
+      });
+      await TtsHelper.speakJapanese(tts, text);
+    } catch (e) {
+      debugPrint('TTS播放出错: $e');
+      if (mounted) setState(() {
+        if (isExample) { _exampleLoading = false; _examplePlaying = false; }
+        else { _wordLoading = false; _wordPlaying = false; }
+      });
+    }
+  }
+
+  /// 播放音频：有 audio_url 用音频文件，否则回退到 TTS
   Future<void> _playAudio({required bool isExample, bool slow = false}) async {
     final url = isExample ? _vocab?.exampleAudioUrl : _vocab?.audioUrl;
-    if (url == null) return;
+    // TTS 回退：没有 audio_url 时使用 TTS
+    if (url == null) {
+      final v = _vocab;
+      if (v == null) return;
+      String? text;
+      if (isExample) {
+        text = v.exampleSentence;
+      } else {
+        text = ttsText(v.word, v.reading);
+      }
+      if (text != null && text.isNotEmpty) {
+        await _speakTts(text, isExample: isExample, slow: slow);
+      }
+      return;
+    }
 
     // 获取或创建对应的播放器
     if (isExample) {
@@ -135,6 +200,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
     _wordPlayer?.dispose();
     _examplePlayer?.stop();
     _examplePlayer?.dispose();
+    _tts?.stop();
     super.dispose();
   }
 
@@ -142,6 +208,8 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
     try {
       final vocab = await apiService.getVocabularyById(_currentId);
       if (mounted) setState(() { _vocab = vocab; _loading = false; });
+      // 加载后自动播放单词发音
+      _playAudio(isExample: false);
       // 异步查询 SRS 卡片状态
       _loadSrsCard();
     } catch (e) {
@@ -199,6 +267,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
           SnackBar(
             content: Text('已标记为「$label」，已更新复习计划'),
             behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 80, left: 16, right: 16),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -230,6 +299,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
     // 停止所有音频播放
     _wordPlayer?.stop();
     _examplePlayer?.stop();
+    _tts?.stop();
     setState(() {
       _currentId = id;
       _loading = true;
@@ -400,7 +470,8 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                     const SizedBox(width: 8),
                     _chip(_formatPosRaw(v.partOfSpeechRaw!), cs.secondary),
                   ],
-                  if (v.audioUrl != null) ...[
+                  // 音频按钮：有 audio_url 或可用 TTS 时都显示
+                  if (v.audioUrl != null || v.reading.isNotEmpty || v.word.isNotEmpty) ...[
                     const SizedBox(width: 12),
                     _audioButton(
                       isExample: false,
@@ -492,7 +563,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                             ],
                           ),
                         ),
-                        if (v.exampleAudioUrl != null) ...[
+                        if (v.exampleAudioUrl != null || v.exampleSentence != null) ...[
                           const SizedBox(width: 8),
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
@@ -515,6 +586,10 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                 ),
               ),
             ),
+
+          // ── Verb Conjugation ──────────────────────────────────────
+          if (v.partOfSpeech == 'verb')
+            _buildConjugationCard(v, cs),
 
           const SizedBox(height: 16),
           ], // end if (_showAnswer)
@@ -542,6 +617,46 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
     return raw.replaceFirstMapped(
       RegExp(r'^(自他動|自動|他動|補動)(\d*)'),
       (m) => '${m[1]}詞${m[2] ?? ""}',
+    );
+  }
+
+  Widget _buildConjugationCard(VocabularyModel v, ColorScheme cs) {
+    final conjugations = conjugateVerb(v.word, v.reading);
+    if (conjugations.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Icon(Icons.swap_horiz_rounded, size: 18, color: cs.primary),
+                const SizedBox(width: 6),
+                const Text('动词变形', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ]),
+              const Divider(height: 16),
+              ...conjugations.map((c) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 60,
+                      child: Text(c.form,
+                          style: TextStyle(fontSize: 13, color: cs.primary, fontWeight: FontWeight.w600)),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(c.value, style: const TextStyle(fontSize: 16)),
+                    ),
+                  ],
+                ),
+              )),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

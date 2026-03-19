@@ -19,8 +19,26 @@
       "member_label": "无限制"
     },
     {
+      "id": "listening_daily",
+      "name": "听力学习",
+      "icon": "🎧",
+      "type": "daily_limit",
+      "free_limit": 3,
+      "free_label": "每日3个",
+      "member_label": "无限制"
+    },
+    {
+      "id": "listening_exercise_daily",
+      "name": "听力测验",
+      "icon": "📝",
+      "type": "daily_limit",
+      "free_limit": 10,
+      "free_label": "每日10题",
+      "member_label": "无限制"
+    },
+    {
       "id": "immersion_daily",
-      "name": "听力/磨耳朵",
+      "name": "磨耳朵",
       "icon": "👂",
       "type": "daily_limit",
       "free_limit": 3,

@@ -242,7 +242,20 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
 // ─── 词汇卡片 ─────────────────────────────────────────────────────────────────
 
 /// 格式化原始词性：自動1→自動詞1, 他動3→他動詞3, 自他動2→自他動詞2
+/// 同时支持英文词性→中文映射（用于N4等只有英文词性的数据）
 String _formatPosRaw(String raw) {
+  const enZhMap = {
+    'noun': '名词',
+    'verb': '动词',
+    'adjective': '形容词',
+    'adverb': '副词',
+    'particle': '助词',
+    'conjunction': '接续词',
+    'interjection': '感叹词',
+    'other': '其他',
+  };
+  final mapped = enZhMap[raw.toLowerCase()];
+  if (mapped != null) return mapped;
   return raw.replaceFirstMapped(
     RegExp(r'^(自他動|自動|他動|補動)(\d*)'),
     (m) => '${m[1]}詞${m[2] ?? ""}',

@@ -113,7 +113,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
   Future<void> _playAudio() async {
     if (_words.isEmpty) return;
     try {
-      try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+      try { await TtsHelper.setJapaneseVoice(_tts); } catch (_) {}
       await _tts.setVolume(1.0);
       final result = await _tts.speak(_ttsText(_words[_index]));
       if (result != 1 && mounted) {
@@ -134,7 +134,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
   Future<void> _playAudioSlow() async {
     if (_words.isEmpty) return;
     try {
-      try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+      try { await TtsHelper.setJapaneseVoice(_tts); } catch (_) {}
       await _tts.setVolume(1.0);
       final prefs = await SharedPreferences.getInstance();
       final slowRate = prefs.getDouble('slow_speed') ?? 0.5;

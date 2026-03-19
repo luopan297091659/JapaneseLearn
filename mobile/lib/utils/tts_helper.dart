@@ -105,12 +105,8 @@ class TtsHelper {
         }
       } catch (_) {}
 
-      // 设置日语
-      try {
-        await tts.setLanguage('ja-JP');
-      } catch (_) {
-        // 即使设置失败也继续，speak 时会再试
-      }
+      // 设置日语并显式选择日语 voice
+      await setJapaneseVoice(tts);
 
       await tts.setSpeechRate(0.45);
       await tts.setVolume(1.0);
@@ -123,11 +119,42 @@ class TtsHelper {
     }
   }
 
+  /// 显式查找并设置日语 voice，防止系统回退到中文
+  /// 可被外部调用: TtsHelper.setJapaneseVoice(tts)
+  static Future<void> setJapaneseVoice(FlutterTts tts) async {
+    try {
+      await tts.setLanguage('ja-JP');
+    } catch (_) {}
+
+    // 尝试显式选择日语 voice（某些设备仅 setLanguage 不够，会回退到中文）
+    try {
+      final voices = await tts.getVoices;
+      if (voices is List && voices.isNotEmpty) {
+        final voiceList = voices.cast<Map<dynamic, dynamic>>();
+        // 查找 locale 为 ja-JP 或 ja_JP 的 voice
+        final jaVoice = voiceList.where((v) {
+          final locale = (v['locale'] ?? v['language'] ?? '').toString().toLowerCase();
+          return locale == 'ja-jp' || locale == 'ja_jp' || locale.startsWith('ja');
+        }).toList();
+        if (jaVoice.isNotEmpty) {
+          final selected = jaVoice.first;
+          await tts.setVoice({
+            'name': selected['name']?.toString() ?? '',
+            'locale': selected['locale']?.toString() ?? 'ja-JP',
+          });
+          debugPrint('TTS: 选择日语voice: ${selected['name']}');
+        }
+      }
+    } catch (e) {
+      debugPrint('TTS: 设置voice失败(已忽略): $e');
+    }
+  }
+
   /// 安全地朗读文本，返回是否成功
   static Future<bool> speakJapanese(FlutterTts tts, String text) async {
     try {
       // 每次 speak 前重新设置语言（Android TTS 有时会丢失设置）
-      try { await tts.setLanguage('ja-JP'); } catch (_) {}
+      await setJapaneseVoice(tts);
       await tts.setVolume(1.0);
       final result = await tts.speak(text);
       return result == 1;

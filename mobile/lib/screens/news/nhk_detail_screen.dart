@@ -209,7 +209,7 @@ class _NhkDetailScreenState extends State<NhkDetailScreen> {
               final text = _plainText(_body);
               if (text.isEmpty) return;
               try {
-                try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+                await TtsHelper.setJapaneseVoice(_tts);
                 await _tts.setVolume(1.0);
                 final result = await _tts.speak(text.substring(0, text.length.clamp(0, 500)));
                 if (result != 1 && mounted) {

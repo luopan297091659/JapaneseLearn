@@ -2,13 +2,17 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:just_audio/just_audio.dart';
 import '../../services/api_service.dart';
 import '../../services/sync_service.dart';
 import '../../services/membership_service.dart';
 import '../../models/models.dart';
 import '../../l10n/app_localizations.dart';
 import '../../utils/japanese_text_utils.dart';
+import '../../utils/tts_helper.dart';
 import '../../widgets/furigana_text.dart';
+import '../../config/app_config.dart';
 
 // ── 首页功能 ID → 分级 tier ID 映射 ──
 const _featureTierMap = <String, String>{
@@ -23,7 +27,8 @@ const _featureTierMap = <String, String>{
   'game':          'game_levels',
   'flashcard':     'flashcard_levels',
   'localvocab':    'anki_quiz',
-  'listening':     'immersion_daily',
+  'listening':     'listening_daily',
+  'listening-exercise': 'listening_exercise_daily',
   'immersion':     'immersion_daily',
   'kana-writing-test': 'kana_writing_modes',
   'wrong-answers': 'wrong_answers',
@@ -40,7 +45,7 @@ const _allFeatures = <String, ({IconData icon, String label, String sub, String 
   'flashcard':     (icon: Icons.style_rounded,          label: '闪卡练习',   sub: '翻转记忆', path: '/flashcard',      color: Color(0xFF3F51B5)),
   'dictionary':    (icon: Icons.manage_search_rounded,  label: '辞书检索',   sub: '词典查询', path: '/dictionary',     color: Color(0xFF607D8B)),
   'translate':     (icon: Icons.translate_rounded,      label: '翻译解析',   sub: 'AI句子分析', path: '/translate',    color: Color(0xFF3949AB)),
-  'quiz':          (icon: Icons.quiz_rounded,           label: '单词随机测验',   sub: '检验水平', path: '/quiz',           color: Color(0xFFFF5722)),
+  'quiz':          (icon: Icons.quiz_rounded,           label: '单词测验',   sub: '检验水平', path: '/quiz',           color: Color(0xFFFF5722)),
   'news':          (icon: Icons.article_rounded,        label: 'NHK新闻',   sub: '阅读训练', path: '/news',           color: Color(0xFF00897B)),
   'game':          (icon: Icons.sports_esports_rounded, label: '闯关游戏',   sub: '趣味闯关', path: '/game',           color: Color(0xFFE91E63)),
   'todofuken':     (icon: Icons.map_rounded,            label: '都道府県',   sub: '地理测验', path: '/todofuken-quiz', color: Color(0xFFE65100)),
@@ -465,38 +470,46 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             letterSpacing: 1.2,
           )),
       actions: [
-        // 会员入口（紧凑胶囊）
         GestureDetector(
-          onTap: () => context.push('/membership', extra: isMember),
+          onTap: () => context.push('/profile'),
           child: Container(
-            margin: const EdgeInsets.only(right: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: isMember
-                  ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
-                  : Colors.white.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(
-                isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
-                size: 13,
-                color: isMember ? const Color(0xFFFCD34D) : Colors.white70,
-              ),
-              const SizedBox(width: 3),
-              Text(
-                memberLabel,
-                style: TextStyle(
-                  color: isMember ? const Color(0xFFFCD34D) : Colors.white70,
-                  fontSize: 11, fontWeight: FontWeight.w600,
+            margin: const EdgeInsets.only(right: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.person_outline, color: Colors.white, size: 24),
+                const SizedBox(height: 2),
+                GestureDetector(
+                  onTap: () => context.push('/membership', extra: isMember),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: isMember
+                          ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                          : Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(
+                        isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
+                        size: 10,
+                        color: isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        memberLabel,
+                        style: TextStyle(
+                          color: isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                          fontSize: 9, fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ]),
+                  ),
                 ),
-              ),
-            ]),
+              ],
+            ),
           ),
-        ),
-        IconButton(
-          icon: const Icon(Icons.person_outline, color: Colors.white),
-          onPressed: () => context.push('/profile'),
         ),
       ],
       flexibleSpace: FlexibleSpaceBar(
@@ -819,7 +832,7 @@ class _TrialCountdownBanner extends StatelessWidget {
   }
 }
 
-class _WordOfDayCard extends StatelessWidget {
+class _WordOfDayCard extends StatefulWidget {
   final VocabularyModel word;
   final bool revealed;
   final VoidCallback onReveal;
@@ -827,7 +840,59 @@ class _WordOfDayCard extends StatelessWidget {
   const _WordOfDayCard({required this.word, required this.revealed, required this.onReveal, required this.onNext});
 
   @override
+  State<_WordOfDayCard> createState() => _WordOfDayCardState();
+}
+
+class _WordOfDayCardState extends State<_WordOfDayCard> {
+  AudioPlayer? _player;
+  FlutterTts? _tts;
+  bool _playing = false;
+
+  @override
+  void dispose() {
+    _player?.stop();
+    _player?.dispose();
+    _tts?.stop();
+    super.dispose();
+  }
+
+  Future<void> _playWordAudio() async {
+    if (_playing) return;
+    final w = widget.word;
+    if (w.audioUrl != null) {
+      // 有音频文件
+      _player ??= AudioPlayer();
+      try {
+        setState(() => _playing = true);
+        await _player!.stop();
+        if (w.audioUrl!.startsWith('/uploads/')) {
+          final fullUrl = AppConfig.serverRoot + w.audioUrl!;
+          final localPath = await apiService.downloadToTempFile(fullUrl);
+          await _player!.setFilePath(localPath);
+        } else {
+          await _player!.setUrl(w.audioUrl!);
+        }
+        await _player!.play();
+        if (mounted) setState(() => _playing = false);
+      } catch (_) {
+        if (mounted) setState(() => _playing = false);
+      }
+    } else {
+      // TTS 回退
+      _tts ??= FlutterTts();
+      await TtsHelper.configureForJapanese(_tts!);
+      setState(() => _playing = true);
+      _tts!.setCompletionHandler(() {
+        if (mounted) setState(() => _playing = false);
+      });
+      await TtsHelper.speakJapanese(_tts!, ttsText(w.word, w.reading));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final word = widget.word;
+    final revealed = widget.revealed;
     final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => context.push('/vocabulary/${word.id}'),
@@ -864,7 +929,7 @@ class _WordOfDayCard extends StatelessWidget {
             ),
             const Spacer(),
             GestureDetector(
-              onTap: onNext,
+              onTap: widget.onNext,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -880,18 +945,45 @@ class _WordOfDayCard extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 14),
-          FuriganaText(text: word.word, fontSize: 36, color: cs.primary),
-          if (word.reading.isNotEmpty && cleanReading(word.reading) != cleanWord(word.word))
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(cleanReading(word.reading),
-                  style: TextStyle(fontSize: 16, color: cs.primary.withValues(alpha: 0.7))),
-            ),
-          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FuriganaText(text: word.word, fontSize: 36, color: cs.primary),
+                    if (word.reading.isNotEmpty && cleanReading(word.reading) != cleanWord(word.word))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(cleanReading(word.reading),
+                            style: TextStyle(fontSize: 16, color: cs.primary.withValues(alpha: 0.7))),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: _playWordAudio,
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _playing ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+                    size: 24, color: cs.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           // 意思遮挡翻转
           GestureDetector(
             onTap: () {
-              if (!revealed) onReveal();
+              if (!revealed) widget.onReveal();
             },
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
@@ -912,10 +1004,14 @@ class _WordOfDayCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Text('释义', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withValues(alpha: 0.6), fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 4),
                           Text(word.meaningZh,
                               style: TextStyle(fontSize: 16, color: cs.onSurface, fontWeight: FontWeight.w500)),
                           if (word.exampleSentence != null) ...[
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 12),
+                            Text('例句', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withValues(alpha: 0.6), fontWeight: FontWeight.w500)),
+                            const SizedBox(height: 4),
                             if (word.exampleReading != null && hasFurigana(word.exampleReading!))
                               FuriganaText(
                                 text: word.exampleReading!,

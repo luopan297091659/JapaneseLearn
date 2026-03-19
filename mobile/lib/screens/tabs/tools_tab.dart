@@ -85,9 +85,47 @@ class _ToolsTabState extends State<ToolsTab> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            onPressed: () => context.push('/profile'),
+          GestureDetector(
+            onTap: () => context.push('/profile'),
+            child: Container(
+              margin: const EdgeInsets.only(right: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.person_outline, color: Colors.white, size: 24),
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: _isMember
+                          ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                          : Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
+                          size: 10,
+                          color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          _isMember ? '会员' : '免费',
+                          style: TextStyle(
+                            color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -99,7 +137,11 @@ class _ToolsTabState extends State<ToolsTab> {
             title: '辞书检索',
             subtitle: '词典查询 · 日中双向搜索',
             color: const Color(0xFF607D8B),
-            onTap: () => context.push('/dictionary'),
+            blocked: _isBlocked('dictionary_daily'),
+            onTap: () {
+              if (_isBlocked('dictionary_daily')) { _showMemberDialog('辞书检索'); return; }
+              context.push('/dictionary');
+            },
           ),
           const SizedBox(height: 12),
             _ToolCard(
@@ -131,15 +173,23 @@ class _ToolsTabState extends State<ToolsTab> {
             title: 'NHK 新闻阅读',
             subtitle: '实战阅读 · NHK Easy News + 注音',
             color: const Color(0xFF0077B6),
-            onTap: () => context.push('/news'),
+            blocked: _isBlocked('news_limit'),
+            onTap: () {
+              if (_isBlocked('news_limit')) { _showMemberDialog('NHK 新闻阅读'); return; }
+              context.push('/news');
+            },
           ),
           const SizedBox(height: 12),
           _ToolCard(
             icon: Icons.headphones_rounded,
             title: '磨耳朵',
-            subtitle: '沉浸式听力 · 日语频道/短文视频',
+            subtitle: '沉浸式听力 · 日语频道视频',
             color: const Color(0xFFE65100),
-            onTap: () => context.push('/immersion'),
+            blocked: _isBlocked('immersion_daily'),
+            onTap: () {
+              if (_isBlocked('immersion_daily')) { _showMemberDialog('磨耳朵'); return; }
+              context.push('/immersion');
+            },
           ),
 
         ],

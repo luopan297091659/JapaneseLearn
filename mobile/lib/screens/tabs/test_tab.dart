@@ -1,8 +1,78 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../services/api_service.dart';
+import '../../services/membership_service.dart';
 
-class TestTab extends StatelessWidget {
+class TestTab extends StatefulWidget {
   const TestTab({super.key});
+  @override
+  State<TestTab> createState() => _TestTabState();
+}
+
+class _TestTabState extends State<TestTab> {
+  bool _isMember = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMembership();
+  }
+
+  Future<void> _loadMembership() async {
+    try {
+      final user = await apiService.getMe();
+      if (mounted) setState(() => _isMember = user.isMember);
+    } catch (_) {}
+  }
+
+  bool _isBlocked(String tierId) =>
+    !_isMember && membershipService.isBlocked(tierId, isMember: _isMember);
+
+  void _showMemberDialog(String name) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56, height: 56,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Center(child: Text('👑', style: TextStyle(fontSize: 28))),
+            ),
+            const SizedBox(height: 14),
+            Text('$name 需开通会员',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Text('升级会员即可解锁全部功能',
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('稍后再说'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              context.push('/membership', extra: false);
+            },
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFF59E0B)),
+            child: const Text('查看权益'),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _showGameTypeSelection(BuildContext context) {
     showModalBottomSheet(
@@ -44,6 +114,7 @@ class TestTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final wrongBlocked = _isBlocked('wrong_answers');
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
       appBar: AppBar(
@@ -52,9 +123,47 @@ class TestTab extends StatelessWidget {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            onPressed: () => context.push('/profile'),
+          GestureDetector(
+            onTap: () => context.push('/profile'),
+            child: Container(
+              margin: const EdgeInsets.only(right: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.person_outline, color: Colors.white, size: 24),
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: _isMember
+                          ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                          : Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
+                          size: 10,
+                          color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          _isMember ? '会员' : '免费',
+                          style: TextStyle(
+                            color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -66,7 +175,11 @@ class TestTab extends StatelessWidget {
             title: '错题集',
             subtitle: '查阅测试中的错题 · 随时复习',
             color: const Color(0xFFE53935),
-            onTap: () => context.push('/wrong-answers'),
+            blocked: wrongBlocked,
+            onTap: () {
+              if (wrongBlocked) { _showMemberDialog('错题集'); return; }
+              context.push('/wrong-answers');
+            },
           ),
           const SizedBox(height: 12),
           _TestCard(
@@ -74,7 +187,11 @@ class TestTab extends StatelessWidget {
             title: '五十音书写',
             subtitle: '书写测试 · 练习假名书写与笔顺',
             color: const Color(0xFF2196F3),
-            onTap: () => context.push('/kana-writing-test'),
+            blocked: _isBlocked('kana_writing_modes'),
+            onTap: () {
+              if (_isBlocked('kana_writing_modes')) { _showMemberDialog('五十音书写'); return; }
+              context.push('/kana-writing-test');
+            },
           ),
           const SizedBox(height: 12),
           _TestCard(
@@ -82,23 +199,35 @@ class TestTab extends StatelessWidget {
             title: '闯关游戏',
             subtitle: '助词方块 · 动词方块 · 闯关挑战',
             color: const Color(0xFF4CAF50),
-            onTap: () => _showGameTypeSelection(context),
+            blocked: _isBlocked('game_levels'),
+            onTap: () {
+              if (_isBlocked('game_levels')) { _showMemberDialog('闯关游戏'); return; }
+              _showGameTypeSelection(context);
+            },
           ),
           const SizedBox(height: 12),
           _TestCard(
             icon: Icons.quiz_rounded,
-            title: '单词随机测验',
+            title: '单词测验',
             subtitle: '检验水平 · 随机出题巩固知识',
             color: const Color(0xFFFF5722),
-            onTap: () => context.push('/quiz'),
+            blocked: _isBlocked('quiz_meaning_daily'),
+            onTap: () {
+              if (_isBlocked('quiz_meaning_daily')) { _showMemberDialog('单词测验'); return; }
+              context.push('/quiz');
+            },
           ),
           const SizedBox(height: 12),
           _TestCard(
             icon: Icons.menu_book_rounded,
             title: '文法测验',
-            subtitle: '阅读例句 · 选择正确的中文翻译',
+            subtitle: '检验水平 · 随机出题巩固文法',
             color: const Color(0xFF7B1FA2),
-            onTap: () => context.push('/grammar-quiz'),
+            blocked: _isBlocked('grammar_quiz_daily'),
+            onTap: () {
+              if (_isBlocked('grammar_quiz_daily')) { _showMemberDialog('文法测验'); return; }
+              context.push('/grammar-quiz');
+            },
           ),
           const SizedBox(height: 12),
           _TestCard(
@@ -106,7 +235,11 @@ class TestTab extends StatelessWidget {
             title: '听力测验',
             subtitle: '听句选义 · N5-N1 例句听力测验',
             color: const Color(0xFFE040FB),
-            onTap: () => context.push('/listening-exercise'),
+            blocked: _isBlocked('listening_exercise_daily'),
+            onTap: () {
+              if (_isBlocked('listening_exercise_daily')) { _showMemberDialog('听力测验'); return; }
+              context.push('/listening-exercise');
+            },
           ),
           const SizedBox(height: 12),
           _TestCard(
@@ -128,6 +261,7 @@ class _TestCard extends StatelessWidget {
   final String subtitle;
   final Color color;
   final VoidCallback onTap;
+  final bool blocked;
 
   const _TestCard({
     required this.icon,
@@ -135,6 +269,7 @@ class _TestCard extends StatelessWidget {
     required this.subtitle,
     required this.color,
     required this.onTap,
+    this.blocked = false,
   });
 
   @override
@@ -145,32 +280,45 @@ class _TestCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
+          color: color.withValues(alpha: blocked ? 0.04 : 0.08),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
+          border: Border.all(color: color.withValues(alpha: blocked ? 0.1 : 0.2)),
         ),
         child: Row(children: [
           Container(
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.18),
+              color: color.withValues(alpha: blocked ? 0.08 : 0.18),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, color: color, size: 28),
+            child: Icon(icon, color: blocked ? color.withValues(alpha: 0.4) : color, size: 28),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color)),
+                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16,
+                  color: blocked ? color.withValues(alpha: 0.4) : color)),
                 const SizedBox(height: 4),
-                Text(subtitle, style: TextStyle(fontSize: 13, color: color.withValues(alpha: 0.7))),
+                Text(blocked ? '会员专属功能' : subtitle,
+                  style: TextStyle(fontSize: 13,
+                    color: blocked ? Colors.grey : color.withValues(alpha: 0.7))),
               ],
             ),
           ),
-          Icon(Icons.arrow_forward_ios_rounded, size: 16, color: color.withValues(alpha: 0.5)),
+          if (blocked)
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.workspace_premium, size: 16, color: Colors.white),
+            )
+          else
+            Icon(Icons.arrow_forward_ios_rounded, size: 16, color: color.withValues(alpha: 0.5)),
         ]),
       ),
     );

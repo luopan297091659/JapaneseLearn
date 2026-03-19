@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../widgets/audio_player_widget.dart';
+import '../../utils/tts_helper.dart';
 
 class ListeningExerciseScreen extends StatefulWidget {
   const ListeningExerciseScreen({super.key});
@@ -43,11 +44,7 @@ class _ListeningExerciseScreenState extends State<ListeningExerciseScreen> {
   Future<void> _initTts() async {
     _tts = FlutterTts();
     try {
-      await _tts.setLanguage('ja-JP');
-      await _tts.setSpeechRate(0.45);
-      await _tts.setVolume(1.0);
-      await _tts.setPitch(1.0);
-      await _tts.awaitSpeakCompletion(false);
+      await TtsHelper.configureForJapanese(_tts);
       _tts.setStartHandler(() { if (mounted) setState(() => _ttsPlaying = true); });
       _tts.setCompletionHandler(() { if (mounted) setState(() => _ttsPlaying = false); });
       _tts.setCancelHandler(() { if (mounted) setState(() => _ttsPlaying = false); });
@@ -162,7 +159,7 @@ class _ListeningExerciseScreenState extends State<ListeningExerciseScreen> {
 
     // 记录活动
     apiService.logActivity(
-      activityType: 'listening',
+      activityType: 'listening_exercise',
       durationSeconds: duration,
       score: percent.toDouble(),
     );
@@ -376,9 +373,9 @@ class _ListeningExerciseScreenState extends State<ListeningExerciseScreen> {
           ),
           const SizedBox(height: 20),
 
-          // 音频播放区域（紧凑两行）
+          // 音频播放区域
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: cs.primaryContainer.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(14),
@@ -395,42 +392,42 @@ class _ListeningExerciseScreenState extends State<ListeningExerciseScreen> {
                     style: TextStyle(fontSize: 14, color: cs.onSurface.withValues(alpha: 0.7)),
                   ),
                 ]),
-                const SizedBox(height: 10),
-                // 服务端音频（如果有）
+                const SizedBox(height: 12),
+                // 服务端音频 → 完整播放器（含进度条）；无音频 → TTS 按钮
                 if (q.audioUrl != null && q.audioUrl!.isNotEmpty) ...[
-                  AudioPlayerWidget(audioUrl: q.audioUrl, compact: true),
-                  const SizedBox(height: 8),
+                  AudioPlayerWidget(audioUrl: q.audioUrl, compact: false),
+                ] else ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        height: 40,
+                        child: FilledButton.icon(
+                          onPressed: () => _speakSentence(q.sentence),
+                          icon: Icon(_ttsPlaying ? Icons.stop_rounded : Icons.play_arrow_rounded, size: 20),
+                          label: Text(_ttsPlaying ? '播放中' : '播放', style: const TextStyle(fontSize: 14)),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        height: 40,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _speakSentence(q.sentence, rate: 0.25),
+                          icon: const Icon(Icons.slow_motion_video_rounded, size: 20),
+                          label: const Text('慢速', style: TextStyle(fontSize: 14)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      height: 34,
-                      child: FilledButton.icon(
-                        onPressed: () => _speakSentence(q.sentence),
-                        icon: Icon(_ttsPlaying ? Icons.stop_rounded : Icons.play_arrow_rounded, size: 18),
-                        label: Text(_ttsPlaying ? '播放中' : '播放', style: const TextStyle(fontSize: 13)),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      height: 34,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _speakSentence(q.sentence, rate: 0.25),
-                        icon: const Icon(Icons.slow_motion_video_rounded, size: 18),
-                        label: const Text('慢速', style: TextStyle(fontSize: 13)),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),

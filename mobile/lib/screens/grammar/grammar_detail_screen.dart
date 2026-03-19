@@ -80,7 +80,7 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
       return;
     }
     try {
-      try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+      await TtsHelper.setJapaneseVoice(_tts);
       await _tts.setVolume(1.0);
       final result = await _tts.speak(text);
       if (result != 1 && mounted) {
@@ -108,7 +108,7 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final slowRate = prefs.getDouble('slow_speed') ?? 0.5;
-      try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+      try { await TtsHelper.setJapaneseVoice(_tts); } catch (_) {}
       await _tts.setVolume(1.0);
       await _tts.setSpeechRate(slowRate * 0.5);
       final result = await _tts.speak(text);

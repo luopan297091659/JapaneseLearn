@@ -232,7 +232,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="sidebar-section">数据分析</div>
   <div class="nav-item" onclick="nav('stat-users')"    id="nav-stat-users">   <span class="icon">📈</span>用户统计</div>
   <div class="nav-item" onclick="nav('stat-traffic')"  id="nav-stat-traffic"> <span class="icon">🌐</span>流量监控</div>
-  <div class="nav-item" onclick="nav('stat-feature')" id="nav-stat-feature"><span class="icon">📊</span>功能频率</div>
+  <div class="nav-item" onclick="nav('stat-behavior')" id="nav-stat-behavior"><span class="icon">🧠</span>行为分析</div>
   <div class="sidebar-section">运营</div>
   <div class="nav-item" onclick="nav('membership')" id="nav-membership"><span class="icon">👑</span>会员配置</div>
   <div class="nav-item" onclick="nav('import')" id="nav-import"><span class="icon">📥</span>内容导入</div>
@@ -280,7 +280,10 @@ tbody tr:hover td{background:#f8faff}
       <textarea id="mp-features" rows="3" placeholder="无限练习题&#10;SRS 间隔复习&#10;听力课程"></textarea>
     </div>
     <div class="form-row">
-      <label>绑定前端功能（勾选该套餐可使用的功能模块）</label>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <label>绑定前端功能（勾选该套餐可使用的功能模块）</label>
+        <button type="button" class="btn btn-ghost" style="padding:2px 10px;font-size:12px" onclick="toggleAllBoundFeatures()">全选/取消</button>
+      </div>
       <div id="mp-bound-features" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;margin-top:6px"></div>
     </div>
     <div class="form-row" style="display:flex;align-items:center;gap:8px">
@@ -484,7 +487,7 @@ function monthStart(){ const d=new Date(); d.setDate(1); return d.toISOString().
 function yearStart() { return new Date().getFullYear()+'-01-01' }
 function qs(obj)    { return '?'+Object.entries(obj).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&') }
 const PALETTE = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#f97316','#84cc16','#3b82f6'];
-const ACT_NAME = {vocabulary:'📚 词汇学习',grammar:'📖 语法学习',srs_review:'🔄 SRS复习',quiz:'📝 测验',flashcard:'🃏 闪卡',news:'📰 新闻阅读',listening:'🎧 听力练习',listening_exercise:'👂 听力测验',game:'🎮 助词方块',reading:'📖 阅读',pronunciation:'🎤 发音练习',gojuon:'🔤 五十音',dictionary:'🔍 辞书検索',translate:'🌐 翻译解析',todofuken:'🗾 都道府県',game_verbs:'🎮 动词方块',anki:'📦 Anki词库'};
+const ACT_NAME = {vocabulary:'📚 词汇学习',grammar:'📖 语法学习',srs_review:'🔄 SRS复习',quiz:'📝 单词测验',grammar_quiz:'📝 文法测验',flashcard:'🃏 闪卡',news:'📰 新闻阅读',listening:'🎧 听力练习',listening_exercise:'👂 听力测验',game:'🎮 助词方块',reading:'📖 阅读',pronunciation:'🎤 发音练习',gojuon:'🔤 五十音',dictionary:'🔍 辞书検索',translate:'🌐 翻译解析',todofuken:'🗾 都道府県',game_verbs:'🎮 动词方块',anki:'📦 Anki词库',wrong_answers:'❌ 错题集',kana_writing:'✍️ 五十音书写',immersion:'👂 磨耳朵'};
 function actName(t){ return ACT_NAME[t]||t; }
 
 /* ───────────────────────────────── AUTH ──────────────────────────────────── */
@@ -557,7 +560,7 @@ const PAGE_TITLES = {
   dashboard:'仪表板', vocab:'词汇管理', grammar:'文法管理',
   tracks:'听力管理', channels:'频道管理', users:'用户管理', reports:'问题反馈',
   'stat-users':'用户统计', 'stat-traffic':'流量监控',
-  'stat-feature':'功能频率',
+  'stat-behavior':'行为分析',
   membership:'会员配置', import:'内容导入', sync:'全局同步', 'feature-tiers':'功能分级',
   app:'App管理', 'feature-toggles':'功能开关', 'ai-settings':'AI设置',
   'admin-mgmt':'权限管理'
@@ -566,7 +569,7 @@ const PAGE_ICONS = {
   dashboard:'📊', vocab:'📚', grammar:'📖',
   tracks:'🎧', channels:'📺', users:'👥', reports:'🐛',
   'stat-users':'📈', 'stat-traffic':'🌐',
-  'stat-feature':'📊',
+  'stat-behavior':'🧠',
   membership:'👑', import:'📥', sync:'🔄', 'feature-tiers':'🎯',
   app:'📱', 'feature-toggles':'🔀', 'ai-settings':'🤖',
   'admin-mgmt':'🔐'
@@ -575,7 +578,7 @@ const PAGE_DESCS = {
   vocab:'管理词汇条目', grammar:'管理文法条目', reports:'查看用户反馈的问题',
   tracks:'管理听力素材', channels:'管理YouTube/B站频道', users:'查看管理用户',
   'stat-users':'用户数据分析', 'stat-traffic':'API流量监控',
-  'stat-feature':'功能使用频率分析',
+  'stat-behavior':'用户行为数据分析',
   membership:'会员套餐管理', import:'Anki/CSV导入', sync:'内容版本发布', 'feature-tiers':'会员功能分级配置',
   app:'App上传下载', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量',
   'admin-mgmt':'管理员权限配置'
@@ -606,7 +609,7 @@ const PAGE_FNS = {
   dashboard: renderDashboard, vocab: renderVocab, grammar: renderGrammar,
   tracks: renderTracks, channels: renderChannels, users: renderUsers,
   'stat-users': renderStatUsers, 'stat-traffic': renderStatTraffic,
-  'stat-feature': renderStatFeature,
+  'stat-behavior': renderStatBehavior,
   membership: renderMembership, import: renderImport, sync: renderSync,
   app: renderAppManage, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings,
   'admin-mgmt': renderAdminMgmt, reports: renderReports,
@@ -753,10 +756,10 @@ function moveTier(idx, dir) {
 async function saveTiers() {
   try {
     await api('POST', '/admin/feature-tiers', { tiers: _tierData });
-    toast('功能分级配置已保存 ✓', 'success');
+    toast('功能分级配置已保存并同步 ✅ App/Web 端下次打开即生效');
     _tierDirty = false;
   } catch(e) {
-    toast('保存失败: ' + e.message, 'error');
+    toast('保存失败: ' + e.message, true);
   }
 }
 
@@ -1331,7 +1334,15 @@ function openGrammarModal(g=null){
   document.getElementById('mg-title').textContent=g?'编辑文法':'添加文法';
   openModal('modal-grammar');
 }
-function editGrammar(id){ openGrammarModal(_editCache['g_'+id]); }
+async function editGrammar(id){
+  try {
+    const g = await api('GET', `/admin/grammar/${id}`);
+    openGrammarModal(g);
+  } catch(e) {
+    // fallback to cache
+    openGrammarModal(_editCache['g_'+id]);
+  }
+}
 async function saveGrammar(){
   const id=document.getElementById('mg-id').value;
   const examples=document.getElementById('mg-examples').value.trim().split('\n').filter(Boolean)
@@ -1598,7 +1609,11 @@ function barCfg(labels, datasets){
 }
 function pieCfg(labels, data, type='doughnut'){
   return { type, data:{ labels, datasets:[{data, backgroundColor:PALETTE, borderWidth:2, hoverOffset:6}]},
-    options:{responsive:true, plugins:{legend:{position:'right',labels:{usePointStyle:true,pointStyle:'circle',font:{size:12},padding:14}}}} };
+    options:{responsive:true, plugins:{
+      legend:{position:'right',labels:{usePointStyle:true,pointStyle:'circle',font:{size:12},padding:14}},
+      tooltip:{callbacks:{label:function(ctx){ const total=ctx.dataset.data.reduce((a,b)=>a+b,0); const pct=total?((ctx.raw/total)*100).toFixed(1)+'%':'0%'; return ctx.label+': '+ctx.formattedValue+' ('+pct+')'; }}},
+      datalabels:false
+    }} };
 }
 
 /* ─────────────────────────── STAT: TRAFFIC ───────────────────────────────── */
@@ -1672,66 +1687,111 @@ async function loadUserCharts(){
   }catch(e){ toast(e.message,true) }
 }
 
-/* ─────────────────────────── STAT: FEATURE USAGE ─────────────────────────── */
-async function renderStatFeature(){
+/* ─────────────────────────── STAT: BEHAVIOR ──────────────────────────────── */
+async function renderStatBehavior(){
   document.getElementById('content').innerHTML =
-    rangeBarHTML('fu','loadFeatureCharts()') +
-    `<div class="charts-grid">
-      <div class="chart-card" style="grid-column:1/-1">
-        <h4>📊 功能使用次数排行</h4>
-        <div id="fu-table-wrap"></div>
-      </div>
-      <div class="chart-card" style="grid-column:1/-1"><h4>📈 功能使用趋势</h4><canvas id="fu-trend-c" style="max-height:300px"></canvas></div>
+    rangeBarHTML('bh','loadBehaviorCharts()') +
+    `<div class="cards-row" id="bh-cards"></div>
+    <div class="charts-grid">
+      <div class="chart-card" style="grid-column:1/-1"><h4>📈 学习行为趋势（按类型）</h4><canvas id="bh-activity-c" style="max-height:300px"></canvas></div>
+      <div class="chart-card"><h4>🎯 测验得分趋势</h4><canvas id="bh-quiz-c"></canvas></div>
+      <div class="chart-card"><h4>🔄 SRS 复习趋势</h4><canvas id="bh-srs-c"></canvas></div>
+      <div class="chart-card"><h4>📊 行为类型分布</h4><canvas id="bh-dist-c"></canvas></div>
+      <div class="chart-card"><h4>⏱ 每日平均学习时长（分钟）</h4><canvas id="bh-daily-c"></canvas></div>
       <div class="chart-card"><h4>⏰ 使用时段分布（小时）</h4><canvas id="fu-hour-c"></canvas></div>
       <div class="chart-card"><h4>👤 用户功能偏好 Top30</h4><div id="fu-user-wrap" style="max-height:360px;overflow-y:auto"></div></div>
     </div>`;
-  await loadFeatureCharts();
+  await loadBehaviorCharts();
 }
-async function loadFeatureCharts(){
-  const r=getRange('fu');
-  try{
-    const d=await api('GET','/admin/stats/feature-usage'+qs(r));
 
-    // 功能汇总表格
-    const wrap=document.getElementById('fu-table-wrap');
-    if(wrap && d.featureSummary && d.featureSummary.length){
-      wrap.innerHTML=`<table><thead><tr><th>功能</th><th>使用次数</th><th>独立用户</th><th>总时长(分钟)</th><th>平均时长(秒)</th></tr></thead><tbody>`+
-        d.featureSummary.map(r=>`<tr><td><b>${esc(actName(r.activity_type))}</b></td><td>${r.usage_count}</td><td>${r.unique_users}</td><td>${Math.round(r.total_seconds/60)}</td><td>${r.avg_seconds}</td></tr>`).join('')+
-        `</tbody></table>`;
-    } else if(wrap) { wrap.innerHTML='<p style="color:#aaa;text-align:center;padding:20px">暂无数据</p>'; }
+async function loadBehaviorCharts(){
+  const r = getRange('bh');
+  try {
+    const d = await api('GET', '/admin/stats/behavior' + qs(r));
 
-    // 功能趋势（堆叠面积图）
-    const ftRaw=d.featureTrend||[];
-    const ftLabels=[...new Set(ftRaw.map(x=>x.period))].sort();
-    const ftTypes=[...new Set(ftRaw.map(x=>x.activity_type))];
-    const ftMap={};
-    ftRaw.forEach(x=>{ (ftMap[x.activity_type]=ftMap[x.activity_type]||{})[x.period]=x.count; });
-    destroyChart('fu-trend');
-    const ftCtx=document.getElementById('fu-trend-c');
-    if(ftCtx) charts['fu-trend']=new Chart(ftCtx,{
+    /* ── 汇总卡片 ── */
+    const totalAct = (d.activityDist||[]).reduce((s,x)=>s+(+x.count||0), 0);
+    const totalSec = (d.activityDist||[]).reduce((s,x)=>s+(+x.total_sec||0), 0);
+    const totalQuiz = (d.quizTrend||[]).reduce((s,x)=>s+(+x.sessions||0), 0);
+    const avgScore = d.quizTrend && d.quizTrend.length
+      ? (d.quizTrend.reduce((s,x)=>s+(+x.avg_score||0),0)/d.quizTrend.length).toFixed(1) : '-';
+    const totalReview = (d.srsTrend||[]).reduce((s,x)=>s+(+x.reviews||0), 0);
+    const cardsEl = document.getElementById('bh-cards');
+    if(cardsEl) cardsEl.innerHTML = `
+      <div class="stat-card"><div class="stat-icon c-indigo">📝</div><div class="stat-body"><div class="stat-label">总学习次数</div><div class="stat-value">${totalAct.toLocaleString()}</div></div></div>
+      <div class="stat-card"><div class="stat-icon c-emerald">⏱</div><div class="stat-body"><div class="stat-label">总学习时长</div><div class="stat-value">${Math.round(totalSec/60).toLocaleString()} 分</div></div></div>
+      <div class="stat-card"><div class="stat-icon c-amber">🎯</div><div class="stat-body"><div class="stat-label">测验次数</div><div class="stat-value">${totalQuiz.toLocaleString()}</div></div></div>
+      <div class="stat-card"><div class="stat-icon c-rose">📊</div><div class="stat-body"><div class="stat-label">平均得分</div><div class="stat-value">${avgScore}%</div></div></div>
+      <div class="stat-card"><div class="stat-icon c-indigo">🔄</div><div class="stat-body"><div class="stat-label">SRS 复习数</div><div class="stat-value">${totalReview.toLocaleString()}</div></div></div>`;
+
+    /* ── 行为趋势（堆叠面积图） ── */
+    const atRaw = d.activityTrend || [];
+    const atLabels = [...new Set(atRaw.map(x=>x.period))].sort();
+    const atTypes = [...new Set(atRaw.map(x=>x.activity_type))];
+    const atMap = {};
+    atRaw.forEach(x=>{ (atMap[x.activity_type]=atMap[x.activity_type]||{})[x.period]=+x.count; });
+    destroyChart('bh-activity');
+    const atCtx = document.getElementById('bh-activity-c');
+    if(atCtx) charts['bh-activity'] = new Chart(atCtx, {
       type:'line',
-      data:{ labels:ftLabels, datasets:ftTypes.map((t,i)=>({
-        label:actName(t), data:ftLabels.map(l=>ftMap[t]?.[l]||0),
-        backgroundColor:PALETTE[i%PALETTE.length]+'66', borderColor:PALETTE[i%PALETTE.length], borderWidth:2,
-        fill:true, tension:0.4, pointRadius:0
+      data:{ labels:atLabels, datasets:atTypes.map((t,i)=>({
+        label:actName(t), data:atLabels.map(l=>atMap[t]?.[l]||0),
+        backgroundColor:PALETTE[i%PALETTE.length]+'66', borderColor:PALETTE[i%PALETTE.length],
+        borderWidth:2, fill:true, tension:0.4, pointRadius:0
       }))},
-      options:{responsive:true, plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',font:{size:12},padding:14}}}, scales:{x:{stacked:true},y:{beginAtZero:true,stacked:true}}}
+      options:{responsive:true, plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',font:{size:12},padding:14}}},
+        scales:{x:{stacked:true,grid:{display:false}},y:{beginAtZero:true,stacked:true,grid:{color:'#f1f5f9'}}}}
     });
 
-    // 时段分布（柱状图）
+    /* ── 测验得分趋势 ── */
+    const qt = d.quizTrend || [];
+    const qtLabels = qt.map(x=>x.period);
+    mkChart('bh-quiz-c', {
+      type:'line',
+      data:{ labels:qtLabels, datasets:[
+        {label:'测验次数', data:qt.map(x=>+x.sessions||0), borderColor:PALETTE[0], backgroundColor:PALETTE[0]+'22', tension:.4, pointRadius:3, borderWidth:2, yAxisID:'y'},
+        {label:'平均分(%)', data:qt.map(x=>+x.avg_score||0), borderColor:PALETTE[1], backgroundColor:PALETTE[1]+'22', tension:.4, pointRadius:3, borderWidth:2, yAxisID:'y1'},
+      ]},
+      options:{responsive:true,
+        plugins:{legend:{position:'top',labels:{usePointStyle:true,pointStyle:'circle',font:{size:12},padding:14}}},
+        scales:{
+          y:{beginAtZero:true, position:'left', title:{display:true,text:'次数'}, grid:{color:'#f1f5f9'}},
+          y1:{beginAtZero:true, position:'right', max:100, title:{display:true,text:'分数(%)'}, grid:{drawOnChartArea:false}},
+          x:{grid:{display:false}}
+        }
+      }
+    }, 'bh-quiz');
+
+    /* ── SRS 复习趋势 ── */
+    const sr = d.srsTrend || [];
+    mkChart('bh-srs-c', lineCfg(sr.map(x=>x.period), [{label:'复习卡片数', data:sr.map(x=>+x.reviews||0)}]), 'bh-srs');
+
+    /* ── 行为类型分布（饼图） ── */
+    const dist = d.activityDist || [];
+    if(dist.length){
+      mkChart('bh-dist-c', pieCfg(dist.map(x=>actName(x.activity_type)), dist.map(x=>+x.count||0)), 'bh-dist');
+    }
+
+    /* ── 每日平均学习时长 ── */
+    const ds = d.dailyStudy || [];
+    mkChart('bh-daily-c', lineCfg(ds.map(x=>x.period), [{label:'平均学习(分钟)', data:ds.map(x=>+x.avg_min||0), fill:true}]), 'bh-daily');
+
+    /* ── 功能使用数据（时段+用户偏好） ── */
+    const fd = await api('GET', '/admin/stats/feature-usage' + qs(r));
+
     const hours=Array.from({length:24},(_,i)=>i);
     const hourMap={};
-    (d.hourlyDist||[]).forEach(x=>{ hourMap[x.hour]=x.count; });
+    (fd.hourlyDist||[]).forEach(x=>{ hourMap[x.hour]=x.count; });
     mkChart('fu-hour-c', barCfg(hours.map(h=>`${h}:00`), [{label:'使用次数', data:hours.map(h=>hourMap[h]||0)}]), 'fu-hour');
 
-    // 用户功能偏好
     const uw=document.getElementById('fu-user-wrap');
-    if(uw && d.userTopFeatures && d.userTopFeatures.length){
+    if(uw && fd.userTopFeatures && fd.userTopFeatures.length){
       uw.innerHTML=`<table><thead><tr><th>用户</th><th>功能</th><th>次数</th><th>时长(分)</th></tr></thead><tbody>`+
-        d.userTopFeatures.map(r=>`<tr><td>${esc(r.username)}</td><td>${esc(actName(r.activity_type))}</td><td>${r.cnt}</td><td>${Math.round(r.total_sec/60)}</td></tr>`).join('')+
+        fd.userTopFeatures.map(r=>`<tr><td>${esc(r.username)}</td><td>${esc(actName(r.activity_type))}</td><td>${r.cnt}</td><td>${Math.round(r.total_sec/60)}</td></tr>`).join('')+
         `</tbody></table>`;
     } else if(uw) { uw.innerHTML='<p style="color:#aaa;text-align:center">暂无数据</p>'; }
-  }catch(e){ toast(e.message,true) }
+
+  } catch(e) { toast(e.message, true); }
 }
 
 /* ─────────────────────────── MEMBERSHIP ─────────────────────────────────── */
@@ -1862,6 +1922,12 @@ function renderBoundFeatures(selected) {
   `).join('');
 }
 
+function toggleAllBoundFeatures() {
+  const boxes = document.querySelectorAll('.mp-bf-chk');
+  const allChecked = Array.from(boxes).every(b => b.checked);
+  boxes.forEach(b => b.checked = !allChecked);
+}
+
 async function addPlan() {
   await loadFeatureListForPlan();
   document.getElementById('mp-title').textContent = '添加套餐';
@@ -1892,7 +1958,7 @@ async function editPlan(idx) {
   openModal('modal-plan');
 }
 
-function savePlan() {
+async function savePlan() {
   const idx     = parseInt(document.getElementById('mp-idx').value);
   const id      = document.getElementById('mp-id').value.trim();
   const name    = document.getElementById('mp-name').value.trim();
@@ -1910,19 +1976,22 @@ function savePlan() {
   else            { _memCfg.plans[idx] = plan; }
   closeModal('modal-plan');
   _buildMembershipUI();
+  await saveAllMembership();
 }
 
-function deletePlan(idx) {
+async function deletePlan(idx) {
   if (!confirm(`确认删除套餐「${_memCfg.plans[idx]?.name}」？`)) return;
   _memCfg.plans.splice(idx, 1);
   _buildMembershipUI();
+  await saveAllMembership();
 }
 
-function movePlan(from, to) {
+async function movePlan(from, to) {
   if (from === to) return;
   const [p] = _memCfg.plans.splice(from, 1);
   _memCfg.plans.splice(to, 0, p);
   _buildMembershipUI();
+  await saveAllMembership();
 }
 
 async function saveAllMembership() {
@@ -2638,16 +2707,12 @@ async function loadReports(){
 }
 function rpFilter(){ rpState.page=1; rpState.status=document.getElementById('rp-status').value; rpState.ref_type=document.getElementById('rp-type').value; rpState.search=document.getElementById('rp-search').value; loadReports(); }
 function openReportDetail(id){
-  const list = document.querySelectorAll('#rp-body tr');
-  // find report data from the rendered row - refetch from API
-  api('GET',`/admin/reports?page=1&limit=1&q=${id}`).catch(()=>{});
-  // simple modal approach: use the row data
   const overlay = document.createElement('div');
   overlay.className='modal-overlay open'; overlay.id='modal-report-detail';
   overlay.innerHTML=`<div class="modal" style="width:520px"><h2>反馈详情</h2><p style="color:#aaa">加载中…</p></div>`;
   document.body.appendChild(overlay);
-  api('GET',`/admin/reports?page=1&limit=500`).then(d=>{
-    const r=(d.data||[]).find(x=>String(x.id)===String(id));
+  api('GET',`/admin/reports/${id}`).then(d=>{
+    const r=d.data;
     if(!r){ overlay.querySelector('.modal').innerHTML='<p>未找到</p>'; return; }
     const statusMap={pending:'待处理',resolved:'已解决',rejected:'已驳回'};
     const typeMap={vocabulary:'词汇',grammar:'文法'};
@@ -2679,14 +2744,23 @@ async function saveReportReply(id){
   }catch(e){ toast(e.message,true) }
 }
 async function resolveReport(id){
-  try{ await api('PUT',`/admin/reports/${id}`,{status:'resolved'}); toast('已标记为已解决'); loadReports(); }catch(e){ toast(e.message,true) }
+  try{
+    const btn=event.target; btn.disabled=true; btn.textContent='处理中…';
+    await api('PUT',`/admin/reports/${id}`,{status:'resolved'}); toast('已标记为已解决'); loadReports();
+  }catch(e){ toast(e.message,true) }
 }
 async function rejectReport(id){
-  try{ await api('PUT',`/admin/reports/${id}`,{status:'rejected'}); toast('已驳回'); loadReports(); }catch(e){ toast(e.message,true) }
+  try{
+    const btn=event.target; btn.disabled=true; btn.textContent='处理中…';
+    await api('PUT',`/admin/reports/${id}`,{status:'rejected'}); toast('已驳回'); loadReports();
+  }catch(e){ toast(e.message,true) }
 }
 async function deleteReport(id){
   if(!confirm('确定要删除这条反馈吗？')) return;
-  try{ await api('DELETE',`/admin/reports/${id}`); toast('已删除'); loadReports(); }catch(e){ toast(e.message,true) }
+  try{
+    const btn=event.target; btn.disabled=true; btn.textContent='删除中…';
+    await api('DELETE',`/admin/reports/${id}`); toast('已删除'); loadReports();
+  }catch(e){ toast(e.message,true) }
 }
 
 /* ───────────────────────────── ADMIN MGMT ──────────────────────────────── */

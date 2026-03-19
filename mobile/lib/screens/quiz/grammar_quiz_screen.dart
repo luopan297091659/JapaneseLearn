@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -53,6 +54,11 @@ class _GrammarQuizScreenState extends State<GrammarQuizScreen> {
         _startTime = DateTime.now();
       });
     } catch (e) {
+      // 会员限制错误由全局拦截器弹窗处理，这里只更新UI状态
+      if (e is DioException && e.response?.statusCode == 403) {
+        setState(() { _loading = false; _error = e.response?.data?['message'] ?? '今日免费额度已用完，升级会员可无限使用'; });
+        return;
+      }
       setState(() { _loading = false; _error = '加载失败: $e'; });
     }
   }
@@ -96,7 +102,7 @@ class _GrammarQuizScreenState extends State<GrammarQuizScreen> {
     final total = _questions.length;
     final score = total > 0 ? ((correct / total) * 100).round() : 0;
 
-    apiService.logActivity(activityType: 'quiz', durationSeconds: _durationSeconds, score: score.toDouble());
+    apiService.logActivity(activityType: 'grammar_quiz', durationSeconds: _durationSeconds, score: score.toDouble());
 
     final answers = _questions.map((q) => {
       'question_id': q.id,
@@ -388,7 +394,6 @@ class _GrammarQuizScreenState extends State<GrammarQuizScreen> {
               ),
             ),
         ],
-        ),
       ),
     );
   }

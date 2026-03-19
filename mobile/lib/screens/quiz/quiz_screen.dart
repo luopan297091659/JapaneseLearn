@@ -269,7 +269,7 @@ class _QuizScreenState extends State<QuizScreen> {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('单词随机测验'),
+        title: const Text('单词测验'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
           tooltip: '返回',

@@ -1,0 +1,135 @@
+﻿0
+
+app.js                    | 4 kB |   4.0 kB/s | ETA: 00:00:01 |  45%
+app.js                    | 8 kB |   8.9 kB/s | ETA: 00:00:00 | 100%
+
+database.js               | 0 kB |   0.8 kB/s | ETA: 00:00:00 | 100%
+
+adminController.js        | 4 kB |   4.0 kB/s | ETA: 00:00:13 |   6%
+adminController.js        | 58 kB |  58.7 kB/s | ETA: 00:00:00 | 100%
+
+aiController.js           | 4 kB |   4.0 kB/s | ETA: 00:00:01 |  43%
+aiController.js           | 9 kB |   9.1 kB/s | ETA: 00:00:00 | 100%
+
+ankiController.js         | 4 kB |   4.0 kB/s | ETA: 00:00:03 |  20%
+ankiController.js         | 19 kB |  19.5 kB/s | ETA: 00:00:00 | 100%
+
+authController.js         | 4 kB |   4.0 kB/s | ETA: 00:00:00 |  85%
+authController.js         | 4 kB |   4.7 kB/s | ETA: 00:00:00 | 100%
+
+dictionaryController.js   | 4 kB |   4.0 kB/s | ETA: 00:00:02 |  32%
+dictionaryController.js   | 12 kB |  12.3 kB/s | ETA: 00:00:00 | 100%
+
+forumController.js        | 4 kB |   4.0 kB/s | ETA: 00:00:01 |  47%
+forumController.js        | 8 kB |   8.3 kB/s | ETA: 00:00:00 | 100%
+
+gameController.js         | 4 kB |   4.0 kB/s | ETA: 00:00:01 |  47%
+gameController.js         | 8 kB |   8.5 kB/s | ETA: 00:00:00 | 100%
+
+grammarController.js      | 1 kB |   1.7 kB/s | ETA: 00:00:00 | 100%
+
+listeningChannelControlle | 4 kB |   4.0 kB/s | ETA: 00:00:02 |  27%
+listeningChannelControlle | 14 kB |  14.7 kB/s | ETA: 00:00:00 | 100%
+
+listeningController.js    | 0 kB |   0.9 kB/s | ETA: 00:00:00 | 100%
+
+listeningExerciseControll | 4 kB |   4.0 kB/s | ETA: 00:00:01 |  48%
+listeningExerciseControll | 8 kB |   8.3 kB/s | ETA: 00:00:00 | 100%
+
+newsController.js         | 4 kB |   4.0 kB/s | ETA: 00:00:01 |  33%
+newsController.js         | 11 kB |  12.0 kB/s | ETA: 00:00:00 | 100%
+
+progressController.js     | 4 kB |   4.0 kB/s | ETA: 00:00:01 |  41%
+progressController.js     | 9 kB |   9.8 kB/s | ETA: 00:00:00 | 100%
+
+quizController.js         | 4 kB |   4.0 kB/s | ETA: 00:00:02 |  32%
+quizController.js         | 12 kB |  12.4 kB/s | ETA: 00:00:00 | 100%
+
+srsController.js          | 3 kB |   3.6 kB/s | ETA: 00:00:00 | 100%
+
+vocabularyController.js   | 4 kB |   4.0 kB/s | ETA: 00:00:00 |  50%
+vocabularyController.js   | 7 kB |   7.9 kB/s | ETA: 00:00:00 | 100%
+
+adminAuth.js              | 1 kB |   1.5 kB/s | ETA: 00:00:00 | 100%
+
+apiLogger.js              | 1 kB |   1.0 kB/s | ETA: 00:00:00 | 100%
+
+auth.js                   | 1 kB |   1.8 kB/s | ETA: 00:00:00 | 100%
+
+membership.js             | 4 kB |   4.0 kB/s | ETA: 00:00:00 |  63%
+membership.js             | 6 kB |   6.3 kB/s | ETA: 00:00:00 | 100%
+
+AppRelease.js             | 0 kB |   0.7 kB/s | ETA: 00:00:00 | 100%
+
+Forum.js                  | 3 kB |   3.3 kB/s | ETA: 00:00:00 | 100%
+
+index.js                  | 4 kB |   4.0 kB/s | ETA: 00:00:03 |  22%
+index.js                  | 17 kB |  17.8 kB/s | ETA: 00:00:00 | 100%
+
+User.js                   | 2 kB |   2.3 kB/s | ETA: 00:00:00 | 100%
+
+admin.js                  | 4 kB |   4.0 kB/s | ETA: 00:00:00 |  52%
+admin.js                  | 7 kB |   7.6 kB/s | ETA: 00:00:00 | 100%
+
+ai.js                     | 0 kB |   0.6 kB/s | ETA: 00:00:00 | 100%
+
+anki.js                   | 1 kB |   1.0 kB/s | ETA: 00:00:00 | 100%
+
+auth.js                   | 0 kB |   0.5 kB/s | ETA: 00:00:00 | 100%
+
+dictionary.js             | 0 kB |   0.9 kB/s | ETA: 00:00:00 | 100%
+
+forum.js                  | 1 kB |   1.6 kB/s | ETA: 00:00:00 | 100%
+
+game.js                   | 0 kB |   0.9 kB/s | ETA: 00:00:00 | 100%
+
+grammar.js                | 0 kB |   0.5 kB/s | ETA: 00:00:00 | 100%
+
+listening.js              | 0 kB |   0.9 kB/s | ETA: 00:00:00 | 100%
+
+listeningChannel.js       | 0 kB |   0.4 kB/s | ETA: 00:00:00 | 100%
+
+news.js                   | 1 kB |   1.2 kB/s | ETA: 00:00:00 | 100%
+
+progress.js               | 0 kB |   0.5 kB/s | ETA: 00:00:00 | 100%
+
+pronunciation.js          | 4 kB |   4.0 kB/s | ETA: 00:00:00 |  98%
+pronunciation.js          | 4 kB |   4.1 kB/s | ETA: 00:00:00 | 100%
+
+quiz.js                   | 1 kB |   1.7 kB/s | ETA: 00:00:00 | 100%
+
+reports.js                | 2 kB |   2.7 kB/s | ETA: 00:00:00 | 100%
+
+srs.js                    | 0 kB |   0.7 kB/s | ETA: 00:00:00 | 100%
+
+sync.js                   | 2 kB |   2.4 kB/s | ETA: 00:00:00 | 100%
+
+users.js                  | 4 kB |   4.0 kB/s | ETA: 00:00:00 |  93%
+users.js                  | 4 kB |   4.3 kB/s | ETA: 00:00:00 | 100%
+
+vocabulary.js             | 0 kB |   0.9 kB/s | ETA: 00:00:00 | 100%
+
+wrongAnswers.js           | 4 kB |   4.0 kB/s | ETA: 00:00:00 |  85%
+wrongAnswers.js           | 4 kB |   4.7 kB/s | ETA: 00:00:00 | 100%
+
+ankiService.js            | 3 kB |   3.9 kB/s | ETA: 00:00:00 | 100%
+
+asyncHandler.js           | 0 kB |   0.2 kB/s | ETA: 00:00:00 | 100%
+
+httpError.js              | 0 kB |   0.2 kB/s | ETA: 00:00:00 | 100%
+
+jwt.js                    | 0 kB |   0.6 kB/s | ETA: 00:00:00 | 100%
+
+logger.js                 | 0 kB |   0.8 kB/s | ETA: 00:00:00 | 100%
+
+srs.js                    | 0 kB |   0.9 kB/s | ETA: 00:00:00 | 100%
+
+pscp.exe : FATAL ERROR: Network error: Software caused connection abort
+所在位置 D:\PROJECT\JapaneseLearn\deploy.ps1:33 字符: 5
++     & pscp -batch -hostkey $HostKey -pw $Passwd -P $Port -r $Local "$ ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (FATAL ERROR: Ne...onnection abort:
+String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+index.html                | 4 kB |   4.0 kB/s | ETA: 00:00:39 |   2%

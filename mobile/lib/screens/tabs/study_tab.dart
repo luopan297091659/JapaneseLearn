@@ -85,9 +85,47 @@ class _StudyTabState extends State<StudyTab> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            onPressed: () => context.push('/profile'),
+          GestureDetector(
+            onTap: () => context.push('/profile'),
+            child: Container(
+              margin: const EdgeInsets.only(right: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.person_outline, color: Colors.white, size: 24),
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: _isMember
+                          ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                          : Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
+                          size: 10,
+                          color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          _isMember ? '会员' : '免费',
+                          style: TextStyle(
+                            color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -123,7 +161,11 @@ class _StudyTabState extends State<StudyTab> {
             title: '听力学习',
             subtitle: '听力提升 · 例句听写录音AI比对',
             color: const Color(0xFF9C27B0),
-            onTap: () => context.push('/listening'),
+            blocked: _isBlocked('listening_daily'),
+            onTap: () {
+              if (_isBlocked('listening_daily')) { _showMemberDialog('听力学习'); return; }
+              context.push('/listening');
+            },
           ),
           const SizedBox(height: 12),
           _StudyCard(
@@ -143,7 +185,11 @@ class _StudyTabState extends State<StudyTab> {
             title: '闪卡练习',
             subtitle: '翻转记忆 · 四级评价·支持等级词库',
             color: const Color(0xFF3F51B5),
-            onTap: () => context.push('/flashcard'),
+            blocked: _isBlocked('flashcard_levels'),
+            onTap: () {
+              if (_isBlocked('flashcard_levels')) { _showMemberDialog('闪卡练习'); return; }
+              context.push('/flashcard');
+            },
           ),
           const SizedBox(height: 12),
           _StudyCard(
@@ -151,7 +197,11 @@ class _StudyTabState extends State<StudyTab> {
             title: 'SRS 复习',
             subtitle: '间隔记忆 · 科学记忆曲线',
             color: const Color(0xFFFF9800),
-            onTap: () => context.push('/srs-review'),
+            blocked: _isBlocked('srs_daily'),
+            onTap: () {
+              if (_isBlocked('srs_daily')) { _showMemberDialog('SRS 复习'); return; }
+              context.push('/srs-review');
+            },
           ),
         ],
       ),

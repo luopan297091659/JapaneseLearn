@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../services/api_service.dart';
-import '../../config/app_config.dart';
 
 class ImmersionScreen extends StatefulWidget {
   const ImmersionScreen({super.key});
@@ -12,7 +11,7 @@ class ImmersionScreen extends StatefulWidget {
   State<ImmersionScreen> createState() => _ImmersionScreenState();
 }
 
-class _ImmersionScreenState extends State<ImmersionScreen> with SingleTickerProviderStateMixin {
+class _ImmersionScreenState extends State<ImmersionScreen> {
   final _api = ApiService();
   final _scrollController = ScrollController();
   List<dynamic> _videos = [];
@@ -29,28 +28,9 @@ class _ImmersionScreenState extends State<ImmersionScreen> with SingleTickerProv
   bool _isFullscreen = false;
   WebViewController? _webController;
 
-  // Tab
-  late TabController _tabController;
-
-  // 短文阅读
-  List<dynamic> _tracks = [];
-  bool _tracksLoading = true;
-  String? _tracksError;
-  String _trackLevel = 'all';
-  // 视频播放
-  String? _playingTrackId;
-  String? _playingTrackTitle;
-  WebViewController? _trackWebController;
-
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() {
-      if (_tabController.index == 1 && _tracks.isEmpty && _tracksLoading) {
-        _loadTracks();
-      }
-    });
     _scrollController.addListener(_onScroll);
     _loadVideos();
   }
@@ -58,7 +38,6 @@ class _ImmersionScreenState extends State<ImmersionScreen> with SingleTickerProv
   @override
   void dispose() {
     _scrollController.dispose();
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -107,69 +86,6 @@ class _ImmersionScreenState extends State<ImmersionScreen> with SingleTickerProv
 
   Future<void> _onRefresh() async {
     await _loadVideos(forceRefresh: true);
-  }
-
-  // ── 短文阅读 ──
-  Future<void> _loadTracks() async {
-    setState(() { _tracksLoading = true; _tracksError = null; });
-    try {
-      final data = await _api.getListeningTracks(
-        level: _trackLevel == 'all' ? null : _trackLevel,
-        category: '日语短文',
-      );
-      final rows = data['rows'] as List<dynamic>? ?? data['data'] as List<dynamic>? ?? [];
-      setState(() { _tracks = rows; _tracksLoading = false; });
-    } catch (e) {
-      setState(() { _tracksError = e.toString(); _tracksLoading = false; });
-    }
-  }
-
-  void _selectTrackLevel(String level) {
-    if (_trackLevel == level) return;
-    setState(() { _trackLevel = level; });
-    _loadTracks();
-  }
-
-  void _playTrackVideo(Map<String, dynamic> track) {
-    final id = track['id']?.toString() ?? '';
-    final audioUrl = track['audio_url'] as String? ?? '';
-    final title = (track['title_zh'] ?? track['title'] ?? '').toString();
-    if (audioUrl.isEmpty) return;
-
-    if (_playingTrackId == id) {
-      _closeTrackVideo();
-      return;
-    }
-
-    final origin = AppConfig.baseUrl.replaceAll('/api/v1', '');
-    final url = audioUrl.startsWith('http') ? audioUrl : '$origin$audioUrl';
-    final html = '''
-<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>*{margin:0;padding:0}body{background:#000;display:flex;align-items:center;justify-content:center;height:100vh}
-video{width:100%;max-height:100vh;object-fit:contain}</style></head>
-<body><video src="$url" autoplay controls playsinline></video></body></html>
-''';
-    final controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(NavigationDelegate(
-        onSslAuthError: (error) => error.proceed(),
-      ))
-      ..loadHtmlString(html);
-
-    setState(() {
-      _playingTrackId = id;
-      _playingTrackTitle = title;
-      _trackWebController = controller;
-    });
-  }
-
-  void _closeTrackVideo() {
-    setState(() {
-      _playingTrackId = null;
-      _playingTrackTitle = null;
-      _trackWebController = null;
-    });
   }
 
   void _openVideo(Map<String, dynamic> video) {
@@ -261,25 +177,8 @@ video{width:100%;max-height:100vh;object-fit:contain}</style></head>
         backgroundColor: cs.primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-          tabs: const [
-            Tab(text: '📺 频道视频'),
-            Tab(text: '📖 短文阅读'),
-          ],
-        ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildChannelTab(cs),
-          _buildTracksTab(cs),
-        ],
-      ),
+      body: _buildChannelTab(cs),
     );
   }
 
@@ -341,199 +240,6 @@ video{width:100%;max-height:100vh;object-fit:contain}</style></head>
                         ),
         ),
       ],
-    );
-  }
-
-  Widget _buildTracksTab(ColorScheme cs) {
-    const levels = ['all', 'N5', 'N4', 'N3', 'N2', 'N1'];
-    const levelLabels = {'all': '全部', 'N5': 'N5', 'N4': 'N4', 'N3': 'N3', 'N2': 'N2', 'N1': 'N1'};
-    return Column(
-      children: [
-        // 级别筛选
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: levels.map((lv) {
-                final selected = _trackLevel == lv;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(levelLabels[lv]!, style: TextStyle(fontSize: 13, fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
-                    selected: selected,
-                    onSelected: (_) => _selectTrackLevel(lv),
-                    selectedColor: cs.primary.withValues(alpha: 0.15),
-                    showCheckmark: false,
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-        // 视频播放器区域
-        if (_playingTrackId != null && _trackWebController != null)
-          _buildTrackVideoPlayer(cs),
-        // 曲目网格
-        Expanded(
-          child: _tracksLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _tracksError != null
-                  ? Center(child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('加载失败', style: TextStyle(color: cs.error)),
-                        const SizedBox(height: 8),
-                        FilledButton(onPressed: _loadTracks, child: const Text('重试')),
-                      ],
-                    ))
-                  : _tracks.isEmpty
-                      ? const Center(child: Text('暂无短文', style: TextStyle(color: Colors.grey)))
-                      : RefreshIndicator(
-                          onRefresh: _loadTracks,
-                          child: GridView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              childAspectRatio: 1.0,
-                              crossAxisSpacing: 6,
-                              mainAxisSpacing: 2,
-                            ),
-                            itemCount: _tracks.length,
-                            itemBuilder: (ctx, i) => _buildTrackCard(_tracks[i] as Map<String, dynamic>, i, cs),
-                          ),
-                        ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTrackVideoPlayer(ColorScheme cs) {
-    return Container(
-      color: Colors.black,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AspectRatio(
-            aspectRatio: 16 / 9,
-            child: WebViewWidget(controller: _trackWebController!),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            color: Colors.grey[900],
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _playingTrackTitle ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: _closeTrackVideo,
-                  child: const Padding(
-                    padding: EdgeInsets.all(4),
-                    child: Icon(Icons.close, color: Colors.white70, size: 22),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTrackCard(Map<String, dynamic> track, int index, ColorScheme cs) {
-    final id = track['id']?.toString() ?? '';
-    final title = (track['title_zh'] ?? track['title'] ?? '').toString();
-    final level = track['jlpt_level'] as String? ?? '';
-    final isPlaying = _playingTrackId == id;
-
-    final levelColor = {
-      'N5': const Color(0xFF22c55e),
-      'N4': const Color(0xFF3b82f6),
-      'N3': const Color(0xFFf59e0b),
-      'N2': const Color(0xFFf97316),
-      'N1': const Color(0xFFef4444),
-    }[level] ?? Colors.grey;
-
-    return GestureDetector(
-      onTap: () => _playTrackVideo(track),
-      child: Container(
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: isPlaying ? Border.all(color: cs.primary, width: 2) : null,
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 1))],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 视频缩略图区域
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Container(
-                color: Colors.grey[900],
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Center(
-                      child: Icon(
-                        isPlaying ? Icons.videocam : Icons.play_circle_filled,
-                        color: isPlaying ? cs.primary : Colors.white54,
-                        size: 32,
-                      ),
-                    ),
-                    // 级别标签
-                    Positioned(
-                      top: 4, right: 4,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: levelColor,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(level, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white)),
-                      ),
-                    ),
-                    // 序号
-                    Positioned(
-                      bottom: 4, left: 4,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text('${index + 1}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // 标题
-            Padding(
-              padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
-              child: Text(
-                title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isPlaying ? FontWeight.w700 : FontWeight.w500,
-                  color: isPlaying ? cs.primary : null,
-                  height: 1.2,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

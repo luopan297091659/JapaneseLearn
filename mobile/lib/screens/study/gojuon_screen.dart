@@ -34,7 +34,7 @@ class _GojuonScreenState extends State<GojuonScreen> with SingleTickerProviderSt
 
   Future<void> _speak(String text) async {
     try {
-      try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+      try { await TtsHelper.setJapaneseVoice(_tts); } catch (_) {}
       await _tts.setVolume(1.0);
       final result = await _tts.speak(text);
       if (result != 1 && mounted) {
@@ -54,7 +54,7 @@ class _GojuonScreenState extends State<GojuonScreen> with SingleTickerProviderSt
 
   Future<void> _speakSlow(String text) async {
     try {
-      try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+      try { await TtsHelper.setJapaneseVoice(_tts); } catch (_) {}
       await _tts.setVolume(1.0);
       final prefs = await SharedPreferences.getInstance();
       final slowRate = prefs.getDouble('slow_speed') ?? 0.5;

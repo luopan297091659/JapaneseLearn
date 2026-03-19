@@ -30,7 +30,9 @@ router.put('/change-password', authenticate, asyncHandler(async (req, res) => {
 const DAILY_ACTIVITY_MAP = {
   srs_daily: 'srs_review',
   quiz_meaning_daily: 'quiz',
-  immersion_daily: 'listening',
+  listening_daily: 'listening',
+  listening_exercise_daily: 'listening_exercise',
+  immersion_daily: 'immersion',
   dictionary_daily: 'dictionary',
 };
 

@@ -317,10 +317,21 @@ async function listGrammar(req, res) {
       const j = r.toJSON();
       j.example_count = (j.examples || []).length;
       j.example_summary = (j.examples || []).slice(0, 2).map(e => e.sentence).join('；');
-      delete j.examples;
       return j;
     });
     res.json({ total: count, page: parseInt(page), limit: lim, data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+async function getGrammar(req, res) {
+  try {
+    const lesson = await GrammarLesson.findByPk(req.params.id, {
+      include: [{ model: GrammarExample, as: 'examples', attributes: ['sentence', 'meaning_zh'] }],
+    });
+    if (!lesson) return res.status(404).json({ error: 'Not found' });
+    res.json(lesson);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -915,7 +926,7 @@ const DEFAULT_FEATURE_TOGGLES = {
     { id: 'pronunciation', name: 'AI发音',   icon: '🎤', web: true,  mobile: true  },
     { id: 'game',          name: '助词方块', icon: '🎮', web: true,  mobile: true  },
     { id: 'game-verbs',    name: '动词方块', icon: '🎮', web: true,  mobile: true  },
-    { id: 'quiz',          name: '单词随机测验', icon: '✏️', web: true,  mobile: true  },
+    { id: 'quiz',          name: '单词测验', icon: '✏️', web: true,  mobile: true  },
     { id: 'todofuken',     name: '都道府県', icon: '🗾', web: true,  mobile: true  },
     { id: 'dictionary',    name: '辞书检索', icon: '🔍', web: true,  mobile: true  },
     { id: 'news',          name: 'NHK新闻',  icon: '📰', web: true,  mobile: true  },
@@ -980,7 +991,9 @@ const DEFAULT_FEATURE_TIERS = {
   tiers: [
     { id: 'grammar_lessons', name: '语法课程', icon: '📝', type: 'limit', free_limit: 5, free_label: '前5课免费', member_label: '全部' },
     { id: 'srs_daily', name: 'SRS复习', icon: '🗂️', type: 'daily_limit', free_limit: 30, free_label: '每日限30张', member_label: '无限制' },
-    { id: 'immersion_daily', name: '听力/磨耳朵', icon: '👂', type: 'daily_limit', free_limit: 3, free_label: '每日3个', member_label: '无限制' },
+    { id: 'listening_daily', name: '听力学习', icon: '🎧', type: 'daily_limit', free_limit: 3, free_label: '每日3个', member_label: '无限制' },
+    { id: 'listening_exercise_daily', name: '听力测验', icon: '📝', type: 'daily_limit', free_limit: 10, free_label: '每日10题', member_label: '无限制' },
+    { id: 'immersion_daily', name: '磨耳朵', icon: '👂', type: 'daily_limit', free_limit: 3, free_label: '每日3个', member_label: '无限制' },
     { id: 'ai_features', name: 'AI功能(翻译/解析)', icon: '🤖', type: 'blocked', free_label: '不可用', member_label: '可用' },
     { id: 'pronunciation', name: '发音练习', icon: '🎤', type: 'blocked', free_label: '不可用', member_label: '可用' },
     { id: 'anki_import', name: 'Anki导入', icon: '📥', type: 'blocked', free_label: '不可用', member_label: '可用' },
@@ -1319,6 +1332,13 @@ async function listReports(req, res) {
   res.json({ total: count, data: rows });
 }
 
+async function getReport(req, res) {
+  const { id } = req.params;
+  const report = await UserReport.findByPk(id);
+  if (!report) return res.status(404).json({ error: '未找到该报告' });
+  res.json({ data: report });
+}
+
 async function updateReport(req, res) {
   const { id } = req.params;
   const { status, admin_reply } = req.body;
@@ -1340,7 +1360,7 @@ module.exports = {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, deduplicateVocab, fixVocabReadings,
   importVocab, importVocabFile,
-  listGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar,
+  listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar,
   listTracks, createTrack, updateTrack, deleteTrack,
   listUsers, updateUser, updateUserMembership,
   getContentVersion, publishContent,
@@ -1354,5 +1374,5 @@ module.exports = {
   deleteAppRelease,
   getAiSettings, saveAiSettings, getAiUsage, resetAiUsage, readAiSettings, saveAiSettingsFile,
   listAdmins, updateAdminPermissions, getAdminInfo,
-  listReports, updateReport, deleteReport,
+  listReports, getReport, updateReport, deleteReport,
 };

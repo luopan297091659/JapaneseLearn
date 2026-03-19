@@ -137,7 +137,7 @@ class _TodofukenQuizScreenState extends State<TodofukenQuizScreen> {
     });
     () async {
       try {
-        try { await _tts.setLanguage('ja-JP'); } catch (_) {}
+        try { await TtsHelper.setJapaneseVoice(_tts); } catch (_) {}
         await _tts.speak(_current.hiragana);
       } catch (e) {
         debugPrint('TTS speak error: $e');

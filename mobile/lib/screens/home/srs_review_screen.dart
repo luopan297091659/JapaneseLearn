@@ -35,6 +35,7 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
           const SnackBar(
             content: Text('加载复习卡片失败，请检查网络'),
             behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(bottom: 80, left: 16, right: 16),
           ),
         );
       }
@@ -53,6 +54,7 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
           const SnackBar(
             content: Text('复习数据保存失败，请检查网络'),
             behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(bottom: 80, left: 16, right: 16),
             duration: Duration(seconds: 2),
           ),
         );
@@ -64,6 +66,7 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
         SnackBar(
           content: Text('已标记为「$label」，已更新复习计划'),
           behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 80, left: 16, right: 16),
           duration: const Duration(seconds: 1),
         ),
       );

@@ -7,7 +7,7 @@ const {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, deduplicateVocab, fixVocabReadings,
   importVocab, importVocabFile,
-  listGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar,
+  listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar,
   listTracks, createTrack, updateTrack, deleteTrack,
   listUsers, updateUser, updateUserMembership,
   getContentVersion, publishContent,
@@ -18,7 +18,7 @@ const {
   uploadApp, listAppReleases, downloadApp, deleteAppRelease,
   getAiSettings, saveAiSettings, getAiUsage, resetAiUsage,
   listAdmins, updateAdminPermissions, getAdminInfo,
-  listReports, updateReport, deleteReport,
+  listReports, getReport, updateReport, deleteReport,
 } = require('../controllers/adminController');
 const {
   adminListChannels, adminCreateChannel, adminUpdateChannel, adminDeleteChannel, adminRefreshChannel,
@@ -80,6 +80,7 @@ router.post('/vocabulary/import-file', permissionCheck('vocabulary'), upload.sin
 
 // 文法管理
 router.get('/grammar',        permissionCheck('grammar'), asyncHandler(listGrammar));
+router.get('/grammar/:id',    permissionCheck('grammar'), asyncHandler(getGrammar));
 router.post('/grammar',       permissionCheck('grammar'), asyncHandler(createGrammar));
 router.put('/grammar/:id',    permissionCheck('grammar'), asyncHandler(updateGrammar));
 router.delete('/grammar/:id', permissionCheck('grammar'), asyncHandler(deleteGrammar));
@@ -136,6 +137,7 @@ router.put('/admins/:id/permissions', superAdminAuth, asyncHandler(updateAdminPe
 
 // 用户报错管理
 router.get('/reports',        permissionCheck('reports'), asyncHandler(listReports));
+router.get('/reports/:id',    permissionCheck('reports'), asyncHandler(getReport));
 router.put('/reports/:id',    permissionCheck('reports'), asyncHandler(updateReport));
 router.delete('/reports/:id', permissionCheck('reports'), asyncHandler(deleteReport));
 

@@ -4,7 +4,7 @@ const https = require('https');
 const http  = require('http');
 
 // ── 简易 HTTP GET（返回 Promise<string>）──────────────────────────────────
-function httpGet(url, timeout = 15000) {
+function httpGet(url, timeout = 8000) {
   return new Promise((resolve, reject) => {
     const mod = url.startsWith('https') ? https : http;
     const opts = {
@@ -30,6 +30,8 @@ function httpGet(url, timeout = 15000) {
 // ── NHK RSS 新闻列表缓存 ────────────────────────────────────────────────
 const NHK_TTL = 30 * 60 * 1000; // 30 分钟
 const _nhkRssCache = {};
+const NHK_FAIL_TTL = 5 * 60 * 1000; // 失败后 5 分钟内不再重试
+const _nhkFailCache = {};
 
 const NHK_CATEGORIES = {
   '0': '総合',   '1': '社会',   '3': '科学・文化',
@@ -69,13 +71,22 @@ async function fetchNhkRss(category = '0') {
   if (_nhkRssCache[cacheKey] && now - _nhkRssCache[cacheKey].at < NHK_TTL) {
     return _nhkRssCache[cacheKey].data;
   }
+  // 如果最近刚失败过，跳过重试避免重复超时
+  if (_nhkFailCache[cacheKey] && now - _nhkFailCache[cacheKey] < NHK_FAIL_TTL) {
+    throw new Error('NHK暂时不可达，跳过重试');
+  }
 
-  const url = `https://www3.nhk.or.jp/rss/news/cat${category}.xml`;
-  const xml = await httpGet(url);
-  const articles = parseRssItems(xml);
-
-  _nhkRssCache[cacheKey] = { data: articles, at: now };
-  return articles;
+  try {
+    const url = `https://www3.nhk.or.jp/rss/news/cat${category}.xml`;
+    const xml = await httpGet(url);
+    const articles = parseRssItems(xml);
+    _nhkRssCache[cacheKey] = { data: articles, at: now };
+    delete _nhkFailCache[cacheKey];
+    return articles;
+  } catch (err) {
+    _nhkFailCache[cacheKey] = now;
+    throw err;
+  }
 }
 
 // ── DB 新闻 ──────────────────────────────────────────────────────────────
@@ -189,16 +200,57 @@ async function nhkArticle(req, res) {
     return res.status(400).json({ error: 'Invalid news ID' });
   }
 
-  // 先查缓存，获取 RSS description（比 JSON-LD 更完整）
+  // 先查缓存
   let cached = null;
   try { cached = await NhkNewsCache.findOne({ where: { nhk_id: rawId } }); } catch (_) {}
-  const rssDesc = (cached && cached.description) || '';
 
+  // 如果缓存有数据，立即返回（不等 NHK 超时）
+  if (cached) {
+    const body = cached.body || cached.description || '';
+    const result = {
+      id: rawId,
+      title: cached.title || '',
+      description: cached.description || '',
+      image: cached.image_url || '',
+      body,
+      link: cached.link || '',
+    };
+    // 后台尝试从 NHK 更新缓存（不阻塞响应）
+    setImmediate(async () => {
+      try {
+        const url = `https://www3.nhk.or.jp/news/html/${rawId.replace('-', '/')}.html`;
+        const html = await httpGet(url);
+        let title = '', description = '', image = '';
+        const ldRegex = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi;
+        let ldm;
+        while ((ldm = ldRegex.exec(html)) !== null) {
+          try {
+            const obj = JSON.parse(ldm[1]);
+            if (obj['@type'] === 'NewsArticle') {
+              title = obj.headline || '';
+              description = obj.description || '';
+              if (obj.image && obj.image[0]) image = obj.image[0].url || '';
+            }
+          } catch (_) {}
+        }
+        const rssDesc = cached.description || '';
+        const newBody = rssDesc.length >= description.length ? rssDesc : description;
+        if (newBody.length >= 50) {
+          await NhkNewsCache.update(
+            { body: newBody, image_url: image || undefined, title: title || undefined, description: description || undefined },
+            { where: { nhk_id: rawId } },
+          );
+        }
+      } catch (_) { /* 后台更新失败忽略 */ }
+    });
+    return res.json(result);
+  }
+
+  // 缓存为空 → 尝试从 NHK 抓取
   try {
     const url = `https://www3.nhk.or.jp/news/html/${rawId.replace('-', '/')}.html`;
     const html = await httpGet(url);
 
-    // 从 JSON-LD 提取标题、描述、图片
     let title = '', description = '', image = '';
     const ldRegex = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi;
     let ldm;
@@ -210,10 +262,8 @@ async function nhkArticle(req, res) {
           description = obj.description || '';
           if (obj.image && obj.image[0]) image = obj.image[0].url || '';
         }
-      } catch (_) { /* ignore JSON parse errors */ }
+      } catch (_) {}
     }
-
-    // 兜底：从 meta 标签提取
     if (!description) {
       const metaMatch = html.match(/<meta\s+name="description"\s+content="([^"]*)"/i);
       if (metaMatch) description = metaMatch[1];
@@ -222,37 +272,9 @@ async function nhkArticle(req, res) {
       const titleMatch = html.match(/<title>([^<]*)<\/title>/);
       if (titleMatch) title = titleMatch[1].replace(/\s*\|.*$/, '').trim();
     }
-
-    // NHK 正文通过 JS 渲染，海外服务器无法获取完整正文
-    // 优先使用 RSS description（更完整），其次 JSON-LD description
-    const body = rssDesc.length >= description.length ? rssDesc : description;
-
-    // 仅在内容足够长时才缓存 body（过滤不完整内容）
-    if (body.length >= 50) {
-      setImmediate(async () => {
-        try {
-          await NhkNewsCache.update(
-            { body, image_url: image, title: title || undefined, description: description || undefined },
-            { where: { nhk_id: rawId } },
-          );
-        } catch (_) { /* ignore */ }
-      });
-    }
-
+    const body = description;
     res.json({ id: rawId, title, description, image, body, link: url });
   } catch (err) {
-    // 如果抓取失败，尝试从缓存读取
-    if (cached) {
-      const body = cached.body || cached.description || '';
-      return res.json({
-        id: rawId,
-        title: cached.title || '',
-        description: cached.description || '',
-        image: cached.image_url || '',
-        body,
-        link: cached.link || '',
-      });
-    }
     res.status(502).json({ error: 'Failed to fetch article: ' + err.message });
   }
 }

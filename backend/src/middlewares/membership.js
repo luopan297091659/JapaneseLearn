@@ -19,6 +19,8 @@ const TIERS_FILE = path.join(__dirname, '../../config/feature_tiers.json');
 const DEFAULT_TIERS = [
   { id: 'grammar_lessons', type: 'limit', free_limit: 5 },
   { id: 'srs_daily', type: 'daily_limit', free_limit: 30 },
+  { id: 'listening_daily', type: 'daily_limit', free_limit: 3 },
+  { id: 'listening_exercise_daily', type: 'daily_limit', free_limit: 10 },
   { id: 'immersion_daily', type: 'daily_limit', free_limit: 3 },
   { id: 'ai_features', type: 'blocked' },
   { id: 'pronunciation', type: 'blocked' },
@@ -32,6 +34,7 @@ const DEFAULT_TIERS = [
   { id: 'flashcard_levels', type: 'enum', free_values: ['N5'] },
   { id: 'anki_quiz', type: 'blocked' },
   { id: 'wrong_answers', type: 'blocked' },
+  { id: 'grammar_quiz_daily', type: 'daily_limit', free_limit: 10 },
   { id: 'dictionary_daily', type: 'daily_limit', free_limit: 20 },
   { id: 'news_limit', type: 'limit', free_limit: 5 },
 ];
