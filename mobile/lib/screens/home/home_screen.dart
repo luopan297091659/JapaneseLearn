@@ -421,7 +421,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       onReveal: () => setState(() => _wordRevealed = true),
                       onNext: _nextWord,
                     ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   // ── 常用功能（可自定义，最多6个）────────────────
                   Row(children: [
                     const Expanded(child: _SectionTitle(title: '常用功能', icon: Icons.apps_rounded)),
@@ -434,7 +434,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ]),
                     ),
                   ]),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 2),
                   _CategoryGrid(
                       isMember: _user?.isMember ?? false,
                       items: _favFeatureIds

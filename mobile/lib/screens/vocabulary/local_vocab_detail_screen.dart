@@ -1,0 +1,576 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:go_router/go_router.dart';
+import 'package:just_audio/just_audio.dart';
+import '../../config/app_config.dart';
+import '../../services/api_service.dart';
+import '../../services/local_db.dart';
+import '../../utils/japanese_text_utils.dart';
+import '../../utils/tts_helper.dart';
+import '../../widgets/furigana_text.dart';
+import 'vocab_whiteboard_screen.dart';
+
+final _localFuriganaRe = RegExp(
+    r'[\u4e00-\u9fff\uff10-\uff19\u3041-\u30ff]+\[[^\]]*[\u3040-\u30ff][^\]]*\]');
+
+bool _localHasKana(String s) => RegExp(r'[\u3040-\u30ff]').hasMatch(s);
+
+bool _localIsSwapped(LocalVocabModel c) =>
+    !_localHasKana(c.word) && _localFuriganaRe.hasMatch(c.reading);
+
+String _localDisplayWord(LocalVocabModel c) => _localIsSwapped(c) ? c.reading : c.word;
+
+String _localDisplayReading(LocalVocabModel c) => _localIsSwapped(c) ? c.word : c.reading;
+
+class LocalVocabDetailArgs {
+  final LocalVocabModel? initialCard;
+  final List<LocalVocabModel>? cards;
+  final int initialIndex;
+
+  const LocalVocabDetailArgs({
+    this.initialCard,
+    this.cards,
+    this.initialIndex = 0,
+  });
+}
+
+class LocalVocabDetailScreen extends StatefulWidget {
+  final String cardId;
+  final LocalVocabDetailArgs? args;
+
+  const LocalVocabDetailScreen({
+    super.key,
+    required this.cardId,
+    this.args,
+  });
+
+  @override
+  State<LocalVocabDetailScreen> createState() => _LocalVocabDetailScreenState();
+}
+
+class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
+  final AudioPlayer _player = AudioPlayer();
+  FlutterTts? _tts;
+  LocalVocabModel? _card;
+  bool _loading = true;
+  String? _error;
+  late int _currentIndex;
+  List<LocalVocabModel> _cards = const [];
+  bool _exampleBusy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.args?.initialIndex ?? 0;
+    _cards = widget.args?.cards ?? const [];
+    _player.playerStateStream.listen((state) {
+      if (!mounted) return;
+      if (state.processingState == ProcessingState.completed || !state.playing) {
+        if (_exampleBusy && mounted) setState(() => _exampleBusy = false);
+      }
+    });
+    _loadCard();
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    _tts?.stop();
+    super.dispose();
+  }
+
+  Future<void> _loadCard() async {
+    final initialCard = widget.args?.initialCard;
+    if (initialCard != null && initialCard.id == widget.cardId) {
+      setState(() {
+        _card = initialCard;
+        _loading = false;
+      });
+      return;
+    }
+
+    if (_cards.isNotEmpty && _currentIndex >= 0 && _currentIndex < _cards.length) {
+      setState(() {
+        _card = _cards[_currentIndex];
+        _loading = false;
+      });
+      return;
+    }
+
+    final card = await localDb.getCardById(widget.cardId);
+    if (!mounted) return;
+    setState(() {
+      _card = card;
+      _loading = false;
+      _error = card == null ? '未找到该卡片' : null;
+    });
+  }
+
+  Future<FlutterTts> _getTts() async {
+    if (_tts == null) {
+      _tts = FlutterTts();
+      await TtsHelper.configureForJapanese(_tts!);
+    }
+    return _tts!;
+  }
+
+  Future<void> _stopAll() async {
+    await _player.stop();
+    await _tts?.stop();
+    if (_exampleBusy && mounted) setState(() => _exampleBusy = false);
+  }
+
+  Future<void> _playTts(String text, {required bool isExample, bool slow = false}) async {
+    if (text.trim().isEmpty) return;
+    await _stopAll();
+    if (!mounted) return;
+    if (isExample) setState(() => _exampleBusy = true);
+    try {
+      final tts = await _getTts();
+      await tts.setSpeechRate(slow ? 0.25 : 0.45);
+      tts.setCompletionHandler(() {
+        if (isExample && mounted) setState(() => _exampleBusy = false);
+      });
+      await TtsHelper.speakJapanese(tts, text);
+    } catch (_) {
+      if (isExample && mounted) setState(() => _exampleBusy = false);
+    }
+  }
+
+  Future<String> _resolveAudioPath(String url) async {
+    if (url.startsWith('/uploads/')) {
+      return apiService.downloadToTempFile(AppConfig.serverRoot + url);
+    }
+    if (url.startsWith('file://')) {
+      return url.substring(7);
+    }
+    if (RegExp(r'^[A-Za-z]:[\\/]').hasMatch(url) || url.startsWith('/')) {
+      return url;
+    }
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      final needsProxy = url.startsWith(AppConfig.baseUrl) ||
+          url.startsWith(AppConfig.serverRoot);
+      if (needsProxy) {
+        return apiService.downloadToTempFile(url);
+      }
+      await _player.setUrl(url);
+      return '';
+    }
+    return url;
+  }
+
+  Future<void> _playAudio({
+    required String? audioUrl,
+    required String fallbackText,
+    required bool isExample,
+    bool slow = false,
+  }) async {
+    if (audioUrl == null || audioUrl.trim().isEmpty) {
+      await _playTts(fallbackText, isExample: isExample, slow: slow);
+      return;
+    }
+
+    await _stopAll();
+    if (!mounted) return;
+    if (isExample) setState(() => _exampleBusy = true);
+    try {
+      final localPath = await _resolveAudioPath(audioUrl);
+      if (localPath.isNotEmpty) {
+        await _player.setFilePath(localPath);
+      }
+      await _player.setSpeed(slow ? 0.65 : 1.0);
+      await _player.setVolume(1.0);
+      await _player.play();
+    } catch (e) {
+      await _playTts(fallbackText, isExample: isExample, slow: slow);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('音频播放失败，已切换 TTS：$e')),
+      );
+    }
+  }
+
+  Future<void> _goTo(int index) async {
+    if (index < 0 || index >= _cards.length) return;
+    await _stopAll();
+    if (!mounted) return;
+    setState(() {
+      _currentIndex = index;
+      _card = _cards[index];
+    });
+  }
+
+  Future<void> _promoteCurrentCard() async {
+    if (_cards.isEmpty || _currentIndex < 0 || _currentIndex >= _cards.length) return;
+    final current = _cards[_currentIndex];
+    int nextStage = current.learningStage;
+    if (current.learningStage == 0) {
+      nextStage = 1;
+    } else if (current.learningStage == 1) {
+      nextStage = 2;
+    }
+    if (nextStage == current.learningStage) return;
+
+    await localDb.setLearningStage(current.id, stage: nextStage);
+    if (!mounted) return;
+
+    final updated = current.copyWithStage(nextStage);
+    setState(() {
+      _cards[_currentIndex] = updated;
+      if (_card?.id == updated.id) {
+        _card = updated;
+      }
+    });
+  }
+
+  Future<void> _goToWithPromote(int index) async {
+    await _promoteCurrentCard();
+    if (index < 0 || index >= _cards.length) return;
+    await _stopAll();
+    if (!mounted) return;
+    setState(() {
+      _currentIndex = index;
+      _card = _cards[index];
+    });
+
+    final nextCard = _cards[index];
+    Future.delayed(const Duration(milliseconds: 120), () {
+      if (!mounted || _card?.id != nextCard.id) return;
+      _playAudio(
+        audioUrl: nextCard.audioUrl,
+        fallbackText: _localDisplayWord(nextCard),
+        isExample: false,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final card = _card;
+    final hasPrev = _cards.isNotEmpty && _currentIndex > 0;
+    final hasNext = _cards.isNotEmpty && _currentIndex < _cards.length - 1;
+
+    return Scaffold(
+      backgroundColor: cs.surfaceContainerLowest,
+      appBar: AppBar(
+        title: const Text('Anki 词库详情'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => context.pop(),
+        ),
+        actions: [
+          if (card != null)
+            IconButton(
+              tooltip: '白板练习',
+              icon: const Icon(Icons.draw_rounded),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => VocabWhiteboardScreen(
+                      word: _localDisplayWord(card),
+                      reading: _localDisplayReading(card),
+                      meaningZh: card.meaningZh,
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : card == null
+              ? Center(child: Text(_error ?? '加载失败'))
+              : ListView(
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [cs.primaryContainer, cs.secondaryContainer],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Column(
+                        children: [
+                          FuriganaText(
+                            text: _localDisplayWord(card),
+                            fontSize: 52,
+                            color: cs.primary,
+                          ),
+                          if (_localDisplayReading(card).isNotEmpty &&
+                              cleanReading(_localDisplayReading(card)) !=
+                                  cleanWord(_localDisplayWord(card)))
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                cleanReading(_localDisplayReading(card)),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: cs.primary.withValues(alpha: 0.7),
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _MetaChip(label: card.jlptLevel, color: cs.primary),
+                              if (card.partOfSpeech.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                _MetaChip(label: card.partOfSpeech, color: cs.secondary),
+                              ],
+                              const SizedBox(width: 12),
+                              _AudioCircleButton(
+                                loading: false,
+                                icon: const Icon(Icons.volume_up_rounded, size: 18),
+                                onTap: () => _playAudio(
+                                  audioUrl: card.audioUrl,
+                                  fallbackText: _localDisplayWord(card),
+                                  isExample: false,
+                                ),
+                                color: cs.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              _AudioCircleButton(
+                                loading: false,
+                                icon: const Text('🐌', style: TextStyle(fontSize: 14)),
+                                onTap: () => _playAudio(
+                                  audioUrl: card.audioUrl,
+                                  fallbackText: _localDisplayWord(card),
+                                  isExample: false,
+                                  slow: true,
+                                ),
+                                color: Colors.orange,
+                              ),
+                              if ((card.exampleSentence?.trim().isNotEmpty ?? false) ||
+                                  (card.exampleAudioUrl?.trim().isNotEmpty ?? false)) ...[
+                                const SizedBox(width: 8),
+                                _AudioCircleButton(
+                                  loading: _exampleBusy,
+                                  icon: const Icon(Icons.record_voice_over_rounded, size: 18),
+                                  onTap: () => _playAudio(
+                                    audioUrl: card.exampleAudioUrl,
+                                    fallbackText: card.exampleSentence ?? _localDisplayWord(card),
+                                    isExample: true,
+                                  ),
+                                  color: cs.tertiary,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _InfoSection(
+                      title: '释义',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            card.meaningZh,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                          if (card.meaningEn != null && card.meaningEn!.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              card.meaningEn!,
+                              style: TextStyle(fontSize: 15, color: cs.onSurfaceVariant),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (card.exampleSentence != null && card.exampleSentence!.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      _InfoSection(
+                        title: '例句',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              card.exampleSentence!,
+                              style: TextStyle(
+                                fontSize: 16,
+                                height: 1.7,
+                                color: cs.onSurface,
+                              ),
+                            ),
+                            if (card.exampleReading != null && card.exampleReading!.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              Text(
+                                card.exampleReading!,
+                                style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
+                              ),
+                            ],
+                            if (card.exampleMeaningZh != null && card.exampleMeaningZh!.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              Text(
+                                card.exampleMeaningZh!,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: cs.primary,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+      bottomNavigationBar: _cards.isEmpty
+          ? null
+          : SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: hasPrev ? () => _goTo(_currentIndex - 1) : null,
+                      icon: const Icon(Icons.arrow_back_ios_rounded, size: 16),
+                      label: const Text('上一个'),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${_currentIndex + 1} / ${_cards.length}',
+                      style: TextStyle(color: cs.outline, fontWeight: FontWeight.w600),
+                    ),
+                    const Spacer(),
+                    OutlinedButton.icon(
+                      onPressed: hasNext ? () => _goToWithPromote(_currentIndex + 1) : null,
+                      icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                      label: const Text('下一个'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+class _InfoSection extends StatelessWidget {
+  final String title;
+  final Widget child;
+
+  const _InfoSection({required this.title, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: cs.outline,
+            ),
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _MetaChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _AudioCircleButton extends StatelessWidget {
+  final bool loading;
+  final Widget icon;
+  final VoidCallback onTap;
+  final Color color;
+
+  const _AudioCircleButton({
+    required this.loading,
+    required this.icon,
+    required this.onTap,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: loading ? null : onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          shape: BoxShape.circle,
+          border: Border.all(color: color.withValues(alpha: 0.35)),
+        ),
+        child: Center(
+          child: loading
+              ? SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: color),
+                )
+              : IconTheme(
+                  data: IconThemeData(color: color, size: 18),
+                  child: icon,
+                ),
+        ),
+      ),
+    );
+  }
+}

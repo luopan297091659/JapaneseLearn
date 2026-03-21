@@ -5,6 +5,7 @@ import '../../services/local_db.dart';
 import '../../services/api_service.dart';
 import '../../widgets/membership_gate.dart';
 import '../../widgets/furigana_text.dart';
+import 'local_vocab_detail_screen.dart';
 
 // ── 智能显示辅助 ──────────────────────────────────────────────────────────────
 // 部分 Anki 词库字段顺序颠倒：中文意思存入了 word，振假名日语存入了 reading
@@ -30,6 +31,8 @@ class LocalVocabScreen extends StatefulWidget {
 }
 
 class _LocalVocabScreenState extends State<LocalVocabScreen> {
+  static const _pageSize = 30;
+
   List<({String deckName, int total, int pending})> _decks = [];
   bool _loading = true;
 
@@ -38,10 +41,14 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   List<LocalVocabModel> _cards = [];
   bool _loadingCards = false;
   int _cardTotal = 0;
+  int _stageTotal = 0;
   int _cardPage  = 1;
+  int _selectedStage = 0; // 0: 新词, 1: 复习, 2: 掌握
+  Map<int, int> _stageCounts = const {0: 0, 1: 0, 2: 0};
 
   // 搜索
   final _searchCtrl = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
 
 
@@ -52,6 +59,7 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_handleScroll);
     _checkMembership();
     _loadDecks();
   }
@@ -65,8 +73,23 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients || _loadingCards) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 200 && _cards.length < _stageTotal) {
+      _cardPage++;
+      _fetchCards();
+    }
+  }
+
+  String? get _searchQuery {
+    final query = _searchCtrl.text.trim();
+    return query.isEmpty ? null : query;
   }
 
   Future<void> _loadDecks() async {
@@ -90,27 +113,52 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   }
 
   Future<void> _fetchCards({bool reset = false}) async {
+    if (_selectedDeck == null) return;
+    if (_loadingCards && !reset) return;
     if (reset) _cardPage = 1;
-    setState(() => _loadingCards = true);
-    final query = _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim();
-    final cards = await localDb.listByDeck(
+    setState(() {
+      _loadingCards = true;
+      if (reset) {
+        _cards = [];
+      }
+    });
+    final query = _searchQuery;
+    final cardsFuture = localDb.listByDeck(
       deckName: _selectedDeck,
       prefixMatch: true,
-      query:    query,
-      page:     _cardPage,
-      limit:    30,
+      query: query,
+      learningStage: _selectedStage,
+      page: _cardPage,
+      limit: _pageSize,
     );
-    final total = await localDb.countByDeck(deckName: _selectedDeck, prefixMatch: true, query: query);
+    final stageCountsFuture = localDb.countByLearningStage(
+      deckName: _selectedDeck,
+      prefixMatch: true,
+      query: query,
+    );
+    final results = await Future.wait<dynamic>([cardsFuture, stageCountsFuture]);
+    final cards = results[0] as List<LocalVocabModel>;
+    final stageCounts = results[1] as Map<int, int>;
+    final total = stageCounts.values.fold<int>(0, (sum, count) => sum + count);
+    final stageTotal = stageCounts[_selectedStage] ?? 0;
     if (!mounted) return;
     setState(() {
       _cards        = reset ? cards : [..._cards, ...cards];
       _cardTotal    = total;
+      _stageTotal   = stageTotal;
+      _stageCounts  = stageCounts;
       _loadingCards = false;
     });
   }
 
   void _showSnack(String msg) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+
+  Future<void> _setLearningStage(LocalVocabModel card, int stage) async {
+    await localDb.setLearningStage(card.id, stage: stage);
+    if (!mounted) return;
+    await _fetchCards(reset: true);
+  }
 
   Future<void> _deleteDeck(String deckName) async {
     final confirmed = await showDialog<bool>(
@@ -135,18 +183,22 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     }
   }
 
-  void _openCardDetail(BuildContext context, LocalVocabModel card) {
+  Future<void> _openCardDetail(LocalVocabModel card) async {
+    if (!mounted) return;
+
     final idx = _cards.indexOf(card);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _LocalVocabFlashCard(
+    await context.push(
+      '/local-vocab/${card.id}',
+      extra: LocalVocabDetailArgs(
+        initialCard: card,
         cards: _cards,
         initialIndex: idx >= 0 ? idx : 0,
       ),
     );
+
+    if (mounted) {
+      await _fetchCards(reset: true);
+    }
   }
 
   // ─── UI ─────────────────────────────────────────────────────────────────
@@ -425,6 +477,9 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     // 显示当前牌组路径（用 :: 分隔的最后一段）
     final deckParts = _selectedDeck?.split('::') ?? [];
     final deckTitle = deckParts.isNotEmpty ? deckParts.last : s.localVocab;
+    final newCount = _stageCounts[0] ?? 0;
+    final reviewCount = _stageCounts[1] ?? 0;
+    final masteredCount = _stageCounts[2] ?? 0;
 
     return Column(
       children: [
@@ -469,52 +524,202 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
           ),
         ),
         const Divider(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _buildStageTabs(cs, newCount, reviewCount, masteredCount),
+        ),
+        const SizedBox(height: 10),
         Expanded(
           child: _loadingCards && _cards.isEmpty
               ? const Center(child: CircularProgressIndicator())
-              : ListView.separated(
+              : ListView(
+                  controller: _scrollController,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: _cards.length + (_cards.length < _cardTotal ? 1 : 0),
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (_, i) {
-                    if (i >= _cards.length) {
-                      // 加载更多
-                      return Padding(
-                        padding: const EdgeInsets.all(12),
+                  children: [
+                    if (_cards.isEmpty)
+                      _emptySection(cs, '当前分组暂无内容')
+                    else
+                      ..._cards.map((card) => _buildCardTile(cs, card)),
+
+                    if (_loadingCards && _cards.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         child: Center(
-                          child: OutlinedButton(
-                            onPressed: () { _cardPage++; _fetchCards(); },
-                            child: const Text('加载更多'),
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              color: cs.primary,
+                            ),
                           ),
                         ),
-                      );
-                    }
-                    final card = _cards[i];
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                      leading: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: cs.primaryContainer,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(card.jlptLevel,
-                            style: TextStyle(color: cs.primary, fontWeight: FontWeight.bold, fontSize: 12)),
                       ),
-                      title: Text(_displayWord(card),
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                      subtitle: Text(_displaySub(card),
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                      trailing: Icon(
-                        Icons.chevron_right_rounded,
-                        size: 18,
-                        color: cs.outline,
-                      ),
-                      onTap: () => _openCardDetail(context, card),
-                    );
-                  },
+                  ],
                 ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildStageTabs(ColorScheme cs, int newCount, int reviewCount, int masteredCount) {
+    Widget item({
+      required int stage,
+      required String label,
+      required int count,
+      required Color activeColor,
+    }) {
+      final active = _selectedStage == stage;
+      return Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () async {
+            if (_selectedStage == stage) return;
+            setState(() {
+              _selectedStage = stage;
+              _cardPage = 1;
+              _cards = [];
+            });
+            if (_scrollController.hasClients) {
+              _scrollController.jumpTo(0);
+            }
+            await _fetchCards(reset: true);
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: active
+                  ? activeColor.withValues(alpha: 0.14)
+                  : cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: active
+                    ? activeColor.withValues(alpha: 0.45)
+                    : cs.outlineVariant.withValues(alpha: 0.45),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  stage == 0
+                      ? Icons.fiber_new_rounded
+                      : stage == 1
+                          ? Icons.autorenew_rounded
+                          : Icons.verified_rounded,
+                  size: 16,
+                  color: active ? activeColor : cs.outline,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '$label $count',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: active ? activeColor : cs.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        item(stage: 0, label: '新词', count: newCount, activeColor: cs.primary),
+        const SizedBox(width: 8),
+        item(stage: 1, label: '复习', count: reviewCount, activeColor: Colors.orange),
+        const SizedBox(width: 8),
+        item(stage: 2, label: '掌握', count: masteredCount, activeColor: Colors.green),
+      ],
+    );
+  }
+
+  Widget _emptySection(ColorScheme cs, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      child: Text(text, style: TextStyle(fontSize: 12, color: cs.outline)),
+    );
+  }
+
+  Widget _buildCardTile(ColorScheme cs, LocalVocabModel card) {
+    return Column(
+      children: [
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(vertical: 4),
+          leading: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: cs.primaryContainer,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(card.jlptLevel,
+                style: TextStyle(color: cs.primary, fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(_displayWord(card),
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+              ),
+              if (card.learningStage > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: (card.learningStage == 2 ? Colors.green : Colors.orange)
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: (card.learningStage == 2 ? Colors.green : Colors.orange)
+                          .withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Text(
+                    card.learningStage == 2 ? '掌握' : '复习',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: card.learningStage == 2 ? Colors.green : Colors.orange,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          subtitle: Text(_displaySub(card), maxLines: 1, overflow: TextOverflow.ellipsis),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PopupMenuButton<int>(
+                tooltip: '学习状态',
+                onSelected: (value) => _setLearningStage(card, value),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 0, child: Text('新词')),
+                  PopupMenuItem(value: 1, child: Text('复习')),
+                  PopupMenuItem(value: 2, child: Text('掌握')),
+                ],
+                child: Icon(
+                  card.learningStage == 0
+                      ? Icons.fiber_new_rounded
+                      : card.learningStage == 1
+                          ? Icons.autorenew_rounded
+                          : Icons.verified_rounded,
+                  size: 20,
+                  color: card.learningStage == 0
+                      ? cs.primary
+                      : card.learningStage == 1
+                          ? Colors.orange
+                          : Colors.green,
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, size: 18, color: cs.outline),
+            ],
+          ),
+          onTap: () => _openCardDetail(card),
+        ),
+        const Divider(height: 1),
       ],
     );
   }

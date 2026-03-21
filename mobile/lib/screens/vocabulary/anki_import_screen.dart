@@ -35,13 +35,14 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
   int? _mapMeaningZh;
   int? _mapMeaningEn;
   int? _mapExample;
+  int? _mapExampleReading;
+  int? _mapExampleMeaningZh;
 
   // 结果
   Map<String, dynamic> _result = {};
   String _errorMsg = '';
 
   bool _savedLocally = false;
-  int  _localCount = 0;
   bool _isMember = true;
 
   @override
@@ -112,6 +113,8 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
         _mapMeaningZh = m['meaning_zh'];
         _mapMeaningEn = m['meaning_en'];
         _mapExample   = m['example'];
+        _mapExampleReading = m['example_reading'];
+        _mapExampleMeaningZh = m['example_meaning_zh'];
         _step         = _Step.preview;
       });
     } catch (e) {
@@ -134,6 +137,8 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
         'meaning_zh': _mapMeaningZh,
         'meaning_en': _mapMeaningEn,
         'example':    _mapExample,
+        'example_reading': _mapExampleReading,
+        'example_meaning_zh': _mapExampleMeaningZh,
       };
 
       // ── 1. 本地解析 ──────────────────────────────────────────────────────
@@ -163,7 +168,6 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
 
       final localCount = await localDb.insertCards(rows);
       _savedLocally = true;
-      _localCount   = localCount;
 
       setState(() {
         _result = {
@@ -189,7 +193,8 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
         _filePath = null;
         _fileName = null;
         _savedLocally   = false;
-        _localCount     = 0;
+        _mapExampleReading = null;
+        _mapExampleMeaningZh = null;
       });
 
   // ─── UI ─────────────────────────────────────────────────────────────────
@@ -383,6 +388,24 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
                   options: fieldOptions,
                   optionLabel: fieldLabel,
                   onChanged: (v) => setState(() => _mapExample = v),
+                ),
+                const Divider(height: 1, indent: 56),
+                _MappingTile(
+                  label: '例句读音',
+                  icon: Icons.record_voice_over_rounded,
+                  value: _mapExampleReading,
+                  options: fieldOptions,
+                  optionLabel: fieldLabel,
+                  onChanged: (v) => setState(() => _mapExampleReading = v),
+                ),
+                const Divider(height: 1, indent: 56),
+                _MappingTile(
+                  label: '例句释义',
+                  icon: Icons.translate_rounded,
+                  value: _mapExampleMeaningZh,
+                  options: fieldOptions,
+                  optionLabel: fieldLabel,
+                  onChanged: (v) => setState(() => _mapExampleMeaningZh = v),
                 ),
               ],
             ),
@@ -671,19 +694,17 @@ class _StatusChip extends StatelessWidget {
   final String   label;
   final bool     active;
   final Color    activeColor;
-  final Color    inactiveColor;
 
   const _StatusChip({
     required this.icon,
     required this.label,
     required this.active,
     this.activeColor   = Colors.green,
-    this.inactiveColor = Colors.grey,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? activeColor : inactiveColor;
+    final color = active ? activeColor : Colors.grey;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(

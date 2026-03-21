@@ -14,7 +14,7 @@ class LocalDb {
   Database? _db;
 
   static const _dbName    = 'japanese_learn_local.db';
-  static const _dbVersion = 1;
+  static const _dbVersion = 4;
 
   static const tableVocab = 'local_vocabulary';
 
@@ -44,6 +44,12 @@ class LocalDb {
         meaning_zh       TEXT    NOT NULL,
         meaning_en       TEXT,
         example_sentence TEXT,
+        example_reading  TEXT,
+        example_meaning_zh TEXT,
+        example_audio_url TEXT,
+        audio_url        TEXT,
+        is_learned       INTEGER NOT NULL DEFAULT 0,
+        learning_stage   INTEGER NOT NULL DEFAULT 0,
         part_of_speech   TEXT    NOT NULL DEFAULT 'other',
         jlpt_level       TEXT    NOT NULL DEFAULT 'N3',
         deck_name        TEXT,
@@ -58,7 +64,19 @@ class LocalDb {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // 预留：未来版本迁移
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE $tableVocab ADD COLUMN example_reading TEXT');
+      await db.execute('ALTER TABLE $tableVocab ADD COLUMN example_meaning_zh TEXT');
+      await db.execute('ALTER TABLE $tableVocab ADD COLUMN example_audio_url TEXT');
+      await db.execute('ALTER TABLE $tableVocab ADD COLUMN audio_url TEXT');
+    }
+    if (oldVersion < 3) {
+      await db.execute('ALTER TABLE $tableVocab ADD COLUMN is_learned INTEGER NOT NULL DEFAULT 0');
+    }
+    if (oldVersion < 4) {
+      await db.execute('ALTER TABLE $tableVocab ADD COLUMN learning_stage INTEGER NOT NULL DEFAULT 0');
+      await db.execute('UPDATE $tableVocab SET learning_stage = CASE WHEN is_learned = 1 THEN 1 ELSE 0 END');
+    }
   }
 
   // ─── 写入 ────────────────────────────────────────────────────────────────
@@ -79,6 +97,12 @@ class LocalDb {
           'meaning_zh':      c['meaning_zh'] as String,
           'meaning_en':      c['meaning_en'],
           'example_sentence': c['example_sentence'],
+          'example_reading': c['example_reading'],
+          'example_meaning_zh': c['example_meaning_zh'],
+          'example_audio_url': c['example_audio_url'],
+          'audio_url': c['audio_url'],
+          'is_learned': c['is_learned'] ?? 0,
+          'learning_stage': c['learning_stage'] ?? ((c['is_learned'] ?? 0) == 1 ? 1 : 0),
           'part_of_speech':  c['part_of_speech'] ?? 'other',
           'jlpt_level':      c['jlpt_level'] ?? 'N3',
           'deck_name':       c['deck_name'],
@@ -136,6 +160,7 @@ class LocalDb {
     bool prefixMatch = false,
     String? level,
     String? query,
+    int? learningStage,
     int page = 1,
     int limit = 30,
   }) async {
@@ -153,6 +178,10 @@ class LocalDb {
       }
     }
     if (level    != null) { wheres.add('jlpt_level = ?'); args.add(level);   }
+    if (learningStage != null) {
+      wheres.add('learning_stage = ?');
+      args.add(learningStage);
+    }
     if (query    != null && query.isNotEmpty) {
       wheres.add('(word LIKE ? OR reading LIKE ? OR meaning_zh LIKE ?)');
       args.addAll(['%$query%', '%$query%', '%$query%']);
@@ -172,7 +201,13 @@ class LocalDb {
   }
 
   /// 按牌组分页的总记录数（支持 prefix 模式匹配子牌组）
-  Future<int> countByDeck({String? deckName, bool prefixMatch = false, String? level, String? query}) async {
+  Future<int> countByDeck({
+    String? deckName,
+    bool prefixMatch = false,
+    String? level,
+    String? query,
+    int? learningStage,
+  }) async {
     final database = await db;
     final wheres = <String>[];
     final args   = <dynamic>[];
@@ -186,6 +221,10 @@ class LocalDb {
       }
     }
     if (level    != null) { wheres.add('jlpt_level = ?'); args.add(level);   }
+    if (learningStage != null) {
+      wheres.add('learning_stage = ?');
+      args.add(learningStage);
+    }
     if (query    != null && query.isNotEmpty) {
       wheres.add('(word LIKE ? OR reading LIKE ? OR meaning_zh LIKE ?)');
       args.addAll(['%$query%', '%$query%', '%$query%']);
@@ -196,6 +235,90 @@ class LocalDb {
       args.isEmpty ? null : args,
     );
     return (res.first['cnt'] as int?) ?? 0;
+  }
+
+  Future<Map<int, int>> countByLearningStage({
+    String? deckName,
+    bool prefixMatch = false,
+    String? level,
+    String? query,
+  }) async {
+    final database = await db;
+    final wheres = <String>[];
+    final args = <dynamic>[];
+
+    if (deckName != null) {
+      if (prefixMatch) {
+        wheres.add('(deck_name = ? OR deck_name LIKE ?)');
+        args.addAll([deckName, '$deckName::%']);
+      } else {
+        wheres.add('deck_name = ?');
+        args.add(deckName);
+      }
+    }
+    if (level != null) {
+      wheres.add('jlpt_level = ?');
+      args.add(level);
+    }
+    if (query != null && query.isNotEmpty) {
+      wheres.add('(word LIKE ? OR reading LIKE ? OR meaning_zh LIKE ?)');
+      args.addAll(['%$query%', '%$query%', '%$query%']);
+    }
+
+    final where = wheres.isEmpty ? '' : 'WHERE ${wheres.join(' AND ')}';
+    final rows = await database.rawQuery(
+      'SELECT learning_stage, COUNT(*) AS cnt FROM $tableVocab $where GROUP BY learning_stage',
+      args.isEmpty ? null : args,
+    );
+
+    final counts = <int, int>{0: 0, 1: 0, 2: 0};
+    for (final row in rows) {
+      final stage = row['learning_stage'] as int?;
+      final count = row['cnt'] as int? ?? 0;
+      if (stage != null && counts.containsKey(stage)) {
+        counts[stage] = count;
+      }
+    }
+    return counts;
+  }
+
+  Future<LocalVocabModel?> getCardById(String id) async {
+    final database = await db;
+    final rows = await database.query(
+      tableVocab,
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return LocalVocabModel.fromMap(rows.first);
+  }
+
+  Future<void> setLearned(String id, {required bool isLearned}) async {
+    final database = await db;
+    await database.update(
+      tableVocab,
+      {
+        'is_learned': isLearned ? 1 : 0,
+        'learning_stage': isLearned ? 1 : 0,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> setLearningStage(String id, {required int stage}) async {
+    final database = await db;
+    final safeStage = stage < 0 ? 0 : (stage > 2 ? 2 : stage);
+    await database.update(
+      tableVocab,
+      {
+        'learning_stage': safeStage,
+        'is_learned': safeStage > 0 ? 1 : 0,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   /// 列出所有牌组名称及各自卡片数
@@ -243,6 +366,12 @@ class LocalVocabModel {
   final String  meaningZh;
   final String? meaningEn;
   final String? exampleSentence;
+  final String? exampleReading;
+  final String? exampleMeaningZh;
+  final String? exampleAudioUrl;
+  final String? audioUrl;
+  final bool isLearned;
+  final int learningStage;
   final String  partOfSpeech;
   final String  jlptLevel;
   final String? deckName;
@@ -256,6 +385,12 @@ class LocalVocabModel {
     required this.meaningZh,
     this.meaningEn,
     this.exampleSentence,
+    this.exampleReading,
+    this.exampleMeaningZh,
+    this.exampleAudioUrl,
+    this.audioUrl,
+    this.isLearned = false,
+    this.learningStage = 0,
     required this.partOfSpeech,
     required this.jlptLevel,
     this.deckName,
@@ -270,6 +405,16 @@ class LocalVocabModel {
     meaningZh:       m['meaning_zh'] as String,
     meaningEn:       m['meaning_en'] as String?,
     exampleSentence: m['example_sentence'] as String?,
+    exampleReading:  m['example_reading'] as String?,
+    exampleMeaningZh: m['example_meaning_zh'] as String?,
+    exampleAudioUrl: m['example_audio_url'] as String?,
+    audioUrl:        m['audio_url'] as String?,
+    isLearned:       (m['is_learned'] as int? ?? 0) == 1,
+    learningStage:   (() {
+      final stage = m['learning_stage'] as int?;
+      if (stage != null) return stage;
+      return (m['is_learned'] as int? ?? 0) == 1 ? 1 : 0;
+    })(),
     partOfSpeech:    m['part_of_speech'] as String? ?? 'other',
     jlptLevel:       m['jlpt_level'] as String? ?? 'N3',
     deckName:        m['deck_name'] as String?,
@@ -287,8 +432,59 @@ class LocalVocabModel {
     partOfSpeech:    partOfSpeech,
     jlptLevel:       jlptLevel,
     exampleSentence: exampleSentence,
+    exampleReading:  exampleReading,
+    exampleMeaningZh: exampleMeaningZh,
+    exampleAudioUrl: exampleAudioUrl,
+    audioUrl:        audioUrl,
     category:        deckName,
   );
+
+  LocalVocabModel copyWith({
+    bool? isLearned,
+  }) {
+    return LocalVocabModel(
+      id: id,
+      word: word,
+      reading: reading,
+      meaningZh: meaningZh,
+      meaningEn: meaningEn,
+      exampleSentence: exampleSentence,
+      exampleReading: exampleReading,
+      exampleMeaningZh: exampleMeaningZh,
+      exampleAudioUrl: exampleAudioUrl,
+      audioUrl: audioUrl,
+      isLearned: isLearned ?? this.isLearned,
+        learningStage: learningStage,
+      partOfSpeech: partOfSpeech,
+      jlptLevel: jlptLevel,
+      deckName: deckName,
+      synced: synced,
+      createdAt: createdAt,
+    );
+  }
+
+    LocalVocabModel copyWithStage(int stage) {
+      final safeStage = stage < 0 ? 0 : (stage > 2 ? 2 : stage);
+      return LocalVocabModel(
+        id: id,
+        word: word,
+        reading: reading,
+        meaningZh: meaningZh,
+        meaningEn: meaningEn,
+        exampleSentence: exampleSentence,
+        exampleReading: exampleReading,
+        exampleMeaningZh: exampleMeaningZh,
+        exampleAudioUrl: exampleAudioUrl,
+        audioUrl: audioUrl,
+        isLearned: safeStage > 0,
+        learningStage: safeStage,
+        partOfSpeech: partOfSpeech,
+        jlptLevel: jlptLevel,
+        deckName: deckName,
+        synced: synced,
+        createdAt: createdAt,
+      );
+    }
 }
 
 // ─── 全局单例 ──────────────────────────────────────────────────────────────────

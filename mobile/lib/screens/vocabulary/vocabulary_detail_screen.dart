@@ -466,9 +466,9 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                 // ── 级别 + 词性 + 喇叭按钮 ──
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                   _chip(v.jlptLevel, cs.primary),
-                  if (v.partOfSpeechRaw != null) ...[
+                  if (v.partOfSpeechRaw != null || v.partOfSpeech.isNotEmpty) ...[
                     const SizedBox(width: 8),
-                    _chip(_formatPosRaw(v.partOfSpeechRaw!), cs.secondary),
+                    _chip(v.partOfSpeechRaw != null ? _formatPosRaw(v.partOfSpeechRaw!) : _posLabel(v.partOfSpeech), cs.secondary),
                   ],
                   // 音频按钮：有 audio_url 或可用 TTS 时都显示
                   if (v.audioUrl != null || v.reading.isNotEmpty || v.word.isNotEmpty) ...[

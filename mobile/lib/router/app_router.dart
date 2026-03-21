@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../l10n/app_localizations.dart';
 
 // Screens
 import '../screens/auth/login_screen.dart';
@@ -21,6 +20,7 @@ import '../screens/home/srs_review_screen.dart';
 import '../screens/vocabulary/dictionary_screen.dart';
 import '../screens/vocabulary/anki_import_screen.dart';
 import '../screens/vocabulary/local_vocab_screen.dart';
+import '../screens/vocabulary/local_vocab_detail_screen.dart';
 import '../screens/game/tetris_grammar_game.dart';
 import '../screens/game/flashcard_screen.dart';
 import '../screens/tabs/study_tab.dart';
@@ -68,7 +68,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
       ShellRoute(
-        builder: (context, state, child) => MainShell(child: child),
+        builder: (context, state, child) => MainShell(
+          location: state.uri.path,
+          child: child,
+        ),
         routes: [
           GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
           GoRoute(path: '/study', builder: (_, __) => const StudyTab()),
@@ -111,6 +114,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/anki-import', builder: (_, __) => const AnkiImportScreen()),
           GoRoute(path: '/local-vocab',  builder: (_, __) => const LocalVocabScreen()),
           GoRoute(
+            path: '/local-vocab/:id',
+            builder: (_, state) => LocalVocabDetailScreen(
+              cardId: state.pathParameters['id']!,
+              args: state.extra as LocalVocabDetailArgs?,
+            ),
+          ),
+          GoRoute(
             path: '/game',
             builder: (_, state) => TetrisGrammarGame(
               gameType: (state.extra as String?) ?? 'particles',
@@ -151,7 +161,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
 class MainShell extends StatefulWidget {
   final Widget child;
-  const MainShell({super.key, required this.child});
+  final String location;
+  const MainShell({super.key, required this.child, required this.location});
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -161,6 +172,12 @@ class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
   static const _tabRoutes = ['/home', '/study', '/test', '/tools'];
+  late final List<Widget> _tabPages = const [
+    HomeScreen(),
+    StudyTab(),
+    TestTab(),
+    ToolsTab(),
+  ];
 
   void _onTabTap(int index) {
     if (index == _currentIndex) return;
@@ -168,40 +185,44 @@ class _MainShellState extends State<MainShell> {
     context.go(_tabRoutes[index]);
   }
 
+  int _resolveTabIndex(String location) {
+    int idx = _tabRoutes.indexOf(location);
+    if (idx != -1) return idx;
+
+    if (location.startsWith('/vocabulary') ||
+        location.startsWith('/grammar') ||
+        location.startsWith('/listening') ||
+        location.startsWith('/srs-review') ||
+        location.startsWith('/gojuon') ||
+        location.startsWith('/flashcard') ||
+        location.startsWith('/news') ||
+        location.startsWith('/nhk-news') ||
+        location.startsWith('/pronunciation')) {
+      return 1;
+    }
+    if (location.startsWith('/quiz') ||
+        location.startsWith('/grammar-quiz') ||
+        location.startsWith('/game') ||
+        location.startsWith('/listening-exercise') ||
+        location.startsWith('/kana-writing-test')) {
+      return 2;
+    }
+    if (location.startsWith('/dictionary') ||
+        location.startsWith('/anki') ||
+        location.startsWith('/local-vocab') ||
+        location.startsWith('/todofuken') ||
+        location.startsWith('/translate') ||
+        location.startsWith('/wrong-answers') ||
+        location.startsWith('/immersion')) {
+      return 3;
+    }
+    return 0;
+  }
+
   @override
   void didUpdateWidget(covariant MainShell oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Sync tab index with current route
-    final location = GoRouterState.of(context).matchedLocation;
-    int idx = _tabRoutes.indexOf(location);
-    if (idx == -1) {
-      // Sub-page: determine parent tab
-      if (location.startsWith('/vocabulary') ||
-          location.startsWith('/grammar') ||
-          location.startsWith('/listening') ||
-          location.startsWith('/srs-review') ||
-          location.startsWith('/gojuon') ||
-          location.startsWith('/flashcard') ||
-          location.startsWith('/news') ||
-          location.startsWith('/nhk-news')) {
-        idx = 1; // 学习
-      } else if (location.startsWith('/quiz') ||
-          location.startsWith('/grammar-quiz') ||
-          location.startsWith('/game') ||
-          location.startsWith('/listening-exercise')) {
-        idx = 2; // 测试
-      } else if (location.startsWith('/dictionary') ||
-          location.startsWith('/anki') ||
-          location.startsWith('/local-vocab') ||
-          location.startsWith('/todofuken') ||
-          location.startsWith('/translate') ||
-          location.startsWith('/wrong-answers') ||
-          location.startsWith('/immersion')) {
-        idx = 3; // 工具
-      } else {
-        idx = 0; // 主页
-      }
-    }
+    final idx = _resolveTabIndex(widget.location);
     if (idx != _currentIndex) {
       setState(() => _currentIndex = idx);
     }
@@ -210,20 +231,26 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isTabRoot = _tabRoutes.contains(widget.location);
     return Scaffold(
-      body: widget.child,
+      body: isTabRoot
+          ? IndexedStack(
+              index: _currentIndex,
+              children: _tabPages,
+            )
+          : widget.child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: _onTabTap,
         backgroundColor: cs.surface,
         indicatorColor: cs.primaryContainer,
-        height: 64,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        height: 72,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: '主页'),
-          NavigationDestination(icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book_rounded), label: '学习'),
-          NavigationDestination(icon: Icon(Icons.assignment_outlined), selectedIcon: Icon(Icons.assignment_rounded), label: '测试'),
-          NavigationDestination(icon: Icon(Icons.build_outlined), selectedIcon: Icon(Icons.build_rounded), label: '工具'),
+          NavigationDestination(icon: Icon(Icons.home_outlined, size: 28), selectedIcon: Icon(Icons.home_rounded, size: 30), label: '主页'),
+          NavigationDestination(icon: Icon(Icons.menu_book_outlined, size: 28), selectedIcon: Icon(Icons.menu_book_rounded, size: 30), label: '学习'),
+          NavigationDestination(icon: Icon(Icons.assignment_outlined, size: 28), selectedIcon: Icon(Icons.assignment_rounded, size: 30), label: '测试'),
+          NavigationDestination(icon: Icon(Icons.build_outlined, size: 28), selectedIcon: Icon(Icons.build_rounded, size: 30), label: '工具'),
         ],
       ),
     );

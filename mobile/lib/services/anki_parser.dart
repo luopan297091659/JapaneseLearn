@@ -13,6 +13,9 @@ class AnkiCard {
   final String meaningZh;
   final String? meaningEn;
   final String? example;
+  final String? exampleReading;
+  final String? exampleMeaningZh;
+  final String? exampleAudioUrl;
   final String? audioUrl; // 本地音频文件路径（来自 .apkg 提取）
   final String? deckName; // 牌组层级名称，如 "Root::Sub::Leaf"
 
@@ -22,6 +25,9 @@ class AnkiCard {
     required this.meaningZh,
     this.meaningEn,
     this.example,
+    this.exampleReading,
+    this.exampleMeaningZh,
+    this.exampleAudioUrl,
     this.audioUrl,
     this.deckName,
   });
@@ -32,6 +38,12 @@ class AnkiCard {
         'meaning_zh': meaningZh,
         if (meaningEn != null && meaningEn!.isNotEmpty) 'meaning_en': meaningEn,
         if (example != null && example!.isNotEmpty) 'example_sentence': example,
+        if (exampleReading != null && exampleReading!.isNotEmpty)
+          'example_reading': exampleReading,
+        if (exampleMeaningZh != null && exampleMeaningZh!.isNotEmpty)
+          'example_meaning_zh': exampleMeaningZh,
+        if (exampleAudioUrl != null && exampleAudioUrl!.isNotEmpty)
+          'example_audio_url': exampleAudioUrl,
         if (audioUrl != null && audioUrl!.isNotEmpty) 'audio_url': audioUrl,
         if (deckName != null && deckName!.isNotEmpty) 'deck_name': deckName,
       };
@@ -116,7 +128,8 @@ class AnkiParser {
   /// [rawSamples]: 前几行的原始字段值列表（可选），用于内容分析兜底
   static Map<String, int?> detectMapping(List<String> fields,
       [List<List<String>>? rawSamples]) {
-    int? word, reading, meaningZh, meaningEn, example, posField;
+    int? word, reading, meaningZh, meaningEn, example, exampleReading,
+      exampleMeaningZh, posField;
 
     // ── Step 1: 字段名匹配 ───────────────────────────────────────────────────
     for (int i = 0; i < fields.length; i++) {
@@ -157,6 +170,14 @@ class AnkiParser {
           RegExp(r'(example|sentence|例文|例句|sample|context|usage)', caseSensitive: false)
               .hasMatch(name)) {
         example = i;
+      } else if (exampleReading == null &&
+          RegExp(r'(example.reading|sentence.reading|例句读音|例文読み|文読み|sentence kana|example kana|example pronunciation)', caseSensitive: false)
+              .hasMatch(name)) {
+        exampleReading = i;
+      } else if (exampleMeaningZh == null &&
+          RegExp(r'(example.meaning|sentence.meaning|例句释义|例句翻译|例文訳|sentence translation|example translation)', caseSensitive: false)
+              .hasMatch(name)) {
+        exampleMeaningZh = i;
       }
     }
 
@@ -262,11 +283,12 @@ class AnkiParser {
 
     // ── Step 4: 互换校验 ────────────────────────────────────────────────────
     // 若 word 列完全没有假名 (纯汉字/中文)，而 reading 列含振假名格式，说明两者颠倒
-    if (word != null && rawSamples != null && rawSamples.isNotEmpty) {
+    if (rawSamples != null && rawSamples.isNotEmpty) {
       final furiganaRe = RegExp(
           r'[\u4e00-\u9fff\uff10-\uff19\u3041-\u30ff]+\[[^\]]*[\u3040-\u30ff][^\]]*\]');
+      final wordIndex = word;
       final wordVals = rawSamples
-          .map((r) => word! < r.length ? r[word!].trim() : '')
+        .map((r) => wordIndex < r.length ? r[wordIndex].trim() : '')
           .where((v) => v.isNotEmpty)
           .toList();
       final wordHasKana =
@@ -274,8 +296,9 @@ class AnkiParser {
       final wordHasFurigana = wordVals.any((v) => furiganaRe.hasMatch(v));
 
       if (!wordHasKana && !wordHasFurigana && reading != null) {
+      final readingIndex = reading;
         final readingVals = rawSamples
-            .map((r) => reading! < r.length ? r[reading!].trim() : '')
+        .map((r) => readingIndex < r.length ? r[readingIndex].trim() : '')
             .where((v) => v.isNotEmpty)
             .toList();
         final readingHasFurigana =
@@ -295,6 +318,8 @@ class AnkiParser {
       'meaning_zh': meaningZh,
       'meaning_en': meaningEn,
       'example': example,
+      'example_reading': exampleReading,
+      'example_meaning_zh': exampleMeaningZh,
     };
   }
 
@@ -352,7 +377,6 @@ class AnkiParser {
     ];
 
     Database? db;
-    String? openedPath;
 
     for (final c in candidates) {
       final f = File('$extractDirPath/$c');
@@ -368,7 +392,6 @@ class AnkiParser {
         // 做一次查询验证文件是否真的是有效 SQLite（anki21b 是 zstd，会在此处抛异常）
         await tryDb.rawQuery('SELECT COUNT(*) FROM notes');
         db = tryDb;
-        openedPath = f.path;
         break;
       } catch (e) {
         // anki21b 等压缩格式会在 open 或 query 阶段抛异常，尝试下一个
@@ -548,19 +571,37 @@ class AnkiParser {
       return data.notes
           .map((n) {
             final rawFlds = n['flds']!.toString().split('\x1f');
-            // 从任意字段中找第一个 [sound:xxx] 引用
+            final exampleIndex = mapping['example'];
+            String? exampleAudioUrl;
             String? audioUrl;
-            for (final raw in rawFlds) {
-              final ref = _extractSoundRef(raw);
+
+            if (exampleIndex != null && exampleIndex < rawFlds.length) {
+              final ref = _extractSoundRef(rawFlds[exampleIndex]);
+              if (ref != null) {
+                exampleAudioUrl = audioMap[ref];
+              }
+            }
+
+            for (int i = 0; i < rawFlds.length; i++) {
+              if (i == exampleIndex) continue;
+              final ref = _extractSoundRef(rawFlds[i]);
               if (ref != null) {
                 audioUrl = audioMap[ref];
                 break;
               }
             }
+
+            audioUrl ??= exampleAudioUrl;
             // 获取该笔记对应的牌组名称
             final noteId = n['id']?.toString();
             final deckName = noteId != null ? data.noteDeckMap[noteId] : null;
-            return _buildCard(rawFlds, mapping, audioUrl: audioUrl, deckName: deckName);
+            return _buildCard(
+              rawFlds,
+              mapping,
+              audioUrl: audioUrl,
+              exampleAudioUrl: exampleAudioUrl,
+              deckName: deckName,
+            );
           })
           .whereType<AnkiCard>()
           .toList();
@@ -637,7 +678,7 @@ class AnkiParser {
   // ── 构建单张卡片 ────────────────────────────────────────────────────────────
 
   static AnkiCard? _buildCard(List<String> flds, Map<String, int?> mapping,
-      {String? audioUrl, String? deckName}) {
+      {String? audioUrl, String? exampleAudioUrl, String? deckName}) {
     final wi = mapping['word'];
     if (wi == null || wi >= flds.length) return null;
 
@@ -665,6 +706,18 @@ class AnkiParser {
         ? _clamp(_stripHtml(flds[exi]), 2000)
         : null;
 
+    final exampleReadingIndex = mapping['example_reading'];
+    final exampleReading =
+      (exampleReadingIndex != null && exampleReadingIndex < flds.length)
+        ? _clamp(_stripHtml(flds[exampleReadingIndex]), 500)
+        : null;
+
+    final exampleMeaningZhIndex = mapping['example_meaning_zh'];
+    final exampleMeaningZh =
+      (exampleMeaningZhIndex != null && exampleMeaningZhIndex < flds.length)
+        ? _clamp(_stripHtml(flds[exampleMeaningZhIndex]), 1000)
+        : null;
+
     final meaningEn = (eni != null && eni < flds.length)
         ? _clamp(_stripHtml(flds[eni]), 1000)
         : null;
@@ -675,6 +728,9 @@ class AnkiParser {
       meaningZh: meaningZh,
       meaningEn: meaningEn,
       example: example,
+      exampleReading: exampleReading,
+      exampleMeaningZh: exampleMeaningZh,
+      exampleAudioUrl: exampleAudioUrl,
       audioUrl: audioUrl,
       deckName: deckName,
     );
