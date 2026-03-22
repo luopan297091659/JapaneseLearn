@@ -31,6 +31,15 @@ const AppRelease = sequelize.define('AppRelease', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  is_published: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
+  published_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
 });
 
 module.exports = AppRelease;

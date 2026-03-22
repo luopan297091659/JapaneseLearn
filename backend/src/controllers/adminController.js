@@ -1167,6 +1167,8 @@ async function uploadApp(req, res) {
     platform,
     file_url: fileUrl,
     changelog: changelog || null,
+    is_published: false,
+    published_at: null,
   });
   res.json({ ok: true, app });
 }
@@ -1175,8 +1177,48 @@ async function uploadApp(req, res) {
 async function listAppReleases(req, res) {
   const { platform } = req.query;
   const where = platform ? { platform } : {};
-  const list = await AppRelease.findAll({ where, order: [['upload_time', 'DESC']] });
+  const list = await AppRelease.findAll({ where, order: [['is_published', 'DESC'], ['published_at', 'DESC'], ['upload_time', 'DESC']] });
   res.json({ data: list });
+}
+
+async function publishAppRelease(req, res) {
+  const app = await AppRelease.findByPk(req.params.id);
+  if (!app) return res.status(404).json({ error: '未找到该版本' });
+
+  await AppRelease.update(
+    { is_published: false, published_at: null },
+    { where: { platform: app.platform, is_published: true } },
+  );
+
+  await app.update({
+    is_published: true,
+    published_at: new Date(),
+  });
+
+  res.json({ ok: true, app });
+}
+
+async function getLatestAppRelease(req, res) {
+  const platform = String(req.query.platform || 'android').trim().toLowerCase();
+  const app = await AppRelease.findOne({
+    where: { platform, is_published: true },
+    order: [['published_at', 'DESC'], ['upload_time', 'DESC']],
+  });
+
+  if (!app) return res.status(404).json({ error: '当前平台暂无已发布版本' });
+
+  res.json({
+    ok: true,
+    data: {
+      id: app.id,
+      version: app.version,
+      platform: app.platform,
+      changelog: app.changelog,
+      file_url: app.file_url,
+      published_at: app.published_at,
+      download_url: `/api/v1/admin/downloadApp/${app.id}`,
+    },
+  });
 }
 
 // ─── 下载计数 + 重定向文件 ───────────────────────────────────────────────────
@@ -1370,6 +1412,8 @@ module.exports = {
   getFeatureTiers, saveFeatureTiers,
   uploadApp,
   listAppReleases,
+  publishAppRelease,
+  getLatestAppRelease,
   downloadApp,
   deleteAppRelease,
   getAiSettings, saveAiSettings, getAiUsage, resetAiUsage, readAiSettings, saveAiSettingsFile,

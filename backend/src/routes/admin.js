@@ -15,7 +15,7 @@ const {
   getMembershipConfig, saveMembershipConfig,
   getFeatureToggles, saveFeatureToggles,
   getFeatureTiers, saveFeatureTiers,
-  uploadApp, listAppReleases, downloadApp, deleteAppRelease,
+  uploadApp, listAppReleases, publishAppRelease, getLatestAppRelease, downloadApp, deleteAppRelease,
   getAiSettings, saveAiSettings, getAiUsage, resetAiUsage,
   listAdmins, updateAdminPermissions, getAdminInfo,
   listReports, getReport, updateReport, deleteReport,
@@ -51,6 +51,7 @@ const appUpload = multer({
 
 // ── App 下载（公开，不需要 adminAuth）──
 router.get('/downloadApp/:id', asyncHandler(downloadApp));
+router.get('/app/latest', asyncHandler(getLatestAppRelease));
 
 // 所有 admin 路由都需要管理员身份
 router.use(adminAuth);
@@ -116,6 +117,7 @@ router.post('/feature-tiers', superAdminAuth, asyncHandler(saveFeatureTiers));
 // App 管理（仅高级管理员）
 router.post('/uploadApp', superAdminAuth, appUpload.single('file'), asyncHandler(uploadApp));
 router.get('/listAppReleases', superAdminAuth, asyncHandler(listAppReleases));
+router.post('/app/:id/publish', superAdminAuth, asyncHandler(publishAppRelease));
 router.delete('/app/:id', superAdminAuth, asyncHandler(deleteAppRelease));
 
 // AI 设置（仅高级管理员）

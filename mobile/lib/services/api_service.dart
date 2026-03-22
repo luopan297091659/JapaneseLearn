@@ -387,6 +387,11 @@ class ApiService {
     return Map<String, dynamic>.from(resp.data);
   }
 
+  Future<Map<String, dynamic>> getLatestPublishedAppRelease({String platform = 'android'}) async {
+    final resp = await _dio.get('/admin/app/latest', queryParameters: {'platform': platform});
+    return Map<String, dynamic>.from(resp.data['data'] as Map);
+  }
+
   // ─── Vocabulary ──────────────────────────────────────────────────────────
   Future<Map<String, dynamic>> getVocabulary({
     String? level,

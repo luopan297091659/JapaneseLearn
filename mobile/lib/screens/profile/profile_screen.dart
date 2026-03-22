@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:android_intent_plus/android_intent.dart';
+import '../../config/app_config.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../l10n/app_localizations.dart';
@@ -27,9 +29,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool? _notifOverride; // 乐观更新开关状态
   Map<String, bool> _permissions = {};
   double _slowSpeed = 0.5;
+  String _appVersion = '';
+  bool _checkingUpdate = false;
 
   @override
-  void initState() { super.initState(); _load(); _checkPermissions(); _loadSlowSpeed(); }
+  void initState() { super.initState(); _load(); _checkPermissions(); _loadSlowSpeed(); _loadAppVersion(); }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() => _appVersion = '${info.version}+${info.buildNumber}');
+    } catch (_) {}
+  }
 
   Future<void> _loadSlowSpeed() async {
     final prefs = await SharedPreferences.getInstance();
@@ -172,6 +184,90 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       setState(() => _notifOverride = !value); // 回滚
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('设置失败：$e'), behavior: SnackBarBehavior.floating));
+    }
+  }
+
+  int _compareVersions(String current, String latest) {
+    List<int> parse(String input) {
+      final normalized = input.split('+').first.trim();
+      return normalized.split('.').map((part) => int.tryParse(part) ?? 0).toList();
+    }
+
+    final left = parse(current);
+    final right = parse(latest);
+    final maxLen = left.length > right.length ? left.length : right.length;
+    for (var i = 0; i < maxLen; i++) {
+      final a = i < left.length ? left[i] : 0;
+      final b = i < right.length ? right[i] : 0;
+      if (a != b) return a.compareTo(b);
+    }
+    return 0;
+  }
+
+  Future<void> _checkAppUpdate() async {
+    if (_checkingUpdate) return;
+    setState(() => _checkingUpdate = true);
+    try {
+      final latest = await apiService.getLatestPublishedAppRelease(
+        platform: Platform.isAndroid ? 'android' : 'ios',
+      );
+      final latestVersion = latest['version'] as String? ?? '';
+      final changelog = latest['changelog'] as String? ?? '';
+      final rawDownloadUrl = latest['download_url'] as String? ?? '';
+      final downloadUrl = rawDownloadUrl.startsWith('http')
+          ? rawDownloadUrl
+          : '${AppConfig.serverRoot}$rawDownloadUrl';
+      final currentVersion = _appVersion.split('+').first;
+      final needUpdate = latestVersion.isNotEmpty && _compareVersions(currentVersion, latestVersion) < 0;
+
+      if (!mounted) return;
+
+      if (!needUpdate) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_appVersion.isEmpty ? '当前已是最新版本' : '当前已是最新版本（$_appVersion）')),
+        );
+        return;
+      }
+
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('发现新版本'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('当前版本：${_appVersion.isEmpty ? currentVersion : _appVersion}'),
+              const SizedBox(height: 6),
+              Text('最新版本：$latestVersion'),
+              if (changelog.trim().isNotEmpty) ...[
+                const SizedBox(height: 14),
+                const Text('更新内容', style: TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                Text(changelog, style: const TextStyle(fontSize: 13, height: 1.5)),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('稍后再说')),
+            FilledButton(
+              onPressed: () async {
+                final uri = Uri.parse(downloadUrl);
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('立即升级'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('检查更新失败：$e'), behavior: SnackBarBehavior.floating),
+      );
+    } finally {
+      if (mounted) setState(() => _checkingUpdate = false);
     }
   }
 
@@ -833,6 +929,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           title: Text(s.changePassword),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: _changePassword,
+                        ),
+                        const Divider(height: 1, indent: 56),
+                        ListTile(
+                          leading: Icon(Icons.system_update_rounded, color: Theme.of(context).colorScheme.primary),
+                          title: const Text('检查更新'),
+                          subtitle: Text(_appVersion.isEmpty ? '检查是否有新版本可升级' : '当前版本 $_appVersion'),
+                          trailing: _checkingUpdate
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.chevron_right),
+                          onTap: _checkingUpdate ? null : _checkAppUpdate,
                         ),
                       ],
                     ),
