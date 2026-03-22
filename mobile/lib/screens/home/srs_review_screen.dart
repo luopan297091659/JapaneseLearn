@@ -26,7 +26,7 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
 
   Future<void> _loadCards() async {
     try {
-      final res = await apiService.getDueCards(limit: 20);
+      final res = await apiService.getDueCards(limit: 200);
       setState(() { _cards = res['cards'] as List<SrsCardModel>; _loading = false; });
     } catch (_) {
       setState(() => _loading = false);

@@ -111,7 +111,7 @@ async function getDailyGoals(req, res) {
       goals: {
         study_minutes: { target: dailyGoalMinutes, current: Math.floor(todaySeconds / 60) },
         lessons: { target: 1, current: Math.min(todayActivities, 1) },
-        reviews: { target: Math.max(srsDueCount + (parseInt(todaySrsCount?.dataValues?.count) || 0), 1), current: parseInt(todaySrsCount?.dataValues?.count) || 0 },
+        reviews: { target: Math.max(srsDueCount, 1), current: parseInt(todaySrsCount?.dataValues?.count) || 0 },
       },
     });
   } catch (err) {

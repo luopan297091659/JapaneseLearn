@@ -157,6 +157,15 @@ class _ToolsTabState extends State<ToolsTab> {
             ),
             const SizedBox(height: 12),
           _ToolCard(
+            icon: Icons.route_rounded,
+            title: '学习计划',
+            subtitle: '自定义组合：单词/语法/Anki词库',
+            color: const Color(0xFF6D28D9),
+            blocked: false,
+            onTap: () => context.push('/study-plan'),
+          ),
+          const SizedBox(height: 12),
+          _ToolCard(
             icon: Icons.folder_copy_rounded,
             title: 'Anki 词库',
             subtitle: '本地卡片 · 离线浏览复习',

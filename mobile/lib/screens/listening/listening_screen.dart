@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../services/api_service.dart';
+import '../../services/permission_service.dart';
 import '../../widgets/furigana_text.dart';
 import '../../utils/tts_helper.dart';
 
@@ -35,6 +36,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
   final List<int> _scores = [];
   String _lastRecognized = '';
   bool _showSentence = false;
+  bool _attemptFinalized = false;
 
   // ── 文字输入 ──
   final TextEditingController _inputCtrl = TextEditingController();
@@ -55,7 +57,10 @@ class _ListeningScreenState extends State<ListeningScreen> {
   }
 
   Future<void> _initSpeech() async {
-    _speechAvailable = await _speech.initialize();
+    _speechAvailable = await _speech.initialize(
+      onError: (error) => debugPrint('Speech init error: $error'),
+      onStatus: (status) => debugPrint('Speech init status: $status'),
+    );
     if (mounted) setState(() {});
   }
 
@@ -99,17 +104,33 @@ class _ListeningScreenState extends State<ListeningScreen> {
   Future<void> _toggleRecord() async {
     if (_listening) {
       await _speech.stop();
-      if (_score == null && _lastRecognized.isNotEmpty) {
+      if (!_attemptFinalized && _score == null && _lastRecognized.isNotEmpty) {
+        _attemptFinalized = true;
         _processResult(_lastRecognized);
       } else {
         setState(() => _listening = false);
       }
       return;
     }
-    // 如果之前初始化失败，重试一次
-    if (!_speechAvailable) {
-      _speechAvailable = await _speech.initialize();
+
+    final micGranted = await PermissionService.requestMicrophonePermission();
+    if (!micGranted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('需要麦克风权限才能录音，请在设置中允许')),
+        );
+      }
+      return;
     }
+
+    // 每次开始前先清理上一次会话状态
+    await _speech.stop();
+    await _speech.cancel();
+
+    _speechAvailable = await _speech.initialize(
+      onError: (error) => debugPrint('Speech init error: $error'),
+      onStatus: (status) => debugPrint('Speech init status: $status'),
+    );
     if (!_speechAvailable) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -118,27 +139,34 @@ class _ListeningScreenState extends State<ListeningScreen> {
       }
       return;
     }
+
     _lastRecognized = '';
+    _attemptFinalized = false;
     setState(() { _listening = true; _score = null; _recognized = ''; _feedback = ''; _inputMode = false; _inputCtrl.clear(); });
     try {
-      await _speech.listen(
-        localeId: 'ja_JP',
-        onResult: (result) {
-          _lastRecognized = result.recognizedWords;
-          if (result.finalResult) _processResult(result.recognizedWords);
-        },
-        listenFor: const Duration(seconds: 15),
-        pauseFor: const Duration(seconds: 3),
-      );
       _speech.statusListener = (status) {
-        if (status == 'done' || status == 'notListening') {
-          if (mounted && _listening && _score == null && _lastRecognized.isNotEmpty) {
+        if ((status == 'done' || status == 'notListening') && mounted && _listening && !_attemptFinalized) {
+          _attemptFinalized = true;
+          if (_score == null && _lastRecognized.isNotEmpty) {
             _processResult(_lastRecognized);
-          } else if (mounted && _listening) {
+          } else {
             setState(() { _listening = false; _feedback = '未检测到语音，请靠近麦克风重试'; });
           }
         }
       };
+
+      await _speech.listen(
+        localeId: 'ja_JP',
+        onResult: (result) {
+          _lastRecognized = result.recognizedWords;
+          if (result.finalResult && !_attemptFinalized) {
+            _attemptFinalized = true;
+            _processResult(result.recognizedWords);
+          }
+        },
+        listenFor: const Duration(seconds: 15),
+        pauseFor: const Duration(seconds: 3),
+      );
     } catch (e) {
       debugPrint('Speech listen error: $e');
       if (mounted) {

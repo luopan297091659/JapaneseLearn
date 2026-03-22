@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'dart:io';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -39,8 +38,8 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
   String? _recordingPath;
   bool _uploading = false;
   bool _isMember = true; // optimistic default
-  bool _postRecording = false;
   bool _attemptFinalized = false;
+  String? _lastUploadedRecordingPath;
 
   // scoring
   int? _score;
@@ -156,26 +155,19 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
 
   String _lastRecognized = '';
 
-  /// 安全停止录音器
-  Future<void> _stopRecorderSafely() async {
-    try {
-      if (await _recorder.isRecording()) {
-        final path = await _recorder.stop();
-        if (path != null && await File(path).exists()) {
-          if (mounted) setState(() => _recordingPath = path);
-        }
-      }
-    } catch (e) {
-      debugPrint('Stop recorder error: $e');
-    }
-  }
-
   Future<void> _toggleRecord() async {
-    final isAndroid = defaultTargetPlatform == TargetPlatform.android;
     if (_listening) {
       await _speech.stop();
-      if (!isAndroid) await _stopRecorderSafely();
       await _finalizeRecognitionAttempt();
+      return;
+    }
+
+    if (_isRecordingPlayback || await _recorder.isRecording()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请先停止“录制回放”后再进行语音识别')),
+        );
+      }
       return;
     }
 
@@ -191,12 +183,12 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
     }
 
     // 初始化语音识别（每次都重试，因为权限状态可能改变）
-    if (!_speechAvailable) {
-      _speechAvailable = await _speech.initialize(
-        onError: (error) => debugPrint('Speech init error: $error'),
-        onStatus: (status) => debugPrint('Speech status: $status'),
-      );
-    }
+    await _speech.stop();
+    await _speech.cancel();
+    _speechAvailable = await _speech.initialize(
+      onError: (error) => debugPrint('Speech init error: $error'),
+      onStatus: (status) => debugPrint('Speech status: $status'),
+    );
     if (!_speechAvailable) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -209,36 +201,11 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
     _attemptFinalized = false;
     setState(() { _listening = true; _score = null; _recognized = ''; _feedback = ''; _recordingPath = null; });
 
-    // 非 Android 平台：同时启动 AudioRecorder（Android 上麦克风会冲突）
-    if (!isAndroid) {
-      try {
-        final dir = await getApplicationDocumentsDirectory();
-        final recDir = Directory('${dir.path}/recordings');
-        if (!await recDir.exists()) await recDir.create(recursive: true);
-        final w = _words[_index];
-        final name = cleanWord(w.word).replaceAll(RegExp(r'[^\w\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]'), '');
-        final filePath = '${recDir.path}/pron_${name}_${DateTime.now().millisecondsSinceEpoch}.m4a';
-        if (await _recorder.hasPermission()) {
-          await _recorder.start(
-            const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000, sampleRate: 44100),
-            path: filePath,
-          );
-          _recordingPath = filePath;
-        }
-      } catch (e) {
-        debugPrint('Audio recorder start error (non-fatal): $e');
-      }
-    }
-
     try {
       // 设置状态监听器（在 listen 之前注册）
       _speech.statusListener = (status) {
-        if (status == 'done' || status == 'notListening') {
-          if (!isAndroid) {
-            _stopRecorderSafely().then((_) => _finalizeRecognitionAttempt());
-          } else {
-            _finalizeRecognitionAttempt();
-          }
+        if ((status == 'done' || status == 'notListening') && !_attemptFinalized) {
+          _finalizeRecognitionAttempt();
         }
       };
 
@@ -256,7 +223,6 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
       );
     } catch (e) {
       debugPrint('Speech listen error: $e');
-      await _stopRecorderSafely();
       if (mounted) {
         setState(() { _listening = false; _feedback = '录音启动失败，请重试'; });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -279,60 +245,6 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
         _feedback = '未检测到语音，请靠近麦克风重试';
       });
     }
-
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      await _startPostRecognitionRecording(autoUpload: true);
-    }
-  }
-
-  Future<void> _startPostRecognitionRecording({bool autoUpload = false}) async {
-    if (_postRecording || _isRecordingPlayback || _listening || _words.isEmpty) return;
-
-    final micGranted = await PermissionService.requestMicrophonePermission();
-    if (!micGranted) return;
-
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final recDir = Directory('${dir.path}/recordings');
-      if (!await recDir.exists()) await recDir.create(recursive: true);
-      final w = _words[_index];
-      final name = cleanWord(w.word).replaceAll(RegExp(r'[^\w\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]'), '');
-      final filePath = '${recDir.path}/pron_${name}_${DateTime.now().millisecondsSinceEpoch}.m4a';
-
-      if (!await _recorder.hasPermission()) return;
-
-      setState(() {
-        _postRecording = true;
-        _feedback = _lastRecognized.trim().isEmpty
-            ? '未识别到文本，正在补录 3 秒语音用于保存与回放…'
-            : 'Android 正在补录 3 秒语音用于保存与回放…';
-      });
-
-      await _recorder.start(
-        const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000, sampleRate: 44100),
-        path: filePath,
-      );
-
-      await Future.delayed(const Duration(seconds: 3));
-      final path = await _recorder.stop();
-      if (path != null && await File(path).exists()) {
-        if (!mounted) return;
-        setState(() {
-          _recordingPath = path;
-          _postRecording = false;
-        });
-        if (autoUpload) {
-          await _uploadRecording();
-        }
-      } else if (mounted) {
-        setState(() => _postRecording = false);
-      }
-    } catch (e) {
-      debugPrint('Post recognition recording error: $e');
-      if (mounted) {
-        setState(() => _postRecording = false);
-      }
-    }
   }
 
   /// 单独录制回放音频（在语音识别完成后调用，不会与 speech_to_text 冲突）
@@ -344,7 +256,11 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
         if (await _recorder.isRecording()) {
           final path = await _recorder.stop();
           if (path != null && await File(path).exists()) {
-            setState(() { _recordingPath = path; _isRecordingPlayback = false; });
+            setState(() {
+              _recordingPath = path;
+              _lastUploadedRecordingPath = null;
+              _isRecordingPlayback = false;
+            });
             if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ 录音完成'), duration: Duration(seconds: 1)));
             return;
           }
@@ -401,7 +317,19 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
         setState(() => _recordingPath = null);
         return;
       }
+      final fileSize = await file.length();
+      if (fileSize < 1024) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('录音时长过短，请重新录制')),
+          );
+        }
+        return;
+      }
+      await _audioPlayer.stop();
       await _audioPlayer.setFilePath(_recordingPath!);
+      await _audioPlayer.seek(Duration.zero);
+      await _audioPlayer.setVolume(1.0);
       await _audioPlayer.play();
     } catch (e) {
       if (mounted) {
@@ -414,6 +342,14 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
 
   Future<void> _uploadRecording() async {
     if (_recordingPath == null) return;
+    if (_lastUploadedRecordingPath == _recordingPath) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('该录音已保存，无需重复上传'), duration: Duration(seconds: 1)),
+        );
+      }
+      return;
+    }
     setState(() => _uploading = true);
     try {
       final w = _words[_index];
@@ -434,7 +370,10 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(success ? '✅ 录音已保存到云端' : '上传失败'), duration: const Duration(seconds: 2)),
         );
-        if (success) _loadRecordingHistory();
+        if (success) {
+          _lastUploadedRecordingPath = _recordingPath;
+          _loadRecordingHistory();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -546,11 +485,29 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
   }
 
   void _prev() {
-    if (_index > 0) setState(() { _index--; _score = null; _recognized = ''; _feedback = ''; _recordingPath = null; });
+    if (_index > 0) {
+      setState(() {
+        _index--;
+        _score = null;
+        _recognized = '';
+        _feedback = '';
+        _recordingPath = null;
+        _lastUploadedRecordingPath = null;
+      });
+    }
   }
 
   void _next() {
-    if (_index < _words.length - 1) setState(() { _index++; _score = null; _recognized = ''; _feedback = ''; _recordingPath = null; });
+    if (_index < _words.length - 1) {
+      setState(() {
+        _index++;
+        _score = null;
+        _recognized = '';
+        _feedback = '';
+        _recordingPath = null;
+        _lastUploadedRecordingPath = null;
+      });
+    }
   }
 
   @override
@@ -680,18 +637,8 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
             padding: const EdgeInsets.only(top: 8),
             child: Text('🔴 正在聆听…请朗读', style: TextStyle(fontSize: 12, color: Colors.red.shade400)),
           ),
-        if (!_listening && defaultTargetPlatform == TargetPlatform.android)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              _postRecording ? '🎙️ 正在自动补录，用于回放和保存' : 'Android 识别结束后会自动补录 3 秒语音并保存',
-              style: TextStyle(fontSize: 12, color: cs.outline),
-              textAlign: TextAlign.center,
-            ),
-          ),
-
         // Score result
-        if (_score != null || _recordingPath != null || _postRecording || _feedback.isNotEmpty) ...[
+        if (_score != null || _recordingPath != null || _feedback.isNotEmpty) ...[
           const SizedBox(height: 20),
           Container(
             width: double.infinity,
@@ -724,13 +671,19 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
               if (_recordingPath != null) ...[
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                   OutlinedButton.icon(
-                    onPressed: () {
-                      _playRecording();
-                      // 自动在后台上传保存
-                      if (!_uploading) _uploadRecording();
-                    },
+                    onPressed: _playRecording,
                     icon: const Icon(Icons.play_arrow_rounded, size: 18),
                     label: const Text('回放录音'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: _uploading ? null : _uploadRecording,
+                    icon: const Icon(Icons.cloud_upload_rounded, size: 18),
+                    label: const Text('保存录音'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -742,7 +695,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
                       child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
                     ),
                 ]),
-              ] else if (_score != null && !_listening && !_postRecording) ...[
+              ] else if (_score != null && !_listening) ...[
                 // Android 上麦克风只能独占使用，需要单独录制回放
                 OutlinedButton.icon(
                   onPressed: _isRecordingPlayback ? null : _recordPlayback,

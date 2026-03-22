@@ -1,6 +1,6 @@
 {
   "name": "japanese-learn-backend",
-  "version": "1.0.0",
+  "version": "1.0.7",
   "description": "Japanese Learning App Backend API",
   "main": "src/app.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "dev": "nodemon src/app.js",
     "migrate": "node database/migrate.js",
     "seed": "node database/seed.js",
-    "lint": "eslint 'src/**/*.js'",
+    "lint": "eslint \"src/**/*.js\"",
     "format": "prettier --write 'src/**/*.js'"
   },
   "dependencies": {

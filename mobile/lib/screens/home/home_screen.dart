@@ -379,8 +379,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final totalXp = _dailyGoals?['total_xp'] ?? 0;
     final streakDays = _dailyGoals?['streak_days'] ?? _user?.streakDays ?? 0;
     final todayXp = _dailyGoals?['today']?['xp_earned'] ?? 0;
-    final todaySeconds = _dailyGoals?['today']?['study_seconds'] ?? 0;
-    final todayMinutes = (todaySeconds as int) ~/ 60;
     final goals = _dailyGoals?['goals'] as Map<String, dynamic>?;
 
     return Scaffold(
@@ -390,7 +388,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         child: CustomScrollView(
           slivers: [
             // ── App Bar ────────────────────────────────────────────
-            _buildSliverHeader(cs, totalXp, streakDays, todayXp, todayMinutes),
+            _buildSliverHeader(cs, totalXp, streakDays, todayXp),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               sliver: SliverList(
@@ -467,7 +465,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   // ── Sliver App Bar ─────────────────────────────────────────────────────────
-  Widget _buildSliverHeader(ColorScheme cs, int totalXp, int streakDays, int todayXp, int todayMinutes) {
+  Widget _buildSliverHeader(ColorScheme cs, int totalXp, int streakDays, int todayXp) {
     final isMember = _user?.isMember ?? false;
     final isTrial = _user?.isTrial ?? false;
     final daysLeft = _user?.membershipDaysLeft;
@@ -567,8 +565,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     _StatBadge(icon: Icons.diamond_rounded, color: Colors.amberAccent, label: '${totalXp}XP'),
                     const SizedBox(width: 8),
                     _StatBadge(icon: Icons.trending_up_rounded, color: Colors.greenAccent, label: '+$todayXp'),
-                    const SizedBox(width: 8),
-                    _StatBadge(icon: Icons.timer_outlined, color: Colors.lightBlueAccent, label: '${todayMinutes}分'),
                   ]),
                 ],
               ),

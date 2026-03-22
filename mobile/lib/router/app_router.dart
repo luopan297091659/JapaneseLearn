@@ -33,6 +33,7 @@ import '../screens/news/news_detail_screen.dart';
 import '../screens/news/nhk_detail_screen.dart';
 import '../screens/tools/todofuken_quiz_screen.dart';
 import '../screens/tools/translate_screen.dart';
+import '../screens/tools/study_plan_screen.dart';
 import '../screens/quiz/kana_writing_test_screen.dart';
 import '../screens/quiz/grammar_quiz_screen.dart';
 import '../screens/tools/wrong_answers_screen.dart';
@@ -144,6 +145,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(path: '/todofuken-quiz', builder: (_, __) => const TodofukenQuizScreen()),
           GoRoute(path: '/translate', builder: (_, __) => const TranslateScreen()),
+          GoRoute(path: '/study-plan', builder: (_, __) => const StudyPlanScreen()),
           GoRoute(path: '/kana-writing-test', builder: (_, __) => const KanaWritingTestScreen()),
           GoRoute(path: '/wrong-answers', builder: (_, __) => const WrongAnswersScreen()),
           GoRoute(path: '/immersion', builder: (_, __) => const ImmersionScreen()),
@@ -212,6 +214,7 @@ class _MainShellState extends State<MainShell> {
         location.startsWith('/local-vocab') ||
         location.startsWith('/todofuken') ||
         location.startsWith('/translate') ||
+        location.startsWith('/study-plan') ||
         location.startsWith('/wrong-answers') ||
         location.startsWith('/immersion')) {
       return 3;
