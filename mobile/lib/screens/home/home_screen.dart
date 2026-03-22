@@ -80,6 +80,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   // 是否正在刷新（下拉刷新时用）
   bool _refreshing = false;
+  bool _trialDialogHandledThisSession = false;
 
   // 常用功能自定义列表（最多6个）
   List<String> _favFeatureIds = List.from(_defaultFeatureIds);
@@ -153,12 +154,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         setState(() { _user = user; _userLoading = false; });
         // Check if trial just expired
         if (user.trialActivated && !user.isMember && user.membershipPlan == 'trial') {
-          _showTrialExpiredDialog();
+          _maybeShowTrialExpiredDialog(user);
         }
       }
     } catch (_) {
       if (mounted) setState(() => _userLoading = false);
     }
+  }
+
+  Future<void> _maybeShowTrialExpiredDialog(UserModel user) async {
+    if (_trialDialogHandledThisSession || !mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    final expirePart = (user.membershipExpire ?? '').split('T').first;
+    final seenKey = 'trial_expired_dialog_seen_${user.id}_$expirePart';
+    final seen = prefs.getBool(seenKey) ?? false;
+    if (seen || !mounted) return;
+
+    _trialDialogHandledThisSession = true;
+    await prefs.setBool(seenKey, true);
+    if (!mounted) return;
+    _showTrialExpiredDialog();
   }
 
   void _showTrialExpiredDialog() {

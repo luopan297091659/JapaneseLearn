@@ -607,6 +607,9 @@ class ApiService {
   /// 获取磨耳朵视频列表（带缓存）
   Future<Map<String, dynamic>> getImmersionVideos({int page = 1, int limit = 20, bool forceRefresh = false}) async {
     final key = 'immersion:$page:$limit';
+    if (forceRefresh) {
+      _cache.invalidate('immersion:');
+    }
     if (!forceRefresh) {
       final cached = _cache.get(key);
       if (cached != null) return cached as Map<String, dynamic>;
@@ -618,6 +621,33 @@ class ApiService {
     final data = res.data as Map<String, dynamic>;
     _cache.set(key, data, AppConfig.cacheTtlLong);
     return data;
+  }
+
+  Future<List<Map<String, dynamic>>> getMyImmersionChannels() async {
+    final res = await _dio.get('/listening-channels/my/channels');
+    final data = (res.data['data'] as List<dynamic>? ?? const []);
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<Map<String, dynamic>> addMyImmersionChannel({
+    required String channelUrl,
+    String? name,
+    String? description,
+    int maxVideos = 12,
+  }) async {
+    final res = await _dio.post('/listening-channels/my/channels', data: {
+      'channel_url': channelUrl,
+      if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+      if (description != null && description.trim().isNotEmpty) 'description': description.trim(),
+      'max_videos': maxVideos,
+    });
+    _cache.invalidate('immersion:');
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<void> deleteMyImmersionChannel(dynamic id) async {
+    await _dio.delete('/listening-channels/my/channels/$id');
+    _cache.invalidate('immersion:');
   }
 
   Future<Map<String, dynamic>> getListeningTracks({String? level, String? category, int page = 1, int limit = 200}) async {

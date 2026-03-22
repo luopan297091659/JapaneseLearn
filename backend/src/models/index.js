@@ -279,6 +279,8 @@ const DictTransCache = sequelize.define('DictTransCache', {
 // ────────── 听力频道（磨耳朵） ──────────
 const ListeningChannel = sequelize.define('ListeningChannel', {
   id:       { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  owner_user_id: { type: DataTypes.UUID, allowNull: true, comment: 'null=公共频道，非空=用户私有频道' },
+  is_public: { type: DataTypes.BOOLEAN, defaultValue: true },
   platform: { type: DataTypes.ENUM('youtube', 'bilibili'), allowNull: false },
   channel_url: { type: DataTypes.STRING(500), allowNull: false },
   channel_id:  { type: DataTypes.STRING(200), allowNull: true, comment: '平台频道/用户ID' },

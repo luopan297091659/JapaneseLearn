@@ -28,6 +28,9 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
   bool _isFullscreen = false;
   WebViewController? _webController;
 
+  List<Map<String, dynamic>> _myChannels = const [];
+  bool _channelBusy = false;
+
   @override
   void initState() {
     super.initState();
@@ -177,12 +180,198 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
         backgroundColor: cs.primary,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: _openChannelConfigSheet,
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+                ),
+                child: const Icon(Icons.tune_rounded, color: Colors.white, size: 20),
+              ),
+            ),
+          ),
+        ],
       ),
       body: _buildChannelTab(cs),
     );
   }
 
+  Future<void> _loadMyChannels() async {
+    setState(() => _channelBusy = true);
+    try {
+      final channels = await _api.getMyImmersionChannels();
+      if (!mounted) return;
+      setState(() {
+        _myChannels = channels;
+        _channelBusy = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _channelBusy = false);
+    }
+  }
+
+  Future<void> _addMyChannel(String url) async {
+    await _api.addMyImmersionChannel(channelUrl: url);
+    await _loadMyChannels();
+    await _loadVideos(forceRefresh: true);
+  }
+
+  Future<void> _deleteMyChannel(dynamic id) async {
+    await _api.deleteMyImmersionChannel(id);
+    await _loadMyChannels();
+    await _loadVideos(forceRefresh: true);
+  }
+
+  Future<void> _openChannelConfigSheet() async {
+    await _loadMyChannels();
+    if (!mounted) return;
+    final linkCtrl = TextEditingController();
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) {
+        bool submitting = false;
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 12,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('自定义频道', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '仅当前账号生效，可添加 YouTube 或 Bilibili 频道链接',
+                    style: TextStyle(fontSize: 12, color: Theme.of(ctx).colorScheme.outline),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: linkCtrl,
+                    decoration: const InputDecoration(
+                      hintText: '粘贴频道链接，例如 youtube.com/channel/... 或 space.bilibili.com/...',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    minLines: 1,
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: submitting
+                          ? null
+                          : () async {
+                              final url = linkCtrl.text.trim();
+                              if (url.isEmpty) return;
+                              setSheet(() => submitting = true);
+                              try {
+                                await _addMyChannel(url);
+                                if (!mounted) return;
+                                linkCtrl.clear();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('频道已添加并开始同步')),
+                                );
+                                setSheet(() => submitting = false);
+                              } catch (e) {
+                                if (!mounted) return;
+                                setSheet(() => submitting = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('添加失败：$e')),
+                                );
+                              }
+                            },
+                      icon: submitting
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.add_link_rounded),
+                      label: Text(submitting ? '添加中...' : '添加频道'),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text('我的频道', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  if (_channelBusy)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_myChannels.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Text('暂未配置频道'),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 260),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: _myChannels.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (_, i) {
+                          final item = _myChannels[i];
+                          final name = item['name'] as String? ?? '我的频道';
+                          final url = item['channel_url'] as String? ?? '';
+                          return ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            subtitle: Text(url, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            trailing: IconButton(
+                              tooltip: '删除',
+                              icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                              onPressed: () async {
+                                try {
+                                  await _deleteMyChannel(item['id']);
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('频道已删除')),
+                                  );
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('删除失败：$e')),
+                                  );
+                                }
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+    linkCtrl.dispose();
+  }
+
   Widget _buildChannelTab(ColorScheme cs) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final colCount = screenWidth >= 900 ? 4 : screenWidth >= 600 ? 3 : 2;
     return Column(
       children: [
         // 内嵌视频播放器区域
@@ -218,8 +407,8 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
                           child: GridView.builder(
                             controller: _scrollController,
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: colCount,
                               childAspectRatio: 1.0,
                               crossAxisSpacing: 6,
                               mainAxisSpacing: 2,
@@ -313,6 +502,7 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
     final thumbnail = (video['thumbnail'] as String? ?? '').replaceFirst('http://', 'https://');
     final channelName = video['channelName'] as String? ?? '';
     final platform = video['platform'] as String? ?? '';
+    final channelScope = video['channelScope'] as String? ?? 'public';
     final date = video['publishedAt'] as String? ?? '';
     final dateStr = date.isNotEmpty ? DateTime.tryParse(date)?.toLocal().toString().substring(0, 10) ?? '' : '';
 
@@ -331,41 +521,67 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
             // 缩略图
             AspectRatio(
               aspectRatio: 16 / 9,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  thumbnail.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: thumbnail,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => Container(color: Colors.grey[900]),
-                          errorWidget: (_, __, ___) => Container(
-                            color: Colors.grey[900],
-                            child: const Icon(Icons.play_circle_outline, color: Colors.white54, size: 32),
+              child: LayoutBuilder(
+                builder: (ctx, box) {
+                  final iconSize = (box.maxWidth * 0.15).clamp(28.0, 60.0);
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      thumbnail.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: thumbnail,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) => Container(color: Colors.grey[900]),
+                              errorWidget: (_, __, ___) => Container(
+                                color: Colors.grey[900],
+                                child: const Icon(Icons.play_circle_outline, color: Colors.white54, size: 32),
+                              ),
+                            )
+                          : Container(
+                              color: Colors.grey[900],
+                              child: const Icon(Icons.play_circle_outline, color: Colors.white54, size: 32),
+                            ),
+                      // 转载标识
+                      if (platform == 'bilibili')
+                        Positioned(
+                          top: 4, left: 4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade700,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text('网络转载视频', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
                           ),
-                        )
-                      : Container(
-                          color: Colors.grey[900],
-                          child: const Icon(Icons.play_circle_outline, color: Colors.white54, size: 32),
                         ),
-                  // 转载标识
-                  if (platform == 'bilibili')
-                    Positioned(
-                      top: 4, left: 4,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade700,
-                          borderRadius: BorderRadius.circular(4),
+                      if (channelScope == 'custom')
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.pink.shade400.withValues(alpha: 0.92),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text('我的频道', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
+                          ),
                         ),
-                        child: const Text('网络转载视频', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
+                      // 播放图标 - 按卡片宽度自适应大小
+                      Center(
+                        child: Container(
+                          width: iconSize * 1.6,
+                          height: iconSize * 1.6,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.38),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: iconSize),
+                        ),
                       ),
-                    ),
-                  // 播放图标
-                  const Center(
-                    child: Icon(Icons.play_circle_filled, color: Colors.white70, size: 30),
-                  ),
-                ],
+                    ],
+                  );
+                },
               ),
             ),
             // 标题和信息

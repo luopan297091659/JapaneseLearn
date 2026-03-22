@@ -1,12 +1,17 @@
 /**
  * 听力磨耳朵 —— 频道视频获取控制器
  *
- * 公开接口（不需要登录）：
- *   GET /api/v1/listening-channels          获取活跃频道列表+最近视频
+ * 公开接口：
+ *   GET /api/v1/listening-channels          获取活跃频道列表+最近视频（登录用户额外包含自己的私有频道）
  *   GET /api/v1/listening-channels/:id      获取某频道的视频列表
+ * 用户接口（需登录）：
+ *   GET /api/v1/listening-channels/my/channels
+ *   POST /api/v1/listening-channels/my/channels
+ *   DELETE /api/v1/listening-channels/my/channels/:id
  */
 const https = require('https');
 const http = require('http');
+const { Op } = require('sequelize');
 const { ListeningChannel } = require('../models');
 const logger = require('../utils/logger');
 
@@ -186,8 +191,15 @@ async function refreshChannelCache(channel) {
  */
 async function listChannels(req, res) {
   try {
+    const userId = req.user?.id || null;
     let channels = await ListeningChannel.findAll({
-      where: { is_active: true },
+      where: {
+        is_active: true,
+        [Op.or]: [
+          { is_public: true },
+          ...(userId ? [{ owner_user_id: userId }] : []),
+        ],
+      },
       order: [['sort_order', 'ASC'], ['createdAt', 'DESC']],
     });
 
@@ -202,7 +214,13 @@ async function listChannels(req, res) {
     if (refreshPromises.length > 0) {
       await Promise.allSettled(refreshPromises);
       channels = await ListeningChannel.findAll({
-        where: { is_active: true },
+        where: {
+          is_active: true,
+          [Op.or]: [
+            { is_public: true },
+            ...(userId ? [{ owner_user_id: userId }] : []),
+          ],
+        },
         order: [['sort_order', 'ASC'], ['createdAt', 'DESC']],
       });
     }
@@ -225,6 +243,7 @@ async function listChannels(req, res) {
           platform: v.platform || ch.platform,
           channelName: ch.name,
           channelId: ch.id,
+          channelScope: ch.owner_user_id ? 'custom' : 'public',
         });
       }
       // 频道内按发布时间降序
@@ -373,8 +392,76 @@ async function adminRefreshChannel(req, res) {
   res.json(ch);
 }
 
+async function listUserChannels(req, res) {
+  const channels = await ListeningChannel.findAll({
+    where: {
+      owner_user_id: req.user.id,
+      is_public: false,
+    },
+    order: [['createdAt', 'DESC']],
+  });
+  res.json({ data: channels.map(formatChannel) });
+}
+
+async function createUserChannel(req, res) {
+  const { channel_url, name, description, max_videos } = req.body || {};
+  if (!channel_url) return res.status(400).json({ error: '请输入频道链接' });
+
+  const parsed = parseChannelUrl(channel_url);
+  if (!parsed) {
+    return res.status(400).json({ error: '无法识别的频道链接，请输入 YouTube 或 Bilibili 频道 URL' });
+  }
+
+  const channelId = parsed.channelId || (parsed.handle ? `@${parsed.handle}` : null);
+  if (!channelId) return res.status(400).json({ error: '无法提取频道 ID' });
+
+  const duplicated = await ListeningChannel.findOne({
+    where: {
+      owner_user_id: req.user.id,
+      is_public: false,
+      platform: parsed.platform,
+      channel_id: channelId,
+    },
+  });
+  if (duplicated) {
+    return res.status(400).json({ error: '该频道已在你的列表中' });
+  }
+
+  const ch = await ListeningChannel.create({
+    owner_user_id: req.user.id,
+    is_public: false,
+    platform: parsed.platform,
+    channel_url,
+    channel_id: channelId,
+    name: name || '我的频道',
+    description: description || '',
+    max_videos: max_videos ? Math.max(parseInt(max_videos) || 12, 1) : 12,
+    is_active: true,
+    sort_order: 0,
+  });
+
+  await refreshChannelCache(ch);
+  await ch.reload();
+  res.status(201).json(formatChannel(ch));
+}
+
+async function deleteUserChannel(req, res) {
+  const ch = await ListeningChannel.findOne({
+    where: {
+      id: req.params.id,
+      owner_user_id: req.user.id,
+      is_public: false,
+    },
+  });
+  if (!ch) return res.status(404).json({ error: '频道不存在或无权限删除' });
+
+  await ch.destroy();
+  res.json({ ok: true });
+}
+
 module.exports = {
   listChannels, getChannelVideos,
+  listUserChannels, createUserChannel, deleteUserChannel,
   adminListChannels, adminCreateChannel, adminUpdateChannel, adminDeleteChannel, adminRefreshChannel,
   parseChannelUrl, refreshChannelCache,
 };
