@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/models.dart';
@@ -19,6 +20,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   final _searchCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
   List<DictionaryEntry> _results = [];
+  List<VocabularyModel> _vocabResults = [];
   bool _loading = false;
   bool _hasSearched = false;
   String? _error;
@@ -31,19 +33,28 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   // Recent search history (in-memory)
   final List<String> _history = [];
 
+  final FlutterTts _tts = FlutterTts();
+
   @override
   void initState() {
     super.initState();
     _scrollCtrl.addListener(_onScroll);
     _loadLangPref();
+    _initTts();
     if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
       _searchCtrl.text = widget.initialQuery!;
       WidgetsBinding.instance.addPostFrameCallback((_) => _search());
     }
   }
 
+  Future<void> _initTts() async {
+    await _tts.setLanguage('ja-JP');
+    await _tts.setSpeechRate(0.5);
+  }
+
   @override
   void dispose() {
+    _tts.stop();
     _scrollCtrl.dispose();
     _searchCtrl.dispose();
     super.dispose();
@@ -75,7 +86,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       _page = 1;
       _hasMore = true;
     }
-    setState(() { _loading = true; _error = null; if (reset) _results = []; });
+    setState(() { _loading = true; _error = null; if (reset) { _results = []; _vocabResults = []; } });
 
     // Add to history
     if (!_history.contains(q)) {
@@ -84,6 +95,16 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     }
 
     try {
+      // 优先搜索系统单词库
+      if (reset) {
+        try {
+          final vocabRes = await apiService.getVocabulary(query: q, page: 1, limit: 5);
+          _vocabResults = vocabRes['data'] as List<VocabularyModel>;
+        } catch (_) {
+          _vocabResults = [];
+        }
+      }
+
       final result = await apiService.searchDictionary(q, page: _page, lang: _lang);
       setState(() {
         if (reset) {
@@ -155,7 +176,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                             icon: const Icon(Icons.clear),
                             onPressed: () {
                               _searchCtrl.clear();
-                              setState(() { _results = []; _hasSearched = false; });
+                              setState(() { _results = []; _vocabResults = []; _hasSearched = false; });
                             })
                         : null,
                     isDense: true,
@@ -227,7 +248,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       );
     }
 
-    if (_results.isEmpty && _hasSearched) {
+    if (_results.isEmpty && _vocabResults.isEmpty && _hasSearched) {
       return Center(
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(Icons.search_off_rounded, size: 64, color: cs.outline),
@@ -239,21 +260,31 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       );
     }
 
+    final vocabCount = _vocabResults.length;
+    final totalCount = vocabCount + _results.length + (_loading || _hasMore ? 1 : 0);
+
     return ListView.separated(
       controller: _scrollCtrl,
       padding: const EdgeInsets.all(12),
-      itemCount: _results.length + (_loading || _hasMore ? 1 : 0),
+      itemCount: totalCount,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, i) {
-        if (i == _results.length) {
+        // 系统词库结果优先展示
+        if (i < vocabCount) {
+          final vocab = _vocabResults[i];
+          return _VocabResultCard(vocab: vocab, tts: _tts, onWordTap: _searchWord);
+        }
+        final dictIndex = i - vocabCount;
+        if (dictIndex == _results.length) {
           return _loading
               ? const Padding(padding: EdgeInsets.all(16),
                   child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
               : const SizedBox.shrink();
         }
         return _DictionaryEntryCard(
-          entry: _results[i],
+          entry: _results[dictIndex],
           lang: _lang,
+          tts: _tts,
           onWordTap: _searchWord,
         );
       },
@@ -309,8 +340,8 @@ class _SearchTipsCard extends StatelessWidget {
               ('🔤 日語文字', '輸入漢字、假名（平假名/片假名）'),
               ('🌐 中文', '輸入中文含義搜索相關單詞'),
               ('🔠 羅馬字', '輸入 romaji，例如 taberu'),
-              ('#kanji 字', '搜索指定漢字的詳細信息'),
-              ('#jlpt-n5', '搜索指定 JLPT 等級單詞'),
+              // ('#kanji 字', '搜索指定漢字的詳細信息'),
+              // ('#jlpt-n5', '搜索指定 JLPT 等級單詞'),
             ].map((tip) => Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Row(
@@ -375,8 +406,9 @@ class _LangToggle extends StatelessWidget {
 class _DictionaryEntryCard extends StatefulWidget {
   final DictionaryEntry entry;
   final String lang;
+  final FlutterTts tts;
   final void Function(String) onWordTap;
-  const _DictionaryEntryCard({required this.entry, required this.lang, required this.onWordTap});
+  const _DictionaryEntryCard({required this.entry, required this.lang, required this.tts, required this.onWordTap});
 
   @override
   State<_DictionaryEntryCard> createState() => __DictionaryEntryCardState();
@@ -459,8 +491,16 @@ class __DictionaryEntryCardState extends State<_DictionaryEntryCard> {
                       ],
                     ),
                   ),
-                  // Jisho link icon
-                  Icon(Icons.open_in_new, size: 16, color: cs.outline),
+                  // Jisho link icon + voice button
+                  IconButton(
+                    onPressed: () => widget.tts.speak(entry.displayWord),
+                    icon: const Icon(Icons.volume_up_rounded),
+                    tooltip: '朗读',
+                    color: Colors.blue,
+                    iconSize: 20,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
@@ -525,15 +565,90 @@ class __DictionaryEntryCardState extends State<_DictionaryEntryCard> {
                   ),
                   if (entry.url != null) ...[
                     const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => widget.onWordTap(entry.displayWord),
-                      child: Text('via Jisho ⇗',
-                          style: TextStyle(fontSize: 11, color: cs.primary,
-                              decoration: TextDecoration.underline)),
-                    ),
+
                   ],
                 ]),
               ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── 系统词库结果卡片 ────────────────────────────────────────────────────────
+class _VocabResultCard extends StatelessWidget {
+  final VocabularyModel vocab;
+  final FlutterTts tts;
+  final void Function(String) onWordTap;
+  const _VocabResultCard({required this.vocab, required this.tts, required this.onWordTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 1,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => onWordTap(vocab.word),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(vocab.word, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+                            const SizedBox(width: 8),
+                            _Badge('常用', Colors.green),
+                            const SizedBox(width: 4),
+                            if (vocab.jlptLevel.isNotEmpty)
+                              _Badge(vocab.jlptLevel, cs.primary),
+                          ],
+                        ),
+                        if (vocab.reading.isNotEmpty && vocab.reading != vocab.word)
+                          Text(vocab.reading, style: TextStyle(fontSize: 18, color: cs.primary, height: 1.4)),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => tts.speak(vocab.word),
+                    icon: const Icon(Icons.volume_up_rounded),
+                    tooltip: '朗读',
+                    color: Colors.blue,
+                    iconSize: 20,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(vocab.partOfSpeech,
+                        style: TextStyle(fontSize: 12, color: cs.primary)),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(vocab.meaningZh, style: const TextStyle(fontSize: 15))),
+                ],
+              ),
             ],
           ),
         ),

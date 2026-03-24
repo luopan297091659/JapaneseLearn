@@ -101,7 +101,7 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
     try {
       final futures = <Future>[
         apiService.getVocabulary(
-          level: _selectedLevel,
+          level: _searchCtrl.text.isNotEmpty ? null : _selectedLevel,
           query: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
           page: _page,
           limit: _limit,
@@ -134,7 +134,7 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
     _page++;
     try {
       final res = await apiService.getVocabulary(
-        level: _selectedLevel,
+        level: _searchCtrl.text.isNotEmpty ? null : _selectedLevel,
         query: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
         page: _page,
         limit: _limit,

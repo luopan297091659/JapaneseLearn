@@ -147,7 +147,7 @@ class S {
   String get dictExpand         => isZh ? '展开更多' : 'Show more';
   String get dictCollapse       => isZh ? '收起' : 'Collapse';
   String get dictOtherForms     => isZh ? '其他形式' : 'Other forms';
-  String get viaJisho           => isZh ? 'via Jisho ↗' : 'via Jisho ↗';
+  String get viaJisho           => isZh ? '' : '';  // hidden
 
   // ── Profile ──────────────────────────────────────────────────────────────
   String get profile         => isZh ? '个人中心' : 'Profile';

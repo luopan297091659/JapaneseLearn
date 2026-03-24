@@ -42,7 +42,7 @@ const _allFeatures = <String, ({IconData icon, String label, String sub, String 
   'listening':     (icon: Icons.headphones_rounded,     label: '听力练习',   sub: '提升听力', path: '/listening',       color: Color(0xFF9C27B0)),
   'pronunciation': (icon: Icons.mic_rounded,            label: '发音练习',   sub: 'AI智能纠正', path: '/pronunciation',  color: Color(0xFF00BCD4)),
   'srs':           (icon: Icons.layers_rounded,         label: 'SRS复习',    sub: '间隔记忆', path: '/srs-review',     color: Color(0xFFFF9800)),
-  'flashcard':     (icon: Icons.style_rounded,          label: '闪卡练习',   sub: '翻转记忆', path: '/flashcard',      color: Color(0xFF3F51B5)),
+  'study-plan':    (icon: Icons.calendar_month_rounded, label: '学习计划',   sub: '每日学习', path: '/study-plan',     color: Color(0xFF5C6BC0)),
   'dictionary':    (icon: Icons.manage_search_rounded,  label: '辞书检索',   sub: '词典查询', path: '/dictionary',     color: Color(0xFF607D8B)),
   'translate':     (icon: Icons.translate_rounded,      label: '翻译解析',   sub: 'AI句子分析', path: '/translate',    color: Color(0xFF3949AB)),
   'quiz':          (icon: Icons.quiz_rounded,           label: '单词测验',   sub: '检验水平', path: '/quiz',           color: Color(0xFFFF5722)),

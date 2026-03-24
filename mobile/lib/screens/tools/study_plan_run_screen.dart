@@ -168,6 +168,13 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
       _index += 1;
       if (_index < _queue.length) {
         await _ensureCurrentLoaded();
+        // 切换到下一张词汇卡时自动播放音频
+        final nextItem = _queue[_index];
+        if (nextItem['card_type']?.toString() == 'vocabulary') {
+          final nextRefId = nextItem['ref_id']?.toString() ?? '';
+          final nextVocab = _vocabCache[nextRefId];
+          if (nextVocab != null) _tts.speak(nextVocab.word);
+        }
       }
 
       if (!mounted) return;
@@ -332,7 +339,7 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(value: progress, minHeight: 8),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
           Expanded(
             child: GestureDetector(
               onHorizontalDragUpdate: _submitting
@@ -393,7 +400,7 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -462,7 +469,7 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
 
     final title = (grammar.titleZh ?? grammar.title).trim();
     final examples = grammar.examples;
-    final exerciseCount = examples.length.clamp(0, 3);
+    final exerciseCount = examples.where(_isValidExample).length.clamp(0, 3);
 
     return Card(
       child: Padding(
@@ -483,15 +490,15 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
                     ],
                     const Divider(height: 24),
                     Text(grammar.explanationZh ?? grammar.explanation ?? '', style: const TextStyle(fontSize: 16)),
-                    if (examples.isNotEmpty) ...[
+                    if (examples.where(_isValidExample).isNotEmpty) ...[
                       const SizedBox(height: 12),
-                      Text('例句：${examples.first.sentence}', style: const TextStyle(fontSize: 14)),
+                      Text('例句：${examples.where(_isValidExample).first.sentence}', style: const TextStyle(fontSize: 14)),
                     ],
                   ],
                 ),
               ),
             ),
-            if (exerciseCount > 0) ...[
+            if (examples.where(_isValidExample).isNotEmpty) ...[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
@@ -508,9 +515,27 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
     );
   }
 
+  /// 判断是否为有效例句（排除分类标签等非例句内容）
+  bool _isValidExample(GrammarExampleModel ex) {
+    final s = ex.sentence.trim();
+    final m = ex.meaningZh.trim();
+    if (s.length < 6 || m.length < 4) return false;
+    // 排除纯分类标签（如 ②II类动词）
+    if (RegExp(r'^[①②③④⑤⑥⑦⑧⑨⑩]').hasMatch(s) && s.length < 15) return false;
+    // 排除纯列举（如 起[お]きる・食[た]べる...）
+    if ('・'.allMatches(s).length >= 3 && !s.contains('。')) return false;
+    return true;
+  }
+
   /// 基于当前文法例句的练习（回忆模式）
   void _showGrammarExercise(GrammarLessonModel grammar, int count) {
-    final examples = grammar.examples.take(count).toList();
+    final examples = grammar.examples.where(_isValidExample).take(count).toList();
+    if (examples.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(behavior: SnackBarBehavior.floating, content: Text('该语法暂无有效例句可练习')),
+      );
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
