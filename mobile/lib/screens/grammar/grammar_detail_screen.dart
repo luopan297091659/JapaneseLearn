@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/tts_helper.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
-import '../../widgets/audio_player_widget.dart';
+import '../../config/app_config.dart';
 import '../../widgets/report_dialog.dart';
 
 // ─── 段落标题 ──────────────────────────────────────────────────────────────────
@@ -34,10 +35,15 @@ class GrammarDetailScreen extends StatefulWidget {
 
 class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
   final FlutterTts _tts = FlutterTts();
+  AudioPlayer? _examplePlayer;
   GrammarLessonModel? _lesson;
   bool _loading = true;
   bool _ttsReady = false;
   late final DateTime _screenOpenTime;
+
+  // 每条例句独立的播放/加载状态 (key = example index)
+  int _playingExampleIdx = -1;
+  bool _exampleLoading = false;
 
   late String _currentId;
 
@@ -72,60 +78,65 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
     if (mounted) setState(() => _ttsReady = true);
   }
 
-  Future<void> _speakJa(String text) async {
-    if (!_ttsReady) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('语音引擎初始化中，请稍后再试…'), duration: Duration(seconds: 2)),
-      );
-      return;
-    }
-    try {
-      await TtsHelper.setJapaneseVoice(_tts);
-      await _tts.setVolume(1.0);
-      final result = await _tts.speak(text);
-      if (result != 1 && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('语音引擎不可用，请检查系统TTS设置'), duration: Duration(seconds: 3)),
-        );
-      }
-    } catch (e) {
-      debugPrint('TTS speak error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('朗读出错：$e'), duration: const Duration(seconds: 3)),
-        );
-      }
-    }
-  }
+  /// 播放例句音频：有 audio_url 用 just_audio，否则回退到 TTS
+  Future<void> _playExampleAudio(int idx, String text, String? audioUrl, {bool slow = false}) async {
+    // 设 loading
+    if (mounted) setState(() { _playingExampleIdx = idx; _exampleLoading = true; });
 
-  Future<void> _speakJaSlow(String text) async {
-    if (!_ttsReady) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('语音引擎初始化中，请稍后再试…'), duration: Duration(seconds: 2)),
-      );
-      return;
-    }
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final slowRate = prefs.getDouble('slow_speed') ?? 0.5;
-      try { await TtsHelper.setJapaneseVoice(_tts); } catch (_) {}
-      await _tts.setVolume(1.0);
-      await _tts.setSpeechRate(slowRate * 0.5);
-      final result = await _tts.speak(text);
-      await _tts.setSpeechRate(0.5);
-      if (result != 1 && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('语音引擎不可用，请检查系统TTS设置'), duration: Duration(seconds: 3)),
-        );
+      // 停止上一次播放
+      await _examplePlayer?.stop();
+      await _tts.stop();
+
+      if (audioUrl != null && audioUrl.isNotEmpty) {
+        // ── 用 just_audio 播放音频文件 ─────────────────────
+        _examplePlayer ??= AudioPlayer();
+        final player = _examplePlayer!;
+
+        if (audioUrl.startsWith('/uploads/')) {
+          final fullUrl = AppConfig.serverRoot + audioUrl;
+          final localPath = await apiService.downloadToTempFile(fullUrl);
+          await player.setFilePath(localPath);
+        } else {
+          await player.setUrl(audioUrl);
+        }
+
+        if (slow) {
+          final prefs = await SharedPreferences.getInstance();
+          final slowSpeed = prefs.getDouble('slow_speed') ?? 0.5;
+          await player.setSpeed(slowSpeed);
+        } else {
+          await player.setSpeed(1.0);
+        }
+        await player.setVolume(1.0);
+        if (mounted) setState(() => _exampleLoading = false);
+        await player.play();
+        if (mounted) setState(() => _playingExampleIdx = -1);
+      } else {
+        // ── TTS 回退 ──────────────────────────────────────
+        if (!_ttsReady) {
+          if (mounted) setState(() { _playingExampleIdx = -1; _exampleLoading = false; });
+          return;
+        }
+        await TtsHelper.setJapaneseVoice(_tts);
+        await _tts.setVolume(1.0);
+        if (slow) {
+          final prefs = await SharedPreferences.getInstance();
+          final slowRate = prefs.getDouble('slow_speed') ?? 0.5;
+          await _tts.setSpeechRate(slowRate * 0.5);
+        } else {
+          await _tts.setSpeechRate(0.5);
+        }
+        if (mounted) setState(() => _exampleLoading = false);
+        _tts.setCompletionHandler(() {
+          if (mounted) setState(() => _playingExampleIdx = -1);
+          _tts.setSpeechRate(0.5);
+        });
+        await _tts.speak(text);
       }
     } catch (e) {
-      debugPrint('TTS speak error: $e');
-      await _tts.setSpeechRate(0.5);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('朗读出错：$e'), duration: const Duration(seconds: 3)),
-        );
-      }
+      debugPrint('Grammar audio error: $e');
+      if (mounted) setState(() { _playingExampleIdx = -1; _exampleLoading = false; });
     }
   }
 
@@ -136,6 +147,8 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
       apiService.logActivity(activityType: 'grammar', refId: _currentId, durationSeconds: dur);
     }
     _tts.stop();
+    _examplePlayer?.stop();
+    _examplePlayer?.dispose();
     super.dispose();
   }
 
@@ -240,6 +253,8 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
                     ..._lesson!.examples.asMap().entries.map((entry) {
                       final idx = entry.key;
                       final e = entry.value;
+                      final isPlaying = _playingExampleIdx == idx;
+                      final isLoading = isPlaying && _exampleLoading;
                       return Container(
                         margin: const EdgeInsets.only(bottom: 10),
                         decoration: BoxDecoration(
@@ -273,19 +288,27 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
                                       Expanded(child: Text(e.sentence, style: const TextStyle(fontSize: 15, height: 1.4))),
                                       const SizedBox(width: 4),
                                       GestureDetector(
-                                        onTap: () => _speakJa(e.sentence),
+                                        onTap: isLoading ? null : () => _playExampleAudio(idx, e.sentence, e.audioUrl),
                                         child: Container(
                                           width: 30, height: 30,
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
-                                            color: Colors.transparent,
+                                            color: isPlaying && !isLoading ? cs.primary.withValues(alpha: 0.15) : Colors.transparent,
                                           ),
-                                          child: Icon(Icons.volume_up_rounded, size: 20, color: cs.primary),
+                                          child: isLoading
+                                              ? Center(child: SizedBox(
+                                                  width: 16, height: 16,
+                                                  child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+                                                ))
+                                              : Icon(
+                                                  isPlaying ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+                                                  size: 20, color: cs.primary,
+                                                ),
                                         ),
                                       ),
                                       const SizedBox(width: 2),
                                       GestureDetector(
-                                        onTap: () => _speakJaSlow(e.sentence),
+                                        onTap: () => _playExampleAudio(idx, e.sentence, e.audioUrl, slow: true),
                                         child: Container(
                                           width: 30, height: 30,
                                           decoration: BoxDecoration(
@@ -301,13 +324,6 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
                                     Text(e.reading!, style: TextStyle(color: cs.primary, fontSize: 12))],
                                   const SizedBox(height: 4),
                                   Text(e.meaningZh, style: TextStyle(fontSize: 13, color: cs.outline)),
-                                  if (e.audioUrl != null) ...[
-                                    const SizedBox(height: 6),
-                                    AudioPlayerWidget(
-                                      audioUrl: e.audioUrl,
-                                      compact: true,
-                                    ),
-                                  ],
                                 ],
                               ),
                             ),

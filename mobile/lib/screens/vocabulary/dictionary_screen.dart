@@ -34,6 +34,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   final List<String> _history = [];
 
   final FlutterTts _tts = FlutterTts();
+  String? _playingId;
 
   @override
   void initState() {
@@ -50,6 +51,21 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   Future<void> _initTts() async {
     await _tts.setLanguage('ja-JP');
     await _tts.setSpeechRate(0.5);
+    _tts.setCompletionHandler(() {
+      if (mounted) setState(() => _playingId = null);
+    });
+    _tts.setCancelHandler(() {
+      if (mounted) setState(() => _playingId = null);
+    });
+    _tts.setErrorHandler((_) {
+      if (mounted) setState(() => _playingId = null);
+    });
+  }
+
+  void _playWord(String word, {String? id}) {
+    _tts.stop();
+    setState(() => _playingId = id ?? word);
+    _tts.speak(word);
   }
 
   @override
@@ -272,7 +288,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         // 系统词库结果优先展示
         if (i < vocabCount) {
           final vocab = _vocabResults[i];
-          return _VocabResultCard(vocab: vocab, tts: _tts, onWordTap: _searchWord);
+          final id = 'vocab_$i';
+          return _VocabResultCard(vocab: vocab, onWordTap: _searchWord, playingId: _playingId, itemId: id, onPlay: (word) => _playWord(word, id: id));
         }
         final dictIndex = i - vocabCount;
         if (dictIndex == _results.length) {
@@ -281,11 +298,14 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                   child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
               : const SizedBox.shrink();
         }
+        final dictId = 'dict_$dictIndex';
         return _DictionaryEntryCard(
           entry: _results[dictIndex],
           lang: _lang,
-          tts: _tts,
           onWordTap: _searchWord,
+          playingId: _playingId,
+          itemId: dictId,
+          onPlay: (word) => _playWord(word, id: dictId),
         );
       },
     );
@@ -297,7 +317,7 @@ class _QuickSearchBar extends StatelessWidget {
   final void Function(String) onSearch;
   const _QuickSearchBar({required this.onSearch});
 
-  static const _examples = ['食べる', '勉強する', '日本語', 'N5', '時間', '友達', '電車', '美しい'];
+  static const _examples = ['食べる', '勉強', '日本語', '時間', '友達', '電車', '美しい'];
 
   @override
   Widget build(BuildContext context) {
@@ -406,9 +426,11 @@ class _LangToggle extends StatelessWidget {
 class _DictionaryEntryCard extends StatefulWidget {
   final DictionaryEntry entry;
   final String lang;
-  final FlutterTts tts;
+  final String? playingId;
+  final String itemId;
+  final void Function(String) onPlay;
   final void Function(String) onWordTap;
-  const _DictionaryEntryCard({required this.entry, required this.lang, required this.tts, required this.onWordTap});
+  const _DictionaryEntryCard({required this.entry, required this.lang, required this.playingId, required this.itemId, required this.onPlay, required this.onWordTap});
 
   @override
   State<_DictionaryEntryCard> createState() => __DictionaryEntryCardState();
@@ -455,7 +477,7 @@ class __DictionaryEntryCardState extends State<_DictionaryEntryCard> {
                               },
                               child: Text(
                                 entry.displayWord,
-                                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -491,15 +513,11 @@ class __DictionaryEntryCardState extends State<_DictionaryEntryCard> {
                       ],
                     ),
                   ),
-                  // Jisho link icon + voice button
-                  IconButton(
-                    onPressed: () => widget.tts.speak(entry.displayWord),
-                    icon: const Icon(Icons.volume_up_rounded),
-                    tooltip: '朗读',
-                    color: Colors.blue,
-                    iconSize: 20,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  // Voice button
+                  _circleAudioBtn(
+                    playing: widget.playingId == widget.itemId,
+                    onTap: () => widget.onPlay(entry.displayWord),
+                    cs: cs,
                   ),
                 ],
               ),
@@ -580,9 +598,11 @@ class __DictionaryEntryCardState extends State<_DictionaryEntryCard> {
 // ─── 系统词库结果卡片 ────────────────────────────────────────────────────────
 class _VocabResultCard extends StatelessWidget {
   final VocabularyModel vocab;
-  final FlutterTts tts;
+  final String? playingId;
+  final String itemId;
+  final void Function(String) onPlay;
   final void Function(String) onWordTap;
-  const _VocabResultCard({required this.vocab, required this.tts, required this.onWordTap});
+  const _VocabResultCard({required this.vocab, required this.onWordTap, required this.playingId, required this.itemId, required this.onPlay});
 
   @override
   Widget build(BuildContext context) {
@@ -608,7 +628,7 @@ class _VocabResultCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            Text(vocab.word, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+                            Text(vocab.word, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                             const SizedBox(width: 8),
                             _Badge('常用', Colors.green),
                             const SizedBox(width: 4),
@@ -621,14 +641,10 @@ class _VocabResultCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => tts.speak(vocab.word),
-                    icon: const Icon(Icons.volume_up_rounded),
-                    tooltip: '朗读',
-                    color: Colors.blue,
-                    iconSize: 20,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  _circleAudioBtn(
+                    playing: playingId == itemId,
+                    onTap: () => onPlay(vocab.word),
+                    cs: cs,
                   ),
                 ],
               ),
@@ -668,7 +684,7 @@ class _MeaningRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final defs = meaning.definitions(lang);
+    final defs = meaning.definitions(lang).toSet().toList();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -713,6 +729,31 @@ class _MeaningRow extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── Circular audio button (shared) ───────────────────────────────────────
+Widget _circleAudioBtn({
+  required bool playing,
+  required VoidCallback onTap,
+  required ColorScheme cs,
+  double size = 24,
+}) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
+      width: size + 8,
+      height: size + 8,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: playing ? cs.primary.withValues(alpha: 0.15) : Colors.transparent,
+      ),
+      child: Icon(
+        playing ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+        color: cs.primary,
+        size: size,
+      ),
+    ),
+  );
 }
 
 // ─── Badge widget ─────────────────────────────────────────────────────────

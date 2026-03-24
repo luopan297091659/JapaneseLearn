@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -32,6 +33,7 @@ const _featureTierMap = <String, String>{
   'immersion':     'immersion_daily',
   'kana-writing-test': 'kana_writing_modes',
   'wrong-answers': 'wrong_answers',
+  'study-plan':    'study_plan_daily',
 };
 
 // ── 全部可选功能（ID → 元数据） ──
@@ -77,6 +79,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _wordLoading   = true;
   bool _goalsLoading  = true;
   bool _wordRevealed  = false;
+  List<Map<String, dynamic>> _activePlans = [];
 
   // 是否正在刷新（下拉刷新时用）
   bool _refreshing = false;
@@ -141,6 +144,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _loadUser(),
       _loadSrs(),
       _loadDailyGoals(),
+      _loadActivePlans(),
     ]);
     await _loadWordOfDay();
     if (mounted) setState(() => _refreshing = false);
@@ -219,6 +223,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } catch (_) {
       if (mounted) setState(() => _goalsLoading = false);
     }
+  }
+
+  Future<void> _loadActivePlans() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('study_plans_v1') ?? '[]';
+      final plans = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+      final active = plans.where((p) => (p['status'] ?? '') == 'in_progress').toList();
+      if (mounted) setState(() => _activePlans = active);
+    } catch (_) {}
   }
 
   Future<void> _loadWordOfDay() async {
@@ -380,6 +394,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final streakDays = _dailyGoals?['streak_days'] ?? _user?.streakDays ?? 0;
     final todayXp = _dailyGoals?['today']?['xp_earned'] ?? 0;
     final goals = _dailyGoals?['goals'] as Map<String, dynamic>?;
+    Map<String, dynamic>? adjustedGoals;
+    if (goals != null) {
+      adjustedGoals = Map<String, dynamic>.from(goals);
+      final lessonGoal = Map<String, dynamic>.from((goals['lessons'] as Map<String, dynamic>?) ?? const {});
+      final current = (lessonGoal['current'] as int?) ?? 0;
+      final target = (lessonGoal['target'] as int?) ?? 0;
+      final activePlanCount = _activePlans.length;
+      lessonGoal['current'] = current + activePlanCount;
+      lessonGoal['target'] = target + activePlanCount;
+      adjustedGoals['lessons'] = lessonGoal;
+    }
 
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
@@ -395,10 +420,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 delegate: SliverChildListDelegate([
                   const SizedBox(height: 16),
                   // ── 今日目标 ────────────────────────────────────────
-                  if (!_goalsLoading && goals != null) ...[
+                  if (!_goalsLoading && adjustedGoals != null) ...[
                     _SectionTitle(title: '今日目标', icon: Icons.flag_rounded),
                     const SizedBox(height: 10),
-                    _DailyGoalsCard(goals: goals),
+                    _DailyGoalsCard(goals: adjustedGoals),
                     const SizedBox(height: 20),
                   ],
                   // ── 辞书検索 ──────────────────────────────────────
@@ -409,6 +434,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   // ── SRS 提醒（加载完才判断）──────────────────────
                   if (!_srsLoading && (_srsStats?['due_today'] ?? 0) > 0) ...[
                     _SrsReviewBanner(dueCount: _srsStats!['due_today']),
+                    const SizedBox(height: 20),
+                  ],
+                  // ── 进行中的学习计划 ──────────────────────────
+                  if (_activePlans.isNotEmpty) ...[
+                    _StudyPlanBanner(plans: _activePlans),
                     const SizedBox(height: 20),
                   ],
                   // ── 会员体验提示 ──────────────────────────────
@@ -738,6 +768,59 @@ class _SrsReviewBanner extends StatelessWidget {
             ),
             child: Text('开始复习',
                 style: TextStyle(color: Colors.orange.shade700, fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─── Study Plan Banner ───────────────────────────────────────────────────────
+
+class _StudyPlanBanner extends StatelessWidget {
+  final List<Map<String, dynamic>> plans;
+  const _StudyPlanBanner({required this.plans});
+
+  @override
+  Widget build(BuildContext context) {
+    // Show first active plan
+    final plan = plans.first;
+    final name = plan['name']?.toString() ?? '学习计划';
+    final dailyTarget = (plan['dailyTarget'] as int?) ?? 20;
+    final planId = plan['id']?.toString() ?? '';
+    String typeLabel = '单词';
+    if (plan['includeGrammar'] == true) typeLabel = '语法';
+    if (plan['includeAnki'] == true) typeLabel = 'Anki';
+
+    return GestureDetector(
+      onTap: () => context.push('/study-plan/$planId'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [const Color(0xFF6D28D9), const Color(0xFF7C3AED)],
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(children: [
+          const Icon(Icons.route_rounded, color: Colors.white, size: 32),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              Text('$typeLabel · 每日$dailyTarget张',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            ]),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text('继续学习',
+                style: TextStyle(color: const Color(0xFF6D28D9), fontWeight: FontWeight.bold, fontSize: 13)),
           ),
         ]),
       ),

@@ -161,8 +161,11 @@ class _ToolsTabState extends State<ToolsTab> {
             title: '学习计划',
             subtitle: '自定义组合：单词/语法/Anki词库',
             color: const Color(0xFF6D28D9),
-            blocked: false,
-            onTap: () => context.push('/study-plan'),
+            blocked: _isBlocked('study_plan_daily'),
+            onTap: () {
+              if (_isBlocked('study_plan_daily')) { _showMemberDialog('学习计划'); return; }
+              context.push('/study-plan');
+            },
           ),
           const SizedBox(height: 12),
           _ToolCard(

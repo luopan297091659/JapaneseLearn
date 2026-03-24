@@ -24,6 +24,7 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
   int _trialDays = 3;
   String _trialDesc = '';
   bool _activating = false;
+  List<Map<String, dynamic>> _plans = [];
 
   @override
   void initState() {
@@ -38,13 +39,20 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
         syncService.fetchFeatureTiers(force: true),
         apiService.getMe(force: true),
         apiService.getTrialConfig(),
+        apiService.dio.get('/sync/membership-plans'),
       ]);
       final tiers = results[0] as List<Map<String, dynamic>>;
       final user = results[1] as dynamic;
       final trialCfg = results[2] as Map<String, dynamic>;
+      final plansRes = results[3];
+      final plansData = (plansRes as dynamic).data;
+      final fetchedPlans = (plansData is Map && plansData['plans'] != null)
+          ? List<Map<String, dynamic>>.from(plansData['plans'])
+          : <Map<String, dynamic>>[];
       if (mounted) {
         setState(() {
           _tiers = tiers;
+          _plans = fetchedPlans;
           _isMember = user.isMember;
           _isTrial = user.isTrial;
           _trialActivated = user.trialActivated;
@@ -422,6 +430,24 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
   }
 
   Widget _buildPlansSection(ColorScheme cs) {
+    const periodLabels = {'month': '/月', 'year': '/年', 'forever': ''};
+    const defaultColors = ['primary', 'amber', 'purple'];
+    final colorMap = {
+      0: cs.primary,
+      1: const Color(0xFFF59E0B),
+      2: const Color(0xFF7C3AED),
+    };
+
+    // Use fetched plans if available, otherwise fallback to defaults
+    final plans = _plans.where((p) => p['enabled'] != false).toList();
+    final usePlans = plans.isNotEmpty
+        ? plans
+        : [
+            {'name': '月度会员', 'price': 18, 'period': 'month'},
+            {'name': '年度会员', 'price': 128, 'period': 'year'},
+            {'name': '终身会员', 'price': 398, 'period': 'forever'},
+          ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -433,33 +459,30 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
           ],
         ),
         const SizedBox(height: 12),
-        _PlanCard(
-          name: '月度会员',
-          price: '¥18',
-          period: '/月',
-          features: const ['全部功能解锁', '按月计费', '随时取消'],
-          color: cs.primary,
-          highlighted: false,
-        ),
-        const SizedBox(height: 12),
-        _PlanCard(
-          name: '年度会员',
-          price: '¥128',
-          period: '/年',
-          features: const ['全部功能解锁', '比月付省41%', '优先更新体验'],
-          color: const Color(0xFFF59E0B),
-          highlighted: true,
-          badge: '最受欢迎',
-        ),
-        const SizedBox(height: 12),
-        _PlanCard(
-          name: '终身会员',
-          price: '¥398',
-          period: '',
-          features: const ['一次购买永久使用', '含未来所有新功能', '专属徽章'],
-          color: const Color(0xFF7C3AED),
-          highlighted: false,
-        ),
+        ...usePlans.asMap().entries.map((e) {
+          final i = e.key;
+          final p = e.value;
+          final price = (p['price'] is num) ? (p['price'] as num).toInt() : 0;
+          final period = periodLabels[p['period']] ?? '';
+          final isHighlighted = i == 1; // second plan highlighted as "最受欢迎"
+          return Padding(
+            padding: EdgeInsets.only(top: i > 0 ? 12 : 0),
+            child: _PlanCard(
+              name: p['name']?.toString() ?? '',
+              price: '¥$price',
+              period: period,
+              features: (p['features'] as List<dynamic>?)?.cast<String>() ??
+                  (i == 0
+                      ? ['全部功能解锁', '按月计费', '随时取消']
+                      : i == 1
+                          ? ['全部功能解锁', '比月付省更多', '优先更新体验']
+                          : ['一次购买永久使用', '含未来所有新功能', '专属徽章']),
+              color: colorMap[i % 3] ?? cs.primary,
+              highlighted: isHighlighted,
+              badge: isHighlighted ? '最受欢迎' : null,
+            ),
+          );
+        }),
         const SizedBox(height: 16),
         Center(
           child: Text(

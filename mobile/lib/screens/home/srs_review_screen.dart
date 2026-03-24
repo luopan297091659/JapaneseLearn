@@ -224,7 +224,7 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
               child: Card(
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(32),
+                  padding: const EdgeInsets.all(20),
                   child: !hasContent
                       ? Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -287,16 +287,17 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
   }
 
   Widget _buildVocabContent(VocabularyModel vocab, ColorScheme cs) {
-    return Column(
+    return SingleChildScrollView(
+      child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(vocab.word, style: const TextStyle(fontSize: 56, fontWeight: FontWeight.bold)),
+        Text(vocab.word, style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         if (_showAnswer) ...[
-          Text(vocab.reading, style: TextStyle(fontSize: 24, color: cs.primary)),
+          Text(vocab.reading, style: TextStyle(fontSize: 22, color: cs.primary)),
           const SizedBox(height: 8),
-          Text(vocab.meaningZh, style: const TextStyle(fontSize: 20)),
-          const SizedBox(height: 16),
+          Text(vocab.meaningZh, style: const TextStyle(fontSize: 18)),
+          const SizedBox(height: 12),
           if (vocab.exampleSentence != null)
             Container(
               padding: const EdgeInsets.all(12),
@@ -317,22 +318,24 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
           Text('点击"显示答案"查看释义', style: TextStyle(color: cs.outline)),
         ],
       ],
+      ),
     );
   }
 
   Widget _buildGrammarContent(GrammarLessonModel grammar, ColorScheme cs) {
     final title = (grammar.titleZh ?? grammar.title).trim();
-    return Column(
+    return SingleChildScrollView(
+      child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(grammar.pattern, style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold)),
+        Text(grammar.pattern, style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         if (_showAnswer) ...[
           if (title.isNotEmpty)
-            Text(title, style: TextStyle(fontSize: 20, color: cs.primary)),
+            Text(title, style: TextStyle(fontSize: 18, color: cs.primary)),
           const SizedBox(height: 8),
           Text(grammar.explanationZh ?? grammar.explanation ?? '',
-              style: const TextStyle(fontSize: 17), textAlign: TextAlign.center),
+              style: const TextStyle(fontSize: 15, height: 1.5), textAlign: TextAlign.center),
           const SizedBox(height: 12),
           if (grammar.examples.isNotEmpty)
             Container(
@@ -354,6 +357,7 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
           Text('点击"显示答案"查看释义', style: TextStyle(color: cs.outline)),
         ],
       ],
+      ),
     );
   }
 }

@@ -258,6 +258,21 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
   }
 
   Future<void> _goToWithPromote(int index) async {
+    if (_cards.isNotEmpty && index == _cards.length - 1) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('进入最后一张'),
+          content: Text('即将进入第 ${_cards.length} 张，是否继续？'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('继续')),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+
     await _promoteCurrentCard();
     if (index < 0 || index >= _cards.length) return;
     await _stopAll();
@@ -276,6 +291,25 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
         isExample: false,
       );
     });
+  }
+
+  Future<void> _finishCurrentSession() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('完成本轮学习'),
+        content: const Text('当前已是最后一张，确认完成本轮学习吗？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('继续学习')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('确认完成')),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    await _promoteCurrentCard();
+    if (!mounted) return;
+    context.pop(true);
   }
 
   @override
@@ -335,7 +369,7 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
                         children: [
                           FuriganaText(
                             text: _localDisplayWord(card),
-                            fontSize: 52,
+                            fontSize: 40,
                             color: cs.primary,
                           ),
                           if (_localDisplayReading(card).isNotEmpty &&
@@ -482,9 +516,9 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
                     ),
                     const Spacer(),
                     OutlinedButton.icon(
-                      onPressed: hasNext ? () => _goToWithPromote(_currentIndex + 1) : null,
-                      icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-                      label: const Text('下一个'),
+                      onPressed: hasNext ? () => _goToWithPromote(_currentIndex + 1) : _finishCurrentSession,
+                      icon: Icon(hasNext ? Icons.arrow_forward_ios_rounded : Icons.check_rounded, size: 16),
+                      label: Text(hasNext ? '下一个' : '完成'),
                     ),
                   ],
                 ),

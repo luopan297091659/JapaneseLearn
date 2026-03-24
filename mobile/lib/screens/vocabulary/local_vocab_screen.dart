@@ -120,7 +120,7 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
         if (exact.isNotEmpty) {
           toOpenDeck = exact.first.deckName;
         } else if (prefix.isNotEmpty) {
-          toOpenDeck = prefix.first.deckName;
+          toOpenDeck = initialDeck;
         }
       }
     }

@@ -2,11 +2,17 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../config/app_config.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
+import '../../utils/japanese_text_utils.dart';
+import '../../utils/tts_helper.dart';
+import '../../utils/verb_conjugation.dart';
+import '../../widgets/furigana_text.dart';
 
 class StudyPlanRunScreen extends StatefulWidget {
   final String planId;
@@ -34,8 +40,14 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
   final Map<String, GrammarLessonModel> _grammarCache = {};
 
   bool _submitting = false;
+  bool _ttsPlaying = false;
+  bool _examplePlaying = false;
+  bool _wordLoading = false;
+  bool _exampleLoading = false;
 
   final FlutterTts _tts = FlutterTts();
+  AudioPlayer? _wordPlayer;
+  AudioPlayer? _examplePlayer;
 
   @override
   void initState() {
@@ -47,11 +59,24 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
   Future<void> _initTts() async {
     await _tts.setLanguage('ja-JP');
     await _tts.setSpeechRate(0.5);
+    _tts.setCompletionHandler(() {
+      if (mounted) setState(() => _ttsPlaying = false);
+    });
+    _tts.setCancelHandler(() {
+      if (mounted) setState(() => _ttsPlaying = false);
+    });
+    _tts.setErrorHandler((_) {
+      if (mounted) setState(() => _ttsPlaying = false);
+    });
   }
 
   @override
   void dispose() {
     _tts.stop();
+    _wordPlayer?.stop();
+    _wordPlayer?.dispose();
+    _examplePlayer?.stop();
+    _examplePlayer?.dispose();
     super.dispose();
   }
 
@@ -171,9 +196,7 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
         // 切换到下一张词汇卡时自动播放音频
         final nextItem = _queue[_index];
         if (nextItem['card_type']?.toString() == 'vocabulary') {
-          final nextRefId = nextItem['ref_id']?.toString() ?? '';
-          final nextVocab = _vocabCache[nextRefId];
-          if (nextVocab != null) _tts.speak(nextVocab.word);
+          _playAudio(isExample: false);
         }
       }
 
@@ -227,26 +250,16 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
     }
 
     if (_planType(_plan!) == 'anki') {
+      final deckRoot = (_plan?['ankiDeckRoot'] ?? _plan?['ankiDeck'] ?? '__all__').toString();
+      final stage = widget.stage ?? 'learning';
+      final localStage = stage == 'mastered' ? 2 : (stage == 'new' ? 0 : 1);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.go('/local-vocab?deck=${Uri.encodeComponent(deckRoot)}&stage=$localStage&planId=${widget.planId}');
+      });
       return Scaffold(
         appBar: AppBar(title: const Text('计划学习中')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.info_outline, size: 56),
-                const SizedBox(height: 12),
-                const Text('Anki 计划请使用本地词库学习页继续执行'),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: () => context.go('/local-vocab?planId=${widget.planId}'),
-                  child: const Text('前往 Anki 学习'),
-                ),
-              ],
-            ),
-          ),
-        ),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -290,16 +303,14 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
 
   String get _leftSwipeText {
     final stage = widget.stage ?? '';
-    if (stage == 'review') return '不认识 / 没掌握';
-    if (stage == 'mastered') return '未掌握';
-    return '不认识 / 没掌握';
+    if (stage == 'mastered') return '忘了';
+    return '不认识';
   }
 
   String get _rightSwipeText {
     final stage = widget.stage ?? '';
-    if (stage == 'review') return '已掌握';
-    if (stage == 'mastered') return '已掌握';
-    return '认识 / 已完成';
+    if (stage == 'mastered') return '还记得';
+    return '认识';
   }
 
   double _dragOffset = 0;
@@ -420,11 +431,185 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
 
 
 
+  /// 播放音频：有 audio_url 用 just_audio，否则回退到 TTS
+  Future<void> _playAudio({required bool isExample, bool slow = false}) async {
+    final v = _index < _queue.length ? _vocabCache[_queue[_index]['ref_id']?.toString() ?? ''] : null;
+    if (v == null) return;
+    final url = isExample ? v.exampleAudioUrl : v.audioUrl;
+
+    // TTS 回退
+    if (url == null) {
+      String? text;
+      if (isExample) {
+        text = v.exampleSentence;
+      } else {
+        text = ttsText(v.word, v.reading);
+      }
+      if (text == null || text.isEmpty) return;
+      await _speakTts(text, isExample: isExample, slow: slow);
+      return;
+    }
+
+    if (isExample) {
+      _examplePlayer ??= AudioPlayer();
+    } else {
+      _wordPlayer ??= AudioPlayer();
+    }
+    final player = isExample ? _examplePlayer! : _wordPlayer!;
+
+    if (mounted) setState(() {
+      if (isExample) _exampleLoading = true; else _wordLoading = true;
+    });
+    try {
+      if (isExample) {
+        await _wordPlayer?.stop();
+        if (mounted) setState(() => _ttsPlaying = false);
+      } else {
+        await _examplePlayer?.stop();
+        if (mounted) setState(() => _examplePlaying = false);
+      }
+      await _tts.stop();
+      await player.stop();
+
+      if (url.startsWith('/uploads/')) {
+        final fullUrl = AppConfig.serverRoot + url;
+        final localPath = await apiService.downloadToTempFile(fullUrl);
+        await player.setFilePath(localPath);
+      } else {
+        await player.setUrl(url);
+      }
+
+      if (slow) {
+        final prefs = await SharedPreferences.getInstance();
+        final slowSpeed = prefs.getDouble('slow_speed') ?? 0.5;
+        await player.setSpeed(slowSpeed);
+      } else {
+        await player.setSpeed(1.0);
+      }
+      await player.setVolume(1.0);
+      if (mounted) setState(() {
+        if (isExample) { _exampleLoading = false; _examplePlaying = true; }
+        else { _wordLoading = false; _ttsPlaying = true; }
+      });
+      await player.play();
+      if (mounted) setState(() {
+        if (isExample) _examplePlaying = false; else _ttsPlaying = false;
+      });
+    } catch (e) {
+      debugPrint('Audio play error: $e');
+      if (mounted) setState(() {
+        if (isExample) { _exampleLoading = false; _examplePlaying = false; }
+        else { _wordLoading = false; _ttsPlaying = false; }
+      });
+    }
+  }
+
+  Future<void> _speakTts(String text, {bool isExample = false, bool slow = false}) async {
+    await _wordPlayer?.stop();
+    await _examplePlayer?.stop();
+    await _tts.stop();
+    if (mounted) setState(() {
+      if (isExample) { _exampleLoading = false; _examplePlaying = true; }
+      else { _wordLoading = false; _ttsPlaying = true; }
+    });
+    try {
+      await TtsHelper.setJapaneseVoice(_tts);
+      final rate = slow ? 0.25 : 0.45;
+      await _tts.setSpeechRate(rate);
+      _tts.setCompletionHandler(() {
+        if (mounted) setState(() {
+          if (isExample) _examplePlaying = false; else _ttsPlaying = false;
+        });
+        _tts.setSpeechRate(0.5);
+      });
+      await TtsHelper.speakJapanese(_tts, text);
+    } catch (_) {
+      if (mounted) setState(() {
+        if (isExample) _examplePlaying = false; else _ttsPlaying = false;
+      });
+    }
+  }
+
+  Widget _buildAudioBtn({
+    required bool isExample,
+    required bool playing,
+    required bool loading,
+    double size = 28,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: loading ? null : () => _playAudio(isExample: isExample),
+      child: Container(
+        width: size + 8,
+        height: size + 8,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: playing ? cs.primary.withValues(alpha: 0.15) : Colors.transparent,
+        ),
+        child: loading
+            ? Center(child: SizedBox(
+                width: size * 0.6, height: size * 0.6,
+                child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+              ))
+            : Icon(
+                playing ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+                color: cs.primary,
+                size: size,
+              ),
+      ),
+    );
+  }
+
+  Widget _buildSlowBtn({required bool isExample, double size = 24}) {
+    return GestureDetector(
+      onTap: () => _playAudio(isExample: isExample, slow: true),
+      child: Container(
+        width: size + 8,
+        height: size + 8,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.orange.withValues(alpha: 0.1),
+        ),
+        child: Center(child: Text('🐌', style: TextStyle(fontSize: size * 0.55))),
+      ),
+    );
+  }
+
+  static String _posLabel(String pos) {
+    const map = {
+      'noun': '名词', 'verb': '动词', 'adjective': '形容词', 'adverb': '副词',
+      'particle': '助词', 'conjunction': '接续词', 'interjection': '感叹词', 'other': '其他',
+    };
+    return map[pos] ?? pos;
+  }
+
+  static String _formatPosRaw(String raw) {
+    return raw.replaceFirstMapped(
+      RegExp(r'^(自他動|自動|他動|補動)(\d*)'),
+      (m) => '${m[1]}詞${m[2] ?? ""}',
+    );
+  }
+
+  Widget _chip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
+    );
+  }
+
   Widget _buildVocabCard(String refId) {
     final vocab = _vocabCache[refId];
     if (vocab == null) {
       return const Center(child: CircularProgressIndicator());
     }
+    final cs = Theme.of(context).colorScheme;
+    final posText = vocab.partOfSpeechRaw != null ? _formatPosRaw(vocab.partOfSpeechRaw!) : _posLabel(vocab.partOfSpeech);
+    final conjugations = vocab.partOfSpeech == 'verb' ? conjugateVerb(vocab.word, vocab.reading) : <VerbConjugation>[];
 
     return Card(
       child: Padding(
@@ -433,26 +618,97 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── 单词 + 音频 ──
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Text('单词学习', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  IconButton(
-                    onPressed: () => _tts.speak(vocab.word),
-                    icon: const Icon(Icons.volume_up_rounded),
-                    tooltip: '朗读',
-                    color: Colors.blue,
+                  Expanded(
+                    child: FuriganaText(text: vocab.word, fontSize: 32, color: cs.onSurface),
                   ),
+                  const SizedBox(width: 4),
+                  _buildAudioBtn(isExample: false, playing: _ttsPlaying, loading: _wordLoading),
+                  // _buildSlowBtn(isExample: false),
                 ],
               ),
-              Text(vocab.word, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              Text(vocab.reading, style: const TextStyle(fontSize: 18, color: Colors.black54)),
-              const Divider(height: 24),
-              Text(vocab.meaningZh, style: const TextStyle(fontSize: 22)),
+              if (vocab.reading.isNotEmpty && cleanReading(vocab.reading) != cleanWord(vocab.word))
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(cleanReading(vocab.reading), style: TextStyle(fontSize: 15, color: cs.primary.withValues(alpha: 0.7))),
+                ),
+              const SizedBox(height: 8),
+              // ── 级别 + 词性 ──
+              Row(children: [
+                _chip(vocab.jlptLevel, cs.primary),
+                if (posText.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  _chip(posText, cs.secondary),
+                ],
+              ]),
+              const Divider(height: 20),
+              // ── 释义 ──
+              Text('[$posText] ${vocab.meaningZh}', style: const TextStyle(fontSize: 18)),
+              if (vocab.meaningEn != null) ...[  
+                const SizedBox(height: 4),
+                Text(vocab.meaningEn!, style: TextStyle(fontSize: 14, color: cs.outline)),
+              ],
+              // ── 例句 ──
               if ((vocab.exampleSentence ?? '').isNotEmpty) ...[
                 const SizedBox(height: 12),
-                Text('例句：${vocab.exampleSentence}', style: const TextStyle(fontSize: 14)),
+                Row(children: [
+                  Icon(Icons.format_quote_rounded, size: 16, color: cs.primary),
+                  const SizedBox(width: 4),
+                  Text('例文', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.primary)),
+                ]),
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (vocab.exampleReading != null && hasFurigana(vocab.exampleReading!))
+                            FuriganaText(
+                              text: vocab.exampleReading!,
+                              fontSize: 15,
+                              color: cs.onSurface,
+                              fontWeight: FontWeight.normal,
+                              textAlign: TextAlign.start,
+                            )
+                          else
+                            Text(vocab.exampleSentence!, style: const TextStyle(fontSize: 15, height: 1.5)),
+                          if (vocab.exampleMeaningZh != null) ...[  
+                            const SizedBox(height: 2),
+                            Text(vocab.exampleMeaningZh!, style: TextStyle(fontSize: 13, color: cs.outline)),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Column(children: [
+                      _buildAudioBtn(isExample: true, playing: _examplePlaying, loading: _exampleLoading, size: 24),
+                      // _buildSlowBtn(isExample: true, size: 20),
+                    ]),
+                  ],
+                ),
+              ],
+              // ── 动词变形 ──
+              if (conjugations.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Row(children: [
+                  Icon(Icons.swap_horiz_rounded, size: 16, color: cs.primary),
+                  const SizedBox(width: 4),
+                  Text('动词变形', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.primary)),
+                ]),
+                const SizedBox(height: 4),
+                ...conjugations.map((c) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(children: [
+                    SizedBox(width: 52, child: Text(c.form, style: TextStyle(fontSize: 12, color: cs.primary, fontWeight: FontWeight.w600))),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(c.value, style: const TextStyle(fontSize: 14))),
+                  ]),
+                )),
               ],
             ],
           ),
@@ -505,7 +761,7 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
                 child: FilledButton.icon(
                   onPressed: () => _showGrammarExercise(grammar, exerciseCount),
                   icon: const Icon(Icons.quiz_outlined),
-                  label: Text('进入固定${exerciseCount}题练习'),
+                  label: Text('进入${exerciseCount}道例句练习'),
                 ),
               ),
             ],

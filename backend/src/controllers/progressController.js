@@ -272,18 +272,25 @@ async function getStudyPlanProgress(req, res) {
       totalCards = await GrammarLesson.count({ where: { jlpt_level: level } });
     }
 
-    // Get learning flow states from StudyPlanCardState
-    const states = await StudyPlanCardState.findAll({
-      where: { user_id: userId, card_type: cardType },
-      attributes: ['state'],
-    });
-
+    // Get learning flow states from StudyPlanCardState, filtered by JLPT level
     let learningCount = 0, reviewCount = 0, masteredCount = 0;
-    for (const s of states) {
-      switch (s.state) {
-        case 'learning': learningCount++; break;
-        case 'review': reviewCount++; break;
-        case 'mastered': masteredCount++; break;
+    if (cardType === 'vocabulary' || cardType === 'grammar') {
+      const sourceTable = cardType === 'vocabulary' ? 'vocabulary' : 'grammar_lessons';
+      const result = await sequelize.query(
+        `SELECT s.state, COUNT(*) AS cnt
+         FROM study_plan_card_states s
+         JOIN ${sourceTable} t ON s.ref_id = t.id
+         WHERE s.user_id = ? AND s.card_type = ? AND t.jlpt_level = ?
+         GROUP BY s.state`,
+        { replacements: [userId, cardType, level] }
+      );
+      const countRows = result[0] || [];
+      for (const r of countRows) {
+        switch (r.state) {
+          case 'learning': learningCount = parseInt(r.cnt) || 0; break;
+          case 'review': reviewCount = parseInt(r.cnt) || 0; break;
+          case 'mastered': masteredCount = parseInt(r.cnt) || 0; break;
+        }
       }
     }
     const trackedCount = learningCount + reviewCount + masteredCount;

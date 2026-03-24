@@ -62,4 +62,37 @@ router.get('/tiers', asyncHandler(async (req, res) => {
   res.json({ ok: true, tiers: data.tiers, updated_at: data.updated_at });
 }));
 
+// ── 会员套餐配置（公开接口，客户端获取最新价格）──
+router.get('/membership-plans', asyncHandler(async (req, res) => {
+  const plansFile = path.join(__dirname, '../../config/membership.json');
+  let config;
+  try {
+    if (fs.existsSync(plansFile)) {
+      config = JSON.parse(fs.readFileSync(plansFile, 'utf8'));
+    }
+  } catch { /* ignore */ }
+  if (!config || !Array.isArray(config.plans)) {
+    config = {
+      plans: [
+        { id: 'monthly', name: '月度会员', price: 18, period: 'month', enabled: true },
+        { id: 'yearly', name: '年度会员', price: 128, period: 'year', enabled: true },
+        { id: 'lifetime', name: '终身会员', price: 398, period: 'forever', enabled: false },
+      ],
+    };
+  }
+  // Only return enabled plans with safe fields
+  const plans = config.plans
+    .filter(p => p.id !== 'free')
+    .map(p => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      period: p.period,
+      enabled: p.enabled !== false,
+      features: p.features || [],
+      description: p.description || '',
+    }));
+  res.json({ ok: true, plans });
+}));
+
 module.exports = router;

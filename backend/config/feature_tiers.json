@@ -183,10 +183,9 @@
       "id": "study_plan_daily",
       "name": "学习计划",
       "icon": "📅",
-      "type": "daily_limit",
-      "free_limit": 10,
-      "free_label": "每日10张",
-      "member_label": "无限制"
+      "type": "blocked",
+      "free_label": "不可用",
+      "member_label": "可用"
     }
   ],
   "updated_at": null

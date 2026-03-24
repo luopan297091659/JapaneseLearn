@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
+import '../../services/local_db.dart';
 
 class StudyPlanDetailScreen extends ConsumerStatefulWidget {
   final String planId;
@@ -52,6 +53,28 @@ class _StudyPlanDetailScreenState extends ConsumerState<StudyPlanDetailScreen> {
       
       final level = _plan['vocabularyLevel'] ?? _plan['grammarLevel'] ?? 'N5';
       final type = _determinePlanType(_plan);
+
+      if (type == 'anki') {
+        final deckRoot = (_plan['ankiDeckRoot'] ?? _plan['ankiDeck'] ?? '').toString();
+        final counts = await localDb.countByLearningStage(
+          deckName: deckRoot.isEmpty || deckRoot == '__all__' ? null : deckRoot,
+          prefixMatch: deckRoot.isNotEmpty && deckRoot != '__all__',
+        );
+        final total = counts.values.fold<int>(0, (sum, value) => sum + value);
+        _progress = {
+          'total': total,
+          'progress': {
+            'new': counts[0] ?? 0,
+            'learning': 0,
+            'review': counts[1] ?? 0,
+            'mastered': counts[2] ?? 0,
+          },
+          'overdue_count': 0,
+        };
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        return;
+      }
       
       try {
         final response = await apiService.dio.get(
@@ -150,7 +173,7 @@ class _StudyPlanDetailScreenState extends ConsumerState<StudyPlanDetailScreen> {
     final planId = _plan['id']?.toString() ?? widget.planId;
     final deckRoot = (_plan['ankiDeckRoot'] ?? _plan['ankiDeck'] ?? '__all__').toString();
 
-    if (stage == 'review' || stage == 'overdue') {
+    if ((stage == 'review' || stage == 'overdue' || stage == 'mastered') && type != 'anki') {
       context.push('/srs-review');
       return;
     }
@@ -201,7 +224,11 @@ class _StudyPlanDetailScreenState extends ConsumerState<StudyPlanDetailScreen> {
     final estimatedDays = (plan['estimatedDays'] as int?) ?? 0;
     final importedCount = (plan['importedCount'] as int?) ?? 0;
     final totalCount = total > 0 ? total : importedCount;
-    final newCount = (apiNewCount > 0 || total > 0) ? apiNewCount : importedCount;
+    final newCount = planType == 'anki'
+      ? apiNewCount
+      : (apiNewCount > 0 || total > 0)
+        ? apiNewCount
+        : importedCount;
     final description = plan['description'] as String? ?? '';
 
     // Dynamic estimated end date based on remaining cards
@@ -319,13 +346,13 @@ class _StudyPlanDetailScreenState extends ConsumerState<StudyPlanDetailScreen> {
                 switch (_selectedStage) {
                   case 'review':
                     stageCount = reviewCount;
-                    buttonLabel = '复习学习中（$reviewCount 张）';
+                    buttonLabel = '复习卡片（$reviewCount 张）';
                     stage = 'review';
                     buttonIcon = Icons.replay_rounded;
                     break;
                   case 'mastered':
                     stageCount = masteredCount;
-                    buttonLabel = '待复习（$masteredCount 张）';
+                    buttonLabel = '回顾已掌握（$masteredCount 张）';
                     stage = 'mastered';
                     buttonIcon = Icons.check_circle_outline;
                     break;
@@ -333,7 +360,7 @@ class _StudyPlanDetailScreenState extends ConsumerState<StudyPlanDetailScreen> {
                     final todayCount = (newCount + learningCount) > 0 ? dailyTarget : 0;
                     stageCount = todayCount;
                     buttonLabel = '继续学习（每日 $dailyTarget 张）';
-                    stage = 'new';
+                    stage = 'learning';
                     buttonIcon = Icons.play_arrow_rounded;
                 }
 

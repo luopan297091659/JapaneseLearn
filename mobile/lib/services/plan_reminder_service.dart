@@ -36,7 +36,7 @@ class PlanReminderService {
     final androidImpl = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     if (androidImpl == null) return true;
     final granted = await androidImpl.requestNotificationsPermission();
-    return granted ?? false;
+    return granted ?? true;
   }
 
   tz.TZDateTime _nextAt(int hour, int minute) {
