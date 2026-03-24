@@ -179,18 +179,8 @@ class _StudyTabState extends State<StudyTab> {
               context.push('/pronunciation');
             },
           ),
-          const SizedBox(height: 12),
-          _StudyCard(
-            icon: Icons.style_rounded,
-            title: '闪卡练习',
-            subtitle: '翻转记忆 · 四级评价·支持等级词库',
-            color: const Color(0xFF3F51B5),
-            blocked: _isBlocked('flashcard_levels'),
-            onTap: () {
-              if (_isBlocked('flashcard_levels')) { _showMemberDialog('闪卡练习'); return; }
-              context.push('/flashcard');
-            },
-          ),
+          // 闪卡练习入口已隐藏（代码保留）
+          // _StudyCard(icon: Icons.style_rounded, title: '闪卡练习', ...),
           const SizedBox(height: 12),
           _StudyCard(
             icon: Icons.layers_rounded,

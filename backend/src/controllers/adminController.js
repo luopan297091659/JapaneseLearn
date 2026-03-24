@@ -13,6 +13,7 @@ const {
   ListeningTrack, UserProgress, ContentVersion, ApiLog,
   QuizSession, SrsCard,
   AppRelease, MembershipPlan,
+  StudyPlanDailyTask, StudyPlanCardState,
 } = require('../models');
 // utilities used across controllers
 const { stripHtml } = require('../services/ankiService');
@@ -937,6 +938,7 @@ const DEFAULT_FEATURE_TOGGLES = {
     { id: 'grammar-quiz',  name: '文法测验', icon: '📖', web: true,  mobile: true  },
     { id: 'immersion',     name: '磨耳朵',   icon: '📺', web: false, mobile: true  },
     { id: 'kana-writing-test', name: '假名书写', icon: '✍️', web: false, mobile: true  },
+    { id: 'study-plan',    name: '学习计划', icon: '📅', web: true,  mobile: true  },
   ],
   updated_at: null,
 };
@@ -1009,6 +1011,7 @@ const DEFAULT_FEATURE_TIERS = {
     { id: 'grammar_quiz_daily', name: '文法测验', icon: '📖', type: 'daily_limit', free_limit: 10, free_label: '每日10题', member_label: '无限制' },
     { id: 'dictionary_daily', name: '词典查询', icon: '🔍', type: 'daily_limit', free_limit: 20, free_label: '每日限20次', member_label: '无限制' },
     { id: 'news_limit', name: 'NHK新闻', icon: '📰', type: 'limit', free_limit: 5, free_label: '最新5篇', member_label: '全部' },
+    { id: 'study_plan_daily', name: '学习计划', icon: '📅', type: 'daily_limit', free_limit: 10, free_label: '每日10张', member_label: '无限制' },
   ],
   updated_at: null,
 };
@@ -1398,6 +1401,65 @@ async function deleteReport(req, res) {
   res.json({ success: true, deleted });
 }
 
+/* ─────── 学习计划管理 ─────── */
+async function getStudyPlanStats(req, res) {
+  // 总览统计
+  const [totalUsers] = await sequelize.query(
+    `SELECT COUNT(DISTINCT user_id) AS cnt FROM study_plan_daily_tasks`,
+    { type: sequelize.constructor.QueryTypes.SELECT }
+  );
+  const [taskStats] = await sequelize.query(
+    `SELECT status, COUNT(*) AS cnt FROM study_plan_daily_tasks GROUP BY status`,
+    { type: sequelize.constructor.QueryTypes.SELECT, raw: true }
+  );
+  const taskStatusRaw = await sequelize.query(
+    `SELECT status, COUNT(*) AS cnt FROM study_plan_daily_tasks GROUP BY status`,
+    { type: sequelize.constructor.QueryTypes.SELECT }
+  );
+  const cardStateRaw = await sequelize.query(
+    `SELECT state, COUNT(*) AS cnt FROM study_plan_card_states GROUP BY state`,
+    { type: sequelize.constructor.QueryTypes.SELECT }
+  );
+  const avgCompletion = await sequelize.query(
+    `SELECT ROUND(AVG(completion_rate)*100,1) AS avg_rate FROM study_plan_daily_tasks WHERE status='finished'`,
+    { type: sequelize.constructor.QueryTypes.SELECT }
+  );
+
+  // 近30天趋势
+  const trend = await sequelize.query(
+    `SELECT task_date AS period, COUNT(*) AS tasks, SUM(status='finished') AS finished,
+       ROUND(AVG(completion_rate)*100,1) AS avg_rate
+     FROM study_plan_daily_tasks
+     WHERE task_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+     GROUP BY task_date ORDER BY task_date`,
+    { type: sequelize.constructor.QueryTypes.SELECT }
+  );
+
+  // 用户排行（按完成天数、平均完成率）
+  const userRank = await sequelize.query(
+    `SELECT t.user_id, u.username,
+       COUNT(*) AS total_days,
+       SUM(t.status='finished') AS finished_days,
+       ROUND(AVG(t.completion_rate)*100,1) AS avg_rate,
+       MAX(t.task_date) AS last_active
+     FROM study_plan_daily_tasks t
+     LEFT JOIN users u ON u.id = t.user_id
+     GROUP BY t.user_id
+     ORDER BY finished_days DESC, avg_rate DESC
+     LIMIT 50`,
+    { type: sequelize.constructor.QueryTypes.SELECT }
+  );
+
+  res.json({
+    totalUsers: totalUsers?.cnt || 0,
+    taskStatus: taskStatusRaw,
+    cardState: cardStateRaw,
+    avgCompletionRate: avgCompletion[0]?.avg_rate || 0,
+    trend,
+    userRank,
+  });
+}
+
 module.exports = {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, deduplicateVocab, fixVocabReadings,
@@ -1419,4 +1481,5 @@ module.exports = {
   getAiSettings, saveAiSettings, getAiUsage, resetAiUsage, readAiSettings, saveAiSettingsFile,
   listAdmins, updateAdminPermissions, getAdminInfo,
   listReports, getReport, updateReport, deleteReport,
+  getStudyPlanStats,
 };

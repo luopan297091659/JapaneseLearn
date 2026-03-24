@@ -98,6 +98,8 @@ app.use(apiLogger);
 // Static files (audio, images)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/audio', express.static(path.join(__dirname, '../uploads/audio')));
+// Root-level static files (meta.json etc)
+app.use(express.static(path.join(__dirname, '../public'), { index: false }));
 // Admin panel static files
 app.use('/admin', express.static(path.join(__dirname, '../public/admin')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '../public/admin/index.html')));

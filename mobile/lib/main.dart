@@ -8,6 +8,7 @@ import 'router/app_router.dart';
 import 'l10n/app_localizations.dart';
 import 'providers/locale_provider.dart';
 import 'utils/tts_helper.dart';
+import 'services/plan_reminder_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -67,6 +68,8 @@ void main() async {
   syncService.fetchFeatureTiers();
   // 预初始化 TTS 引擎诊断
   TtsHelper.instance.init();
+  // 初始化学习计划提醒服务
+  await PlanReminderService.instance.init();
   runApp(UncontrolledProviderScope(container: container, child: const JapaneseLearnApp()));
 }
 

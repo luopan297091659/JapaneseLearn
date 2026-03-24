@@ -163,9 +163,23 @@ class SyncService {
       if (serverVer > localVer) {
         // 清除 API 内存缓存，下次页面访问时拉取最新数据
         apiService.invalidateCache();
+
+        // 检查子版本号，按需清除离线缓存
+        final localVocabVer = prefs.getInt('vocab_version') ?? 0;
+        final localGrammarVer = prefs.getInt('grammar_version') ?? 0;
+        final serverVocabVer = (resp['vocab_version'] as num?)?.toInt() ?? 0;
+        final serverGrammarVer = (resp['grammar_version'] as num?)?.toInt() ?? 0;
+
+        if (serverVocabVer > localVocabVer) {
+          await localDb.clearCachedVocabulary();
+        }
+        if (serverGrammarVer > localGrammarVer) {
+          await localDb.clearCachedGrammar();
+        }
+
         await prefs.setInt('content_version', serverVer);
-        await prefs.setInt('vocab_version', (resp['vocab_version'] as num?)?.toInt() ?? 0);
-        await prefs.setInt('grammar_version', (resp['grammar_version'] as num?)?.toInt() ?? 0);
+        await prefs.setInt('vocab_version', serverVocabVer);
+        await prefs.setInt('grammar_version', serverGrammarVer);
         return true;
       }
       return false;

@@ -14,7 +14,16 @@ const _grammarLevelColors = {
 };
 
 class GrammarListScreen extends StatefulWidget {
-  const GrammarListScreen({super.key});
+  final String? initialLevel;
+  final String? planStage;
+  final String? planId;
+
+  const GrammarListScreen({
+    super.key,
+    this.initialLevel,
+    this.planStage,
+    this.planId,
+  });
   @override
   State<GrammarListScreen> createState() => _GrammarListScreenState();
 }
@@ -34,6 +43,10 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    final lv = widget.initialLevel;
+    if (lv != null && ['N5', 'N4', 'N3', 'N2', 'N1'].contains(lv)) {
+      _selectedLevel = lv;
+    }
     _restoreLevel();
   }
 
@@ -51,6 +64,11 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
   }
 
   Future<void> _restoreLevel() async {
+    if (widget.initialLevel != null && ['N5', 'N4', 'N3', 'N2', 'N1'].contains(widget.initialLevel)) {
+      _selectedLevel = widget.initialLevel!;
+      _load();
+      return;
+    }
     final p = await SharedPreferences.getInstance();
     final saved = p.getString('grammar_selected_level');
     if (saved != null && ['N5','N4','N3','N2','N1'].contains(saved)) {
@@ -111,9 +129,18 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final lvCol = _grammarLevelColors[_selectedLevel] ?? cs.primary;
+    final inPlanMode = widget.planId != null && widget.planId!.isNotEmpty;
+    final levels = inPlanMode ? <String>[_selectedLevel] : <String>['N5', 'N4', 'N3', 'N2', 'N1'];
+    final planStageText = switch (widget.planStage) {
+      'new' => '新卡片',
+      'learning' => '学习中',
+      'review' => '待复习',
+      'overdue' => '优先复习',
+      _ => '全部',
+    };
     return Scaffold(
       appBar: AppBar(
-        title: const Text('文法課程'),
+        title: Text(inPlanMode ? '学习计划 · 语法' : '文法課程'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
           tooltip: '返回',
@@ -126,7 +153,7 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              child: Row(children: ['N5', 'N4', 'N3', 'N2', 'N1'].map((l) {
+              child: Row(children: levels.map((l) {
                 final color = _grammarLevelColors[l] ?? cs.primary;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -142,7 +169,9 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
                     side: _selectedLevel == l
                         ? BorderSide(color: color, width: 1.5)
                         : null,
-                    onSelected: (_) { setState(() => _selectedLevel = l); _saveLevel(l); _load(); },
+                    onSelected: inPlanMode
+                        ? null
+                        : (_) { setState(() => _selectedLevel = l); _saveLevel(l); _load(); },
                   ),
                 );
               }).toList()),
@@ -169,15 +198,44 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
                       itemCount: _lessons.length + 2, // header + footer
                       itemBuilder: (_, i) {
                         if (i == 0) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Row(
-                              children: [
-                                Text('共 $_total 条', style: TextStyle(fontSize: 13, color: cs.outline, fontWeight: FontWeight.w500)),
-                                const Spacer(),
-                                Text('${_lessons.length}/$_total', style: TextStyle(fontSize: 12, color: cs.outlineVariant)),
-                              ],
-                            ),
+                          if (!inPlanMode) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Row(
+                                children: [
+                                  Text('共 $_total 条', style: TextStyle(fontSize: 13, color: cs.outline, fontWeight: FontWeight.w500)),
+                                  const Spacer(),
+                                  Text('${_lessons.length}/$_total', style: TextStyle(fontSize: 12, color: cs.outlineVariant)),
+                                ],
+                              ),
+                            );
+                          }
+                          return Column(
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: cs.primaryContainer.withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '计划模式：等级 $_selectedLevel · 阶段 $planStageText',
+                                  style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: Row(
+                                  children: [
+                                    Text('共 $_total 条', style: TextStyle(fontSize: 13, color: cs.outline, fontWeight: FontWeight.w500)),
+                                    const Spacer(),
+                                    Text('${_lessons.length}/$_total', style: TextStyle(fontSize: 12, color: cs.outlineVariant)),
+                                  ],
+                                ),
+                              ),
+                            ],
                           );
                         }
                         final idx = i - 1;

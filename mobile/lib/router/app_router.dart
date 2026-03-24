@@ -34,6 +34,8 @@ import '../screens/news/nhk_detail_screen.dart';
 import '../screens/tools/todofuken_quiz_screen.dart';
 import '../screens/tools/translate_screen.dart';
 import '../screens/tools/study_plan_screen.dart';
+import '../screens/tools/study_plan_detail_screen.dart';
+import '../screens/tools/study_plan_run_screen.dart';
 import '../screens/quiz/kana_writing_test_screen.dart';
 import '../screens/quiz/grammar_quiz_screen.dart';
 import '../screens/tools/wrong_answers_screen.dart';
@@ -78,7 +80,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/study', builder: (_, __) => const StudyTab()),
           GoRoute(path: '/test', builder: (_, __) => const TestTab()),
           GoRoute(path: '/tools', builder: (_, __) => const ToolsTab()),
-          GoRoute(path: '/vocabulary', builder: (_, __) => const VocabularyListScreen()),
+          GoRoute(
+            path: '/vocabulary',
+            builder: (_, state) => VocabularyListScreen(
+              initialLevel: state.uri.queryParameters['level'],
+              planStage: state.uri.queryParameters['stage'],
+              planId: state.uri.queryParameters['planId'],
+            ),
+          ),
           GoRoute(
             path: '/vocabulary/:id',
             builder: (_, state) {
@@ -86,7 +95,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               return VocabularyDetailScreen(id: state.pathParameters['id']!, wordIds: ids);
             },
           ),
-          GoRoute(path: '/grammar', builder: (_, __) => const GrammarListScreen()),
+          GoRoute(
+            path: '/grammar',
+            builder: (_, state) => GrammarListScreen(
+              initialLevel: state.uri.queryParameters['level'],
+              planStage: state.uri.queryParameters['stage'],
+              planId: state.uri.queryParameters['planId'],
+            ),
+          ),
           GoRoute(
             path: '/grammar/:id',
             builder: (_, state) {
@@ -97,7 +113,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/listening', builder: (_, __) => const ListeningScreen()),
           GoRoute(path: '/listening-exercise', builder: (_, __) => const ListeningExerciseScreen()),
           GoRoute(path: '/quiz', builder: (_, __) => const QuizScreen()),
-          GoRoute(path: '/grammar-quiz', builder: (_, __) => const GrammarQuizScreen()),
+          GoRoute(
+            path: '/grammar-quiz',
+            builder: (_, state) => GrammarQuizScreen(
+              initialLevel: state.uri.queryParameters['level'],
+              initialCount: int.tryParse(state.uri.queryParameters['count'] ?? ''),
+              autoStart: state.uri.queryParameters['autostart'] == '1',
+            ),
+          ),
           GoRoute(
             path: '/quiz/result',
             builder: (_, state) => QuizResultScreen(
@@ -113,7 +136,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(path: '/anki-import', builder: (_, __) => const AnkiImportScreen()),
-          GoRoute(path: '/local-vocab',  builder: (_, __) => const LocalVocabScreen()),
+          GoRoute(
+            path: '/local-vocab',
+            builder: (_, state) => LocalVocabScreen(
+              initialDeckRoot: state.uri.queryParameters['deck'],
+              initialStage: int.tryParse(state.uri.queryParameters['stage'] ?? ''),
+              planId: state.uri.queryParameters['planId'],
+            ),
+          ),
           GoRoute(
             path: '/local-vocab/:id',
             builder: (_, state) => LocalVocabDetailScreen(
@@ -146,6 +176,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/todofuken-quiz', builder: (_, __) => const TodofukenQuizScreen()),
           GoRoute(path: '/translate', builder: (_, __) => const TranslateScreen()),
           GoRoute(path: '/study-plan', builder: (_, __) => const StudyPlanScreen()),
+          GoRoute(
+            path: '/study-plan/:id',
+            builder: (_, state) => StudyPlanDetailScreen(
+              planId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: '/study-plan/:id/run',
+            builder: (_, state) => StudyPlanRunScreen(
+              planId: state.pathParameters['id']!,
+              stage: state.uri.queryParameters['stage'],
+            ),
+          ),
           GoRoute(path: '/kana-writing-test', builder: (_, __) => const KanaWritingTestScreen()),
           GoRoute(path: '/wrong-answers', builder: (_, __) => const WrongAnswersScreen()),
           GoRoute(path: '/immersion', builder: (_, __) => const ImmersionScreen()),

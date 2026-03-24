@@ -8,7 +8,16 @@ import '../../models/models.dart';
 import '../../widgets/furigana_text.dart';
 
 class GrammarQuizScreen extends StatefulWidget {
-  const GrammarQuizScreen({super.key});
+  final String? initialLevel;
+  final int? initialCount;
+  final bool autoStart;
+
+  const GrammarQuizScreen({
+    super.key,
+    this.initialLevel,
+    this.initialCount,
+    this.autoStart = false,
+  });
   @override
   State<GrammarQuizScreen> createState() => _GrammarQuizScreenState();
 }
@@ -120,6 +129,24 @@ class _GrammarQuizScreenState extends State<GrammarQuizScreen> {
     } catch (_) {}
 
     if (mounted) setState(() => _finished = true);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialLevel != null && ['N5', 'N4', 'N3', 'N2', 'N1'].contains(widget.initialLevel)) {
+      _level = widget.initialLevel!;
+    }
+    if (widget.initialCount != null && widget.initialCount! > 0) {
+      _count = widget.initialCount!;
+    }
+    if (widget.autoStart) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_started && !_loading) {
+          _startQuiz();
+        }
+      });
+    }
   }
 
   @override

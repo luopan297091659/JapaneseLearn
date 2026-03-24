@@ -19,6 +19,7 @@ const {
   getAiSettings, saveAiSettings, getAiUsage, resetAiUsage,
   listAdmins, updateAdminPermissions, getAdminInfo,
   listReports, getReport, updateReport, deleteReport,
+  getStudyPlanStats,
 } = require('../controllers/adminController');
 const {
   adminListChannels, adminCreateChannel, adminUpdateChannel, adminDeleteChannel, adminRefreshChannel,
@@ -142,5 +143,8 @@ router.get('/reports',        permissionCheck('reports'), asyncHandler(listRepor
 router.get('/reports/:id',    permissionCheck('reports'), asyncHandler(getReport));
 router.put('/reports/:id',    permissionCheck('reports'), asyncHandler(updateReport));
 router.delete('/reports/:id', permissionCheck('reports'), asyncHandler(deleteReport));
+
+// 学习计划管理
+router.get('/study-plan/stats', permissionCheck('stats'), asyncHandler(getStudyPlanStats));
 
 module.exports = router;

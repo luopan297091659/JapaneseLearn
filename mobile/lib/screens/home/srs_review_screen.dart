@@ -27,7 +27,37 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
   Future<void> _loadCards() async {
     try {
       final res = await apiService.getDueCards(limit: 200);
-      setState(() { _cards = res['cards'] as List<SrsCardModel>; _loading = false; });
+      final cards = res['cards'] as List<SrsCardModel>;
+      // Fetch missing content for cards without it
+      final enriched = <SrsCardModel>[];
+      for (final card in cards) {
+        if (card.content != null) {
+          enriched.add(card);
+          continue;
+        }
+        try {
+          dynamic content;
+          if (card.cardType == 'vocabulary') {
+            content = await apiService.getVocabularyById(card.refId);
+          } else if (card.cardType == 'grammar') {
+            content = await apiService.getGrammarLesson(card.refId);
+          }
+          enriched.add(SrsCardModel(
+            id: card.id,
+            cardType: card.cardType,
+            refId: card.refId,
+            repetitions: card.repetitions,
+            easeFactor: card.easeFactor,
+            intervalDays: card.intervalDays,
+            dueDate: card.dueDate,
+            isGraduated: card.isGraduated,
+            content: content,
+          ));
+        } catch (_) {
+          enriched.add(card);
+        }
+      }
+      setState(() { _cards = enriched; _loading = false; });
     } catch (_) {
       setState(() => _loading = false);
       if (mounted) {
@@ -77,6 +107,31 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
       setState(() { _current++; _showAnswer = false; });
     }
   }
+
+  // ─── SM-2 间隔预算（与后端保持一致） ──────────────────────────────
+  int _calcNextInterval(int quality) {
+    final card = _cards[_current];
+    if (quality < 3) return 0;
+    double ease = (card.easeFactor + 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
+        .clamp(1.3, 4.0);
+    if (card.repetitions == 0) return 1;
+    if (card.repetitions == 1) return 6;
+    return (card.intervalDays * ease).round().clamp(1, 36500);
+  }
+
+  static String _fmtDays(int days) {
+    if (days == 0) return '<10分';
+    if (days < 30) return '$days天';
+    if (days < 365) return '${(days / 30).round()}月';
+    return '${(days / 365).round()}年';
+  }
+
+  List<({String label, Color color, String interval, int quality})> _buildSrsIntervals() => [
+    (label: '重来', color: Colors.red.shade400,    interval: '<10分',                         quality: 0),
+    (label: '困难', color: Colors.orange.shade400, interval: _fmtDays(_calcNextInterval(3)),  quality: 3),
+    (label: '良好', color: Colors.blue.shade400,   interval: _fmtDays(_calcNextInterval(4)),  quality: 4),
+    (label: '简单', color: Colors.green.shade400,  interval: _fmtDays(_calcNextInterval(5)),  quality: 5),
+  ];
 
   void _finishSession() {
     final duration = DateTime.now().difference(_startTime).inSeconds;
@@ -135,6 +190,8 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
 
     final card = _cards[_current];
     final vocab = card.content is VocabularyModel ? card.content as VocabularyModel : null;
+    final grammar = card.content is GrammarLessonModel ? card.content as GrammarLessonModel : null;
+    final hasContent = vocab != null || grammar != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -168,65 +225,59 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Word
-                      Text(
-                        vocab?.word ?? card.refId,
-                        style: const TextStyle(fontSize: 56, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      if (_showAnswer) ...[
-                        Text(vocab?.reading ?? '', style: TextStyle(fontSize: 24, color: cs.primary)),
-                        const SizedBox(height: 8),
-                        Text(vocab?.meaningZh ?? '', style: const TextStyle(fontSize: 20)),
-                        const SizedBox(height: 16),
-                        if (vocab?.exampleSentence != null)
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: cs.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(8),
+                  child: !hasContent
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.error_outline_rounded, size: 48, color: cs.outline),
+                            const SizedBox(height: 12),
+                            Text('内容不可用', style: TextStyle(fontSize: 18, color: cs.outline)),
+                            const SizedBox(height: 16),
+                            OutlinedButton(
+                              onPressed: () => _submitReview(3),
+                              child: const Text('跳过此卡'),
                             ),
-                            child: Column(
-                              children: [
-                                Text(vocab!.exampleSentence!, textAlign: TextAlign.center),
-                                Text(vocab.exampleMeaningZh ?? '',
-                                    style: TextStyle(color: cs.outline, fontSize: 12)),
-                              ],
-                            ),
-                          ),
-                      ] else ...[
-                        const SizedBox(height: 8),
-                        Text('点击"显示答案"查看释义',
-                            style: TextStyle(color: cs.outline)),
-                      ]
-                    ],
-                  ),
+                          ],
+                        )
+                      : vocab != null
+                          ? _buildVocabContent(vocab, cs)
+                          : _buildGrammarContent(grammar!, cs),
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            if (!_showAnswer) ...[
-              FilledButton.icon(
-                onPressed: () => setState(() => _showAnswer = true),
-                icon: const Icon(Icons.visibility_rounded),
-                label: const Text('显示答案'),
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-              ),
-            ] else ...[
-              const Text('你记住了吗？', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Row(children: [
-                Expanded(child: _QualityButton(label: '重来', quality: 0, color: Colors.red, onTap: _submitReview)),
-                const SizedBox(width: 8),
-                Expanded(child: _QualityButton(label: '困难', quality: 3, color: Colors.orange, onTap: _submitReview)),
-                const SizedBox(width: 8),
-                Expanded(child: _QualityButton(label: '良好', quality: 4, color: Colors.blue, onTap: _submitReview)),
-                const SizedBox(width: 8),
-                Expanded(child: _QualityButton(label: '简单', quality: 5, color: Colors.green, onTap: _submitReview)),
-              ]),
+            if (hasContent) ...[
+              if (!_showAnswer) ...[
+                FilledButton.icon(
+                  onPressed: () => setState(() => _showAnswer = true),
+                  icon: const Icon(Icons.visibility_rounded),
+                  label: const Text('显示答案'),
+                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                ),
+              ] else ...[
+                const Text('你记住了吗？', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Row(children: _buildSrsIntervals().map((item) => Expanded(
+                    child: GestureDetector(
+                      onTap: () => _submitReview(item.quality),
+                      child: Container(
+                        color: item.color,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(item.interval, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                            const SizedBox(height: 2),
+                            Text(item.label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )).toList()),
+                ),
+              ],
             ],
             const SizedBox(height: 8),
           ],
@@ -234,31 +285,77 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
       ),
     );
   }
-}
 
-class _QualityButton extends StatelessWidget {
-  final String label;
-  final int quality;
-  final Color color;
-  final Future<void> Function(int) onTap;
+  Widget _buildVocabContent(VocabularyModel vocab, ColorScheme cs) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(vocab.word, style: const TextStyle(fontSize: 56, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        if (_showAnswer) ...[
+          Text(vocab.reading, style: TextStyle(fontSize: 24, color: cs.primary)),
+          const SizedBox(height: 8),
+          Text(vocab.meaningZh, style: const TextStyle(fontSize: 20)),
+          const SizedBox(height: 16),
+          if (vocab.exampleSentence != null)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Text(vocab.exampleSentence!, textAlign: TextAlign.center),
+                  Text(vocab.exampleMeaningZh ?? '',
+                      style: TextStyle(color: cs.outline, fontSize: 12)),
+                ],
+              ),
+            ),
+        ] else ...[
+          const SizedBox(height: 8),
+          Text('点击"显示答案"查看释义', style: TextStyle(color: cs.outline)),
+        ],
+      ],
+    );
+  }
 
-  const _QualityButton({
-    required this.label, required this.quality,
-    required this.color, required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: () => onTap(quality),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color.withValues(alpha: 0.15),
-        foregroundColor: color,
-        side: BorderSide(color: color),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      child: Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11)),
+  Widget _buildGrammarContent(GrammarLessonModel grammar, ColorScheme cs) {
+    final title = (grammar.titleZh ?? grammar.title).trim();
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(grammar.pattern, style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        if (_showAnswer) ...[
+          if (title.isNotEmpty)
+            Text(title, style: TextStyle(fontSize: 20, color: cs.primary)),
+          const SizedBox(height: 8),
+          Text(grammar.explanationZh ?? grammar.explanation ?? '',
+              style: const TextStyle(fontSize: 17), textAlign: TextAlign.center),
+          const SizedBox(height: 12),
+          if (grammar.examples.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Text(grammar.examples.first.sentence, textAlign: TextAlign.center),
+                  Text(grammar.examples.first.meaningZh,
+                      style: TextStyle(color: cs.outline, fontSize: 12)),
+                ],
+              ),
+            ),
+        ] else ...[
+          const SizedBox(height: 8),
+          Text('点击"显示答案"查看释义', style: TextStyle(color: cs.outline)),
+        ],
+      ],
     );
   }
 }
+
+// _QualityButton 已替换为内联 Anki 风格评分栏

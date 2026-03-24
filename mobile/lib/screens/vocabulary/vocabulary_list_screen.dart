@@ -8,7 +8,16 @@ import '../../l10n/app_localizations.dart';
 import '../../utils/japanese_text_utils.dart';
 
 class VocabularyListScreen extends StatefulWidget {
-  const VocabularyListScreen({super.key});
+  final String? initialLevel;
+  final String? planStage;
+  final String? planId;
+
+  const VocabularyListScreen({
+    super.key,
+    this.initialLevel,
+    this.planStage,
+    this.planId,
+  });
   @override
   State<VocabularyListScreen> createState() => _VocabularyListScreenState();
 }
@@ -34,10 +43,19 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
   void initState() {
     super.initState();
     _scrollCtrl.addListener(_onScroll);
+    final lv = widget.initialLevel;
+    if (lv != null && ['N5', 'N4', 'N3', 'N2', 'N1'].contains(lv)) {
+      _selectedLevel = lv;
+    }
     _restoreLevel();
   }
 
   Future<void> _restoreLevel() async {
+    if (widget.initialLevel != null && ['N5', 'N4', 'N3', 'N2', 'N1'].contains(widget.initialLevel)) {
+      _selectedLevel = widget.initialLevel!;
+      _loadWords(reset: true);
+      return;
+    }
     final p = await SharedPreferences.getInstance();
     final saved = p.getString('vocab_selected_level');
     if (saved != null && ['N5','N4','N3','N2','N1'].contains(saved)) {
@@ -136,9 +154,18 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final inPlanMode = widget.planId != null && widget.planId!.isNotEmpty;
+    final levels = inPlanMode ? <String>[_selectedLevel] : <String>['N5', 'N4', 'N3', 'N2', 'N1'];
+    final planStageText = switch (widget.planStage) {
+      'new' => '新卡片',
+      'learning' => '学习中',
+      'review' => '待复习',
+      'overdue' => '优先复习',
+      _ => '全部',
+    };
     return Scaffold(
       appBar: AppBar(
-        title: const Text('単語学習'),
+        title: Text(inPlanMode ? '学习计划 · 单词' : '単語学習'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
           tooltip: '返回',
@@ -170,16 +197,18 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: ['N5', 'N4', 'N3', 'N2', 'N1'].map((l) => Padding(
+                  children: levels.map((l) => Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: FilterChip(
                       label: Text(l),
                       selected: _selectedLevel == l,
-                      onSelected: (_) {
-                        setState(() => _selectedLevel = l);
-                        _saveLevel(l);
-                        _loadWords(reset: true);
-                      },
+                      onSelected: inPlanMode
+                          ? null
+                          : (_) {
+                              setState(() => _selectedLevel = l);
+                              _saveLevel(l);
+                              _loadWords(reset: true);
+                            },
                     ),
                   )).toList(),
                 ),
@@ -195,6 +224,22 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (inPlanMode)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '计划模式：等级 $_selectedLevel · 阶段 $planStageText',
+                          style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer),
+                        ),
+                      ),
+                    ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                     child: Text(

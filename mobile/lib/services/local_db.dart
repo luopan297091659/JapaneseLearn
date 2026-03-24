@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import '../models/models.dart';
@@ -14,9 +15,11 @@ class LocalDb {
   Database? _db;
 
   static const _dbName    = 'japanese_learn_local.db';
-  static const _dbVersion = 4;
+  static const _dbVersion = 5;
 
   static const tableVocab = 'local_vocabulary';
+  static const tableCachedVocab = 'cached_vocabulary';
+  static const tableCachedGrammar = 'cached_grammar';
 
   // ─── 初始化 ─────────────────────────────────────────────────────────────
   Future<Database> get db async {
@@ -61,6 +64,9 @@ class LocalDb {
     await db.execute('CREATE INDEX idx_deck ON $tableVocab (deck_name)');
     await db.execute('CREATE INDEX idx_level ON $tableVocab (jlpt_level)');
     await db.execute('CREATE INDEX idx_synced ON $tableVocab (synced)');
+
+    // ─── 离线缓存表 ─────────────────────────────────────────────────────
+    await _createCacheTables(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -77,6 +83,52 @@ class LocalDb {
       await db.execute('ALTER TABLE $tableVocab ADD COLUMN learning_stage INTEGER NOT NULL DEFAULT 0');
       await db.execute('UPDATE $tableVocab SET learning_stage = CASE WHEN is_learned = 1 THEN 1 ELSE 0 END');
     }
+    if (oldVersion < 5) {
+      await _createCacheTables(db);
+    }
+  }
+
+  Future<void> _createCacheTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $tableCachedVocab (
+        id                TEXT    PRIMARY KEY,
+        word              TEXT    NOT NULL,
+        reading           TEXT    NOT NULL,
+        meaning_zh        TEXT    NOT NULL,
+        meaning_en        TEXT,
+        part_of_speech    TEXT    NOT NULL DEFAULT 'noun',
+        part_of_speech_raw TEXT,
+        jlpt_level        TEXT    NOT NULL,
+        example_sentence  TEXT,
+        example_reading   TEXT,
+        example_meaning_zh TEXT,
+        example_audio_url TEXT,
+        audio_url         TEXT,
+        image_url         TEXT,
+        category          TEXT,
+        sort_order        INTEGER NOT NULL DEFAULT 0,
+        cached_at         INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_cv_level ON $tableCachedVocab (jlpt_level)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_cv_word ON $tableCachedVocab (word)');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $tableCachedGrammar (
+        id              TEXT    PRIMARY KEY,
+        title           TEXT    NOT NULL,
+        title_zh        TEXT,
+        jlpt_level      TEXT    NOT NULL,
+        pattern         TEXT    NOT NULL,
+        explanation     TEXT,
+        explanation_zh  TEXT,
+        usage_notes     TEXT,
+        examples_json   TEXT,
+        sort_order      INTEGER NOT NULL DEFAULT 0,
+        cached_at       INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_cg_level ON $tableCachedGrammar (jlpt_level)');
   }
 
   // ─── 写入 ────────────────────────────────────────────────────────────────
@@ -347,6 +399,224 @@ class LocalDb {
       tableVocab,
       where: 'deck_name = ? OR deck_name LIKE ?',
       whereArgs: [deckName, '$deckName::%'],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 离线缓存：系统单词 ─────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// 批量缓存系统单词（upsert），附带排序序号
+  Future<void> cacheVocabulary(List<VocabularyModel> items, {int sortOffset = 0}) async {
+    if (items.isEmpty) return;
+    final database = await db;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final batch = database.batch();
+    for (int i = 0; i < items.length; i++) {
+      final v = items[i];
+      batch.insert(tableCachedVocab, {
+        'id':               v.id,
+        'word':             v.word,
+        'reading':          v.reading,
+        'meaning_zh':       v.meaningZh,
+        'meaning_en':       v.meaningEn,
+        'part_of_speech':   v.partOfSpeech,
+        'part_of_speech_raw': v.partOfSpeechRaw,
+        'jlpt_level':       v.jlptLevel,
+        'example_sentence': v.exampleSentence,
+        'example_reading':  v.exampleReading,
+        'example_meaning_zh': v.exampleMeaningZh,
+        'example_audio_url': v.exampleAudioUrl,
+        'audio_url':        v.audioUrl,
+        'image_url':        v.imageUrl,
+        'category':         v.category,
+        'sort_order':       sortOffset + i,
+        'cached_at':        now,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// 从本地缓存查询系统单词（分页），支持搜索
+  Future<Map<String, dynamic>> getCachedVocabulary({
+    required String level,
+    String? query,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final database = await db;
+    final wheres = <String>['jlpt_level = ?'];
+    final args = <dynamic>[level];
+    if (query != null && query.isNotEmpty) {
+      wheres.add('(word LIKE ? OR reading LIKE ? OR meaning_zh LIKE ?)');
+      args.addAll(['%$query%', '%$query%', '%$query%']);
+    }
+    final where = wheres.join(' AND ');
+    final countRes = await database.rawQuery(
+      'SELECT COUNT(*) AS cnt FROM $tableCachedVocab WHERE $where', args,
+    );
+    final total = (countRes.first['cnt'] as int?) ?? 0;
+
+    final offset = (page - 1) * limit;
+    final rows = await database.query(
+      tableCachedVocab,
+      where: where,
+      whereArgs: args,
+      orderBy: 'sort_order ASC',
+      limit: limit,
+      offset: offset,
+    );
+    final data = rows.map(_vocabFromRow).toList();
+    return {'total': total, 'data': data};
+  }
+
+  /// 从缓存获取某级别全部单词 ID（保持排序）
+  Future<List<String>> getCachedVocabularyIds(String level) async {
+    final database = await db;
+    final rows = await database.query(
+      tableCachedVocab,
+      columns: ['id'],
+      where: 'jlpt_level = ?',
+      whereArgs: [level],
+      orderBy: 'sort_order ASC',
+    );
+    return rows.map((r) => r['id'] as String).toList();
+  }
+
+  /// 查询某级别缓存数量
+  Future<int> cachedVocabCount(String level) async {
+    final database = await db;
+    final res = await database.rawQuery(
+      'SELECT COUNT(*) AS cnt FROM $tableCachedVocab WHERE jlpt_level = ?', [level],
+    );
+    return (res.first['cnt'] as int?) ?? 0;
+  }
+
+  /// 清除某级别的缓存单词，不传 level 则清除全部
+  Future<void> clearCachedVocabulary({String? level}) async {
+    final database = await db;
+    if (level != null) {
+      await database.delete(tableCachedVocab, where: 'jlpt_level = ?', whereArgs: [level]);
+    } else {
+      await database.delete(tableCachedVocab);
+    }
+  }
+
+  VocabularyModel _vocabFromRow(Map<String, dynamic> r) => VocabularyModel(
+    id:              r['id'] as String,
+    word:            r['word'] as String,
+    reading:         r['reading'] as String,
+    meaningZh:       r['meaning_zh'] as String,
+    meaningEn:       r['meaning_en'] as String?,
+    partOfSpeech:    r['part_of_speech'] as String? ?? 'noun',
+    partOfSpeechRaw: r['part_of_speech_raw'] as String?,
+    jlptLevel:       r['jlpt_level'] as String,
+    exampleSentence: r['example_sentence'] as String?,
+    exampleReading:  r['example_reading'] as String?,
+    exampleMeaningZh: r['example_meaning_zh'] as String?,
+    exampleAudioUrl: r['example_audio_url'] as String?,
+    audioUrl:        r['audio_url'] as String?,
+    imageUrl:        r['image_url'] as String?,
+    category:        r['category'] as String?,
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 离线缓存：系统文法 ─────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// 批量缓存文法条目（upsert），examples 序列化为 JSON
+  Future<void> cacheGrammar(List<GrammarLessonModel> items, {int sortOffset = 0}) async {
+    if (items.isEmpty) return;
+    final database = await db;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final batch = database.batch();
+    for (int i = 0; i < items.length; i++) {
+      final g = items[i];
+      final exJson = jsonEncode(g.examples.map((e) => {
+        'id': e.id, 'sentence': e.sentence,
+        'reading': e.reading, 'meaning_zh': e.meaningZh,
+        'audio_url': e.audioUrl,
+      }).toList());
+      batch.insert(tableCachedGrammar, {
+        'id':             g.id,
+        'title':          g.title,
+        'title_zh':       g.titleZh,
+        'jlpt_level':     g.jlptLevel,
+        'pattern':        g.pattern,
+        'explanation':    g.explanation,
+        'explanation_zh': g.explanationZh,
+        'usage_notes':    g.usageNotes,
+        'examples_json':  exJson,
+        'sort_order':     sortOffset + i,
+        'cached_at':      now,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// 从本地缓存查询文法（分页）
+  Future<Map<String, dynamic>> getCachedGrammar({
+    required String level,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final database = await db;
+    final countRes = await database.rawQuery(
+      'SELECT COUNT(*) AS cnt FROM $tableCachedGrammar WHERE jlpt_level = ?', [level],
+    );
+    final total = (countRes.first['cnt'] as int?) ?? 0;
+
+    final offset = (page - 1) * limit;
+    final rows = await database.query(
+      tableCachedGrammar,
+      where: 'jlpt_level = ?',
+      whereArgs: [level],
+      orderBy: 'sort_order ASC',
+      limit: limit,
+      offset: offset,
+    );
+    final data = rows.map(_grammarFromRow).toList();
+    return {'total': total, 'data': data};
+  }
+
+  /// 查询某级别缓存文法数量
+  Future<int> cachedGrammarCount(String level) async {
+    final database = await db;
+    final res = await database.rawQuery(
+      'SELECT COUNT(*) AS cnt FROM $tableCachedGrammar WHERE jlpt_level = ?', [level],
+    );
+    return (res.first['cnt'] as int?) ?? 0;
+  }
+
+  /// 清除某级别的缓存文法，不传 level 则清除全部
+  Future<void> clearCachedGrammar({String? level}) async {
+    final database = await db;
+    if (level != null) {
+      await database.delete(tableCachedGrammar, where: 'jlpt_level = ?', whereArgs: [level]);
+    } else {
+      await database.delete(tableCachedGrammar);
+    }
+  }
+
+  GrammarLessonModel _grammarFromRow(Map<String, dynamic> r) {
+    List<GrammarExampleModel> examples = [];
+    final exStr = r['examples_json'] as String?;
+    if (exStr != null && exStr.isNotEmpty) {
+      final list = jsonDecode(exStr) as List<dynamic>;
+      examples = list.map((e) => GrammarExampleModel.fromJson(
+        Map<String, dynamic>.from(e as Map),
+      )).toList();
+    }
+    return GrammarLessonModel(
+      id:            r['id'] as String,
+      title:         r['title'] as String,
+      titleZh:       r['title_zh'] as String?,
+      jlptLevel:     r['jlpt_level'] as String,
+      pattern:       r['pattern'] as String,
+      explanation:   r['explanation'] as String?,
+      explanationZh: r['explanation_zh'] as String?,
+      usageNotes:    r['usage_notes'] as String?,
+      examples:      examples,
     );
   }
 

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/local_db.dart';
+import '../../services/api_service.dart';
+import '../../services/plan_reminder_service.dart';
 
 class StudyPlanScreen extends StatefulWidget {
   const StudyPlanScreen({super.key});
@@ -14,6 +16,7 @@ class StudyPlanScreen extends StatefulWidget {
 class _StudyPlanScreenState extends State<StudyPlanScreen> {
   static const _storageKey = 'study_plans_v1';
   static const _activePlanKey = 'study_plans_active_id_v1';
+  static const _planCardsKeyPrefix = 'study_plan_new_cards_v1_';
 
   List<Map<String, dynamic>> _plans = [];
   List<String> _ankiDeckRoots = [];
@@ -43,6 +46,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       }
     }
 
+    final hasActive = plans.any((p) => (p['status'] ?? 'not_started').toString() == 'in_progress');
+
     if (!mounted) return;
     final deckNames = decks.map((d) => d.deckName).toSet().toList()..sort();
     final deckRoots = deckNames
@@ -58,6 +63,20 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       _activePlanId = activePlanId;
       _loading = false;
     });
+
+    final activePlan = hasActive
+        ? plans.firstWhere((p) => (p['status'] ?? 'not_started').toString() == 'in_progress', orElse: () => <String, dynamic>{})
+        : <String, dynamic>{};
+    await PlanReminderService.instance.syncByPlanState(
+      hasActivePlan: activePlan.isNotEmpty,
+      activePlanName: activePlan['name']?.toString(),
+    );
+
+    if (!hasActive && activePlanId != null) {
+      final prefs2 = await SharedPreferences.getInstance();
+      await prefs2.remove(_activePlanKey);
+      await _savePlans();
+    }
   }
 
   Future<void> _savePlans() async {
@@ -73,6 +92,133 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       await prefs.setString(_activePlanKey, planId);
     }
     if (mounted) setState(() => _activePlanId = planId);
+  }
+
+  String _planCardsStorageKey(String planId) => '$_planCardsKeyPrefix$planId';
+
+  String _planStatus(Map<String, dynamic> plan) => (plan['status'] ?? 'not_started').toString();
+
+  int _planPriority(Map<String, dynamic> plan) {
+    final status = _planStatus(plan);
+    if (status == 'in_progress') return 0;
+    if (status == 'not_started') return 1;
+    return 2;
+  }
+
+  String _planStatusText(String status) {
+    switch (status) {
+      case 'in_progress':
+        return '进行中';
+      case 'ended':
+        return '已结束';
+      default:
+        return '未开始';
+    }
+  }
+
+  Color _planStatusColor(ColorScheme cs, String status) {
+    switch (status) {
+      case 'in_progress':
+        return cs.primary;
+      case 'ended':
+        return cs.outline;
+      default:
+        return Colors.orange;
+    }
+  }
+
+  Future<List<String>> _fetchAllGrammarIds(String level) async {
+    const limit = 100;
+    var page = 1;
+    final ids = <String>[];
+
+    while (true) {
+      final res = await apiService.getGrammarLessons(level: level, page: page, limit: limit);
+      final lessons = (res['data'] as List).cast<dynamic>();
+      for (final lesson in lessons) {
+        final id = lesson.id?.toString() ?? '';
+        if (id.isNotEmpty) ids.add(id);
+      }
+
+      final total = (res['total'] as int?) ?? ids.length;
+      if (lessons.isEmpty || ids.length >= total) break;
+      page += 1;
+      if (page > 100) break;
+    }
+
+    return ids;
+  }
+
+  Future<List<String>> _fetchAnkiIds(String deckRoot) async {
+    const limit = 200;
+    var page = 1;
+    final ids = <String>[];
+    final useDeckFilter = deckRoot != '__all__' && deckRoot.isNotEmpty;
+
+    while (true) {
+      final rows = await localDb.listByDeck(
+        deckName: useDeckFilter ? deckRoot : null,
+        prefixMatch: useDeckFilter,
+        page: page,
+        limit: limit,
+      );
+      if (rows.isEmpty) break;
+      ids.addAll(rows.map((e) => e.id));
+      if (rows.length < limit) break;
+      page += 1;
+      if (page > 200) break;
+    }
+
+    return ids;
+  }
+
+  Future<Map<String, dynamic>> _enrichPlanWithImportedCards(Map<String, dynamic> base) async {
+    final planId = base['id'].toString();
+    final includeVocab = base['includeVocabulary'] == true;
+    final includeGrammar = base['includeGrammar'] == true;
+    final includeAnki = base['includeAnki'] == true;
+    final dailyTarget = ((base['dailyTarget'] as int?) ?? 20).clamp(1, 999);
+
+    List<String> ids = const [];
+    String type = 'vocabulary';
+
+    if (includeVocab) {
+      type = 'vocabulary';
+      final level = (base['vocabularyLevel'] ?? 'N5').toString();
+      ids = await apiService.getVocabularyIdsByLevel(level);
+    } else if (includeGrammar) {
+      type = 'grammar';
+      final level = (base['grammarLevel'] ?? 'N5').toString();
+      ids = await _fetchAllGrammarIds(level);
+    } else if (includeAnki) {
+      type = 'anki';
+      final deckRoot = (base['ankiDeckRoot'] ?? '').toString();
+      ids = await _fetchAnkiIds(deckRoot);
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _planCardsStorageKey(planId),
+      jsonEncode({
+        'planId': planId,
+        'type': type,
+        'ids': ids,
+        'importedAt': DateTime.now().toIso8601String(),
+      }),
+    );
+
+    final total = ids.length;
+    final estimatedDays = total == 0 ? 0 : ((total + dailyTarget - 1) ~/ dailyTarget);
+
+    return {
+      ...base,
+      'totalCardCount': total,
+      'importedCount': total,
+      'estimatedDays': estimatedDays,
+      'status': (base['status'] ?? 'not_started').toString(),
+      'dailyTarget': dailyTarget,
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
   }
 
   Map<String, dynamic>? get _activePlan {
@@ -109,31 +255,86 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     }
   }
 
-  Future<void> _startPlan(Map<String, dynamic> plan) async {
-    await _setActivePlan(plan['id']?.toString());
+  Future<void> _openPlanDetail(Map<String, dynamic> plan) async {
+    await context.push('/study-plan/${plan['id']}');
+  }
+
+  Future<void> _pausePlan(Map<String, dynamic> plan) async {
+    final planId = plan['id']?.toString();
+    if (planId == null || planId.isEmpty) return;
+
+    for (final p in _plans) {
+      if (p['id']?.toString() == planId) {
+        p['status'] = 'not_started';
+      }
+    }
+    await _savePlans();
+    if (_activePlanId == planId) {
+      await _setActivePlan(null);
+      await PlanReminderService.instance.cancelDailyReminder();
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _startPlanAndOpen(Map<String, dynamic> plan) async {
+    final planId = plan['id']?.toString();
+    if (planId == null || planId.isEmpty) return;
+
+    for (final p in _plans) {
+      if (p['id']?.toString() == planId) {
+        p['status'] = 'in_progress';
+      }
+    }
+    await _savePlans();
+    await _setActivePlan(planId);
+    try {
+      await apiService.getStudyPlanToday();
+      await apiService.startStudyPlanDay();
+    } catch (_) {
+      // 后端接口失败不阻断本地计划
+    }
+    final reminder = await PlanReminderService.instance.getReminderTime();
+    await PlanReminderService.instance.scheduleDailyReminder(
+      planName: (plan['name'] ?? '学习计划').toString(),
+      hour: reminder.hour,
+      minute: reminder.minute,
+    );
+    if (!mounted) return;
+    setState(() {});
+    await _openPlanDetail(plan);
+  }
+
+  Future<void> _pickReminderTime() async {
+    final current = await PlanReminderService.instance.getReminderTime();
+    if (!mounted) return;
+    final selected = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: current.hour, minute: current.minute),
+      helpText: '学习计划每日提醒时间',
+    );
+    if (selected == null) return;
+
+    await PlanReminderService.instance.saveReminderTime(
+      hour: selected.hour,
+      minute: selected.minute,
+    );
+
+    final active = _activePlan;
+    if (active != null) {
+      await PlanReminderService.instance.scheduleDailyReminder(
+        planName: (active['name'] ?? '学习计划').toString(),
+        hour: selected.hour,
+        minute: selected.minute,
+      );
+    }
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('已开启「${plan['name'] ?? '学习计划'}」'),
         behavior: SnackBarBehavior.floating,
+        content: Text('每日提醒时间已设置为 ${selected.hour.toString().padLeft(2, '0')}:${selected.minute.toString().padLeft(2, '0')}'),
       ),
     );
-  }
-
-  Future<void> _openPlanModule(String module, Map<String, dynamic> plan) async {
-    switch (module) {
-      case 'vocabulary':
-        await context.push('/vocabulary');
-        break;
-      case 'grammar':
-        await context.push('/grammar');
-        break;
-      case 'anki':
-        await context.push('/local-vocab');
-        break;
-      default:
-        break;
-    }
   }
 
   Future<void> _showPlanEditor({int? editIndex}) async {
@@ -141,6 +342,9 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     final original = editing ? _plans[editIndex] : <String, dynamic>{};
 
     final nameCtrl = TextEditingController(text: (original['name'] as String?) ?? '');
+    final dailyTargetCtrl = TextEditingController(
+      text: ((original['dailyTarget'] as int?) ?? 20).toString(),
+    );
     var vocabLevel = (original['vocabularyLevel'] as String?) ?? 'N5';
     var grammarLevel = (original['grammarLevel'] as String?) ?? 'N5';
     var selectedType = 'vocabulary';
@@ -178,6 +382,16 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                     labelText: '计划名称',
                     hintText: '例如：N3冲刺计划',
                     prefixIcon: Icon(Icons.edit_note_rounded),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: dailyTargetCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: '每日学习数目',
+                    hintText: '默认 20',
+                    prefixIcon: Icon(Icons.today_rounded),
                   ),
                 ),
                 if (error != null) ...[
@@ -221,25 +435,37 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                   contentPadding: EdgeInsets.zero,
                   value: 'anki',
                   groupValue: selectedType,
-                  onChanged: (v) => setSt(() => selectedType = v ?? 'anki'),
-                  title: const Text('Anki词库'),
-                  subtitle: const Text('按词库加入本地 Anki 复习'),
+                  onChanged: (v) => setSt(() {
+                    selectedType = v ?? 'anki';
+                    if (ankiDeckRoot.isEmpty) ankiDeckRoot = '__all__';
+                  }),
+                  title: const Text('Anki词牌'),
+                  subtitle: const Text('使用已导入的 Anki 牌组学习'),
                 ),
-                if (selectedType == 'anki') ...[
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    value: ankiDeckRoot.isEmpty ? null : ankiDeckRoot,
-                    decoration: const InputDecoration(
-                      labelText: '选择词牌',
-                      prefixIcon: Icon(Icons.folder_copy_rounded),
-                    ),
-                    items: [
-                      const DropdownMenuItem(value: '__all__', child: Text('全部词牌')),
-                      ..._ankiDeckRoots.map((name) => DropdownMenuItem(value: name, child: Text(name))),
-                    ],
-                    onChanged: (v) => setSt(() => ankiDeckRoot = v ?? ''),
-                  ),
-                ],
+                if (selectedType == 'anki')
+                  _ankiDeckRoots.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.only(left: 16, top: 4),
+                          child: Text('暂无已导入的牌组，请先在「Anki导入」中导入', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.only(left: 16, right: 16),
+                          child: DropdownButtonFormField<String>(
+                            value: ankiDeckRoot.isEmpty || (!_ankiDeckRoots.contains(ankiDeckRoot) && ankiDeckRoot != '__all__')
+                                ? '__all__'
+                                : ankiDeckRoot,
+                            decoration: const InputDecoration(
+                              labelText: '选择牌组',
+                              prefixIcon: Icon(Icons.folder_rounded),
+                              isDense: true,
+                            ),
+                            items: [
+                              const DropdownMenuItem(value: '__all__', child: Text('全部牌组')),
+                              ..._ankiDeckRoots.map((d) => DropdownMenuItem(value: d, child: Text(d))),
+                            ],
+                            onChanged: (v) => setSt(() => ankiDeckRoot = v ?? '__all__'),
+                          ),
+                        ),
               ],
             ),
           ),
@@ -252,8 +478,9 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                   setSt(() => error = '计划名称不能为空');
                   return;
                 }
-                if (selectedType == 'anki' && ankiDeckRoot.isEmpty) {
-                  setSt(() => error = '请选择 Anki 词牌');
+                final dailyTarget = int.tryParse(dailyTargetCtrl.text.trim()) ?? 20;
+                if (dailyTarget <= 0) {
+                  setSt(() => error = '每日学习数目必须大于 0');
                   return;
                 }
                 Navigator.pop(ctx, true);
@@ -269,6 +496,7 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       final includeVocab = selectedType == 'vocabulary';
       final includeGrammar = selectedType == 'grammar';
       final includeAnki = selectedType == 'anki';
+      final dailyTarget = int.tryParse(dailyTargetCtrl.text.trim()) ?? 20;
 
       final item = <String, dynamic>{
         'id': (original['id']?.toString().isNotEmpty == true)
@@ -282,32 +510,61 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
         'includeAnki': includeAnki,
         'ankiDeckRoot': ankiDeckRoot,
         'ankiDeck': ankiDeckRoot,
+        'dailyTarget': dailyTarget,
+        'status': (original['status'] ?? 'not_started').toString(),
       };
 
-      setState(() {
-        if (editing) {
-          _plans[editIndex] = item;
-        } else {
-          _plans.add(item);
+      setState(() => _loading = true);
+      try {
+        final enriched = await _enrichPlanWithImportedCards(item);
+
+        setState(() {
+          if (editing) {
+            _plans[editIndex] = enriched;
+          } else {
+            _plans.add(enriched);
+          }
+        });
+        await _savePlans();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              behavior: SnackBarBehavior.floating,
+              content: Text('已导入 ${enriched['importedCount'] ?? 0} 张新卡片到计划'),
+            ),
+          );
         }
-      });
-      await _savePlans();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              behavior: SnackBarBehavior.floating,
+              content: Text('导入新卡片失败：$e'),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _loading = false);
+      }
     }
 
     nameCtrl.dispose();
+    dailyTargetCtrl.dispose();
   }
 
   String _planSummary(Map<String, dynamic> plan) {
+    final daily = (plan['dailyTarget'] ?? 20).toString();
+    final estimatedDays = (plan['estimatedDays'] ?? 0).toString();
     if (plan['includeVocabulary'] == true) {
-      return '学习类型：单词 · 等级 ${plan['vocabularyLevel'] ?? 'N5'}';
+      return '学习类型：单词 · 等级 ${plan['vocabularyLevel'] ?? 'N5'} · 每日$daily · 预计$estimatedDays天';
     }
     if (plan['includeGrammar'] == true) {
-      return '学习类型：语法 · 等级 ${plan['grammarLevel'] ?? 'N5'}';
+      return '学习类型：语法 · 等级 ${plan['grammarLevel'] ?? 'N5'} · 每日$daily · 预计$estimatedDays天';
     }
     if (plan['includeAnki'] == true) {
       final deckRoot = (plan['ankiDeckRoot'] ?? plan['ankiDeck'] ?? '').toString();
       final deck = deckRoot == '__all__' ? '全部词牌' : (deckRoot.isEmpty ? '词牌' : deckRoot);
-      return '学习类型：Anki · 词牌 $deck';
+      return '学习类型：Anki · 词牌 $deck · 每日$daily · 预计$estimatedDays天';
     }
     return '学习类型：未设置';
   }
@@ -315,6 +572,16 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final displayPlans = [..._plans]
+      ..sort((a, b) {
+        final pa = _planPriority(a);
+        final pb = _planPriority(b);
+        if (pa != pb) return pa.compareTo(pb);
+        final ta = a['updatedAt']?.toString() ?? '';
+        final tb = b['updatedAt']?.toString() ?? '';
+        return tb.compareTo(ta);
+      });
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('学习计划'),
@@ -322,11 +589,18 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
           icon: const Icon(Icons.arrow_back_ios_rounded),
           onPressed: () => context.canPop() ? context.pop() : context.go('/tools'),
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showPlanEditor(),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('新建计划'),
+        actions: [
+          IconButton(
+            tooltip: '新建计划',
+            icon: const Icon(Icons.add_rounded),
+            onPressed: () => _showPlanEditor(),
+          ),
+          IconButton(
+            tooltip: '设置每日提醒时间',
+            icon: const Icon(Icons.alarm_rounded),
+            onPressed: _pickReminderTime,
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -352,20 +626,27 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                 )
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-                  itemCount: _plans.length + (_activePlan != null ? 1 : 0),
+                  itemCount: displayPlans.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
-                    if (_activePlan != null && index == 0) {
-                      return _buildActivePlanCard(cs, _activePlan!);
-                    }
-                    final realIndex = _activePlan != null ? index - 1 : index;
-                    final plan = _plans[realIndex];
+                    final plan = displayPlans[index];
+                    final realIndex = _plans.indexWhere((p) => p['id']?.toString() == plan['id']?.toString());
+                    if (realIndex < 0) return const SizedBox.shrink();
                     final summary = _planSummary(plan);
 
-                    final isActive = plan['id']?.toString() == _activePlanId;
+                    final status = _planStatus(plan);
+                    final isActive = status == 'in_progress';
+                    final statusText = _planStatusText(status);
+                    final statusColor = _planStatusColor(cs, status);
 
                     return Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: isActive
+                            ? const BorderSide(color: Colors.pinkAccent, width: 1.5)
+                            : BorderSide.none,
+                      ),
+                      color: isActive ? Colors.pink.shade50 : null,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         child: Column(
@@ -373,8 +654,11 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                             Row(
                               children: [
                                 CircleAvatar(
-                                  backgroundColor: cs.primaryContainer,
-                                  child: Icon(Icons.route_rounded, color: cs.primary),
+                                  backgroundColor: isActive ? Colors.pinkAccent : cs.primaryContainer,
+                                  child: Icon(
+                                    isActive ? Icons.play_circle_fill_rounded : Icons.route_rounded,
+                                    color: isActive ? Colors.white : cs.primary,
+                                  ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
@@ -387,6 +671,22 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                                     ],
                                   ),
                                 ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    statusText,
+                                    style: TextStyle(
+                                      color: statusColor,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
                                 IconButton(
                                   tooltip: '编辑',
                                   icon: const Icon(Icons.edit_rounded, size: 20),
@@ -400,13 +700,28 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                               ],
                             ),
                             const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.icon(
-                                onPressed: isActive ? null : () => _startPlan(plan),
-                                icon: Icon(isActive ? Icons.check_circle_rounded : Icons.play_arrow_rounded),
-                                label: Text(isActive ? '已开启' : '开启计划'),
-                              ),
+                            Row(
+                              children: [
+                                if (isActive) ...[
+                                  Expanded(
+                                    flex: 1,
+                                    child: OutlinedButton.icon(
+                                      onPressed: () => _pausePlan(plan),
+                                      icon: const Icon(Icons.pause_rounded, size: 18),
+                                      label: const Text('暂停'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                Expanded(
+                                  flex: 2,
+                                  child: FilledButton.icon(
+                                    onPressed: isActive ? () => _openPlanDetail(plan) : () => _startPlanAndOpen(plan),
+                                    icon: Icon(isActive ? Icons.check_circle_rounded : Icons.play_arrow_rounded),
+                                    label: Text(isActive ? '继续学习' : (status == 'ended' ? '重新开始' : '开始计划')),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -414,73 +729,6 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                     );
                   },
                 ),
-    );
-  }
-
-  Widget _buildActivePlanCard(ColorScheme cs, Map<String, dynamic> plan) {
-    final chips = <Widget>[];
-    if (plan['includeVocabulary'] == true) {
-      chips.add(ActionChip(
-        avatar: const Icon(Icons.menu_book_rounded, size: 16),
-        label: Text('单词 ${plan['vocabularyLevel'] ?? 'N5'}'),
-        onPressed: () => _openPlanModule('vocabulary', plan),
-      ));
-    }
-    if (plan['includeGrammar'] == true) {
-      chips.add(ActionChip(
-        avatar: const Icon(Icons.school_rounded, size: 16),
-        label: Text('语法 ${plan['grammarLevel'] ?? 'N5'}'),
-        onPressed: () => _openPlanModule('grammar', plan),
-      ));
-    }
-    if (plan['includeAnki'] == true) {
-      final deckRoot = (plan['ankiDeckRoot'] ?? plan['ankiDeck'] ?? '').toString();
-      final deckLabel = deckRoot == '__all__' ? '全部词牌' : (deckRoot.isEmpty ? '词牌' : deckRoot);
-      chips.add(ActionChip(
-        avatar: const Icon(Icons.folder_copy_rounded, size: 16),
-        label: Text('Anki $deckLabel'),
-        onPressed: () => _openPlanModule('anki', plan),
-      ));
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cs.primaryContainer.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.play_circle_fill_rounded, color: cs.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('进行中：${plan['name'] ?? '学习计划'}',
-                        style: TextStyle(fontWeight: FontWeight.w700, color: cs.primary)),
-                    const SizedBox(height: 2),
-                    Text(
-                      _planSummary(plan),
-                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-              ),
-              TextButton(
-                onPressed: () => _setActivePlan(null),
-                child: const Text('结束'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(spacing: 8, runSpacing: 8, children: chips),
-        ],
-      ),
     );
   }
 }

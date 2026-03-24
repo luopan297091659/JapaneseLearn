@@ -151,6 +151,60 @@ const UserProgress = sequelize.define('UserProgress', {
   studied_at: { type: DataTypes.DATEONLY, allowNull: false, defaultValue: DataTypes.NOW },
 }, { tableName: 'user_progress' });
 
+// ────────── Study Plan Daily Task (方案C) ──────────
+const StudyPlanDailyTask = sequelize.define('StudyPlanDailyTask', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  user_id: { type: DataTypes.UUID, allowNull: false },
+  task_date: { type: DataTypes.DATEONLY, allowNull: false },
+  status: {
+    type: DataTypes.ENUM('not_started', 'in_progress', 'finished'),
+    allowNull: false,
+    defaultValue: 'not_started',
+  },
+  target_vocab: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 10 },
+  target_grammar: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 2 },
+  target_review: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 5 },
+  done_vocab: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  done_grammar: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  done_review: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  completion_rate: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 0 },
+  recommended_focus: { type: DataTypes.STRING(100), allowNull: true },
+  recommend_reason: { type: DataTypes.TEXT, allowNull: true },
+  rule_snapshot: { type: DataTypes.JSON, allowNull: true },
+}, {
+  tableName: 'study_plan_daily_tasks',
+  indexes: [
+    { unique: true, fields: ['user_id', 'task_date'] },
+    { fields: ['user_id', 'status'] },
+  ],
+});
+
+// ────────── Study Plan Card State (方案C) ──────────
+const StudyPlanCardState = sequelize.define('StudyPlanCardState', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  user_id: { type: DataTypes.UUID, allowNull: false },
+  card_type: { type: DataTypes.ENUM('vocabulary', 'grammar'), allowNull: false },
+  ref_id: { type: DataTypes.UUID, allowNull: false },
+  state: {
+    type: DataTypes.ENUM('new', 'learning', 'review', 'mastered'),
+    allowNull: false,
+    defaultValue: 'new',
+  },
+  level: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  wrong_streak: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  is_difficult: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  last_answer: { type: DataTypes.ENUM('known', 'unknown', 'fuzzy', 'mastered'), allowNull: true },
+  next_due_at: { type: DataTypes.DATEONLY, allowNull: true },
+  last_seen_at: { type: DataTypes.DATE, allowNull: true },
+}, {
+  tableName: 'study_plan_card_states',
+  indexes: [
+    { unique: true, fields: ['user_id', 'card_type', 'ref_id'] },
+    { fields: ['user_id', 'state'] },
+    { fields: ['user_id', 'is_difficult'] },
+  ],
+});
+
 // ────────── Content Version (for client sync) ──────────
 const ContentVersion = sequelize.define('ContentVersion', {
   id: { type: DataTypes.INTEGER, primaryKey: true, defaultValue: 1 },
@@ -311,6 +365,8 @@ module.exports = {
   NhkNewsCache,
   NewsFavorite,
   UserProgress,
+  StudyPlanDailyTask,
+  StudyPlanCardState,
   ContentVersion,
   ApiLog,
   AppRelease,

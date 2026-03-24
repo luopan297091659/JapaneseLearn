@@ -25,7 +25,16 @@ String _displaySub(LocalVocabModel c) =>
 
 /// 本地词汇列表（Anki 导入后保存在设备 SQLite 中的卡片）
 class LocalVocabScreen extends StatefulWidget {
-  const LocalVocabScreen({super.key});
+  final String? initialDeckRoot;
+  final int? initialStage;
+  final String? planId;
+
+  const LocalVocabScreen({
+    super.key,
+    this.initialDeckRoot,
+    this.initialStage,
+    this.planId,
+  });
   @override
   State<LocalVocabScreen> createState() => _LocalVocabScreenState();
 }
@@ -60,6 +69,10 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_handleScroll);
+    final st = widget.initialStage;
+    if (st != null && st >= 0 && st <= 2) {
+      _selectedStage = st;
+    }
     _checkMembership();
     _loadDecks();
   }
@@ -96,10 +109,28 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     setState(() => _loading = true);
     final decks   = await localDb.listDecks();
     if (!mounted) return;
+    String? toOpenDeck;
+    final initialDeck = widget.initialDeckRoot;
+    if (initialDeck != null && initialDeck.isNotEmpty) {
+      if (initialDeck == '__all__') {
+        toOpenDeck = decks.isNotEmpty ? decks.first.deckName : null;
+      } else {
+        final exact = decks.where((d) => d.deckName == initialDeck).toList();
+        final prefix = decks.where((d) => d.deckName.startsWith('$initialDeck::')).toList();
+        if (exact.isNotEmpty) {
+          toOpenDeck = exact.first.deckName;
+        } else if (prefix.isNotEmpty) {
+          toOpenDeck = prefix.first.deckName;
+        }
+      }
+    }
     setState(() {
       _decks        = decks;
       _loading      = false;
     });
+    if (toOpenDeck != null) {
+      await _openDeck(toOpenDeck);
+    }
   }
 
   Future<void> _openDeck(String deckName) async {
@@ -206,6 +237,7 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final s  = S.of(context);
+    final inPlanMode = widget.planId != null && widget.planId!.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -233,6 +265,16 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
                     ? _buildDeckList(cs, s)
                     : _buildCardList(cs, s),
       ),
+      bottomNavigationBar: inPlanMode
+          ? Container(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+              color: cs.surface,
+              child: Text(
+                '学习计划模式：Anki ${_selectedDeck ?? ''}',
+                style: TextStyle(fontSize: 12, color: cs.outline),
+              ),
+            )
+          : null,
     );
   }
 

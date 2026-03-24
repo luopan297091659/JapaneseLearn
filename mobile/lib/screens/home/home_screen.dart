@@ -56,7 +56,7 @@ const _allFeatures = <String, ({IconData icon, String label, String sub, String 
   'immersion':     (icon: Icons.ondemand_video_rounded, label: '磨耳朵',    sub: '沉浸式听力', path: '/immersion',   color: Color(0xFF00695C)),
   'kana-writing-test': (icon: Icons.draw_rounded,       label: '假名书写',  sub: '手写测试', path: '/kana-writing-test', color: Color(0xFFC62828)),
 };
-const _defaultFeatureIds = ['vocabulary', 'grammar', 'srs', 'flashcard', 'listening', 'dictionary'];
+const _defaultFeatureIds = ['vocabulary', 'grammar', 'srs', 'listening', 'dictionary', 'quiz'];
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -399,12 +399,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     _SectionTitle(title: '今日目标', icon: Icons.flag_rounded),
                     const SizedBox(height: 10),
                     _DailyGoalsCard(goals: goals),
-                    const SizedBox(height: 10),
-                    if (_dailyGoals?['today']?['quiz_breakdown'] != null &&
-                        (_dailyGoals!['today']['quiz_breakdown'] as Map).isNotEmpty)
-                      _QuizBreakdownCard(
-                        breakdown: Map<String, dynamic>.from(_dailyGoals!['today']['quiz_breakdown']),
-                      ),
                     const SizedBox(height: 20),
                   ],
                   // ── 辞书検索 ──────────────────────────────────────
@@ -1337,10 +1331,10 @@ class _QuickActions extends StatelessWidget {
       )),
       const SizedBox(width: 10),
       Expanded(child: _QuickActionBtn(
-        icon: Icons.style_rounded,
-        label: '闪卡练习',
-        color: const Color(0xFF3F51B5),
-        onTap: () => context.push('/flashcard'),
+        icon: Icons.menu_book_rounded,
+        label: '单词学习',
+        color: const Color(0xFF4CAF50),
+        onTap: () => context.push('/vocabulary'),
       )),
     ]);
   }
@@ -1433,14 +1427,6 @@ class _GameBanner extends StatelessWidget {
         icon: Icons.translate_rounded,
         color: const Color(0xFF9C27B0),
         onTap: () => context.push('/game', extra: 'verbs'),
-      ),
-      const SizedBox(height: 12),
-      _GameCard(
-        title: '闪卡练习',
-        subtitle: '翻转记忆 · 四级评价',
-        icon: Icons.style_rounded,
-        color: const Color(0xFF3F51B5),
-        onTap: () => context.push('/flashcard'),
       ),
     ]);
   }

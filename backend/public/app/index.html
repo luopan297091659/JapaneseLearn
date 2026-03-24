@@ -625,6 +625,7 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
       <div class="nav-item" data-page="flashcard" onclick="navigate('flashcard')"><span class="icon">🃏</span>闪卡练习</div>
       <div class="nav-item" data-page="srs" onclick="navigate('srs')"><span class="icon">🗂️</span>SRS 复习</div>
       <div class="nav-section">工具</div>
+      <div class="nav-item" data-page="study-plan" onclick="navigate('study-plan')"><span class="icon">📅</span>学习计划</div>
       <div class="nav-item" data-page="dictionary" onclick="navigate('dictionary')"><span class="icon">🔍</span>词典</div>
       <div class="nav-item" data-page="translate" onclick="navigate('translate')"><span class="icon">🌐</span>翻译解析<span class="nav-lock" title="会员功能">🔒</span></div>
       <div class="nav-item" data-page="news" onclick="navigate('news')"><span class="icon">📰</span>新闻</div>
@@ -790,6 +791,9 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
             </div>
             <div class="quick-action" onclick="navigate('todofuken')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
               <div style="font-size:24px">🗾</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">都道府県</div>
+            </div>
+            <div class="quick-action" onclick="navigate('study-plan')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
+              <div style="font-size:24px">📅</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">学习计划</div>
             </div>
           </div>
         </div>
@@ -1519,6 +1523,12 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
         </div>
       </div>
 
+      <!-- 学习计划页 -->
+      <div class="page" id="page-study-plan">
+        <h2 style="margin-bottom:20px;font-size:22px">📅 学习计划</h2>
+        <div id="sp-container"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /app -->
@@ -1753,6 +1763,7 @@ function navigate(page, pushHistory = true) {
     case 'immersion': loadImmersion(); break;
     case 'membership': loadMembership(); break;
     case 'quiz': applyQuizTierLimits(); break;
+    case 'study-plan': loadStudyPlan(); break;
   }
 }
 
@@ -2622,10 +2633,11 @@ function renderSrsCard() {
   }
   const card = srsCards[srsCurrent];
   const content = card.content || {};
-  const word = content.word || card.ref_id;
-  const reading = content.reading || '';
-  const meaning = content.meaning_zh || '';
-  const example = content.example_sentence || '';
+  const isGrammar = card.card_type !== 'vocabulary';
+  const word = isGrammar ? (content.pattern || content.title || '（文法）') : (content.word || '（已删除）');
+  const reading = isGrammar ? '' : (content.reading || '');
+  const meaning = isGrammar ? (content.explanation_zh || content.explanation || '') : (content.meaning_zh || '');
+  const example = isGrammar ? '' : (content.example_sentence || '');
   const exReadng = content.example_reading || '';
   const exMeaning = content.example_meaning_zh || '';
   const audioUrl = content.audio_url || '';
@@ -6248,6 +6260,168 @@ function setSlowSpeed(speed) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+//  STUDY PLAN (学习计划)
+// ══════════════════════════════════════════════════════════════════
+let _spData = null;
+let _spQueue = [];
+let _spQueueIdx = 0;
+
+async function loadStudyPlan() {
+  const c = document.getElementById('sp-container');
+  c.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    _spData = await GET('/progress/study-plan/today');
+    renderSpOverview();
+  } catch(e) {
+    c.innerHTML = `<div class="card" style="text-align:center;padding:40px"><p style="color:var(--danger)">${escHtml(e.message)}</p><button class="btn btn-primary" style="margin-top:12px" onclick="loadStudyPlan()">重试</button></div>`;
+  }
+}
+
+function renderSpOverview() {
+  const d = _spData;
+  const t = d.targets || {};
+  const done = d.done || {};
+  const re = d.review_entries || {};
+  const total = (t.vocabulary||0) + (t.grammar||0) + (t.review||0);
+  const doneTotal = (done.vocabulary||0) + (done.grammar||0) + (done.review||0);
+  const pct = total > 0 ? Math.round(doneTotal / total * 100) : 0;
+  const statusLabel = { not_started: '📋 未开始', in_progress: '🔄 进行中', finished: '✅ 已完成' };
+
+  const c = document.getElementById('sp-container');
+  c.innerHTML = `
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span style="font-weight:700;font-size:16px">${d.date || '今日'}</span>
+        <span style="font-size:14px">${statusLabel[d.status] || d.status}</span>
+      </div>
+      <div style="background:var(--bg);border-radius:8px;height:10px;overflow:hidden;margin-bottom:16px">
+        <div style="height:100%;width:${pct}%;background:var(--primary);border-radius:8px;transition:width .3s"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center">
+        <div>
+          <div style="font-size:24px;font-weight:700;color:var(--primary)">${done.vocabulary||0}<span style="font-size:14px;color:var(--text-sub)">/${t.vocabulary||0}</span></div>
+          <div style="font-size:12px;color:var(--text-sub)">📚 词汇</div>
+        </div>
+        <div>
+          <div style="font-size:24px;font-weight:700;color:var(--success)">${done.grammar||0}<span style="font-size:14px;color:var(--text-sub)">/${t.grammar||0}</span></div>
+          <div style="font-size:12px;color:var(--text-sub)">📖 文法</div>
+        </div>
+        <div>
+          <div style="font-size:24px;font-weight:700;color:var(--warning)">${done.review||0}<span style="font-size:14px;color:var(--text-sub)">/${t.review||0}</span></div>
+          <div style="font-size:12px;color:var(--text-sub)">🔄 复习</div>
+        </div>
+      </div>
+    </div>
+    ${d.recommended_focus ? `<div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe)"><div style="font-weight:600;margin-bottom:4px">💡 今日推荐</div><div style="font-size:13px;color:var(--text-sub)">${escHtml(d.reason || d.recommended_focus)}</div></div>` : ''}
+    <div class="card" style="margin-bottom:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;font-size:13px">
+      <div><div style="font-size:18px;font-weight:700">${re.due_today||0}</div><div style="color:var(--text-sub)">待复习</div></div>
+      <div><div style="font-size:18px;font-weight:700">${re.difficult||0}</div><div style="color:var(--text-sub)">难点卡</div></div>
+      <div><div style="font-size:18px;font-weight:700">${re.mastered||0}</div><div style="color:var(--text-sub)">已掌握</div></div>
+    </div>
+    ${d.status === 'finished' ? '<div class="card" style="text-align:center;padding:24px"><div style="font-size:40px;margin-bottom:8px">🎉</div><div style="font-weight:700;font-size:16px">今日学习已完成！</div><div style="color:var(--text-sub);font-size:13px;margin-top:4px">明天继续加油</div></div>' :
+    `<button class="btn btn-primary" style="width:100%;padding:14px;font-size:16px" onclick="startSpStudy()">${d.status === 'in_progress' ? '继续学习' : '开始学习'}</button>`}
+  `;
+}
+
+async function startSpStudy() {
+  try {
+    if (_spData.status === 'not_started') {
+      await POST('/progress/study-plan/start');
+    }
+    const q = await GET('/progress/study-plan/queue');
+    _spQueue = q.queue || [];
+    _spQueueIdx = 0;
+    if (_spQueue.length === 0) {
+      toast('队列为空，任务已完成！');
+      await POST('/progress/study-plan/finish');
+      _spData = await GET('/progress/study-plan/today');
+      renderSpOverview();
+      return;
+    }
+    renderSpCard();
+  } catch(e) { toast(e.message || '加载失败'); }
+}
+
+async function renderSpCard() {
+  if (_spQueueIdx >= _spQueue.length) {
+    try {
+      await POST('/progress/study-plan/finish');
+      _spData = await GET('/progress/study-plan/today');
+    } catch(_) {}
+    renderSpOverview();
+    return;
+  }
+  const item = _spQueue[_spQueueIdx];
+  const c = document.getElementById('sp-container');
+  c.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+  try {
+    let content = '';
+    if (item.card_type === 'vocabulary') {
+      const v = await GET(`/vocabulary/${item.ref_id}`);
+      content = `
+        <div style="font-size:12px;color:var(--text-sub);margin-bottom:8px">${item.source === 'review' || item.source === 'difficult' ? '🔄 复习' : '🆕 新词'} · 词汇</div>
+        <div style="font-size:32px;font-weight:700;margin:16px 0">${escHtml(v.word || '')}</div>
+        <div style="font-size:16px;color:var(--text-sub);margin-bottom:8px">${escHtml(v.reading || '')}</div>
+        <div id="sp-answer" style="display:none">
+          <div style="font-size:18px;margin:20px 0;padding:16px;background:var(--bg);border-radius:12px">${escHtml(v.meaning_zh || v.meaning || '')}</div>
+          ${v.example_ja ? `<div style="font-size:14px;color:var(--text-sub);margin-bottom:12px"><b>例：</b>${escHtml(v.example_ja)}</div>` : ''}
+        </div>`;
+    } else {
+      const g = await GET(`/grammar/${item.ref_id}`);
+      content = `
+        <div style="font-size:12px;color:var(--text-sub);margin-bottom:8px">${item.source === 'review' || item.source === 'difficult' ? '🔄 复习' : '🆕 新文法'} · 文法</div>
+        <div style="font-size:28px;font-weight:700;margin:16px 0">${escHtml(g.pattern || '')}</div>
+        <div id="sp-answer" style="display:none">
+          <div style="font-size:16px;margin:20px 0;padding:16px;background:var(--bg);border-radius:12px">${escHtml(g.explanation_zh || g.explanation || '')}</div>
+          ${(g.examples && g.examples.length) ? `<div style="font-size:14px;color:var(--text-sub);margin-top:8px"><b>例：</b>${escHtml(g.examples[0].japanese || '')}<br/><span style="font-size:12px">${escHtml(g.examples[0].chinese || '')}</span></div>` : ''}
+        </div>`;
+    }
+    const progress = `${_spQueueIdx + 1} / ${_spQueue.length}`;
+    c.innerHTML = `
+      <div class="card" style="text-align:center;padding:24px;min-height:300px;display:flex;flex-direction:column;justify-content:center">
+        <div style="display:flex;justify-content:space-between;margin-bottom:16px">
+          <span style="font-size:12px;color:var(--text-sub)">${progress}</span>
+          <button class="btn btn-ghost btn-sm" onclick="spExit()">退出</button>
+        </div>
+        ${content}
+        <div id="sp-show-btn"><button class="btn btn-primary" style="width:100%;padding:12px;margin-top:16px" onclick="spShowAnswer()">显示答案</button></div>
+        <div id="sp-btns" style="display:none;margin-top:16px;display:none;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+          <button class="btn" style="background:#e74c3c;color:#fff;padding:10px" onclick="spAnswer('unknown')">不认识</button>
+          <button class="btn" style="background:#f39c12;color:#fff;padding:10px" onclick="spAnswer('fuzzy')">模糊</button>
+          <button class="btn" style="background:#27ae60;color:#fff;padding:10px" onclick="spAnswer('known')">认识</button>
+          <button class="btn" style="background:#2980b9;color:#fff;padding:10px" onclick="spAnswer('mastered')">掌握</button>
+        </div>
+      </div>`;
+  } catch(e) {
+    _spQueueIdx++;
+    renderSpCard();
+  }
+}
+
+function spShowAnswer() {
+  const a = document.getElementById('sp-answer');
+  const b = document.getElementById('sp-btns');
+  const s = document.getElementById('sp-show-btn');
+  if (a) a.style.display = '';
+  if (b) { b.style.display = 'grid'; }
+  if (s) s.style.display = 'none';
+}
+
+async function spAnswer(answer) {
+  const item = _spQueue[_spQueueIdx];
+  try {
+    await POST('/progress/study-plan/answer', { card_type: item.card_type, ref_id: item.ref_id, answer });
+  } catch(_) {}
+  _spQueueIdx++;
+  renderSpCard();
+}
+
+function spExit() {
+  loadStudyPlan();
+}
+
+// ══════════════════════════════════════════════════════════════════
 //  FEATURE TOGGLES & MEMBERSHIP TIERS
 // ══════════════════════════════════════════════════════════════════
 let _featureToggles = {}; // id -> bool
@@ -6277,6 +6451,7 @@ const _pageTierMap = {
   'kana-writing': 'kana_writing_modes',
   'local-vocab': 'anki_quiz',
   'anki-import': 'anki_import',
+  'study-plan': 'study_plan_daily',
 };
 
 async function loadFeatureTiers() {

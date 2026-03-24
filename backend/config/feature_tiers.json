@@ -178,6 +178,15 @@
       "free_limit": 5,
       "free_label": "最新5篇",
       "member_label": "全部"
+    },
+    {
+      "id": "study_plan_daily",
+      "name": "学习计划",
+      "icon": "📅",
+      "type": "daily_limit",
+      "free_limit": 10,
+      "free_label": "每日10张",
+      "member_label": "无限制"
     }
   ],
   "updated_at": null

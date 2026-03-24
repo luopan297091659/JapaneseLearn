@@ -71,15 +71,35 @@ async function getExercises(req, res) {
 
 // ── 从语法例句构建题目 ───────────────────────────────────────────────────────
 async function buildGrammarQuestions(level, maxCount) {
-  // 获取该级别的所有语法例句（有 meaning_zh 的）
+  // 1. 先过滤出有足够例句（>=3个）的语法课程
+  const grammarLessonsWithExamples = await sequelize.query(`
+    SELECT gl.id, COUNT(ge.id) as example_count
+    FROM grammar_lessons gl
+    LEFT JOIN grammar_examples ge ON ge.grammar_lesson_id = gl.id 
+      AND ge.sentence IS NOT NULL AND ge.sentence != ''
+      AND ge.meaning_zh IS NOT NULL AND ge.meaning_zh != ''
+    WHERE gl.jlpt_level = :level
+    GROUP BY gl.id
+    HAVING COUNT(ge.id) >= 3
+  `, {
+    replacements: { level },
+    type: sequelize.QueryTypes.SELECT,
+  });
+
+  if (grammarLessonsWithExamples.length === 0) return [];
+
+  const validGrammarIds = grammarLessonsWithExamples.map(g => g.id);
+
+  // 2. 只从这些有足够例句的语法课程中获取例句
   const examples = await GrammarExample.findAll({
-    attributes: ['id', 'sentence', 'reading', 'meaning_zh', 'audio_url'],
+    attributes: ['id', 'sentence', 'reading', 'meaning_zh', 'audio_url', 'grammar_lesson_id'],
     include: [{
       model: GrammarLesson,
       attributes: ['id', 'jlpt_level', 'title'],
       where: { jlpt_level: level },
     }],
     where: {
+      grammar_lesson_id: { [Op.in]: validGrammarIds },
       sentence: { [Op.ne]: '' },
       meaning_zh: { [Op.ne]: '' },
     },
@@ -89,7 +109,7 @@ async function buildGrammarQuestions(level, maxCount) {
 
   if (examples.length < 4) return [];
 
-  // 构建 MCQ 题目
+  // 3. 构建 MCQ 题目
   const questions = [];
   const selectedExamples = examples.slice(0, Math.min(maxCount, examples.length));
 

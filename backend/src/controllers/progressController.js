@@ -1,4 +1,4 @@
-const { UserProgress, QuizSession, SrsCard } = require('../models');
+const { UserProgress, QuizSession, SrsCard, StudyPlanCardState, Vocabulary, GrammarLesson } = require('../models');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/database');
 
@@ -253,4 +253,57 @@ async function updateStreak(user) {
   });
 }
 
-module.exports = { logActivity, getSummary, getDailyGoals };
+// ── 学习计划进度统计 (用于学习计划详情页) ──────────────────────────────────
+async function getStudyPlanProgress(req, res) {
+  const { level, type } = req.query; // type: 'vocabulary'|'grammar'|'anki'
+  try {
+    if (!level || !type) {
+      return res.status(400).json({ error: 'level and type are required' });
+    }
+
+    const userId = req.user.id;
+    const cardType = type === 'anki' ? 'anki' : (type === 'grammar' ? 'grammar' : 'vocabulary');
+
+    // Count total cards from source table
+    let totalCards = 0;
+    if (cardType === 'vocabulary') {
+      totalCards = await Vocabulary.count({ where: { jlpt_level: level } });
+    } else if (cardType === 'grammar') {
+      totalCards = await GrammarLesson.count({ where: { jlpt_level: level } });
+    }
+
+    // Get learning flow states from StudyPlanCardState
+    const states = await StudyPlanCardState.findAll({
+      where: { user_id: userId, card_type: cardType },
+      attributes: ['state'],
+    });
+
+    let learningCount = 0, reviewCount = 0, masteredCount = 0;
+    for (const s of states) {
+      switch (s.state) {
+        case 'learning': learningCount++; break;
+        case 'review': reviewCount++; break;
+        case 'mastered': masteredCount++; break;
+      }
+    }
+    const trackedCount = learningCount + reviewCount + masteredCount;
+    const newCount = Math.max(0, totalCards - trackedCount);
+
+    res.json({
+      level,
+      type,
+      total: totalCards,
+      progress: {
+        new: newCount,
+        learning: learningCount,
+        review: reviewCount,
+        mastered: masteredCount,
+      },
+      overdue_count: 0,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+module.exports = { logActivity, getSummary, getDailyGoals, getStudyPlanProgress };

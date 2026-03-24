@@ -487,7 +487,7 @@ function monthStart(){ const d=new Date(); d.setDate(1); return d.toISOString().
 function yearStart() { return new Date().getFullYear()+'-01-01' }
 function qs(obj)    { return '?'+Object.entries(obj).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&') }
 const PALETTE = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#f97316','#84cc16','#3b82f6'];
-const ACT_NAME = {vocabulary:'📚 词汇学习',grammar:'📖 语法学习',srs_review:'🔄 SRS复习',quiz:'📝 单词测验',grammar_quiz:'📝 文法测验',flashcard:'🃏 闪卡',news:'📰 新闻阅读',listening:'🎧 听力练习',listening_exercise:'👂 听力测验',game:'🎮 助词方块',reading:'📖 阅读',pronunciation:'🎤 发音练习',gojuon:'🔤 五十音',dictionary:'🔍 辞书検索',translate:'🌐 翻译解析',todofuken:'🗾 都道府県',game_verbs:'🎮 动词方块',anki:'📦 Anki词库',wrong_answers:'❌ 错题集',kana_writing:'✍️ 五十音书写',immersion:'👂 磨耳朵'};
+const ACT_NAME = {vocabulary:'📚 词汇学习',grammar:'📖 语法学习',srs_review:'🔄 SRS复习',quiz:'📝 单词测验',grammar_quiz:'📝 文法测验',flashcard:'🃏 闪卡',news:'📰 新闻阅读',listening:'🎧 听力练习',listening_exercise:'👂 听力测验',game:'🎮 助词方块',reading:'📖 阅读',pronunciation:'🎤 发音练习',gojuon:'🔤 五十音',dictionary:'🔍 辞书検索',translate:'🌐 翻译解析',todofuken:'🗾 都道府県',game_verbs:'🎮 动词方块',anki:'📦 Anki词库',wrong_answers:'❌ 错题集',kana_writing:'✍️ 五十音书写',immersion:'👂 磨耳朵',study_plan:'📅 学习计划'};
 function actName(t){ return ACT_NAME[t]||t; }
 
 /* ───────────────────────────────── AUTH ──────────────────────────────────── */

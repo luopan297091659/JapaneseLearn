@@ -8,6 +8,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import '../config/app_config.dart';
 import '../models/models.dart';
+import 'local_db.dart';
 
 // ─── 简单内存缓存 ─────────────────────────────────────────────────────────────
 
@@ -403,19 +404,35 @@ class ApiService {
     final key = 'vocab:${level}:${category}:${query}:$page:$limit';
     final cached = _cache.get(key);
     if (cached != null) return cached as Map<String, dynamic>;
-    final res = await _dio.get('/vocabulary', queryParameters: {
-      if (level != null) 'level': level,
-      if (category != null) 'category': category,
-      if (query != null) 'q': query,
-      'page': page,
-      'limit': limit,
-    });
-    final result = {
-      'total': res.data['total'],
-      'data': (res.data['data'] as List).map((e) => VocabularyModel.fromJson(e)).toList(),
-    };
-    _cache.set(key, result, AppConfig.cacheTtlMedium);
-    return result;
+    try {
+      final res = await _dio.get('/vocabulary', queryParameters: {
+        if (level != null) 'level': level,
+        if (category != null) 'category': category,
+        if (query != null) 'q': query,
+        'page': page,
+        'limit': limit,
+      });
+      final data = (res.data['data'] as List).map((e) => VocabularyModel.fromJson(e)).toList();
+      final result = <String, dynamic>{
+        'total': res.data['total'],
+        'data': data,
+      };
+      _cache.set(key, result, AppConfig.cacheTtlMedium);
+      // 异步写入本地缓存（不阻塞返回）
+      if (level != null && category == null) {
+        localDb.cacheVocabulary(data, sortOffset: (page - 1) * limit);
+      }
+      return result;
+    } catch (e) {
+      // 离线回退：从本地缓存读取
+      if (level != null && category == null) {
+        final local = await localDb.getCachedVocabulary(
+          level: level, query: query, page: page, limit: limit,
+        );
+        if ((local['total'] as int) > 0) return local;
+      }
+      rethrow;
+    }
   }
 
   Future<List<VocabularyModel>> getVocabularyByLevel(String level) async {
@@ -427,10 +444,17 @@ class ApiService {
     final key = 'vocab_ids:$level';
     final cached = _cache.get(key);
     if (cached != null) return (cached as List).cast<String>();
-    final res = await _dio.get('/vocabulary/level/$level/ids');
-    final ids = (res.data as List).cast<String>();
-    _cache.set(key, ids, AppConfig.cacheTtlMedium);
-    return ids;
+    try {
+      final res = await _dio.get('/vocabulary/level/$level/ids');
+      final ids = (res.data as List).cast<String>();
+      _cache.set(key, ids, AppConfig.cacheTtlMedium);
+      return ids;
+    } catch (e) {
+      // 离线回退
+      final localIds = await localDb.getCachedVocabularyIds(level);
+      if (localIds.isNotEmpty) return localIds;
+      rethrow;
+    }
   }
 
   Future<VocabularyModel> getVocabularyById(String id) async {
@@ -494,17 +518,31 @@ class ApiService {
     final key = 'grammar:${level}:$page:$limit';
     final cached = _cache.get(key);
     if (cached != null) return cached as Map<String, dynamic>;
-    final res = await _dio.get('/grammar', queryParameters: {
-      if (level != null) 'level': level,
-      'page': page,
-      'limit': limit,
-    });
-    final result = {
-      'total': res.data['total'],
-      'data': (res.data['data'] as List).map((e) => GrammarLessonModel.fromJson(e)).toList(),
-    };
-    _cache.set(key, result, AppConfig.cacheTtlMedium);
-    return result;
+    try {
+      final res = await _dio.get('/grammar', queryParameters: {
+        if (level != null) 'level': level,
+        'page': page,
+        'limit': limit,
+      });
+      final data = (res.data['data'] as List).map((e) => GrammarLessonModel.fromJson(e)).toList();
+      final result = <String, dynamic>{
+        'total': res.data['total'],
+        'data': data,
+      };
+      _cache.set(key, result, AppConfig.cacheTtlMedium);
+      // 异步写入本地缓存
+      if (level != null) {
+        localDb.cacheGrammar(data, sortOffset: (page - 1) * limit);
+      }
+      return result;
+    } catch (e) {
+      // 离线回退
+      if (level != null) {
+        final local = await localDb.getCachedGrammar(level: level, page: page, limit: limit);
+        if ((local['total'] as int) > 0) return local;
+      }
+      rethrow;
+    }
   }
 
   Future<GrammarLessonModel> getGrammarLesson(String id) async {
@@ -919,6 +957,49 @@ class ApiService {
     final res = await _dio.get('/progress/daily-goals');
     _cache.set(key, res.data, AppConfig.cacheTtlShort);
     return res.data as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getStudyPlanToday() async {
+    final res = await _dio.get('/progress/study-plan/today');
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Map<String, dynamic>> startStudyPlanDay() async {
+    final res = await _dio.post('/progress/study-plan/start');
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Map<String, dynamic>> getStudyPlanQueue({String? level}) async {
+    final res = await _dio.get(
+      '/progress/study-plan/queue',
+      queryParameters: {
+        if (level != null && level.isNotEmpty) 'level': level,
+      },
+    );
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Map<String, dynamic>> submitStudyPlanAnswer({
+    required String cardType,
+    required String refId,
+    required String answer,
+  }) async {
+    final res = await _dio.post('/progress/study-plan/answer', data: {
+      'card_type': cardType,
+      'ref_id': refId,
+      'answer': answer,
+    });
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Map<String, dynamic>> getStudyPlanReviewEntries() async {
+    final res = await _dio.get('/progress/study-plan/review-entries');
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Map<String, dynamic>> finishStudyPlanDay() async {
+    final res = await _dio.post('/progress/study-plan/finish');
+    return Map<String, dynamic>.from(res.data as Map);
   }
 
   // ─── AI (Translation / Analysis) ─────────────────────────────────────────

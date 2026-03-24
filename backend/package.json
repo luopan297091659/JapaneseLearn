@@ -1,6 +1,6 @@
 {
   "name": "japanese-learn-backend",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Japanese Learning App Backend API",
   "main": "src/app.js",
   "scripts": {
