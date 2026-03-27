@@ -14,6 +14,8 @@ import '../../utils/japanese_text_utils.dart';
 import '../../utils/tts_helper.dart';
 import '../../widgets/furigana_text.dart';
 import '../../config/app_config.dart';
+import '../../providers/app_appearance_provider.dart';
+import '../../widgets/mode_background.dart';
 
 // ── 首页功能 ID → 分级 tier ID 映射 ──
 const _featureTierMap = <String, String>{
@@ -60,6 +62,14 @@ const _allFeatures = <String, ({IconData icon, String label, String sub, String 
 };
 const _defaultFeatureIds = ['vocabulary', 'grammar', 'srs', 'listening', 'dictionary', 'quiz'];
 
+const _purposeRecommendFeatures = <String, List<String>>{
+  'exam': ['vocabulary', 'grammar', 'quiz', 'listening-exercise', 'wrong-answers', 'study-plan'],
+  'anime': ['listening', 'immersion', 'translate', 'dictionary', 'pronunciation', 'news'],
+  'work': ['study-plan', 'dictionary', 'translate', 'news', 'listening', 'srs'],
+  'travel': ['gojuon', 'listening', 'pronunciation', 'dictionary', 'translate', 'quiz'],
+  'daily': ['gojuon', 'vocabulary', 'listening', 'dictionary', 'translate', 'srs'],
+};
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -84,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // 是否正在刷新（下拉刷新时用）
   bool _refreshing = false;
   bool _trialDialogHandledThisSession = false;
+  bool _firstGuideHandledThisSession = false;
 
   // 常用功能自定义列表（最多6个）
   List<String> _favFeatureIds = List.from(_defaultFeatureIds);
@@ -160,6 +171,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         if (user.trialActivated && !user.isMember && user.membershipPlan == 'trial') {
           _maybeShowTrialExpiredDialog(user);
         }
+        _maybeShowFirstLoginGuide(user);
       }
     } catch (_) {
       if (mounted) setState(() => _userLoading = false);
@@ -315,6 +327,96 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
   }
 
+  Future<void> _maybeShowFirstLoginGuide(UserModel user) async {
+    if (_firstGuideHandledThisSession || !mounted) return;
+    _firstGuideHandledThisSession = true;
+
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'home_first_login_guide_done_${user.id}';
+    final done = prefs.getBool(key) ?? false;
+    if (done || !mounted) return;
+
+    // 立即标记完成，避免重复弹出（无论用户是否确认）
+    await prefs.setBool(key, true);
+
+    await Future.delayed(const Duration(milliseconds: 250));
+    if (!mounted) return;
+
+    String selected = 'daily';
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 30),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('欢迎使用言旅', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 6),
+                Text(
+                  '选择你的学日语目的，我会推荐更适合你的功能，并自动加入常用功能。',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    ('exam', '考试冲刺 JLPT'),
+                    ('anime', '动漫追番'),
+                    ('work', '工作/商务'),
+                    ('travel', '旅行实用'),
+                    ('daily', '日常兴趣学习'),
+                  ].map((item) {
+                    final on = selected == item.$1;
+                    return ChoiceChip(
+                      label: Text(item.$2),
+                      selected: on,
+                      onSelected: (_) => setSheetState(() => selected = item.$1),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    icon: const Icon(Icons.auto_awesome_rounded),
+                    label: const Text('生成我的首页推荐'),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final picks = (_purposeRecommendFeatures[selected] ?? _defaultFeatureIds)
+          .where((id) => _enabledFeatures.containsKey(id))
+          .take(6)
+          .toList();
+
+      setState(() {
+        _favFeatureIds = picks.isNotEmpty ? picks : List<String>.from(_defaultFeatureIds);
+      });
+      await _saveFavFeatures();
+      await prefs.setString('home_learning_purpose_${user.id}', selected);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已根据你的学习目的推荐常用功能')), 
+        );
+      }
+    }
+  }
+
   void _editFavFeatures() {
     // 临时副本
     final selected = List<String>.from(_favFeatureIds);
@@ -388,6 +490,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final animeVisual = Theme.of(context).extension<AppVisualTheme>()?.animeBackground ?? false;
 
     // 从 dailyGoals 提取数据
     final totalXp = _dailyGoals?['total_xp'] ?? 0;
@@ -406,9 +509,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       adjustedGoals['lessons'] = lessonGoal;
     }
 
-    return Scaffold(
-      backgroundColor: cs.surfaceContainerLowest,
-      body: RefreshIndicator(
+    Widget body = RefreshIndicator(
         onRefresh: () => _loadAll(fromCache: false),
         child: CustomScrollView(
           slivers: [
@@ -444,8 +545,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   // ── 会员体验提示 ──────────────────────────────
                   if (_user != null && !_user!.isMember && !_user!.trialActivated)
                     _TrialPromptBanner(onTap: () => context.push('/membership', extra: false)),
-                  if (_user != null && _user!.isMember && _user!.isTrial && _user!.membershipDaysLeft != null)
-                    _TrialCountdownBanner(daysLeft: _user!.membershipDaysLeft!),
                   // ── 今日一词 ────────────────────────────────────
                   _SectionTitle(title: '今日一词', icon: Icons.auto_awesome_rounded),
                   const SizedBox(height: 10),
@@ -484,7 +583,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
           ],
         ),
-      ),
+      );
+
+    if (animeVisual) {
+      body = AnimeModeBackground(child: body);
+    }
+
+    return Scaffold(
+      backgroundColor: cs.surfaceContainerLowest,
+      body: body,
     );
   }
 
@@ -494,6 +601,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final isTrial = _user?.isTrial ?? false;
     final daysLeft = _user?.membershipDaysLeft;
     final memberLabel = isTrial && daysLeft != null ? '体验${daysLeft}天' : isMember ? '会员' : '免费';
+    final rawAvatar = _user?.avatarUrl;
+    final avatarUrl = rawAvatar == null || rawAvatar.isEmpty
+      ? null
+      : (rawAvatar.startsWith('http://') || rawAvatar.startsWith('https://')
+        ? rawAvatar
+        : '${AppConfig.serverRoot}$rawAvatar');
     return SliverAppBar(
       expandedHeight: 120,
       floating: false,
@@ -515,7 +628,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.person_outline, color: Colors.white, size: 24),
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.4),
+                  ),
+                  child: ClipOval(
+                    child: avatarUrl != null
+                        ? Image.network(
+                            avatarUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                          )
+                        : const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                  ),
+                ),
                 const SizedBox(height: 2),
                 GestureDetector(
                   onTap: () => context.push('/membership', extra: isMember),
@@ -740,7 +869,7 @@ class _SrsReviewBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.push('/srs-review'),
+      onTap: () => context.push('/srs-review?from=home'),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         decoration: BoxDecoration(
@@ -1410,7 +1539,7 @@ class _QuickActions extends StatelessWidget {
         icon: Icons.layers_rounded,
         label: 'SRS复习${srsCount > 0 ? ' ($srsCount)' : ''}',
         color: const Color(0xFFFF9800),
-        onTap: () => context.push('/srs-review'),
+        onTap: () => context.push('/srs-review?from=home'),
       )),
       const SizedBox(width: 10),
       Expanded(child: _QuickActionBtn(
@@ -1656,54 +1785,72 @@ class _FeatureTile extends StatelessWidget {
         context.push(path);
       },
       borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: blocked ? 0.05 : 0.10),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: blocked ? 0.12 : 0.22)),
-        ),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Stack(
-            clipBehavior: Clip.none,
+      child: AnimeCardDecoration(
+        color: color,
+        borderRadius: 16,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: blocked ? 0.05 : 0.10),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: blocked ? 0.12 : 0.22)),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: blocked ? 0.08 : 0.18),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: blocked ? color.withValues(alpha: 0.4) : color, size: 26),
-              ),
-              if (blocked)
-                Positioned(
-                  top: -2,
-                  right: -2,
-                  child: Container(
-                    width: 20,
-                    height: 20,
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B),
+                      color: color.withValues(alpha: blocked ? 0.08 : 0.18),
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
                     ),
-                    child: const Icon(Icons.workspace_premium, size: 11, color: Colors.white),
+                    child: Icon(icon, color: blocked ? color.withValues(alpha: 0.4) : color, size: 26),
                   ),
+                  if (blocked)
+                    Positioned(
+                      top: -2,
+                      right: -2,
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        child: const Icon(Icons.workspace_premium, size: 11, color: Colors.white),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: blocked ? color.withValues(alpha: 0.4) : color,
                 ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                blocked ? '会员专属' : sub,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: blocked ? Colors.grey : color.withValues(alpha: 0.7),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: blocked ? color.withValues(alpha: 0.4) : color)),
-          const SizedBox(height: 2),
-          Text(blocked ? '会员专属' : sub,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 10, color: blocked ? Colors.grey : color.withValues(alpha: 0.7))),
-        ]),
+        ),
       ),
     );
   }

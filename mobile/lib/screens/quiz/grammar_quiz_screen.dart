@@ -576,7 +576,7 @@ class _GrammarQuizScreenState extends State<GrammarQuizScreen> {
             Expanded(
               child: FilledButton.icon(
                 onPressed: () => context.canPop() ? context.pop() : context.go('/test'),
-                icon: const Icon(Icons.arrow_back_rounded),
+                icon: const Icon(Icons.arrow_back_ios_rounded),
                 label: const Text('返回'),
                 style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
               ),

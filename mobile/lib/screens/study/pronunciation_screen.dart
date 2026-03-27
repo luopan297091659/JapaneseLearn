@@ -41,6 +41,9 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
   bool _attemptFinalized = false;
   String? _lastUploadedRecordingPath;
 
+  // concurrent recording (alongside speech recognition)
+  bool _concurrentRecording = false;
+
   // scoring
   int? _score;
   String _recognized = '';
@@ -155,9 +158,59 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
 
   String _lastRecognized = '';
 
+  /// 启动与语音识别并行的音频录制
+  Future<void> _startConcurrentRecording() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final recDir = Directory('${dir.path}/recordings');
+      if (!await recDir.exists()) await recDir.create(recursive: true);
+      final w = _words[_index];
+      final name = cleanWord(w.word).replaceAll(RegExp(r'[^\w\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]'), '');
+      final filePath = '${recDir.path}/pron_${name}_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      if (await _recorder.hasPermission()) {
+        await _recorder.start(
+          const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000, sampleRate: 44100),
+          path: filePath,
+        );
+        _concurrentRecording = true;
+        debugPrint('Concurrent recording started: $filePath');
+      }
+    } catch (e) {
+      debugPrint('Concurrent recording failed to start (expected on some devices): $e');
+      _concurrentRecording = false;
+    }
+  }
+
+  /// 停止并行录制，保存录音文件
+  Future<void> _stopConcurrentRecording() async {
+    if (!_concurrentRecording) return;
+    try {
+      if (await _recorder.isRecording()) {
+        final path = await _recorder.stop();
+        if (path != null && await File(path).exists()) {
+          final fileSize = await File(path).length();
+          if (fileSize > 1024) {
+            setState(() {
+              _recordingPath = path;
+              _lastUploadedRecordingPath = null;
+            });
+            debugPrint('Concurrent recording saved: $path ($fileSize bytes)');
+          } else {
+            debugPrint('Concurrent recording too small: $fileSize bytes');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Stop concurrent recording error: $e');
+    } finally {
+      _concurrentRecording = false;
+    }
+  }
+
   Future<void> _toggleRecord() async {
     if (_listening) {
       await _speech.stop();
+      await _stopConcurrentRecording();
       await _finalizeRecognitionAttempt();
       return;
     }
@@ -205,10 +258,11 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
       // 设置状态监听器（在 listen 之前注册）
       _speech.statusListener = (status) {
         if ((status == 'done' || status == 'notListening') && !_attemptFinalized) {
-          _finalizeRecognitionAttempt();
+          _stopConcurrentRecording().then((_) => _finalizeRecognitionAttempt());
         }
       };
 
+      // 先启动语音识别（优先保证识别功能可用）
       await _speech.listen(
         localeId: 'ja_JP',
         onResult: (result) {
@@ -221,8 +275,13 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
         pauseFor: const Duration(seconds: 3),
         onSoundLevelChange: null,
       );
+
+      // 语音识别启动后，尝试同步启动音频录制
+      // 在 Android API 24+ 上，SpeechRecognizer 和 MediaRecorder 通常可以共享麦克风
+      await _startConcurrentRecording();
     } catch (e) {
       debugPrint('Speech listen error: $e');
+      await _stopConcurrentRecording();
       if (mounted) {
         setState(() { _listening = false; _feedback = '录音启动失败，请重试'; });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -235,6 +294,9 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
   Future<void> _finalizeRecognitionAttempt() async {
     if (_attemptFinalized || !mounted) return;
     _attemptFinalized = true;
+
+    // 确保并行录制已停止
+    await _stopConcurrentRecording();
 
     if (_lastRecognized.trim().isNotEmpty) {
       _processResult(_lastRecognized);
@@ -386,7 +448,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
     }
   }
 
-  void _processResult(String recognized) {
+  Future<void> _processResult(String recognized) async {
     final w = _words[_index];
     final reading = cleanReading(w.reading);
     final word = cleanWord(w.word);
@@ -421,6 +483,28 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
       _feedback = feedback;
       _listening = false;
     });
+
+    try {
+      final ai = await apiService.scoreSpeechRecognition(
+        targetText: word,
+        recognizedText: rec,
+        referenceReading: reading.isNotEmpty ? reading : null,
+        mode: 'pronunciation',
+      );
+      if (!mounted) return;
+      final aiScore = (ai['score'] as num?)?.toInt();
+      final aiFeedback = (ai['feedback'] as String?)?.trim();
+      if (aiScore != null) {
+        setState(() {
+          _score = aiScore.clamp(0, 100);
+          if (aiFeedback != null && aiFeedback.isNotEmpty) {
+            _feedback = '🤖 $aiFeedback';
+          }
+        });
+      }
+    } catch (_) {
+      // Keep local score when AI service is unavailable.
+    }
   }
 
   int _calcScore(String target, String recognized) {
@@ -514,6 +598,10 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
   void dispose() {
     _tts.stop();
     _speech.stop();
+    // 确保录制器已停止再销毁
+    if (_concurrentRecording || _isRecordingPlayback) {
+      _recorder.stop().catchError((_) => null);
+    }
     _recorder.dispose();
     _audioPlayer.dispose();
     super.dispose();

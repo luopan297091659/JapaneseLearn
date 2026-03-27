@@ -174,7 +174,7 @@ class _StudyPlanDetailScreenState extends ConsumerState<StudyPlanDetailScreen> {
     final deckRoot = (_plan['ankiDeckRoot'] ?? _plan['ankiDeck'] ?? '__all__').toString();
 
     if ((stage == 'review' || stage == 'overdue' || stage == 'mastered') && type != 'anki') {
-      context.push('/srs-review');
+      context.push('/srs-review?from=tools');
       return;
     }
     

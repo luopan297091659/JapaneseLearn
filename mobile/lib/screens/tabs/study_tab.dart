@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../services/membership_service.dart';
+import '../../services/sync_service.dart';
+import '../../config/app_config.dart';
+import '../../providers/app_appearance_provider.dart';
+import '../../widgets/mode_background.dart';
 
 class StudyTab extends StatefulWidget {
   const StudyTab({super.key});
@@ -11,6 +15,8 @@ class StudyTab extends StatefulWidget {
 
 class _StudyTabState extends State<StudyTab> {
   bool _isMember = false;
+  bool _tiersReady = false;
+  String? _avatarUrl;
 
   @override
   void initState() {
@@ -21,12 +27,31 @@ class _StudyTabState extends State<StudyTab> {
   Future<void> _loadMembership() async {
     try {
       final user = await apiService.getMe();
-      if (mounted) setState(() => _isMember = user.isMember);
-    } catch (_) {}
+      await syncService.fetchFeatureTiers();
+      if (mounted) {
+        setState(() {
+          _isMember = user.isMember;
+          _avatarUrl = user.avatarUrl;
+          _tiersReady = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _tiersReady = true);
+    }
   }
 
-  bool _isBlocked(String tierId) =>
-    !_isMember && membershipService.isBlocked(tierId, isMember: _isMember);
+  bool _isBlocked(String tierId) {
+    if (_isMember) return false;
+    if (!_tiersReady) return true;
+    return membershipService.isBlocked(tierId, isMember: _isMember);
+  }
+
+  String? _resolvedAvatarUrl() {
+    final avatar = _avatarUrl;
+    if (avatar == null || avatar.isEmpty) return null;
+    if (avatar.startsWith('http://') || avatar.startsWith('https://')) return avatar;
+    return '${AppConfig.serverRoot}$avatar';
+  }
 
   void _showMemberDialog(String name) {
     showDialog(
@@ -77,6 +102,76 @@ class _StudyTabState extends State<StudyTab> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final animeVisual = Theme.of(context).extension<AppVisualTheme>()?.animeBackground ?? false;
+    Widget body = ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _StudyCard(
+          icon: Icons.grid_view_rounded,
+          title: '五十音',
+          subtitle: '基础入门 · 平假名/片假名/浊音/拗音',
+          color: const Color(0xFFE91E63),
+          onTap: () => context.push('/gojuon'),
+        ),
+        const SizedBox(height: 12),
+        _StudyCard(
+          icon: Icons.menu_book_rounded,
+          title: '单词学习',
+          subtitle: '词汇积累 · N5 - N1 全级别覆盖',
+          color: const Color(0xFF4CAF50),
+          onTap: () => context.push('/vocabulary'),
+        ),
+        const SizedBox(height: 12),
+        _StudyCard(
+          icon: Icons.school_rounded,
+          title: '文法学习',
+          subtitle: '规则掌握 · 系统学习日语文法',
+          color: const Color(0xFF2196F3),
+          onTap: () => context.push('/grammar'),
+        ),
+        const SizedBox(height: 12),
+        _StudyCard(
+          icon: Icons.headphones_rounded,
+          title: '听力学习',
+          subtitle: '听力提升 · 例句听写录音AI比对',
+          color: const Color(0xFF9C27B0),
+          blocked: _isBlocked('listening_daily'),
+          onTap: () {
+            if (_isBlocked('listening_daily')) { _showMemberDialog('听力学习'); return; }
+            context.push('/listening');
+          },
+        ),
+        const SizedBox(height: 12),
+        _StudyCard(
+          icon: Icons.mic_rounded,
+          title: 'AI 发音练习',
+          subtitle: '智能纠正 · 对比原生发音',
+          color: const Color(0xFF00BCD4),
+          blocked: _isBlocked('pronunciation'),
+          onTap: () {
+            if (_isBlocked('pronunciation')) { _showMemberDialog('AI 发音练习'); return; }
+            context.push('/pronunciation');
+          },
+        ),
+        const SizedBox(height: 12),
+        _StudyCard(
+          icon: Icons.layers_rounded,
+          title: 'SRS 复习',
+          subtitle: '间隔记忆 · 科学记忆曲线',
+          color: const Color(0xFFFF9800),
+          blocked: _isBlocked('srs_daily'),
+          onTap: () {
+            if (_isBlocked('srs_daily')) { _showMemberDialog('SRS 复习'); return; }
+            context.push('/srs-review?from=study');
+          },
+        ),
+      ],
+    );
+
+    if (animeVisual) {
+      body = AnimeModeBackground(child: body);
+    }
+
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
       appBar: AppBar(
@@ -93,7 +188,23 @@ class _StudyTabState extends State<StudyTab> {
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.person_outline, color: Colors.white, size: 24),
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.4),
+                    ),
+                    child: ClipOval(
+                      child: _resolvedAvatarUrl() != null
+                          ? Image.network(
+                              _resolvedAvatarUrl()!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                            )
+                          : const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
@@ -129,72 +240,7 @@ class _StudyTabState extends State<StudyTab> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _StudyCard(
-            icon: Icons.grid_view_rounded,
-            title: '五十音',
-            subtitle: '基础入门 · 平假名/片假名/浊音/拗音',
-            color: const Color(0xFFE91E63),
-            onTap: () => context.push('/gojuon'),
-          ),
-          const SizedBox(height: 12),
-          _StudyCard(
-            icon: Icons.menu_book_rounded,
-            title: '单词学习',
-            subtitle: '词汇积累 · N5 - N1 全级别覆盖',
-            color: const Color(0xFF4CAF50),
-            onTap: () => context.push('/vocabulary'),
-          ),
-          const SizedBox(height: 12),
-          _StudyCard(
-            icon: Icons.school_rounded,
-            title: '文法学习',
-            subtitle: '规则掌握 · 系统学习日语文法',
-            color: const Color(0xFF2196F3),
-            onTap: () => context.push('/grammar'),
-          ),
-          const SizedBox(height: 12),
-          _StudyCard(
-            icon: Icons.headphones_rounded,
-            title: '听力学习',
-            subtitle: '听力提升 · 例句听写录音AI比对',
-            color: const Color(0xFF9C27B0),
-            blocked: _isBlocked('listening_daily'),
-            onTap: () {
-              if (_isBlocked('listening_daily')) { _showMemberDialog('听力学习'); return; }
-              context.push('/listening');
-            },
-          ),
-          const SizedBox(height: 12),
-          _StudyCard(
-            icon: Icons.mic_rounded,
-            title: 'AI 发音练习',
-            subtitle: '智能纠正 · 对比原生发音',
-            color: const Color(0xFF00BCD4),
-            blocked: _isBlocked('pronunciation'),
-            onTap: () {
-              if (_isBlocked('pronunciation')) { _showMemberDialog('AI 发音练习'); return; }
-              context.push('/pronunciation');
-            },
-          ),
-          // 闪卡练习入口已隐藏（代码保留）
-          // _StudyCard(icon: Icons.style_rounded, title: '闪卡练习', ...),
-          const SizedBox(height: 12),
-          _StudyCard(
-            icon: Icons.layers_rounded,
-            title: 'SRS 复习',
-            subtitle: '间隔记忆 · 科学记忆曲线',
-            color: const Color(0xFFFF9800),
-            blocked: _isBlocked('srs_daily'),
-            onTap: () {
-              if (_isBlocked('srs_daily')) { _showMemberDialog('SRS 复习'); return; }
-              context.push('/srs-review');
-            },
-          ),
-        ],
-      ),
+      body: body,
     );
   }
 }
@@ -221,14 +267,17 @@ class _StudyCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: blocked ? 0.04 : 0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: blocked ? 0.1 : 0.2)),
-        ),
-        child: Row(children: [
+      child: AnimeCardDecoration(
+        color: color,
+        borderRadius: 16,
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: blocked ? 0.04 : 0.08),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: blocked ? 0.1 : 0.2)),
+          ),
+          child: Row(children: [
           Container(
             width: 52,
             height: 52,
@@ -263,7 +312,8 @@ class _StudyCard extends StatelessWidget {
             )
           else
             Icon(Icons.arrow_forward_ios_rounded, size: 16, color: color.withValues(alpha: 0.5)),
-        ]),
+          ]),
+        ),
       ),
     );
   }

@@ -12,6 +12,7 @@ class UserModel {
   final String? lastStudyDate;
   final int dailyGoalMinutes;
   final bool notificationEnabled;
+  final Map<String, dynamic> preferences;
   final bool isMember;
   final String? membershipPlan;
   final String? membershipExpire;
@@ -30,6 +31,7 @@ class UserModel {
     this.lastStudyDate,
     required this.dailyGoalMinutes,
     required this.notificationEnabled,
+    this.preferences = const {},
     this.isMember = false,
     this.membershipPlan,
     this.membershipExpire,
@@ -49,6 +51,7 @@ class UserModel {
         lastStudyDate: json['last_study_date'],
         dailyGoalMinutes: json['daily_goal_minutes'] ?? 15,
         notificationEnabled: json['notification_enabled'] ?? true,
+        preferences: Map<String, dynamic>.from(json['preferences'] as Map? ?? const {}),
         isMember: json['is_member'] == true,
         membershipPlan: json['membership_plan'],
         membershipExpire: json['membership_expire'],

@@ -95,5 +95,6 @@ flutter:
     - assets/images/
     - assets/audio/
     - assets/lottie/
+    - assets/svg/maps/
     - assets/svg/kana/hiragana/
     - assets/svg/kana/katakana/

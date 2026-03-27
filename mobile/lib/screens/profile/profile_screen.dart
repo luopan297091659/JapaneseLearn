@@ -1,8 +1,13 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,9 +15,11 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import '../../config/app_config.dart';
 import '../../services/api_service.dart';
+import '../../services/sync_service.dart';
 import '../../models/models.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/locale_provider.dart';
+import '../../providers/app_appearance_provider.dart';
 import '../../utils/tts_helper.dart';
 import '../membership/membership_comparison_page.dart';
 
@@ -31,6 +38,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   double _slowSpeed = 0.5;
   String _appVersion = '';
   bool _checkingUpdate = false;
+  Uint8List? _avatarBytes;
 
   @override
   void initState() { super.initState(); _load(); _checkPermissions(); _loadSlowSpeed(); _loadAppVersion(); }
@@ -53,6 +61,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     setState(() => _slowSpeed = speed);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('slow_speed', speed);
+    try {
+      await syncService.syncUserPreferences(slowSpeed: speed);
+    } catch (_) {}
   }
 
   Future<void> _load() async {
@@ -61,12 +72,45 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         apiService.getMe(),
         apiService.getProgressSummary(),
       ]);
+      final user = results[0] as UserModel;
+      final avatarBytes = await _downloadAvatarBytes(user.avatarUrl);
+      final prefs = await SharedPreferences.getInstance();
+      final remotePreferences = user.preferences;
+      if (remotePreferences['slow_speed'] is num) {
+        await prefs.setDouble('slow_speed', (remotePreferences['slow_speed'] as num).toDouble());
+      }
+      if (remotePreferences['locale'] is String) {
+        await prefs.setString('app_language', remotePreferences['locale'] as String);
+      }
+      if (remotePreferences['appearance_mode'] is String) {
+        await prefs.setString('app_appearance_mode', remotePreferences['appearance_mode'] as String);
+      }
+      await prefs.setInt('daily_goal_minutes', user.dailyGoalMinutes);
+      await prefs.setBool('notification_enabled', user.notificationEnabled);
       setState(() {
-        _user = results[0] as UserModel;
+        _user = user;
         _progress = results[1] as ProgressSummaryModel;
+        _avatarBytes = avatarBytes;
+        _slowSpeed = (remotePreferences['slow_speed'] as num?)?.toDouble() ?? _slowSpeed;
         _loading = false;
       });
     } catch (_) { setState(() => _loading = false); }
+  }
+
+  Future<Uint8List?> _downloadAvatarBytes(String? rawUrl) async {
+    final url = _avatarAbsoluteUrl(rawUrl);
+    if (url == null) return null;
+    try {
+      final res = await apiService.dio.get<List<int>>(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final data = res.data;
+      if (data == null || data.isEmpty) return null;
+      return Uint8List.fromList(data);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _checkPermissions() async {
@@ -90,6 +134,50 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _logout() async {
     await apiService.logout();
     if (mounted) context.go('/login');
+  }
+
+  String? _avatarAbsoluteUrl(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    return '${AppConfig.serverRoot}$raw';
+  }
+
+  Future<void> _editAvatar() async {
+    try {
+      final picked = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: false,
+      );
+      if (picked == null || picked.files.isEmpty) return;
+      final path = picked.files.single.path;
+      if (path == null || path.isEmpty) return;
+
+      final editedBytes = await showDialog<Uint8List>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => _AvatarEditorDialog(file: File(path)),
+      );
+      if (editedBytes == null) return;
+
+      final user = await apiService.uploadAvatarBytes(
+        editedBytes,
+        fileName: 'avatar_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
+      if (!mounted) return;
+      setState(() {
+        _user = user;
+        _avatarBytes = editedBytes;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('头像已更新')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('头像上传失败：$e')),
+      );
+    }
   }
 
   String _memberPlanLabel(String? plan) {
@@ -166,6 +254,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
     if (confirmed == true && selected != current) {
       try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('daily_goal_minutes', selected);
         await apiService.updateProfile(dailyGoalMinutes: selected);
         _load();
       } catch (e) {
@@ -179,6 +269,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _toggleNotification(bool value) async {
     setState(() => _notifOverride = value); // 乐观更新
     try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('notification_enabled', value);
       await apiService.updateProfile(notificationEnabled: value);
     } catch (e) {
       setState(() => _notifOverride = !value); // 回滚
@@ -645,6 +737,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final cs = Theme.of(context).colorScheme;
     final s = S.of(context);
     final locale = ref.watch(localeProvider);
+    final appearance = ref.watch(appAppearanceProvider);
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -673,18 +766,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           // 头像 + 用户名 + 邮箱
                           Stack(
                             children: [
-                              CircleAvatar(
-                                radius: 38,
-                                backgroundColor: cs.primaryContainer,
-                                child: Text(
-                                  _user?.username.substring(0, 1).toUpperCase() ?? 'U',
-                                  style: TextStyle(fontSize: 30, color: cs.primary, fontWeight: FontWeight.bold),
+                              GestureDetector(
+                                onTap: _editAvatar,
+                                child: CircleAvatar(
+                                  radius: 38,
+                                  backgroundColor: cs.primaryContainer,
+                                  backgroundImage: (_avatarBytes != null)
+                                    ? MemoryImage(_avatarBytes!)
+                                      : null,
+                                  child: (_avatarBytes == null)
+                                      ? Text(
+                                          _user?.username.substring(0, 1).toUpperCase() ?? 'U',
+                                          style: TextStyle(fontSize: 30, color: cs.primary, fontWeight: FontWeight.bold),
+                                        )
+                                      : null,
                                 ),
                               ),
                               Positioned(
                                 bottom: 0, right: 0,
                                 child: GestureDetector(
-                                  onTap: _editPersonalInfo,
+                                  onTap: _editAvatar,
                                   child: Container(
                                     width: 24, height: 24,
                                     decoration: BoxDecoration(
@@ -692,7 +793,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       shape: BoxShape.circle,
                                       border: Border.all(color: cs.surface, width: 2),
                                     ),
-                                    child: const Icon(Icons.edit, size: 12, color: Colors.white),
+                                    child: const Icon(Icons.camera_alt_rounded, size: 12, color: Colors.white),
                                   ),
                                 ),
                               ),
@@ -883,6 +984,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                         const Divider(height: 1, indent: 56),
                         ListTile(
+                          leading: const Icon(Icons.palette_rounded),
+                          title: const Text('界面模式'),
+                          subtitle: Text(
+                            appearance == AppAppearanceMode.anime ? '酷炫模式' : '经典模式',
+                          ),
+                          trailing: ToggleButtons(
+                            isSelected: [
+                              appearance == AppAppearanceMode.classic,
+                              appearance == AppAppearanceMode.anime,
+                            ],
+                            onPressed: (i) {
+                              ref.read(appAppearanceProvider.notifier).setMode(
+                                i == 0 ? AppAppearanceMode.classic : AppAppearanceMode.anime,
+                              );
+                            },
+                            constraints: const BoxConstraints(minWidth: 52, minHeight: 34),
+                            borderRadius: BorderRadius.circular(8),
+                            children: const [
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 8),
+                                child: Text('经典', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 8),
+                                child: Text('酷炫', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Divider(height: 1, indent: 56),
+                        ListTile(
                           leading: const Icon(Icons.bar_chart_rounded),
                           title: Text(s.studyGoal),
                           subtitle: Text(s.dailyGoalFmt.replaceAll('%d', '${_user?.dailyGoalMinutes ?? 15}')),
@@ -950,6 +1082,107 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ],
               ),
             ),
+    );
+  }
+}
+
+class _AvatarEditorDialog extends StatefulWidget {
+  final File file;
+  const _AvatarEditorDialog({required this.file});
+
+  @override
+  State<_AvatarEditorDialog> createState() => _AvatarEditorDialogState();
+}
+
+class _AvatarEditorDialogState extends State<_AvatarEditorDialog> {
+  final GlobalKey _repaintKey = GlobalKey();
+  final TransformationController _controller = TransformationController();
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.value = Matrix4.identity()..scale(1.2);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      final boundary = _repaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) throw Exception('渲染失败');
+      final image = await boundary.toImage(pixelRatio: 3);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) throw Exception('截图失败');
+      if (!mounted) return;
+      Navigator.pop(context, byteData.buffer.asUint8List());
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('头像处理失败：$e')),
+      );
+      setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final maxCropSize = MediaQuery.of(context).size.width - 88;
+    final cropSize = maxCropSize.clamp(220.0, 280.0);
+    return AlertDialog(
+      title: const Text('编辑头像'),
+      contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RepaintBoundary(
+            key: _repaintKey,
+            child: ClipOval(
+              child: Container(
+                width: cropSize,
+                height: cropSize,
+                color: Colors.black12,
+                child: InteractiveViewer(
+                  transformationController: _controller,
+                  minScale: 1.0,
+                  maxScale: 5.0,
+                  child: SizedBox(
+                    width: cropSize,
+                    height: cropSize,
+                    child: Image.file(widget.file, fit: BoxFit.cover),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text('双指缩放和拖动位置后保存', style: TextStyle(fontSize: 12, color: cs.outline)),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton.icon(
+          onPressed: _saving ? null : _save,
+          icon: _saving
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : const Icon(Icons.cloud_upload_rounded),
+          label: Text(_saving ? '上传中' : '保存头像'),
+        ),
+      ],
     );
   }
 }

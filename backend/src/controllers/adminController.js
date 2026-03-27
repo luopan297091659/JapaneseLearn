@@ -15,6 +15,11 @@ const {
   AppRelease, MembershipPlan,
   StudyPlanDailyTask, StudyPlanCardState,
 } = require('../models');
+const {
+  getUserPreferences,
+  mergeUserPreferences,
+  summarizeUserPreferences,
+} = require('../utils/userPreferences');
 // utilities used across controllers
 const { stripHtml } = require('../services/ankiService');
 
@@ -474,7 +479,15 @@ async function listUsers(req, res) {
       order: [['createdAt', 'DESC']],
       attributes: { exclude: ['password_hash'] },
     });
-    res.json({ total: count, page: parseInt(page), limit: lim, data: rows });
+    const data = rows.map((row) => {
+      const json = row.toJSON ? row.toJSON() : row;
+      return {
+        ...json,
+        preferences: json.preferences || getUserPreferences(json),
+        preference_summary: json.preference_summary || summarizeUserPreferences(json.preferences || getUserPreferences(json)),
+      };
+    });
+    res.json({ total: count, page: parseInt(page), limit: lim, data });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -488,7 +501,7 @@ async function updateUser(req, res) {
     if (!req.isSuperAdmin && (user.role === 'admin' || user.admin_level === 'super_admin')) {
       return res.status(403).json({ error: '权限不足，不能修改管理员用户' });
     }
-    const { is_active, role, level, daily_goal_minutes } = req.body;
+    const { is_active, role, level, daily_goal_minutes, notification_enabled, preferences } = req.body;
     const updates = {};
     if (is_active !== undefined) updates.is_active = is_active;
     // 非超级管理员不能设置角色为 admin
@@ -498,8 +511,25 @@ async function updateUser(req, res) {
     }
     if (level !== undefined) updates.level = level;
     if (daily_goal_minutes !== undefined) updates.daily_goal_minutes = daily_goal_minutes;
+    if (notification_enabled !== undefined) updates.notification_enabled = notification_enabled;
     await user.update(updates);
-    res.json({ id: user.id, username: user.username, email: user.email, role: user.role, is_active: user.is_active });
+
+    if (daily_goal_minutes !== undefined || notification_enabled !== undefined || (preferences && typeof preferences === 'object')) {
+      const mergedPreferences = mergeUserPreferences(user, {
+        ...(daily_goal_minutes !== undefined ? { daily_goal_minutes } : {}),
+        ...(notification_enabled !== undefined ? { notification_enabled } : {}),
+        ...(preferences && typeof preferences === 'object' ? preferences : {}),
+      });
+      await user.update({
+        daily_goal_minutes: mergedPreferences.daily_goal_minutes,
+        notification_enabled: mergedPreferences.notification_enabled,
+        preferences_json: JSON.stringify(mergedPreferences),
+      });
+    }
+
+    await user.reload();
+    const json = user.toJSON ? user.toJSON() : user;
+    res.json(json);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -649,6 +679,66 @@ function grainFormat(grain) {
   return '%Y-%m-%d';
 }
 
+function incrementCounter(map, key) {
+  map.set(key, (map.get(key) || 0) + 1);
+}
+
+function mapToCountArray(map, keyName = 'label') {
+  return Array.from(map.entries())
+    .map(([label, count]) => ({ [keyName]: label, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+function dailyGoalBucket(minutes) {
+  if (minutes <= 15) return '15分钟内';
+  if (minutes <= 30) return '16-30分钟';
+  if (minutes <= 60) return '31-60分钟';
+  return '60分钟以上';
+}
+
+function slowSpeedBucket(speed) {
+  if (speed <= 0.4) return '0.20-0.40x';
+  if (speed <= 0.55) return '0.41-0.55x';
+  if (speed <= 0.7) return '0.56-0.70x';
+  return '0.71-0.80x';
+}
+
+function localeLabel(locale) {
+  return { zh: '中文', en: 'English', ja: '日本語' }[locale] || locale || '未知';
+}
+
+function appearanceLabel(mode) {
+  return mode === 'anime' ? '酷炫' : '经典';
+}
+
+function buildPreferenceStats(rows) {
+  const localeDist = new Map();
+  const appearanceDist = new Map();
+  const slowSpeedDist = new Map();
+  const dailyGoalDist = new Map();
+  const notificationDist = new Map();
+  let syncedUsers = 0;
+
+  for (const row of rows) {
+    const pref = getUserPreferences(row);
+    if (row.preferences_json) syncedUsers += 1;
+    incrementCounter(localeDist, localeLabel(pref.locale));
+    incrementCounter(appearanceDist, appearanceLabel(pref.appearance_mode));
+    incrementCounter(slowSpeedDist, slowSpeedBucket(pref.slow_speed));
+    incrementCounter(dailyGoalDist, dailyGoalBucket(pref.daily_goal_minutes));
+    incrementCounter(notificationDist, pref.notification_enabled ? '已开启' : '已关闭');
+  }
+
+  return {
+    syncedUsers,
+    localeDist: mapToCountArray(localeDist, 'locale'),
+    appearanceDist: mapToCountArray(appearanceDist, 'mode'),
+    slowSpeedDist: mapToCountArray(slowSpeedDist, 'bucket'),
+    dailyGoalDist: mapToCountArray(dailyGoalDist, 'bucket'),
+    notificationDist: mapToCountArray(notificationDist, 'label'),
+  };
+}
+
 // ─── 流量统计（API 请求量、响应时间、错误率）─────────────────────────────────
 async function getTrafficStats(req, res) {
   try {
@@ -759,6 +849,13 @@ async function getUserStats(req, res) {
       );
     } catch (_e) { streakDist = []; }
 
+    // 偏好习惯统计
+    const preferenceRows = await User.findAll({
+      attributes: ['preferences_json', 'daily_goal_minutes', 'notification_enabled'],
+      raw: true,
+    });
+    const preferenceStats = buildPreferenceStats(preferenceRows);
+
     // 区间内新增 vs 活跃汇总
     const [newUsers, activeUsers] = await Promise.all([
       sequelize.query(
@@ -771,7 +868,24 @@ async function getUserStats(req, res) {
       ).then(r => parseInt(r[0]?.cnt || 0)),
     ]);
 
-    res.json({ grain, start, end, regTrend, activeTrend, levelDist, streakDist, newUsers, activeUsers });
+    res.json({
+      grain,
+      start,
+      end,
+      regTrend,
+      activeTrend,
+      levelDist,
+      streakDist,
+      newUsers,
+      activeUsers,
+      preferenceStats: {
+        ...preferenceStats,
+        totalUsers: preferenceRows.length,
+        syncRate: preferenceRows.length
+          ? Math.round((preferenceStats.syncedUsers / preferenceRows.length) * 100)
+          : 0,
+      },
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

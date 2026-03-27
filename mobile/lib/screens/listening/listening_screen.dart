@@ -1,10 +1,15 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:just_audio/just_audio.dart' as ja;
+import 'package:dio/dio.dart' as dio;
 import '../../services/api_service.dart';
 import '../../services/permission_service.dart';
 import '../../widgets/furigana_text.dart';
@@ -41,6 +46,14 @@ class _ListeningScreenState extends State<ListeningScreen> {
   // ── 文字输入 ──
   final TextEditingController _inputCtrl = TextEditingController();
   bool _inputMode = false;
+
+  // ── 录音文件（用于保存/回放）──
+  final AudioRecorder _recorder = AudioRecorder();
+  final ja.AudioPlayer _audioPlayer = ja.AudioPlayer();
+  bool _concurrentRecording = false;
+  String? _recordingPath;
+  bool _uploading = false;
+  String? _lastUploadedRecordingPath;
 
   @override
   void initState() {
@@ -104,6 +117,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
   Future<void> _toggleRecord() async {
     if (_listening) {
       await _speech.stop();
+      await _stopConcurrentRecording();
       if (!_attemptFinalized && _score == null && _lastRecognized.isNotEmpty) {
         _attemptFinalized = true;
         _processResult(_lastRecognized);
@@ -142,16 +156,27 @@ class _ListeningScreenState extends State<ListeningScreen> {
 
     _lastRecognized = '';
     _attemptFinalized = false;
-    setState(() { _listening = true; _score = null; _recognized = ''; _feedback = ''; _inputMode = false; _inputCtrl.clear(); });
+    setState(() {
+      _listening = true;
+      _score = null;
+      _recognized = '';
+      _feedback = '';
+      _inputMode = false;
+      _inputCtrl.clear();
+      _recordingPath = null;
+      _lastUploadedRecordingPath = null;
+    });
     try {
       _speech.statusListener = (status) {
         if ((status == 'done' || status == 'notListening') && mounted && _listening && !_attemptFinalized) {
           _attemptFinalized = true;
-          if (_score == null && _lastRecognized.isNotEmpty) {
-            _processResult(_lastRecognized);
-          } else {
-            setState(() { _listening = false; _feedback = '未检测到语音，请靠近麦克风重试'; });
-          }
+          _stopConcurrentRecording().then((_) {
+            if (_score == null && _lastRecognized.isNotEmpty) {
+              _processResult(_lastRecognized);
+            } else {
+              setState(() { _listening = false; _feedback = '未检测到语音，请靠近麦克风重试'; });
+            }
+          });
         }
       };
 
@@ -167,8 +192,11 @@ class _ListeningScreenState extends State<ListeningScreen> {
         listenFor: const Duration(seconds: 15),
         pauseFor: const Duration(seconds: 3),
       );
+
+      await _startConcurrentRecording();
     } catch (e) {
       debugPrint('Speech listen error: $e');
+      await _stopConcurrentRecording();
       if (mounted) {
         setState(() { _listening = false; _feedback = '录音启动失败，请重试'; });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -178,7 +206,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
     }
   }
 
-  void _processResult(String recognized) {
+  Future<void> _processResult(String recognized) async {
     final s = _sentences[_index];
     final sentence = (s['sentence'] as String).trim();
     final reading = (s['reading'] as String).trim();
@@ -204,8 +232,33 @@ class _ListeningScreenState extends State<ListeningScreen> {
 
     setState(() { _score = score; _recognized = recognized; _feedback = feedback; _listening = false; _showSentence = true; });
 
+    try {
+      final ai = await apiService.scoreSpeechRecognition(
+        targetText: sentence,
+        recognizedText: rec,
+        referenceReading: reading.isNotEmpty ? reading : null,
+        mode: 'listening',
+      );
+      if (mounted) {
+        final aiScore = (ai['score'] as num?)?.toInt();
+        final aiFeedback = (ai['feedback'] as String?)?.trim();
+        if (aiScore != null) {
+          setState(() {
+            _score = aiScore.clamp(0, 100);
+            if (aiFeedback != null && aiFeedback.isNotEmpty) {
+              _feedback = '🤖 $aiFeedback';
+            }
+          });
+        }
+      }
+    } catch (_) {
+      // ignore AI failures and keep local score
+    }
+
+    final finalScore = _score ?? score;
+
     // 得分低于70分时保存到错题集
-    if (score < 70) {
+    if (finalScore < 70) {
       _saveWrongAnswer(
         question: sentence,
         yourAnswer: rec,
@@ -251,6 +304,112 @@ class _ListeningScreenState extends State<ListeningScreen> {
     return (matches / maxLen * 100).round();
   }
 
+  Future<void> _startConcurrentRecording() async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final recDir = Directory('${dir.path}/recordings');
+      if (!await recDir.exists()) await recDir.create(recursive: true);
+      final filePath = '${recDir.path}/listening_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      if (await _recorder.hasPermission()) {
+        await _recorder.start(
+          const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000, sampleRate: 44100),
+          path: filePath,
+        );
+        _concurrentRecording = true;
+      }
+    } catch (_) {
+      _concurrentRecording = false;
+    }
+  }
+
+  Future<void> _stopConcurrentRecording() async {
+    if (!_concurrentRecording) return;
+    try {
+      if (await _recorder.isRecording()) {
+        final path = await _recorder.stop();
+        if (path != null && await File(path).exists()) {
+          final fileSize = await File(path).length();
+          if (fileSize > 1024 && mounted) {
+            setState(() {
+              _recordingPath = path;
+              _lastUploadedRecordingPath = null;
+            });
+          }
+        }
+      }
+    } catch (_) {
+      // ignore
+    } finally {
+      _concurrentRecording = false;
+    }
+  }
+
+  Future<void> _playRecording() async {
+    if (_recordingPath == null) return;
+    try {
+      final file = File(_recordingPath!);
+      if (!await file.exists()) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('录音文件不存在')));
+        return;
+      }
+      await _audioPlayer.stop();
+      await _audioPlayer.setFilePath(_recordingPath!);
+      await _audioPlayer.play();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('回放失败: $e'), duration: const Duration(seconds: 2)),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadRecording() async {
+    if (_recordingPath == null) return;
+    if (_lastUploadedRecordingPath == _recordingPath) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('该录音已保存'), duration: Duration(seconds: 1)),
+        );
+      }
+      return;
+    }
+
+    setState(() => _uploading = true);
+    try {
+      final s = _sentences[_index];
+      final file = File(_recordingPath!);
+      if (!await file.exists()) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('录音文件不存在')));
+        return;
+      }
+      final formData = dio.FormData.fromMap({
+        'audio': await dio.MultipartFile.fromFile(file.path, filename: file.path.split('/').last),
+        'sentence': (s['sentence'] as String?) ?? '',
+        'reading': (s['reading'] as String?) ?? '',
+        if (_score != null) 'score': _score.toString(),
+      });
+      final res = await apiService.dio.post('/pronunciation/listening-recording', data: formData);
+      if (mounted) {
+        final success = res.data is Map && res.data['success'] == true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(success ? '✅ 录音已保存' : '保存失败'), duration: const Duration(seconds: 2)),
+        );
+        if (success) {
+          _lastUploadedRecordingPath = _recordingPath;
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存失败: $e'), duration: const Duration(seconds: 2)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
   void _prev() {
     if (_index > 0) setState(() { _index--; _resetState(); });
   }
@@ -267,6 +426,11 @@ class _ListeningScreenState extends State<ListeningScreen> {
   void dispose() {
     _tts.stop();
     _speech.stop();
+    if (_concurrentRecording) {
+      _recorder.stop().catchError((_) => null);
+    }
+    _recorder.dispose();
+    _audioPlayer.dispose();
     _inputCtrl.dispose();
     if (_scores.isNotEmpty) {
       final avg = (_scores.reduce((a, b) => a + b) / _scores.length).round();
@@ -444,6 +608,30 @@ class _ListeningScreenState extends State<ListeningScreen> {
           Text('$_score', style: TextStyle(fontSize: 56, fontWeight: FontWeight.w900, color: _score! >= 80 ? Colors.green : _score! >= 50 ? Colors.orange : Colors.red)),
           const SizedBox(height: 4),
           Text(_feedback, style: TextStyle(fontSize: 14, color: cs.onSurface.withValues(alpha: 0.7)), textAlign: TextAlign.center),
+          if (_recordingPath != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _playRecording,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                  label: const Text('回放录音'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _uploading ? null : _uploadRecording,
+                  icon: const Icon(Icons.cloud_upload_rounded, size: 18),
+                  label: const Text('保存录音'),
+                ),
+                if (_uploading)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8),
+                    child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                  ),
+              ],
+            ),
+          ],
         ],
 
         // 原文显示

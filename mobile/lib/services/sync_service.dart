@@ -11,6 +11,10 @@ class SyncService {
   factory SyncService() => _instance;
   SyncService._internal();
 
+  static const _slowSpeedKey = 'slow_speed';
+  static const _languageKey = 'app_language';
+  static const _appearanceModeKey = 'app_appearance_mode';
+
   bool _syncing = false;
 
   // ── 功能开关缓存 ──
@@ -85,6 +89,63 @@ class SyncService {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<Map<String, dynamic>> collectLocalUserPreferences({
+    int? dailyGoalMinutes,
+    bool? notificationEnabled,
+    double? slowSpeed,
+    String? locale,
+    String? appearanceMode,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      'daily_goal_minutes': dailyGoalMinutes ?? (prefs.getInt('daily_goal_minutes') ?? 15),
+      'notification_enabled': notificationEnabled ?? (prefs.getBool('notification_enabled') ?? true),
+      'slow_speed': slowSpeed ?? (prefs.getDouble(_slowSpeedKey) ?? 0.5),
+      'locale': locale ?? (prefs.getString(_languageKey) ?? 'zh'),
+      'appearance_mode': appearanceMode ?? (prefs.getString(_appearanceModeKey) ?? 'classic'),
+    };
+  }
+
+  Future<Map<String, dynamic>> syncUserPreferences({
+    int? dailyGoalMinutes,
+    bool? notificationEnabled,
+    double? slowSpeed,
+    String? locale,
+    String? appearanceMode,
+  }) async {
+    final payload = await collectLocalUserPreferences(
+      dailyGoalMinutes: dailyGoalMinutes,
+      notificationEnabled: notificationEnabled,
+      slowSpeed: slowSpeed,
+      locale: locale,
+      appearanceMode: appearanceMode,
+    );
+    return apiService.updateUserPreferences(payload);
+  }
+
+  Future<Map<String, dynamic>> fetchUserPreferences({bool persistLocal = true}) async {
+    final remote = await apiService.getUserPreferences();
+    if (persistLocal) {
+      final prefs = await SharedPreferences.getInstance();
+      if (remote['daily_goal_minutes'] is num) {
+        await prefs.setInt('daily_goal_minutes', (remote['daily_goal_minutes'] as num).round());
+      }
+      if (remote['notification_enabled'] is bool) {
+        await prefs.setBool('notification_enabled', remote['notification_enabled'] == true);
+      }
+      if (remote['slow_speed'] is num) {
+        await prefs.setDouble(_slowSpeedKey, (remote['slow_speed'] as num).toDouble());
+      }
+      if (remote['locale'] is String) {
+        await prefs.setString(_languageKey, remote['locale'] as String);
+      }
+      if (remote['appearance_mode'] is String) {
+        await prefs.setString(_appearanceModeKey, remote['appearance_mode'] as String);
+      }
+    }
+    return remote;
   }
 
   /// 将本地待同步词汇上传到服务器

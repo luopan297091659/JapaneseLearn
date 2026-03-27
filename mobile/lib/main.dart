@@ -9,6 +9,7 @@ import 'l10n/app_localizations.dart';
 import 'providers/locale_provider.dart';
 import 'utils/tts_helper.dart';
 import 'services/plan_reminder_service.dart';
+import 'providers/app_appearance_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,6 +61,7 @@ void main() async {
   // 启动时读取持久化语言设置
   final container = ProviderContainer();
   await container.read(localeProvider.notifier).init();
+  await container.read(appAppearanceProvider.notifier).init();
   // 后台检测服务端内容版本，有更新则清除缓存
   syncService.checkContentVersion();
   // 后台拉取功能开关
@@ -80,11 +82,13 @@ class JapaneseLearnApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
     final locale = ref.watch(localeProvider);
+    final appearance = ref.watch(appAppearanceProvider);
+    final isAnime = appearance == AppAppearanceMode.anime;
     return MaterialApp.router(
       title: '言旅 Kotabi',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
+      theme: isAnime ? AppTheme.animeLight : AppTheme.light,
+      darkTheme: isAnime ? AppTheme.animeDark : AppTheme.dark,
       themeMode: ThemeMode.system,
       routerConfig: router,
       // ── 国际化配置 ──
@@ -123,6 +127,9 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
+    extensions: const [
+      AppVisualTheme(animeBackground: false),
+    ],
   );
 
   static final dark = ThemeData(
@@ -137,5 +144,66 @@ class AppTheme {
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
+    extensions: const [
+      AppVisualTheme(animeBackground: false),
+    ],
+  );
+
+  static final animeLight = ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: const Color(0xFF29B6F6),
+      brightness: Brightness.light,
+    ).copyWith(
+      primary: const Color(0xFF039BE5),
+      secondary: const Color(0xFF9575CD),
+      tertiary: const Color(0xFF4DD0E1),
+      surface: const Color(0xFFFFFFFF),
+      surfaceContainerLowest: const Color(0xFFFCFEFF),
+      surfaceContainerLow: const Color(0xFFF7FBFF),
+      surfaceContainer: const Color(0xFFF2F9FF),
+      surfaceContainerHigh: const Color(0xFFEFF7FF),
+      onSurface: const Color(0xFF0F2940),
+    ),
+    fontFamily: 'NotoSansJP',
+    appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
+    cardTheme: CardThemeData(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      filled: true,
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        minimumSize: const Size.fromHeight(48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
+    extensions: const [
+      AppVisualTheme(animeBackground: true),
+    ],
+  );
+
+  static final animeDark = ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: const Color(0xFF1E88E5),
+      brightness: Brightness.dark,
+    ).copyWith(
+      primary: const Color(0xFF42A5F5),
+      secondary: const Color(0xFFB39DDB),
+      tertiary: const Color(0xFF4DD0E1),
+    ),
+    fontFamily: 'NotoSansJP',
+    appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
+    cardTheme: CardThemeData(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    extensions: const [
+      AppVisualTheme(animeBackground: true),
+    ],
   );
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/sync_service.dart';
 
 const _kLangKey = 'app_language';
 
@@ -18,6 +19,9 @@ class LocaleNotifier extends Notifier<Locale> {
     state = locale;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kLangKey, locale.languageCode);
+    try {
+      await syncService.syncUserPreferences(locale: locale.languageCode);
+    } catch (_) {}
   }
 
   Future<void> toggle() async {

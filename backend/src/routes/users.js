@@ -5,6 +5,35 @@ const { readFeatureTiers, getDailyUsageCount, isActiveMember } = require('../mid
 const User = require('../models/User');
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
+const {
+  getUserPreferences,
+  mergeUserPreferences,
+  summarizeUserPreferences,
+} = require('../utils/userPreferences');
+
+const avatarDir = path.join(__dirname, '../../uploads/avatars');
+if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir, { recursive: true });
+
+async function persistUserPreferences(user, overrides = {}) {
+  const preferences = mergeUserPreferences(user, overrides);
+  await user.update({
+    notification_enabled: preferences.notification_enabled,
+    daily_goal_minutes: preferences.daily_goal_minutes,
+    preferences_json: JSON.stringify(preferences),
+  });
+  return preferences;
+}
+
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 6 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype && file.mimetype.startsWith('image/')) return cb(null, true);
+    cb(new Error('仅支持图片文件上传'));
+  },
+});
 
 router.get('/profile', authenticate, asyncHandler(async (req, res) => {
   res.json(req.user);
@@ -12,7 +41,69 @@ router.get('/profile', authenticate, asyncHandler(async (req, res) => {
 
 router.put('/profile', authenticate, asyncHandler(async (req, res) => {
   const { username, level, daily_goal_minutes, notification_enabled } = req.body;
-  await req.user.update({ username, level, daily_goal_minutes, notification_enabled });
+  const payload = {};
+  if (username !== undefined) payload.username = username;
+  if (level !== undefined) payload.level = level;
+  await req.user.update(payload);
+
+  if (daily_goal_minutes !== undefined || notification_enabled !== undefined) {
+    await persistUserPreferences(req.user, {
+      ...(daily_goal_minutes !== undefined ? { daily_goal_minutes } : {}),
+      ...(notification_enabled !== undefined ? { notification_enabled } : {}),
+    });
+  }
+
+  await req.user.reload();
+  res.json(req.user);
+}));
+
+router.get('/preferences', authenticate, asyncHandler(async (req, res) => {
+  const preferences = getUserPreferences(req.user);
+  res.json({
+    preferences,
+    preference_summary: summarizeUserPreferences(preferences),
+  });
+}));
+
+router.put('/preferences', authenticate, asyncHandler(async (req, res) => {
+  const incoming = req.body && typeof req.body.preferences === 'object'
+    ? req.body.preferences
+    : req.body;
+  const preferences = await persistUserPreferences(req.user, incoming || {});
+  await req.user.reload();
+  res.json({
+    user: req.user,
+    preferences,
+    preference_summary: summarizeUserPreferences(preferences),
+  });
+}));
+
+router.post('/avatar', authenticate, avatarUpload.single('avatar'), asyncHandler(async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: '请上传头像图片' });
+
+  const mimeExt = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+    'image/heic': '.heic',
+    'image/heif': '.heif',
+  };
+  const ext = mimeExt[req.file.mimetype] || path.extname(req.file.originalname || '') || '.jpg';
+  const filename = `${uuidv4()}${ext}`;
+  const absPath = path.join(avatarDir, filename);
+
+  fs.writeFileSync(absPath, req.file.buffer);
+  const avatarUrl = `/uploads/avatars/${filename}`;
+  const oldAvatar = req.user.avatar_url;
+  await req.user.update({ avatar_url: avatarUrl });
+
+  if (oldAvatar && oldAvatar.startsWith('/uploads/avatars/') && oldAvatar !== avatarUrl) {
+    const oldPath = path.join(__dirname, '../..', oldAvatar.replace(/^\//, ''));
+    if (fs.existsSync(oldPath)) {
+      try { fs.unlinkSync(oldPath); } catch (_) {}
+    }
+  }
+
   res.json(req.user);
 }));
 

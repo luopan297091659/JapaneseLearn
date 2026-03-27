@@ -575,7 +575,7 @@ class _KanaWritingTestScreenState extends State<KanaWritingTestScreen> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () => context.pop(),
-                icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
                 label: const Text('返回'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),

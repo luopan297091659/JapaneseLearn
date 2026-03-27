@@ -128,7 +128,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
-          GoRoute(path: '/srs-review', builder: (_, __) => const SrsReviewScreen()),
+          GoRoute(
+            path: '/srs-review',
+            builder: (_, state) => SrsReviewScreen(
+              from: state.uri.queryParameters['from'] ?? 'home',
+            ),
+          ),
           GoRoute(
             path: '/dictionary',
             builder: (_, state) => DictionaryScreen(

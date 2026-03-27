@@ -459,7 +459,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
                       cleanReading(v.reading),
-                      style: TextStyle(fontSize: 16, color: cs.primary.withValues(alpha: 0.7)),
+                      style: TextStyle(fontSize: 18, color: cs.primary.withValues(alpha: 0.7)),
                     ),
                   ),
                 const SizedBox(height: 12),
@@ -565,19 +565,20 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                         ),
                         if (v.exampleAudioUrl != null || v.exampleSentence != null) ...[
                           const SizedBox(width: 8),
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Column(children: [
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
                               _audioButton(
                                 isExample: true,
                                 playing: _examplePlaying,
                                 loading: _exampleLoading,
                                 cs: cs,
-                                size: 36,
+                                size: 34,
                               ),
                               const SizedBox(height: 2),
-                              _slowAudioButton(isExample: true, cs: cs, size: 28),
-                            ]),
+                              _slowAudioButton(isExample: true, cs: cs, size: 26),
+                            ],
                           ),
                         ],
                       ],

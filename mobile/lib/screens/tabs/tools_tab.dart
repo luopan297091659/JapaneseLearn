@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../services/membership_service.dart';
+import '../../services/sync_service.dart';
+import '../../config/app_config.dart';
+import '../../providers/app_appearance_provider.dart';
+import '../../widgets/mode_background.dart';
 
 class ToolsTab extends StatefulWidget {
   const ToolsTab({super.key});
@@ -11,6 +15,8 @@ class ToolsTab extends StatefulWidget {
 
 class _ToolsTabState extends State<ToolsTab> {
   bool _isMember = false;
+  bool _tiersReady = false;
+  String? _avatarUrl;
 
   @override
   void initState() {
@@ -21,12 +27,31 @@ class _ToolsTabState extends State<ToolsTab> {
   Future<void> _loadMembership() async {
     try {
       final user = await apiService.getMe();
-      if (mounted) setState(() => _isMember = user.isMember);
-    } catch (_) {}
+      await syncService.fetchFeatureTiers();
+      if (mounted) {
+        setState(() {
+          _isMember = user.isMember;
+          _avatarUrl = user.avatarUrl;
+          _tiersReady = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _tiersReady = true);
+    }
   }
 
-  bool _isBlocked(String tierId) =>
-    !_isMember && membershipService.isBlocked(tierId, isMember: _isMember);
+  bool _isBlocked(String tierId) {
+    if (_isMember) return false;
+    if (!_tiersReady) return true;
+    return membershipService.isBlocked(tierId, isMember: _isMember);
+  }
+
+  String? _resolvedAvatarUrl() {
+    final avatar = _avatarUrl;
+    if (avatar == null || avatar.isEmpty) return null;
+    if (avatar.startsWith('http://') || avatar.startsWith('https://')) return avatar;
+    return '${AppConfig.serverRoot}$avatar';
+  }
 
   void _showMemberDialog(String name) {
     showDialog(
@@ -77,6 +102,88 @@ class _ToolsTabState extends State<ToolsTab> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final animeVisual = Theme.of(context).extension<AppVisualTheme>()?.animeBackground ?? false;
+    Widget body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _ToolCard(
+            icon: Icons.route_rounded,
+            title: '学习计划',
+            subtitle: '自定义组合：单词/语法/Anki词库',
+            color: const Color(0xFF6D28D9),
+            blocked: _isBlocked('study_plan_daily'),
+            onTap: () {
+              if (_isBlocked('study_plan_daily')) { _showMemberDialog('学习计划'); return; }
+              context.push('/study-plan');
+            },
+          ),
+          const SizedBox(height: 12),
+          _ToolCard(
+            icon: Icons.manage_search_rounded,
+            title: '辞书检索',
+            subtitle: '词典查询 · 日中双向搜索',
+            color: const Color(0xFF607D8B),
+            blocked: _isBlocked('dictionary_daily'),
+            onTap: () {
+              if (_isBlocked('dictionary_daily')) { _showMemberDialog('辞书检索'); return; }
+              context.push('/dictionary');
+            },
+          ),
+          const SizedBox(height: 12),
+            _ToolCard(
+              icon: Icons.translate_rounded,
+              title: '翻译/解析',
+              subtitle: 'AI翻译 · 句子分析 · TTS朗读',
+              color: const Color(0xFF3949AB),
+              blocked: _isBlocked('ai_features'),
+              onTap: () {
+                if (_isBlocked('ai_features')) { _showMemberDialog('翻译/解析'); return; }
+                context.push('/translate');
+              },
+            ),
+            const SizedBox(height: 12),
+          _ToolCard(
+            icon: Icons.folder_copy_rounded,
+            title: 'Anki 词库',
+            subtitle: '本地卡片 · 离线浏览复习',
+            color: const Color(0xFF00897B),
+            blocked: _isBlocked('anki_quiz'),
+            onTap: () {
+              if (_isBlocked('anki_quiz')) { _showMemberDialog('Anki 词库'); return; }
+              context.push('/local-vocab');
+            },
+          ),
+          const SizedBox(height: 12),
+          _ToolCard(
+            icon: Icons.headphones_rounded,
+            title: '磨耳朵',
+            subtitle: '沉浸式听力 · 日语频道视频',
+            color: const Color(0xFFE65100),
+            blocked: _isBlocked('immersion_daily'),
+            onTap: () {
+              if (_isBlocked('immersion_daily')) { _showMemberDialog('磨耳朵'); return; }
+              context.push('/immersion');
+            },
+          ),
+          const SizedBox(height: 12),
+          _ToolCard(
+            icon: Icons.newspaper_rounded,
+            title: 'NHK 新闻阅读',
+            subtitle: '实战阅读 · NHK Easy News + 注音',
+            color: const Color(0xFF0077B6),
+            blocked: _isBlocked('news_limit'),
+            onTap: () {
+              if (_isBlocked('news_limit')) { _showMemberDialog('NHK 新闻阅读'); return; }
+              context.push('/news');
+            },
+          ),
+
+        ],
+      );
+
+    if (animeVisual) {
+      body = AnimeModeBackground(child: body);
+    }
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
       appBar: AppBar(
@@ -93,7 +200,23 @@ class _ToolsTabState extends State<ToolsTab> {
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.person_outline, color: Colors.white, size: 24),
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.4),
+                    ),
+                    child: ClipOval(
+                      child: _resolvedAvatarUrl() != null
+                          ? Image.network(
+                              _resolvedAvatarUrl()!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                            )
+                          : const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
@@ -129,83 +252,7 @@ class _ToolsTabState extends State<ToolsTab> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _ToolCard(
-            icon: Icons.manage_search_rounded,
-            title: '辞书检索',
-            subtitle: '词典查询 · 日中双向搜索',
-            color: const Color(0xFF607D8B),
-            blocked: _isBlocked('dictionary_daily'),
-            onTap: () {
-              if (_isBlocked('dictionary_daily')) { _showMemberDialog('辞书检索'); return; }
-              context.push('/dictionary');
-            },
-          ),
-          const SizedBox(height: 12),
-            _ToolCard(
-              icon: Icons.translate_rounded,
-              title: '翻译/解析',
-              subtitle: 'AI翻译 · 句子分析 · TTS朗读',
-              color: const Color(0xFF3949AB),
-              blocked: _isBlocked('ai_features'),
-              onTap: () {
-                if (_isBlocked('ai_features')) { _showMemberDialog('翻译/解析'); return; }
-                context.push('/translate');
-              },
-            ),
-            const SizedBox(height: 12),
-          _ToolCard(
-            icon: Icons.route_rounded,
-            title: '学习计划',
-            subtitle: '自定义组合：单词/语法/Anki词库',
-            color: const Color(0xFF6D28D9),
-            blocked: _isBlocked('study_plan_daily'),
-            onTap: () {
-              if (_isBlocked('study_plan_daily')) { _showMemberDialog('学习计划'); return; }
-              context.push('/study-plan');
-            },
-          ),
-          const SizedBox(height: 12),
-          _ToolCard(
-            icon: Icons.folder_copy_rounded,
-            title: 'Anki 词库',
-            subtitle: '本地卡片 · 离线浏览复习',
-            color: const Color(0xFF00897B),
-            blocked: _isBlocked('anki_quiz'),
-            onTap: () {
-              if (_isBlocked('anki_quiz')) { _showMemberDialog('Anki 词库'); return; }
-              context.push('/local-vocab');
-            },
-          ),
-          const SizedBox(height: 12),
-          _ToolCard(
-            icon: Icons.newspaper_rounded,
-            title: 'NHK 新闻阅读',
-            subtitle: '实战阅读 · NHK Easy News + 注音',
-            color: const Color(0xFF0077B6),
-            blocked: _isBlocked('news_limit'),
-            onTap: () {
-              if (_isBlocked('news_limit')) { _showMemberDialog('NHK 新闻阅读'); return; }
-              context.push('/news');
-            },
-          ),
-          const SizedBox(height: 12),
-          _ToolCard(
-            icon: Icons.headphones_rounded,
-            title: '磨耳朵',
-            subtitle: '沉浸式听力 · 日语频道视频',
-            color: const Color(0xFFE65100),
-            blocked: _isBlocked('immersion_daily'),
-            onTap: () {
-              if (_isBlocked('immersion_daily')) { _showMemberDialog('磨耳朵'); return; }
-              context.push('/immersion');
-            },
-          ),
-
-        ],
-      ),
+      body: body,
     );
   }
 }
@@ -232,14 +279,16 @@ class _ToolCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: blocked ? 0.04 : 0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: blocked ? 0.1 : 0.2)),
-        ),
-        child: Row(children: [
+      child: AnimeCardDecoration(
+        color: color,
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: blocked ? 0.04 : 0.08),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: blocked ? 0.1 : 0.2)),
+          ),
+          child: Row(children: [
           Container(
             width: 52,
             height: 52,
@@ -274,7 +323,8 @@ class _ToolCard extends StatelessWidget {
             )
           else
             Icon(Icons.arrow_forward_ios_rounded, size: 16, color: color.withValues(alpha: 0.5)),
-        ]),
+          ]),
+        ),
       ),
     );
   }

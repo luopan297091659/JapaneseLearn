@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart' show VoidCallback;
@@ -348,6 +349,19 @@ class ApiService {
     return Map<String, dynamic>.from(res.data);
   }
 
+  Future<Map<String, dynamic>> getUserPreferences() async {
+    final res = await _dio.get('/users/preferences');
+    return Map<String, dynamic>.from(res.data['preferences'] as Map? ?? const {});
+  }
+
+  Future<Map<String, dynamic>> updateUserPreferences(Map<String, dynamic> preferences) async {
+    _cache.remove('me');
+    final res = await _dio.put('/users/preferences', data: {
+      'preferences': preferences,
+    });
+    return Map<String, dynamic>.from(res.data['preferences'] as Map? ?? const {});
+  }
+
   /// 更新用户设置（daily_goal_minutes / notification_enabled / level 等）
   Future<UserModel> updateProfile({
     int? dailyGoalMinutes,
@@ -362,6 +376,15 @@ class ApiService {
       if (level    != null) 'level':    level,
       if (username != null) 'username': username,
     });
+    return UserModel.fromJson(res.data);
+  }
+
+  Future<UserModel> uploadAvatarBytes(Uint8List bytes, {String fileName = 'avatar.png'}) async {
+    _cache.remove('me');
+    final formData = FormData.fromMap({
+      'avatar': MultipartFile.fromBytes(bytes, filename: fileName),
+    });
+    final res = await _dio.post('/users/avatar', data: formData);
     return UserModel.fromJson(res.data);
   }
 
@@ -1034,6 +1057,25 @@ class ApiService {
       options: Options(receiveTimeout: _aiTimeout),
     );
     return res.data as Map<String, dynamic>;
+  }
+
+  /// 发音/听力识别结果 AI 评分
+  ///
+  /// 返回: { score: 0-100, feedback: '...' }
+  Future<Map<String, dynamic>> scoreSpeechRecognition({
+    required String targetText,
+    required String recognizedText,
+    String? referenceReading,
+    String mode = 'pronunciation',
+  }) async {
+    final res = await _dio.post('/pronunciation/score', data: {
+      'target_text': targetText,
+      'recognized_text': recognizedText,
+      if (referenceReading != null && referenceReading.trim().isNotEmpty)
+        'reference_reading': referenceReading,
+      'mode': mode,
+    });
+    return Map<String, dynamic>.from(res.data as Map);
   }
 }
 

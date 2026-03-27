@@ -1458,7 +1458,7 @@ async function renderUsers(){
     <button class="btn btn-primary" onclick="userSearch()">搜索</button>
   </div>
   <div class="panel" style="padding:0">
-    <table><thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th><th>会员</th><th>活跃</th><th>注册时间</th><th>操作</th></tr></thead>
+    <table><thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th><th>会员</th><th>偏好习惯</th><th>活跃</th><th>注册时间</th><th>操作</th></tr></thead>
     <tbody id="us-body"></tbody></table>
     <div style="padding:12px 16px" id="us-pager"></div>
   </div>`;
@@ -1486,11 +1486,20 @@ async function loadUsers(){
         memBadge = `<span class="badge ${isExpired?'badge-orange':'badge-green'}">${esc(mp)}${isExpired?' (已过期)':''}</span>`;
       }
       const memExpire = me ? `<br/><small style="color:#888">${new Date(me).toLocaleDateString('zh-CN')}</small>` : '';
+      const pref = u.preferences || {};
+      const prefSummary = u.preference_summary || '未同步';
+      const prefHtml = `
+        <div style="font-size:12px;line-height:1.6;min-width:180px">
+          <div><span class="badge badge-blue">${esc(pref.locale || 'zh')}</span> <span class="badge badge-purple">${esc(pref.appearance_mode === 'anime' ? '酷炫' : '经典')}</span></div>
+          <div style="color:#64748b;margin-top:4px">慢速 ${esc(pref.slow_speed || 0.5)}x · 目标 ${esc(pref.daily_goal_minutes || 15)} 分</div>
+          <div style="color:#94a3b8;margin-top:2px">${esc(prefSummary)}</div>
+        </div>`;
       const sid = esc(String(u.id));
       return `<tr>
         <td>${u.id}</td><td>${esc(u.username)}</td><td>${esc(u.email)}</td>
         <td><span class="badge ${u.role==='admin'?'badge-red':'badge-blue'}">${esc(u.role)}</span></td>
         <td>${memBadge}${memExpire}</td>
+        <td>${prefHtml}</td>
         <td>${u.is_active?'✅':'❌'}</td>
         <td>${new Date(u.createdAt).toLocaleDateString('zh-CN')}</td>
         <td>
@@ -1681,6 +1690,10 @@ async function renderStatUsers(){
       <div class="chart-card"><h4>👥 活跃用户趋势</h4><canvas id="su-active-c"></canvas></div>
       <div class="chart-card"><h4>🎌 级别分布</h4><canvas id="su-level-c"></canvas></div>
       <div class="chart-card"><h4>🔥 连续打卡天数分布</h4><canvas id="su-streak-c"></canvas></div>
+      <div class="chart-card"><h4>🌐 语言偏好分布</h4><canvas id="su-locale-c"></canvas></div>
+      <div class="chart-card"><h4>🎨 界面风格偏好</h4><canvas id="su-appearance-c"></canvas></div>
+      <div class="chart-card"><h4>🐢 慢速语音偏好</h4><canvas id="su-speed-c"></canvas></div>
+      <div class="chart-card"><h4>🎯 每日目标分布</h4><canvas id="su-goal-c"></canvas></div>
     </div>`;
   await loadUserCharts();
 }
@@ -1688,10 +1701,12 @@ async function loadUserCharts(){
   const r=getRange('su');
   try{
     const d=await api('GET','/admin/stats/users'+qs(r));
+    const pref = d.preferenceStats || {};
     const suCards=document.getElementById('su-cards');
     if(suCards) suCards.innerHTML=`
       <div class="stat-card"><div class="stat-icon c-indigo">🆕</div><div class="stat-body"><div class="stat-label">范围内新用户</div><div class="stat-value">${(d.newUsers||0).toLocaleString()}</div></div></div>
-      <div class="stat-card"><div class="stat-icon c-emerald">⚡</div><div class="stat-body"><div class="stat-label">范围内活跃用户</div><div class="stat-value">${(d.activeUsers||0).toLocaleString()}</div></div></div>`;
+      <div class="stat-card"><div class="stat-icon c-emerald">⚡</div><div class="stat-body"><div class="stat-label">范围内活跃用户</div><div class="stat-value">${(d.activeUsers||0).toLocaleString()}</div></div></div>
+      <div class="stat-card"><div class="stat-icon c-cyan">🧩</div><div class="stat-body"><div class="stat-label">已同步偏好用户</div><div class="stat-value">${(pref.syncedUsers||0).toLocaleString()}</div><div class="stat-sub">同步率 ${pref.syncRate||0}%</div></div></div>`;
     const rLabels=(d.regTrend||[]).map(x=>x.period);
     mkChart('su-reg-c', lineCfg(rLabels,[{label:'新注册', data:(d.regTrend||[]).map(x=>x.count)}]),'su-reg');
     const aLabels=(d.activeTrend||[]).map(x=>x.period);
@@ -1700,6 +1715,14 @@ async function loadUserCharts(){
     mkChart('su-level-c', pieCfg(lv.map(x=>x.current_level||'未知'),lv.map(x=>x.count)),'su-level');
     const sk=d.streakDist||[];
     mkChart('su-streak-c', barCfg(sk.map(x=>x.bucket),[{label:'用户数', data:sk.map(x=>x.count)}]),'su-streak');
+    const localeDist=pref.localeDist||[];
+    mkChart('su-locale-c', pieCfg(localeDist.map(x=>x.locale),localeDist.map(x=>x.count)),'su-locale');
+    const appearanceDist=pref.appearanceDist||[];
+    mkChart('su-appearance-c', pieCfg(appearanceDist.map(x=>x.mode),appearanceDist.map(x=>x.count)),'su-appearance');
+    const speedDist=pref.slowSpeedDist||[];
+    mkChart('su-speed-c', barCfg(speedDist.map(x=>x.bucket),[{label:'用户数', data:speedDist.map(x=>x.count)}]),'su-speed');
+    const goalDist=pref.dailyGoalDist||[];
+    mkChart('su-goal-c', barCfg(goalDist.map(x=>x.bucket),[{label:'用户数', data:goalDist.map(x=>x.count)}]),'su-goal');
   }catch(e){ toast(e.message,true) }
 }
 

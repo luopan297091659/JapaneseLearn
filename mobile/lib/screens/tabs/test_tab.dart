@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../services/membership_service.dart';
+import '../../services/sync_service.dart';
+import '../../config/app_config.dart';
+import '../../providers/app_appearance_provider.dart';
+import '../../widgets/mode_background.dart';
 
 class TestTab extends StatefulWidget {
   const TestTab({super.key});
@@ -11,6 +15,8 @@ class TestTab extends StatefulWidget {
 
 class _TestTabState extends State<TestTab> {
   bool _isMember = false;
+  bool _tiersReady = false;
+  String? _avatarUrl;
 
   @override
   void initState() {
@@ -21,12 +27,31 @@ class _TestTabState extends State<TestTab> {
   Future<void> _loadMembership() async {
     try {
       final user = await apiService.getMe();
-      if (mounted) setState(() => _isMember = user.isMember);
-    } catch (_) {}
+      await syncService.fetchFeatureTiers();
+      if (mounted) {
+        setState(() {
+          _isMember = user.isMember;
+          _avatarUrl = user.avatarUrl;
+          _tiersReady = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _tiersReady = true);
+    }
   }
 
-  bool _isBlocked(String tierId) =>
-    !_isMember && membershipService.isBlocked(tierId, isMember: _isMember);
+  bool _isBlocked(String tierId) {
+    if (_isMember) return false;
+    if (!_tiersReady) return true;
+    return membershipService.isBlocked(tierId, isMember: _isMember);
+  }
+
+  String? _resolvedAvatarUrl() {
+    final avatar = _avatarUrl;
+    if (avatar == null || avatar.isEmpty) return null;
+    if (avatar.startsWith('http://') || avatar.startsWith('https://')) return avatar;
+    return '${AppConfig.serverRoot}$avatar';
+  }
 
   void _showMemberDialog(String name) {
     showDialog(
@@ -114,60 +139,9 @@ class _TestTabState extends State<TestTab> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final animeVisual = Theme.of(context).extension<AppVisualTheme>()?.animeBackground ?? false;
     final wrongBlocked = _isBlocked('wrong_answers');
-    return Scaffold(
-      backgroundColor: cs.surfaceContainerLowest,
-      appBar: AppBar(
-        title: const Text('测试', style: TextStyle(fontWeight: FontWeight.w800)),
-        backgroundColor: cs.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          GestureDetector(
-            onTap: () => context.push('/profile'),
-            child: Container(
-              margin: const EdgeInsets.only(right: 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.person_outline, color: Colors.white, size: 24),
-                  const SizedBox(height: 2),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: _isMember
-                          ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
-                          : Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
-                          size: 10,
-                          color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          _isMember ? '会员' : '免费',
-                          style: TextStyle(
-                            color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: ListView(
+    Widget body = ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _TestCard(
@@ -184,25 +158,13 @@ class _TestTabState extends State<TestTab> {
           const SizedBox(height: 12),
           _TestCard(
             icon: Icons.draw_rounded,
-            title: '五十音书写',
-            subtitle: '书写测试 · 练习假名书写与笔顺',
+            title: '五十音读写',
+            subtitle: '读写测试 · 练习假名书写与识读',
             color: const Color(0xFF2196F3),
             blocked: _isBlocked('kana_writing_modes'),
             onTap: () {
-              if (_isBlocked('kana_writing_modes')) { _showMemberDialog('五十音书写'); return; }
+              if (_isBlocked('kana_writing_modes')) { _showMemberDialog('五十音读写'); return; }
               context.push('/kana-writing-test');
-            },
-          ),
-          const SizedBox(height: 12),
-          _TestCard(
-            icon: Icons.sports_esports_rounded,
-            title: '闯关游戏',
-            subtitle: '助词方块 · 动词方块 · 闯关挑战',
-            color: const Color(0xFF4CAF50),
-            blocked: _isBlocked('game_levels'),
-            onTap: () {
-              if (_isBlocked('game_levels')) { _showMemberDialog('闯关游戏'); return; }
-              _showGameTypeSelection(context);
             },
           ),
           const SizedBox(height: 12),
@@ -243,6 +205,18 @@ class _TestTabState extends State<TestTab> {
           ),
           const SizedBox(height: 12),
           _TestCard(
+            icon: Icons.sports_esports_rounded,
+            title: '闯关游戏',
+            subtitle: '助词方块 · 动词方块 · 闯关挑战',
+            color: const Color(0xFF4CAF50),
+            blocked: _isBlocked('game_levels'),
+            onTap: () {
+              if (_isBlocked('game_levels')) { _showMemberDialog('闯关游戏'); return; }
+              _showGameTypeSelection(context);
+            },
+          ),
+          const SizedBox(height: 12),
+          _TestCard(
             icon: Icons.map_rounded,
             title: '都道府県测验',
             subtitle: '地理测验 · 学习 47 个都道府県读音',
@@ -250,7 +224,81 @@ class _TestTabState extends State<TestTab> {
             onTap: () => context.push('/todofuken-quiz'),
           ),
         ],
+      );
+
+    if (animeVisual) {
+      body = AnimeModeBackground(child: body);
+    }
+
+    return Scaffold(
+      backgroundColor: cs.surfaceContainerLowest,
+      appBar: AppBar(
+        title: const Text('测试', style: TextStyle(fontWeight: FontWeight.w800)),
+        backgroundColor: cs.primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          GestureDetector(
+            onTap: () => context.push('/profile'),
+            child: Container(
+              margin: const EdgeInsets.only(right: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.4),
+                    ),
+                    child: ClipOval(
+                      child: _resolvedAvatarUrl() != null
+                          ? Image.network(
+                              _resolvedAvatarUrl()!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                            )
+                          : const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: _isMember
+                          ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                          : Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
+                          size: 10,
+                          color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          _isMember ? '会员' : '免费',
+                          style: TextStyle(
+                            color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
+      body: body,
     );
   }
 }
@@ -277,14 +325,16 @@ class _TestCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: blocked ? 0.04 : 0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: blocked ? 0.1 : 0.2)),
-        ),
-        child: Row(children: [
+      child: AnimeCardDecoration(
+        color: color,
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: blocked ? 0.04 : 0.08),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: blocked ? 0.1 : 0.2)),
+          ),
+          child: Row(children: [
           Container(
             width: 52,
             height: 52,
@@ -319,7 +369,8 @@ class _TestCard extends StatelessWidget {
             )
           else
             Icon(Icons.arrow_forward_ios_rounded, size: 16, color: color.withValues(alpha: 0.5)),
-        ]),
+          ]),
+        ),
       ),
     );
   }

@@ -4,7 +4,9 @@ import '../../services/api_service.dart';
 import '../../models/models.dart';
 
 class SrsReviewScreen extends StatefulWidget {
-  const SrsReviewScreen({super.key});
+  final String from;
+
+  const SrsReviewScreen({super.key, this.from = 'home'});
   @override
   State<SrsReviewScreen> createState() => _SrsReviewScreenState();
 }
@@ -17,6 +19,19 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
   int _reviewed = 0;
   int _correct = 0;
   final _startTime = DateTime.now();
+
+  String get _backTarget {
+    switch (widget.from) {
+      case 'study':
+        return '/study';
+      case 'test':
+        return '/test';
+      case 'tools':
+        return '/tools';
+      default:
+        return '/home';
+    }
+  }
 
   @override
   void initState() {
@@ -153,9 +168,9 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
         actions: [FilledButton(
           onPressed: () { 
             Navigator.pop(dialogContext);
-            if (mounted) context.go('/home'); 
+            if (mounted) context.go(_backTarget); 
           }, 
-          child: const Text('返回首页')
+          child: const Text('返回')
         )],
       ),
     );
@@ -171,8 +186,8 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
           title: const Text('间隔复习'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_rounded),
-            tooltip: '返回首页',
-            onPressed: () => context.go('/home'),
+            tooltip: '返回',
+            onPressed: () => context.go(_backTarget),
           ),
         ),
         body: Center(
@@ -182,7 +197,7 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
             const Text('今日复习已完成！', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const Text('明日再来继续学习'),
             const SizedBox(height: 24),
-            FilledButton(onPressed: () => context.go('/home'), child: const Text('返回首页')),
+            FilledButton(onPressed: () => context.go(_backTarget), child: const Text('返回')),
           ]),
         ),
       );
@@ -197,16 +212,16 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
       appBar: AppBar(
         title: Text('复习 ${_current + 1}/${_cards.length}'),
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded),
-          tooltip: '退出复习',
+          icon: const Icon(Icons.arrow_back_ios_rounded),
+          tooltip: '返回',
           onPressed: () => showDialog(
             context: context,
             builder: (dialogCtx) => AlertDialog(
-              title: const Text('退出复习'),
-              content: const Text('确定要退出当前复习吗？'),
+              title: const Text('返回复习入口'),
+              content: const Text('确定要返回上一菜单吗？'),
               actions: [
                 TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('继续复习')),
-                FilledButton(onPressed: () { Navigator.pop(dialogCtx); context.go('/home'); }, child: const Text('退出')),
+                FilledButton(onPressed: () { Navigator.pop(dialogCtx); context.go(_backTarget); }, child: const Text('返回')),
               ],
             ),
           ),
