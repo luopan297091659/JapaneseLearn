@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../services/api_service.dart';
 import '../../services/membership_service.dart';
-import '../../services/sync_service.dart';
 import '../../config/app_config.dart';
 import '../../providers/app_appearance_provider.dart';
 import '../../widgets/mode_background.dart';
@@ -21,17 +19,21 @@ class _ToolsTabState extends State<ToolsTab> {
   @override
   void initState() {
     super.initState();
+    if (membershipService.hasCachedStatus) {
+      _isMember = membershipService.cachedIsMember;
+      _avatarUrl = membershipService.cachedAvatarUrl;
+      _tiersReady = true;
+    }
     _loadMembership();
   }
 
   Future<void> _loadMembership() async {
     try {
-      final user = await apiService.getMe();
-      await syncService.fetchFeatureTiers();
+      final status = await membershipService.getCachedStatus();
       if (mounted) {
         setState(() {
-          _isMember = user.isMember;
-          _avatarUrl = user.avatarUrl;
+          _isMember = status.isMember;
+          _avatarUrl = status.avatarUrl;
           _tiersReady = true;
         });
       }
@@ -219,33 +221,33 @@ class _ToolsTabState extends State<ToolsTab> {
                   ),
                   const SizedBox(height: 2),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: _isMember
-                          ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
-                          : Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
-                          size: 10,
-                          color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          _isMember ? '会员' : '免费',
-                          style: TextStyle(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: _isMember
+                            ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                            : Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
+                            size: 10,
                             color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 2),
+                          Text(
+                            _isMember ? '会员' : '免费',
+                            style: TextStyle(
+                              color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

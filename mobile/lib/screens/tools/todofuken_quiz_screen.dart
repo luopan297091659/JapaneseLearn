@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
 import '../../utils/tts_helper.dart';
@@ -59,7 +58,6 @@ const _prefectures = <_Prefecture>[
   _Prefecture('宮崎県','みやざきけん','miyazaki','九州'),
   _Prefecture('鹿児島県','かごしまけん','kagoshima','九州'),
 ];
-
 
 class TodofukenQuizScreen extends StatefulWidget {
   const TodofukenQuizScreen({super.key});
@@ -186,24 +184,53 @@ class _TodofukenQuizScreenState extends State<TodofukenQuizScreen> {
     final regionCount = _selectedRegion == '全部'
         ? _prefectures.length
         : _prefectures.where((p) => p.region == _selectedRegion).length;
+    const regions = ['全部', '北海道', '東北', '関東', '中部', '近畿', '中国', '四国', '九州'];
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        Icon(Icons.map_rounded, size: 64, color: cs.primary),
-        const SizedBox(height: 16),
-        Text('都道府県测验', textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: cs.onSurface)),
-        const SizedBox(height: 8),
-        Text('看汉字选读音，学习 ${_prefectures.length} 个都道府県の名前！', textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: cs.outline)),
-        const SizedBox(height: 24),
-        Text('选择地区', style: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurface)),
-        const SizedBox(height: 8),
-        _ZoomableJapanMap(
-          selectedRegion: _selectedRegion,
-          onRegionSelected: (region) => setState(() => _selectedRegion = region),
+        // 静态地图装饰图（直接使用 PNG，避免文字溢出）
+        ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              const mapAspect = 323 / 325;
+              final mapW = constraints.maxWidth;
+              final mapH = mapW / mapAspect;
+              final h = mapH.clamp(180.0, 260.0);
+              return SizedBox(
+                height: h,
+                width: mapW,
+                child: Image.asset(
+                  'assets/images/japan_regions_map.png',
+                  fit: BoxFit.contain,
+                ),
+              );
+            },
+          ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
+        Text('选择地区', style: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurface)),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: regions.map((r) {
+            final active = _selectedRegion == r;
+            return ChoiceChip(
+              label: Text(r),
+              selected: active,
+              onSelected: (_) => setState(() => _selectedRegion = r),
+              selectedColor: cs.primaryContainer,
+              labelStyle: TextStyle(
+                color: active ? cs.primary : cs.onSurface,
+                fontWeight: active ? FontWeight.bold : FontWeight.normal,
+              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              side: BorderSide(color: active ? cs.primary : cs.outlineVariant),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 12),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),
           child: Text(
@@ -360,208 +387,6 @@ class _TodofukenQuizScreenState extends State<TodofukenQuizScreen> {
           SizedBox(width: 80, child: Text(label, style: TextStyle(color: Colors.grey.shade600))),
           Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
         ],
-      ),
-    );
-  }
-}
-
-// ─── Zoomable Japan map with Matrix4 animation ──────────────────────────────
-
-class _ZoomableJapanMap extends StatefulWidget {
-  final String selectedRegion;
-  final ValueChanged<String> onRegionSelected;
-  const _ZoomableJapanMap({required this.selectedRegion, required this.onRegionSelected});
-
-  @override
-  State<_ZoomableJapanMap> createState() => _ZoomableJapanMapState();
-}
-
-class _ZoomableJapanMapState extends State<_ZoomableJapanMap>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  Animation<Matrix4>? _matrixAnim;
-  Size _size = const Size(300, 236);
-
-  static const _regionFocals = <String, Offset>{
-    '全部':   Offset(0.50, 0.48),
-    '北海道': Offset(0.81, 0.17),
-    '東北':   Offset(0.64, 0.34),
-    '関東':   Offset(0.62, 0.47),
-    '中部':   Offset(0.52, 0.44),
-    '近畿':   Offset(0.42, 0.49),
-    '中国':   Offset(0.31, 0.49),
-    '四国':   Offset(0.44, 0.65),
-    '九州':   Offset(0.23, 0.66),
-  };
-
-  static const _hotspots = <({String region, double left, double top, double w, double h})>[
-    (region: '北海道', left: 0.68, top: 0.09, w: 0.24, h: 0.20),
-    (region: '東北',   left: 0.56, top: 0.24, w: 0.18, h: 0.21),
-    (region: '関東',   left: 0.55, top: 0.40, w: 0.17, h: 0.17),
-    (region: '中部',   left: 0.43, top: 0.34, w: 0.16, h: 0.17),
-    (region: '近畿',   left: 0.34, top: 0.40, w: 0.15, h: 0.16),
-    (region: '中国',   left: 0.21, top: 0.40, w: 0.15, h: 0.16),
-    (region: '四国',   left: 0.36, top: 0.58, w: 0.16, h: 0.13),
-    (region: '九州',   left: 0.11, top: 0.53, w: 0.22, h: 0.24),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 420));
-    _ctrl.addListener(() => setState(() {}));
-  }
-
-  @override
-  void didUpdateWidget(_ZoomableJapanMap old) {
-    super.didUpdateWidget(old);
-    if (old.selectedRegion != widget.selectedRegion) {
-      _animateTo(widget.selectedRegion);
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  Matrix4 _computeMatrix(String region) {
-    if (region == '全部') return Matrix4.identity();
-    const zoom = 2.3;
-    final focal = _regionFocals[region] ?? const Offset(0.5, 0.48);
-    final tx = _size.width / 2 - focal.dx * _size.width * zoom;
-    final ty = _size.height / 2 - focal.dy * _size.height * zoom;
-    return Matrix4.identity()
-      ..translate(tx, ty)
-      ..scale(zoom);
-  }
-
-  void _animateTo(String region) {
-    final from = _matrixAnim?.value ?? Matrix4.identity();
-    final to = _computeMatrix(region);
-    _matrixAnim = Matrix4Tween(begin: from, end: to)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
-    _ctrl
-      ..reset()
-      ..forward();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      height: 260,
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outlineVariant),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(13),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            _size = Size(constraints.maxWidth, constraints.maxHeight);
-            final matrix = _matrixAnim?.value ?? _computeMatrix(widget.selectedRegion);
-            return Stack(
-              children: [
-                // 缩放后的地图底图
-                Transform(
-                  transform: matrix,
-                  child: SizedBox.expand(
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: SvgPicture.asset(
-                            'assets/svg/maps/japan_eight_regions_zh_hant.svg',
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // 热区 InkWell 层（随地图一同缩放，点击命中正确区域）
-                Transform(
-                  transform: matrix,
-                  child: SizedBox.expand(
-                    child: Stack(
-                      children: _hotspots.map((zone) {
-                        final active = widget.selectedRegion == zone.region;
-                        return Positioned(
-                          left: constraints.maxWidth * zone.left,
-                          top: constraints.maxHeight * zone.top,
-                          width: constraints.maxWidth * zone.w,
-                          height: constraints.maxHeight * zone.h,
-                          child: InkWell(
-                            onTap: () => widget.onRegionSelected(
-                              widget.selectedRegion == zone.region
-                                  ? '全部'
-                                  : zone.region,
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              decoration: BoxDecoration(
-                                color: active
-                                    ? cs.primary.withValues(alpha: 0.22)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: active
-                                      ? cs.primary
-                                      : cs.outline.withValues(alpha: 0.22),
-                                  width: active ? 1.5 : 0.5,
-                                ),
-                              ),
-                              alignment: Alignment.center,
-                              child: const SizedBox.expand(),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-                // 底部提示栏（固定，不参与缩放）
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    color: cs.surface.withValues(alpha: 0.88),
-                    child: widget.selectedRegion == '全部'
-                        ? Text(
-                            '点击地图区域选择地区',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 11, color: cs.outline),
-                          )
-                        : GestureDetector(
-                            onTap: () => widget.onRegionSelected('全部'),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.zoom_out_rounded,
-                                    size: 14, color: cs.primary),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '已选 ${widget.selectedRegion}，点此缩小查看全图',
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: cs.primary,
-                                      fontWeight: FontWeight.w600),
-                                ),
-                              ],
-                            ),
-                          ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
       ),
     );
   }

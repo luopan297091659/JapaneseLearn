@@ -167,6 +167,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final user = await apiService.getMe(force: true);
       if (mounted) {
         setState(() { _user = user; _userLoading = false; });
+        membershipService.updateCache(isMember: user.isMember, avatarUrl: user.avatarUrl);
         // Check if trial just expired
         if (user.trialActivated && !user.isMember && user.membershipPlan == 'trial') {
           _maybeShowTrialExpiredDialog(user);
@@ -624,56 +625,61 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           onTap: () => context.push('/profile'),
           child: Container(
             margin: const EdgeInsets.only(right: 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.4),
-                  ),
-                  child: ClipOval(
-                    child: avatarUrl != null
-                        ? Image.network(
-                            avatarUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(Icons.person_outline, color: Colors.white, size: 20),
-                          )
-                        : const Icon(Icons.person_outline, color: Colors.white, size: 20),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                GestureDetector(
-                  onTap: () => context.push('/membership', extra: isMember),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            child: SizedBox(
+              height: 52,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
                     decoration: BoxDecoration(
-                      color: isMember
-                          ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
-                          : Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(8),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.4),
                     ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(
-                        isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
-                        size: 10,
-                        color: isMember ? const Color(0xFFFCD34D) : Colors.white70,
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        memberLabel,
-                        style: TextStyle(
-                          color: isMember ? const Color(0xFFFCD34D) : Colors.white70,
-                          fontSize: 9, fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ]),
+                    child: ClipOval(
+                      child: avatarUrl != null
+                          ? Image.network(
+                              avatarUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                            )
+                          : const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 2),
+                  GestureDetector(
+                    onTap: () => context.push('/membership', extra: isMember),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: isMember
+                            ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                            : Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(
+                          isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
+                          size: 10,
+                          color: isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          memberLabel,
+                          style: TextStyle(
+                            color: isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1221,14 +1227,22 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('释义', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withValues(alpha: 0.6), fontWeight: FontWeight.w500)),
-                          const SizedBox(height: 4),
+                          Row(children: [
+                            Icon(Icons.translate_rounded, size: 18, color: cs.primary),
+                            const SizedBox(width: 6),
+                            Text('释义', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: cs.onSurfaceVariant)),
+                          ]),
+                          const SizedBox(height: 8),
                           Text(word.meaningZh,
                               style: TextStyle(fontSize: 16, color: cs.onSurface, fontWeight: FontWeight.w500)),
                           if (word.exampleSentence != null) ...[
-                            const SizedBox(height: 12),
-                            Text('例句', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withValues(alpha: 0.6), fontWeight: FontWeight.w500)),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 16),
+                            Row(children: [
+                              Icon(Icons.format_quote_rounded, size: 18, color: cs.primary),
+                              const SizedBox(width: 6),
+                              Text('例文', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: cs.onSurfaceVariant)),
+                            ]),
+                            const SizedBox(height: 8),
                             if (word.exampleReading != null && hasFurigana(word.exampleReading!))
                               FuriganaText(
                                 text: word.exampleReading!,

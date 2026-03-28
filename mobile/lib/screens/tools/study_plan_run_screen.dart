@@ -375,15 +375,18 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
                 duration: _dragOffset == 0 ? const Duration(milliseconds: 200) : Duration.zero,
                 transform: Matrix4.translationValues(_dragOffset, 0, 0),
                 child: Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: cardTint,
-                        borderRadius: BorderRadius.circular(12),
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: cardTint,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: cardType == 'vocabulary'
+                            ? _buildVocabCard(refId)
+                            : _buildGrammarCard(refId),
                       ),
-                      child: cardType == 'vocabulary'
-                          ? _buildVocabCard(refId)
-                          : _buildGrammarCard(refId),
                     ),
                     if (overlayText != null)
                       Positioned(
@@ -730,42 +733,36 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('语法学习', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    const SizedBox(height: 8),
-                    Text(grammar.pattern, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-                    if (title.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(title, style: const TextStyle(fontSize: 18, color: Colors.black54)),
-                    ],
-                    const Divider(height: 24),
-                    Text(grammar.explanationZh ?? grammar.explanation ?? '', style: const TextStyle(fontSize: 16)),
-                    if (examples.where(_isValidExample).isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Text('例句：${examples.where(_isValidExample).first.sentence}', style: const TextStyle(fontSize: 14)),
-                    ],
-                  ],
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('语法学习', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 8),
+              Text(grammar.pattern, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+              if (title.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(title, style: const TextStyle(fontSize: 18, color: Colors.black54)),
+              ],
+              const Divider(height: 24),
+              Text(grammar.explanationZh ?? grammar.explanation ?? '', style: const TextStyle(fontSize: 16)),
+              if (examples.where(_isValidExample).isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text('例句：${examples.where(_isValidExample).first.sentence}', style: const TextStyle(fontSize: 14)),
+              ],
+              if (examples.where(_isValidExample).isNotEmpty) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () => _showGrammarExercise(grammar, exerciseCount),
+                    icon: const Icon(Icons.quiz_outlined),
+                    label: Text('进入${exerciseCount}道例句练习'),
+                  ),
                 ),
-              ),
-            ),
-            if (examples.where(_isValidExample).isNotEmpty) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => _showGrammarExercise(grammar, exerciseCount),
-                  icon: const Icon(Icons.quiz_outlined),
-                  label: Text('进入${exerciseCount}道例句练习'),
-                ),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

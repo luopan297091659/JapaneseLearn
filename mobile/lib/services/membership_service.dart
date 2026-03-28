@@ -1,4 +1,5 @@
 import '../models/models.dart';
+import 'api_service.dart';
 import 'sync_service.dart';
 
 /// 会员功能分级检查服务
@@ -9,6 +10,39 @@ class MembershipService {
   static final MembershipService _instance = MembershipService._internal();
   factory MembershipService() => _instance;
   MembershipService._internal();
+
+  // ── 会员状态本地缓存 ──────────────────────────────────────────────
+  bool _cachedIsMember = false;
+  String? _cachedAvatarUrl;
+  DateTime? _cacheTime;
+  static const _cacheDuration = Duration(minutes: 5);
+
+  /// 是否有有效缓存（供同步读取，避免页面闪烁）
+  bool get hasCachedStatus => _cacheTime != null;
+  bool get cachedIsMember => _cachedIsMember;
+  String? get cachedAvatarUrl => _cachedAvatarUrl;
+
+  /// 获取缓存的会员状态，如未缓存则自动加载
+  Future<({bool isMember, String? avatarUrl})> getCachedStatus() async {
+    if (_cacheTime != null && DateTime.now().difference(_cacheTime!) < _cacheDuration) {
+      return (isMember: _cachedIsMember, avatarUrl: _cachedAvatarUrl);
+    }
+    try {
+      final user = await apiService.getMe();
+      await syncService.fetchFeatureTiers();
+      updateCache(isMember: user.isMember, avatarUrl: user.avatarUrl);
+      return (isMember: _cachedIsMember, avatarUrl: _cachedAvatarUrl);
+    } catch (_) {
+      return (isMember: _cachedIsMember, avatarUrl: _cachedAvatarUrl);
+    }
+  }
+
+  /// 外部更新缓存（如 home 页面已加载用户信息后同步过来）
+  void updateCache({required bool isMember, String? avatarUrl}) {
+    _cachedIsMember = isMember;
+    _cachedAvatarUrl = avatarUrl;
+    _cacheTime = DateTime.now();
+  }
 
   /// 检查某功能对当前用户是否完全锁定
   bool isBlocked(String featureId, {required bool isMember}) {

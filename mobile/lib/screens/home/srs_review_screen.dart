@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
+import '../../utils/tts_helper.dart';
 
 class SrsReviewScreen extends StatefulWidget {
   final String from;
@@ -20,6 +22,11 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
   int _correct = 0;
   final _startTime = DateTime.now();
 
+  // ── 音频播放 ────────────────────────────────────────────────────
+  FlutterTts? _tts;
+  bool _wordPlaying = false;
+  bool _wordLoading = false;
+
   String get _backTarget {
     switch (widget.from) {
       case 'study':
@@ -37,6 +44,40 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
   void initState() {
     super.initState();
     _loadCards();
+  }
+
+  @override
+  void dispose() {
+    _tts?.stop();
+    super.dispose();
+  }
+
+  /// 获取或初始化 TTS 实例
+  Future<FlutterTts> _getOrInitTts() async {
+    if (_tts == null) {
+      _tts = FlutterTts();
+      await TtsHelper.configureForJapanese(_tts!);
+    }
+    return _tts!;
+  }
+
+  /// 朗读单词
+  Future<void> _speakWord(String text, {bool slow = false}) async {
+    if (!mounted) return;
+    setState(() => _wordLoading = true);
+    try {
+      final tts = await _getOrInitTts();
+      await tts.stop();
+      final rate = slow ? 0.25 : 0.45;
+      await tts.setSpeechRate(rate);
+      if (mounted) setState(() { _wordLoading = false; _wordPlaying = true; });
+      tts.setCompletionHandler(() {
+        if (mounted) setState(() => _wordPlaying = false);
+      });
+      await TtsHelper.speakJapanese(tts, text);
+    } catch (e) {
+      if (mounted) setState(() => _wordLoading = false);
+    }
   }
 
   Future<void> _loadCards() async {
@@ -214,17 +255,7 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
           tooltip: '返回',
-          onPressed: () => showDialog(
-            context: context,
-            builder: (dialogCtx) => AlertDialog(
-              title: const Text('返回复习入口'),
-              content: const Text('确定要返回上一菜单吗？'),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('继续复习')),
-                FilledButton(onPressed: () { Navigator.pop(dialogCtx); context.go(_backTarget); }, child: const Text('返回')),
-              ],
-            ),
-          ),
+          onPressed: () => context.go(_backTarget),
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),
@@ -304,35 +335,96 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
   Widget _buildVocabContent(VocabularyModel vocab, ColorScheme cs) {
     return SingleChildScrollView(
       child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(vocab.word, style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        if (_showAnswer) ...[
-          Text(vocab.reading, style: TextStyle(fontSize: 22, color: cs.primary)),
-          const SizedBox(height: 8),
-          Text(vocab.meaningZh, style: const TextStyle(fontSize: 18)),
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // ── 单词 + 发音按钮 ───────────────────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(vocab.word, style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
+              const SizedBox(width: 12),
+              if (!_wordLoading && !_wordPlaying)
+                IconButton(
+                  icon: Icon(Icons.volume_up_rounded, color: cs.primary, size: 28),
+                  onPressed: () => _speakWord(vocab.word),
+                  tooltip: '朗读单词',
+                )
+              else if (_wordLoading)
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(cs.primary),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                IconButton(
+                  icon: Icon(Icons.volume_down_rounded, color: cs.primary, size: 28),
+                  onPressed: () async => await _tts?.stop(),
+                  tooltip: '停止播放',
+                ),
+            ],
+          ),
           const SizedBox(height: 12),
-          if (vocab.exampleSentence != null)
+          if (_showAnswer) ...[
+            // ── 假名 ──────────────────────────────────────────────────
+            Text(vocab.reading, style: TextStyle(fontSize: 22, color: cs.primary, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 16),
+            
+            // ── 释义 ──────────────────────────────────────────────────
             Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
-              ),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(vocab.exampleSentence!, textAlign: TextAlign.center),
-                  Text(vocab.exampleMeaningZh ?? '',
-                      style: TextStyle(color: cs.outline, fontSize: 12)),
+                  Row(children: [
+                    Icon(Icons.translate_rounded, size: 18, color: cs.primary),
+                    const SizedBox(width: 6),
+                    Text('释义', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: cs.onSurfaceVariant)),
+                  ]),
+                  const SizedBox(height: 8),
+                  Text(vocab.meaningZh, style: const TextStyle(fontSize: 18, height: 1.6)),
                 ],
               ),
             ),
-        ] else ...[
-          const SizedBox(height: 8),
-          Text('点击"显示答案"查看释义', style: TextStyle(color: cs.outline)),
+            const SizedBox(height: 12),
+
+            // ── 例文 ──────────────────────────────────────────────────
+            if (vocab.exampleSentence != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(Icons.format_quote_rounded, size: 18, color: cs.primary),
+                      const SizedBox(width: 6),
+                      Text('例文', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: cs.onSurfaceVariant)),
+                    ]),
+                    const SizedBox(height: 8),
+                    Text(vocab.exampleSentence!, textAlign: TextAlign.start, style: const TextStyle(fontSize: 16, height: 1.6)),
+                    if (vocab.exampleMeaningZh != null) ...[
+                      const SizedBox(height: 4),
+                      Text(vocab.exampleMeaningZh!, style: TextStyle(color: cs.outline, fontSize: 14)),
+                    ],
+                  ],
+                ),
+              ),
+          ] else ...[
+            const SizedBox(height: 12),
+            Text('点击"显示答案"查看释义和例文', style: TextStyle(color: cs.outline, fontSize: 16)),
+          ],
         ],
-      ],
       ),
     );
   }

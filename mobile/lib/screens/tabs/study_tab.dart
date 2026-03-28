@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../services/api_service.dart';
 import '../../services/membership_service.dart';
-import '../../services/sync_service.dart';
 import '../../config/app_config.dart';
 import '../../providers/app_appearance_provider.dart';
 import '../../widgets/mode_background.dart';
@@ -21,17 +19,22 @@ class _StudyTabState extends State<StudyTab> {
   @override
   void initState() {
     super.initState();
+    // 同步读取缓存，避免页面闪烁
+    if (membershipService.hasCachedStatus) {
+      _isMember = membershipService.cachedIsMember;
+      _avatarUrl = membershipService.cachedAvatarUrl;
+      _tiersReady = true;
+    }
     _loadMembership();
   }
 
   Future<void> _loadMembership() async {
     try {
-      final user = await apiService.getMe();
-      await syncService.fetchFeatureTiers();
+      final status = await membershipService.getCachedStatus();
       if (mounted) {
         setState(() {
-          _isMember = user.isMember;
-          _avatarUrl = user.avatarUrl;
+          _isMember = status.isMember;
+          _avatarUrl = status.avatarUrl;
           _tiersReady = true;
         });
       }
@@ -131,18 +134,6 @@ class _StudyTabState extends State<StudyTab> {
         ),
         const SizedBox(height: 12),
         _StudyCard(
-          icon: Icons.headphones_rounded,
-          title: '听力学习',
-          subtitle: '听力提升 · 例句听写录音AI比对',
-          color: const Color(0xFF9C27B0),
-          blocked: _isBlocked('listening_daily'),
-          onTap: () {
-            if (_isBlocked('listening_daily')) { _showMemberDialog('听力学习'); return; }
-            context.push('/listening');
-          },
-        ),
-        const SizedBox(height: 12),
-        _StudyCard(
           icon: Icons.mic_rounded,
           title: 'AI 发音练习',
           subtitle: '智能纠正 · 对比原生发音',
@@ -151,6 +142,18 @@ class _StudyTabState extends State<StudyTab> {
           onTap: () {
             if (_isBlocked('pronunciation')) { _showMemberDialog('AI 发音练习'); return; }
             context.push('/pronunciation');
+          },
+        ),
+        const SizedBox(height: 12),
+        _StudyCard(
+          icon: Icons.headphones_rounded,
+          title: '听力学习',
+          subtitle: '听力提升 · 例句听写录音AI比对',
+          color: const Color(0xFF9C27B0),
+          blocked: _isBlocked('listening_daily'),
+          onTap: () {
+            if (_isBlocked('listening_daily')) { _showMemberDialog('听力学习'); return; }
+            context.push('/listening');
           },
         ),
         const SizedBox(height: 12),
@@ -184,57 +187,61 @@ class _StudyTabState extends State<StudyTab> {
             onTap: () => context.push('/profile'),
             child: Container(
               margin: const EdgeInsets.only(right: 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.4),
+              child: SizedBox(
+                height: 52,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.4),
+                      ),
+                      child: ClipOval(
+                        child: _resolvedAvatarUrl() != null
+                            ? Image.network(
+                                _resolvedAvatarUrl()!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                              )
+                            : const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                      ),
                     ),
-                    child: ClipOval(
-                      child: _resolvedAvatarUrl() != null
-                          ? Image.network(
-                              _resolvedAvatarUrl()!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(Icons.person_outline, color: Colors.white, size: 20),
-                            )
-                          : const Icon(Icons.person_outline, color: Colors.white, size: 20),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: _isMember
-                          ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
-                          : Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
-                          size: 10,
-                          color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                    const SizedBox(height: 2),
+                    Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: _isMember
+                              ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                              : Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        const SizedBox(width: 2),
-                        Text(
-                          _isMember ? '会员' : '免费',
-                          style: TextStyle(
-                            color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
+                              size: 10,
+                              color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              _isMember ? '会员' : '免费',
+                              style: TextStyle(
+                                color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                ],
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

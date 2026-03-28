@@ -1,15 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:record/record.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:just_audio/just_audio.dart' as ja;
-import 'package:dio/dio.dart' as dio;
+import 'package:speech_to_text/speech_recognition_result.dart';
 import '../../services/api_service.dart';
 import '../../services/permission_service.dart';
 import '../../widgets/furigana_text.dart';
@@ -22,6 +20,8 @@ class ListeningScreen extends StatefulWidget {
 }
 
 class _ListeningScreenState extends State<ListeningScreen> {
+  static const bool _showSttDebug = kDebugMode;
+
   // ── 基础状态 ──
   String _level = 'N5';
   List<Map<String, dynamic>> _sentences = [];
@@ -33,6 +33,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _speechAvailable = false;
   bool _listening = false;
+  String? _speechLocaleId;
 
   // ── 评分 ──
   int? _score;
@@ -42,18 +43,13 @@ class _ListeningScreenState extends State<ListeningScreen> {
   String _lastRecognized = '';
   bool _showSentence = false;
   bool _attemptFinalized = false;
+  bool _aiScoring = false;
+  Timer? _resultDebounce;
+  Timer? _safetyTimeout;
 
   // ── 文字输入 ──
   final TextEditingController _inputCtrl = TextEditingController();
   bool _inputMode = false;
-
-  // ── 录音文件（用于保存/回放）──
-  final AudioRecorder _recorder = AudioRecorder();
-  final ja.AudioPlayer _audioPlayer = ja.AudioPlayer();
-  bool _concurrentRecording = false;
-  String? _recordingPath;
-  bool _uploading = false;
-  String? _lastUploadedRecordingPath;
 
   @override
   void initState() {
@@ -71,9 +67,49 @@ class _ListeningScreenState extends State<ListeningScreen> {
 
   Future<void> _initSpeech() async {
     _speechAvailable = await _speech.initialize(
-      onError: (error) => debugPrint('Speech init error: $error'),
-      onStatus: (status) => debugPrint('Speech init status: $status'),
+      onError: (error) {
+        debugPrint('Speech init error: $error');
+        if (mounted) {
+          setState(() {
+            _debugLastError = error.errorMsg;
+          });
+        }
+      },
+      onStatus: (status) {
+        debugPrint('Speech init status: $status');
+        if (mounted) {
+          setState(() {
+            _debugStatus = 'init:$status';
+          });
+        }
+      },
     );
+    if (_speechAvailable) {
+      try {
+        final locales = await _speech.locales();
+        stt.LocaleName? jaLocale;
+        for (final locale in locales) {
+          final id = locale.localeId.toLowerCase();
+          if (id == 'ja_jp' || id == 'ja-jp') {
+            jaLocale = locale;
+            break;
+          }
+        }
+        jaLocale ??= locales.cast<stt.LocaleName?>().firstWhere(
+              (locale) => locale != null && locale.localeId.toLowerCase().startsWith('ja'),
+              orElse: () => null,
+            );
+        _speechLocaleId = jaLocale?.localeId ?? 'ja-JP';
+        debugPrint('Speech locale selected: ${_speechLocaleId ?? 'system default'}');
+        if (mounted) {
+          setState(() {
+            _debugStatus = 'ready';
+          });
+        }
+      } catch (e) {
+        debugPrint('Load speech locales failed: $e');
+      }
+    }
     if (mounted) setState(() {});
   }
 
@@ -114,16 +150,47 @@ class _ListeningScreenState extends State<ListeningScreen> {
     await _tts.setSpeechRate(0.45);
   }
 
+
+  bool _toggling = false;
+  bool _preferOnDevice = true; // 优先本地识别，失败后回退到在线
+  DateTime? _listenStartTime;
+  String _debugStatus = 'idle';
+  String _debugListenStarted = '-';
+  String _debugLastError = '-';
+  String _debugPartial = '-';
+
+  bool _isOfflineSttError(String message) {
+    final msg = message.toLowerCase();
+    return msg.contains('error_network') || msg.contains('error_client');
+  }
+
+  /// 统一 finalize 入口 —— 所有路径（手动停止/statusListener/debounce/timeout）都走这里
+  void _finalizeAttempt() {
+    if (_attemptFinalized || !mounted) return;
+    _attemptFinalized = true;
+    _resultDebounce?.cancel();
+    _safetyTimeout?.cancel();
+    _speech.stop();
+    if (_lastRecognized.trim().isNotEmpty) {
+      _processResult(_lastRecognized);
+    } else {
+      if (mounted) setState(() { _listening = false; _feedback = '未检测到语音，请靠近麦克风重试'; });
+    }
+  }
+
   Future<void> _toggleRecord() async {
+    if (_toggling) return;
+    _toggling = true;
+    try {
+      await _doToggleRecord();
+    } finally {
+      _toggling = false;
+    }
+  }
+
+  Future<void> _doToggleRecord() async {
     if (_listening) {
-      await _speech.stop();
-      await _stopConcurrentRecording();
-      if (!_attemptFinalized && _score == null && _lastRecognized.isNotEmpty) {
-        _attemptFinalized = true;
-        _processResult(_lastRecognized);
-      } else {
-        setState(() => _listening = false);
-      }
+      _finalizeAttempt();
       return;
     }
 
@@ -138,13 +205,9 @@ class _ListeningScreenState extends State<ListeningScreen> {
     }
 
     // 每次开始前先清理上一次会话状态
-    await _speech.stop();
-    await _speech.cancel();
-
-    _speechAvailable = await _speech.initialize(
-      onError: (error) => debugPrint('Speech init error: $error'),
-      onStatus: (status) => debugPrint('Speech init status: $status'),
-    );
+    if (!_speechAvailable) {
+      await _initSpeech();
+    }
     if (!_speechAvailable) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -156,6 +219,9 @@ class _ListeningScreenState extends State<ListeningScreen> {
 
     _lastRecognized = '';
     _attemptFinalized = false;
+    _resultDebounce?.cancel();
+    _safetyTimeout?.cancel();
+    _listenStartTime = DateTime.now();
     setState(() {
       _listening = true;
       _score = null;
@@ -163,45 +229,115 @@ class _ListeningScreenState extends State<ListeningScreen> {
       _feedback = '';
       _inputMode = false;
       _inputCtrl.clear();
-      _recordingPath = null;
-      _lastUploadedRecordingPath = null;
+      _debugListenStarted = 'starting';
+      _debugLastError = '-';
+      _debugPartial = '-';
     });
     try {
+      // statusListener —— 启动后 2s 内忽略 notListening（Android STT 启动时会发一次瞬态回调）
       _speech.statusListener = (status) {
-        if ((status == 'done' || status == 'notListening') && mounted && _listening && !_attemptFinalized) {
-          _attemptFinalized = true;
-          _stopConcurrentRecording().then((_) {
-            if (_score == null && _lastRecognized.isNotEmpty) {
-              _processResult(_lastRecognized);
-            } else {
-              setState(() { _listening = false; _feedback = '未检测到语音，请靠近麦克风重试'; });
-            }
+        debugPrint('STT status: $status');
+        if (mounted) {
+          setState(() {
+            _debugStatus = status;
           });
+        }
+        final elapsed = _listenStartTime != null
+            ? DateTime.now().difference(_listenStartTime!).inMilliseconds
+            : 0;
+        if ((status == 'done' || status == 'notListening') &&
+            elapsed > 2000 &&
+            mounted && _listening && !_attemptFinalized) {
+          _finalizeAttempt();
         }
       };
 
-      await _speech.listen(
-        localeId: 'ja_JP',
-        onResult: (result) {
+      // onResult 回调（onDevice 回退共用）
+      void onSttResult(SpeechRecognitionResult result) {
           _lastRecognized = result.recognizedWords;
-          if (result.finalResult && !_attemptFinalized) {
-            _attemptFinalized = true;
-            _processResult(result.recognizedWords);
+          if (mounted) {
+            setState(() {
+              _debugPartial = result.recognizedWords.isEmpty ? '(empty)' : result.recognizedWords;
+            });
           }
-        },
-        listenFor: const Duration(seconds: 15),
-        pauseFor: const Duration(seconds: 3),
-      );
+          if (result.finalResult && !_attemptFinalized) {
+            _finalizeAttempt();
+            return;
+          }
+          _resultDebounce?.cancel();
+          if (_lastRecognized.trim().isNotEmpty) {
+            _resultDebounce = Timer(const Duration(seconds: 2), () {
+              if (!_attemptFinalized && _listening) {
+                _finalizeAttempt();
+              }
+            });
+          }
+      }
 
-      await _startConcurrentRecording();
+      // 优先本地识别，失败后自动回退到在线模式（兼容不支持 onDevice 的设备）
+      bool listenStarted = false;
+      final modesToTry = _preferOnDevice ? [true, false] : [false];
+      for (final tryOnDevice in modesToTry) {
+        try {
+          final dynamic listenResult = await _speech.listen(
+            localeId: _speechLocaleId ?? 'ja-JP',
+            onDevice: tryOnDevice,
+            onResult: onSttResult,
+            listenFor: const Duration(seconds: 15),
+            pauseFor: const Duration(seconds: 3),
+          );
+          final started = listenResult is bool ? listenResult : true;
+          debugPrint('listen(onDevice: $tryOnDevice) => $listenResult');
+          if (started) {
+            if (!tryOnDevice && _preferOnDevice) {
+              _preferOnDevice = false;
+              debugPrint('Falling back to online STT for this device');
+            }
+            listenStarted = true;
+            if (mounted) setState(() => _debugListenStarted = 'ok(onDevice=$tryOnDevice)');
+            break;
+          }
+          try { await _speech.stop(); } catch (_) {}
+        } catch (e) {
+          debugPrint('listen(onDevice: $tryOnDevice) error: $e');
+          if (mounted) setState(() => _debugLastError = '$e');
+          try { await _speech.stop(); } catch (_) {}
+          continue;
+        }
+      }
+
+      if (!listenStarted) {
+        if (mounted) {
+          setState(() {
+            _listening = false;
+            _feedback = '语音识别未启动，请检查系统语音服务';
+            _debugListenStarted = 'failed';
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('语音识别未启动，请检查麦克风权限和系统语音服务'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
+      // 安全超时：无论如何 18 秒后强制结束
+      _safetyTimeout = Timer(const Duration(seconds: 18), () {
+        if (!_attemptFinalized && _listening) {
+          debugPrint('Safety timeout triggered');
+          _finalizeAttempt();
+        }
+      });
     } catch (e) {
       debugPrint('Speech listen error: $e');
-      await _stopConcurrentRecording();
       if (mounted) {
-        setState(() { _listening = false; _feedback = '录音启动失败，请重试'; });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('录音启动失败：$e'), duration: const Duration(seconds: 2)),
-        );
+        setState(() {
+          _listening = false;
+          _feedback = '录音启动失败，请重试';
+          _debugLastError = '$e';
+        });
       }
     }
   }
@@ -212,50 +348,65 @@ class _ListeningScreenState extends State<ListeningScreen> {
     final reading = (s['reading'] as String).trim();
     final rec = recognized.trim();
 
-    final scores = [
-      _calcScore(sentence, rec),
-      if (reading.isNotEmpty) _calcScore(reading, rec),
-    ];
-    final score = scores.reduce(max);
-    _scores.add(score);
+    // 有 reading 时做本地快速评分；没有时只显示识别结果等 AI
+    final hasReading = reading.isNotEmpty;
+    int localScore;
+    if (hasReading) {
+      final scores = [
+        _calcScore(sentence, rec),
+        _calcScore(reading, rec),
+      ];
+      localScore = scores.reduce(max);
+    } else {
+      // 没有 reading，仅用 sentence 比较（可能不准，以 AI 为准）
+      localScore = _calcScore(sentence, rec);
+    }
 
     String feedback;
-    if (score >= 90) {
+    if (localScore >= 90) {
       feedback = '🎉 完美！';
-    } else if (score >= 70) {
+    } else if (localScore >= 70) {
       feedback = '👍 不错！识别:「$recognized」';
-    } else if (score >= 40) {
+    } else if (localScore >= 40) {
       feedback = '💪 继续努力！识别:「$recognized」';
     } else {
       feedback = '🔄 再试一次！识别:「$recognized」';
     }
 
-    setState(() { _score = score; _recognized = recognized; _feedback = feedback; _listening = false; _showSentence = true; });
+    setState(() { _score = localScore; _recognized = recognized; _feedback = feedback; _listening = false; _showSentence = true; _aiScoring = true; });
 
     try {
       final ai = await apiService.scoreSpeechRecognition(
         targetText: sentence,
         recognizedText: rec,
-        referenceReading: reading.isNotEmpty ? reading : null,
+        referenceReading: hasReading ? reading : null,
         mode: 'listening',
       );
       if (mounted) {
         final aiScore = (ai['score'] as num?)?.toInt();
         final aiFeedback = (ai['feedback'] as String?)?.trim();
         if (aiScore != null) {
+          final finalAiScore = aiScore.clamp(0, 100);
+          _scores.add(finalAiScore);
           setState(() {
-            _score = aiScore.clamp(0, 100);
+            _score = finalAiScore;
+            _aiScoring = false;
             if (aiFeedback != null && aiFeedback.isNotEmpty) {
               _feedback = '🤖 $aiFeedback';
             }
           });
+        } else {
+          _scores.add(localScore);
+          if (mounted) setState(() => _aiScoring = false);
         }
       }
-    } catch (_) {
-      // ignore AI failures and keep local score
+    } catch (e) {
+      debugPrint('AI scoring failed: $e');
+      _scores.add(localScore);
+      if (mounted) setState(() => _aiScoring = false);
     }
 
-    final finalScore = _score ?? score;
+    final finalScore = _score ?? localScore;
 
     // 得分低于70分时保存到错题集
     if (finalScore < 70) {
@@ -304,112 +455,6 @@ class _ListeningScreenState extends State<ListeningScreen> {
     return (matches / maxLen * 100).round();
   }
 
-  Future<void> _startConcurrentRecording() async {
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final recDir = Directory('${dir.path}/recordings');
-      if (!await recDir.exists()) await recDir.create(recursive: true);
-      final filePath = '${recDir.path}/listening_${DateTime.now().millisecondsSinceEpoch}.m4a';
-      if (await _recorder.hasPermission()) {
-        await _recorder.start(
-          const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000, sampleRate: 44100),
-          path: filePath,
-        );
-        _concurrentRecording = true;
-      }
-    } catch (_) {
-      _concurrentRecording = false;
-    }
-  }
-
-  Future<void> _stopConcurrentRecording() async {
-    if (!_concurrentRecording) return;
-    try {
-      if (await _recorder.isRecording()) {
-        final path = await _recorder.stop();
-        if (path != null && await File(path).exists()) {
-          final fileSize = await File(path).length();
-          if (fileSize > 1024 && mounted) {
-            setState(() {
-              _recordingPath = path;
-              _lastUploadedRecordingPath = null;
-            });
-          }
-        }
-      }
-    } catch (_) {
-      // ignore
-    } finally {
-      _concurrentRecording = false;
-    }
-  }
-
-  Future<void> _playRecording() async {
-    if (_recordingPath == null) return;
-    try {
-      final file = File(_recordingPath!);
-      if (!await file.exists()) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('录音文件不存在')));
-        return;
-      }
-      await _audioPlayer.stop();
-      await _audioPlayer.setFilePath(_recordingPath!);
-      await _audioPlayer.play();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('回放失败: $e'), duration: const Duration(seconds: 2)),
-        );
-      }
-    }
-  }
-
-  Future<void> _uploadRecording() async {
-    if (_recordingPath == null) return;
-    if (_lastUploadedRecordingPath == _recordingPath) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('该录音已保存'), duration: Duration(seconds: 1)),
-        );
-      }
-      return;
-    }
-
-    setState(() => _uploading = true);
-    try {
-      final s = _sentences[_index];
-      final file = File(_recordingPath!);
-      if (!await file.exists()) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('录音文件不存在')));
-        return;
-      }
-      final formData = dio.FormData.fromMap({
-        'audio': await dio.MultipartFile.fromFile(file.path, filename: file.path.split('/').last),
-        'sentence': (s['sentence'] as String?) ?? '',
-        'reading': (s['reading'] as String?) ?? '',
-        if (_score != null) 'score': _score.toString(),
-      });
-      final res = await apiService.dio.post('/pronunciation/listening-recording', data: formData);
-      if (mounted) {
-        final success = res.data is Map && res.data['success'] == true;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(success ? '✅ 录音已保存' : '保存失败'), duration: const Duration(seconds: 2)),
-        );
-        if (success) {
-          _lastUploadedRecordingPath = _recordingPath;
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: $e'), duration: const Duration(seconds: 2)),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _uploading = false);
-    }
-  }
-
   void _prev() {
     if (_index > 0) setState(() { _index--; _resetState(); });
   }
@@ -419,18 +464,15 @@ class _ListeningScreenState extends State<ListeningScreen> {
   }
 
   void _resetState() {
-    _score = null; _recognized = ''; _feedback = ''; _showSentence = false; _inputCtrl.clear(); _inputMode = false;
+    _score = null; _recognized = ''; _feedback = ''; _showSentence = false; _inputCtrl.clear(); _inputMode = false; _aiScoring = false;
   }
 
   @override
   void dispose() {
+    _resultDebounce?.cancel();
+    _safetyTimeout?.cancel();
     _tts.stop();
     _speech.stop();
-    if (_concurrentRecording) {
-      _recorder.stop().catchError((_) => null);
-    }
-    _recorder.dispose();
-    _audioPlayer.dispose();
     _inputCtrl.dispose();
     if (_scores.isNotEmpty) {
       final avg = (_scores.reduce((a, b) => a + b) / _scores.length).round();
@@ -561,18 +603,34 @@ class _ListeningScreenState extends State<ListeningScreen> {
         ),
         const SizedBox(height: 16),
 
+        if (_showSttDebug) ...[
+          _buildSttDebugBar(cs),
+          const SizedBox(height: 12),
+        ],
+
         // 录音按钮
-        FilledButton.icon(
-          onPressed: _toggleRecord,
-          icon: Icon(_listening ? Icons.stop_rounded : Icons.mic_rounded),
-          label: Text(_listening ? '停止录音' : '🎙️ 录音比对'),
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            backgroundColor: _listening ? Colors.red : cs.primary,
-          ),
-        ),
-        if (_listening)
+          GestureDetector(
+              onTap: _toggleRecord,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                decoration: BoxDecoration(
+                  color: _listening ? Colors.red : cs.primary,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    if (_listening) BoxShadow(color: Colors.red.withOpacity(0.4), blurRadius: 8, spreadRadius: 2)
+                  ]
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(_listening ? Icons.stop_rounded : Icons.mic_rounded, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Text(_listening ? '⏹ 点击 停止录音' : '🎙️ 点击 录音比对', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
+          if (_listening)
           Padding(padding: const EdgeInsets.only(top: 8), child: Text('正在聆听...请用日语说出你听到的内容', style: TextStyle(color: cs.primary, fontSize: 12))),
 
         const SizedBox(height: 8),
@@ -605,33 +663,15 @@ class _ListeningScreenState extends State<ListeningScreen> {
         // 评分结果
         if (_score != null) ...[
           const SizedBox(height: 20),
+          if (_aiScoring) ...[
+            Text('AI 评分中…', style: TextStyle(fontSize: 13, color: cs.outline)),
+            const SizedBox(height: 4),
+            const SizedBox(height: 4, child: LinearProgressIndicator()),
+            const SizedBox(height: 8),
+          ],
           Text('$_score', style: TextStyle(fontSize: 56, fontWeight: FontWeight.w900, color: _score! >= 80 ? Colors.green : _score! >= 50 ? Colors.orange : Colors.red)),
           const SizedBox(height: 4),
           Text(_feedback, style: TextStyle(fontSize: 14, color: cs.onSurface.withValues(alpha: 0.7)), textAlign: TextAlign.center),
-          if (_recordingPath != null) ...[
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _playRecording,
-                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                  label: const Text('回放录音'),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: _uploading ? null : _uploadRecording,
-                  icon: const Icon(Icons.cloud_upload_rounded, size: 18),
-                  label: const Text('保存录音'),
-                ),
-                if (_uploading)
-                  const Padding(
-                    padding: EdgeInsets.only(left: 8),
-                    child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-                  ),
-              ],
-            ),
-          ],
         ],
 
         // 原文显示
@@ -705,6 +745,31 @@ class _ListeningScreenState extends State<ListeningScreen> {
           Text('当前级别', style: TextStyle(fontSize: 12, color: cs.outline)),
         ]),
       ]),
+    );
+  }
+
+  Widget _buildSttDebugBar(ColorScheme cs) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: DefaultTextStyle(
+        style: const TextStyle(color: Colors.white, fontSize: 11, height: 1.35),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('STT DEBUG', style: TextStyle(fontWeight: FontWeight.w700)),
+            Text('locale: ${_speechLocaleId ?? 'system-default'}, onDevice: $_preferOnDevice'),
+            Text('available: $_speechAvailable, listening: $_listening, started: $_debugListenStarted'),
+            Text('status: $_debugStatus'),
+            Text('result: $_debugPartial'),
+            Text('error: $_debugLastError'),
+          ],
+        ),
+      ),
     );
   }
 }
