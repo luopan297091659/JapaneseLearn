@@ -27,7 +27,7 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
   // 导入配置
   final _deckNameCtrl = TextEditingController(text: 'Anki Import');
   String _jlptLevel = 'N3';
-  String _partOfSpeech = 'other';
+  String _partOfSpeech = 'all';
 
   // 字段映射选择（字段名称 index，null = 不导入）
   int? _mapWord;
@@ -105,6 +105,7 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
     try {
       final preview = await AnkiParser.preview(filePath);
       final m = preview.autoMapping;
+      final exampleDefaults = _resolveExampleDefaultMappings(preview, m);
       _deckNameCtrl.text = p.basenameWithoutExtension(_fileName ?? 'Anki Import');
       setState(() {
         _preview      = preview;
@@ -112,14 +113,70 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
         _mapReading   = m['reading'];
         _mapMeaningZh = m['meaning_zh'];
         _mapMeaningEn = m['meaning_en'];
-        _mapExample   = m['example'];
-        _mapExampleReading = m['example_reading'];
-        _mapExampleMeaningZh = m['example_meaning_zh'];
+        _mapExample   = exampleDefaults['example'];
+        _mapExampleReading = exampleDefaults['example_reading'];
+        _mapExampleMeaningZh = exampleDefaults['example_meaning_zh'];
         _step         = _Step.preview;
       });
     } catch (e) {
       setState(() { _errorMsg = e.toString(); _step = _Step.error; });
     }
+  }
+
+  Map<String, int?> _resolveExampleDefaultMappings(
+    AnkiPreview preview,
+    Map<String, int?> auto,
+  ) {
+    final fields = preview.fields;
+    final used = <int>{
+      if (auto['word'] != null) auto['word']!,
+      if (auto['reading'] != null) auto['reading']!,
+      if (auto['meaning_zh'] != null) auto['meaning_zh']!,
+      if (auto['meaning_en'] != null) auto['meaning_en']!,
+    };
+
+    int? pickByName(List<RegExp> patterns) {
+      for (var i = 0; i < fields.length; i++) {
+        if (used.contains(i)) continue;
+        final name = fields[i].toLowerCase();
+        for (final p in patterns) {
+          if (p.hasMatch(name)) return i;
+        }
+      }
+      return null;
+    }
+
+    int? pickNextUnused() {
+      for (var i = 0; i < fields.length; i++) {
+        if (!used.contains(i)) return i;
+      }
+      return null;
+    }
+
+    int? ex = auto['example'] ??
+        pickByName([
+          RegExp(r'example|sentence|例句|例文|sample|context', caseSensitive: false),
+        ]);
+    if (ex != null) used.add(ex);
+
+    int? exReading = auto['example_reading'] ??
+        pickByName([
+          RegExp(r'example.*reading|sentence.*reading|例句读音|例文読み|文読み|example kana|sentence kana|pronunciation', caseSensitive: false),
+        ]);
+    exReading ??= pickNextUnused();
+    if (exReading != null) used.add(exReading);
+
+    int? exMeaning = auto['example_meaning_zh'] ??
+        pickByName([
+          RegExp(r'example.*meaning|sentence.*meaning|例句释义|例句翻译|例文訳|example translation|sentence translation', caseSensitive: false),
+        ]);
+    exMeaning ??= pickNextUnused();
+
+    return {
+      'example': ex,
+      'example_reading': exReading,
+      'example_meaning_zh': exMeaning,
+    };
   }
 
   // ─── 步骤 3：本地解析 → 存本地 DB → 尝试同步服务端 ──────────────────────
@@ -160,7 +217,8 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
         return {
           ...json,
           'id':             json['id'] as String? ?? uuid.v4(),
-          'part_of_speech': _partOfSpeech,
+          // all 表示不按词性筛选导入，统一保留为 other 以兼容后端字段
+          'part_of_speech': _partOfSpeech == 'all' ? 'other' : _partOfSpeech,
           'jlpt_level':     _jlptLevel,
           'deck_name':      cardDeckName,
         };
@@ -442,6 +500,7 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
                   value: _partOfSpeech,
                   decoration: InputDecoration(labelText: s.partOfSpeech, border: const OutlineInputBorder()),
                   items: const [
+                    DropdownMenuItem(value: 'all',          child: Text('全部词性 All (推荐)')),
                     DropdownMenuItem(value: 'noun',         child: Text('名词 Noun')),
                     DropdownMenuItem(value: 'verb',         child: Text('动词 Verb')),
                     DropdownMenuItem(value: 'adjective',    child: Text('形容词 Adjective')),

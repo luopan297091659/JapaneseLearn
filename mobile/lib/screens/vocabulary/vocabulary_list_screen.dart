@@ -118,7 +118,8 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
         _allWordIds = results[1] as List<String>;
       }
       setState(() {
-        _words   = reset ? newWords : [..._words, ...newWords];
+        final merged = reset ? newWords : [..._words, ...newWords];
+        _words = _sortCommonFirst(merged);
         _total   = res['total'] as int;
         _hasMore = _words.length < _total;
         _loading = false;
@@ -141,7 +142,7 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
       );
       final newWords = res['data'] as List<VocabularyModel>;
       setState(() {
-        _words.addAll(newWords);
+        _words = _sortCommonFirst([..._words, ...newWords]);
         _hasMore = _words.length < _total;
         _loadingMore = false;
       });
@@ -149,6 +150,39 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
       _page--;
       setState(() => _loadingMore = false);
     }
+  }
+
+  List<VocabularyModel> _sortCommonFirst(List<VocabularyModel> input) {
+    final indexed = <MapEntry<int, VocabularyModel>>[];
+    for (var i = 0; i < input.length; i++) {
+      indexed.add(MapEntry(i, input[i]));
+    }
+
+    int priority(VocabularyModel w) {
+      if (w.isCommon == true) return 0;
+      if (w.frequencyRank != null) {
+        if (w.frequencyRank! <= 3000) return 0;
+        if (w.frequencyRank! >= 15000) return 2;
+        return 1;
+      }
+      final tags = '${w.category ?? ''} ${w.difficulty ?? ''}'.toLowerCase();
+      if (tags.contains('常用') || tags.contains('common') || tags.contains('core') || tags.contains('daily') || tags.contains('basic')) {
+        return 0;
+      }
+      if (tags.contains('生僻') || tags.contains('rare') || tags.contains('uncommon') || tags.contains('hard')) {
+        return 2;
+      }
+      return 1;
+    }
+
+    indexed.sort((a, b) {
+      final pa = priority(a.value);
+      final pb = priority(b.value);
+      if (pa != pb) return pa.compareTo(pb);
+      return a.key.compareTo(b.key);
+    });
+
+    return indexed.map((e) => e.value).toList();
   }
 
   @override

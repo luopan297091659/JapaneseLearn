@@ -26,17 +26,37 @@ class PlanReminderService {
     }
 
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const settings = InitializationSettings(android: androidSettings);
+    const iosSettings = DarwinInitializationSettings();
+    const settings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
     await _plugin.initialize(settings);
     _initialized = true;
   }
 
   Future<bool> requestPermissionIfNeeded() async {
     await init();
+
     final androidImpl = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    if (androidImpl == null) return true;
-    final granted = await androidImpl.requestNotificationsPermission();
-    return granted ?? true;
+    if (androidImpl != null) {
+      final granted = await androidImpl.requestNotificationsPermission();
+      return granted ?? true;
+    }
+
+    final iosImpl = _plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+    if (iosImpl != null) {
+      final granted = await iosImpl.requestPermissions(alert: true, badge: true, sound: true);
+      return granted ?? true;
+    }
+
+    final macImpl = _plugin.resolvePlatformSpecificImplementation<MacOSFlutterLocalNotificationsPlugin>();
+    if (macImpl != null) {
+      final granted = await macImpl.requestPermissions(alert: true, badge: true, sound: true);
+      return granted ?? true;
+    }
+
+    return true;
   }
 
   tz.TZDateTime _nextAt(int hour, int minute) {
@@ -70,7 +90,8 @@ class PlanReminderService {
       priority: Priority.high,
       playSound: true,
     );
-    const details = NotificationDetails(android: androidDetails);
+    const iosDetails = DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true);
+    const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
     await _plugin.zonedSchedule(
       _dailyReminderId,

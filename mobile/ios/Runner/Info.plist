@@ -45,5 +45,15 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>用于语音跟读、发音评测和听力口语练习。</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>用于将你的语音转换为文字，辅助发音与听力练习。</string>
+	<key>NSCameraUsageDescription</key>
+	<string>用于拍照上传头像或学习相关图片。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>用于从相册选择图片（例如上传头像）。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>用于将学习相关内容保存到相册。</string>
 </dict>
 </plist>

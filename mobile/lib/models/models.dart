@@ -78,6 +78,9 @@ class VocabularyModel {
   final String? audioUrl;
   final String? imageUrl;
   final String? category;
+  final bool? isCommon;
+  final int? frequencyRank;
+  final String? difficulty;
 
   const VocabularyModel({
     required this.id,
@@ -95,6 +98,9 @@ class VocabularyModel {
     this.audioUrl,
     this.imageUrl,
     this.category,
+    this.isCommon,
+    this.frequencyRank,
+    this.difficulty,
   });
 
   factory VocabularyModel.fromJson(Map<String, dynamic> json) => VocabularyModel(
@@ -113,6 +119,9 @@ class VocabularyModel {
         audioUrl: json['audio_url'],
         imageUrl: json['image_url'],
         category: json['category'],
+        isCommon: json['is_common'] as bool?,
+        frequencyRank: (json['frequency_rank'] as num?)?.toInt(),
+        difficulty: json['difficulty'] as String?,
       );
 }
 
@@ -126,6 +135,10 @@ class GrammarLessonModel {
   final String? explanation;
   final String? explanationZh;
   final String? usageNotes;
+  final bool? isCommon;
+  final int? frequencyRank;
+  final String? difficulty;
+  final String? category;
   final List<GrammarExampleModel> examples;
 
   const GrammarLessonModel({
@@ -137,6 +150,10 @@ class GrammarLessonModel {
     this.explanation,
     this.explanationZh,
     this.usageNotes,
+    this.isCommon,
+    this.frequencyRank,
+    this.difficulty,
+    this.category,
     required this.examples,
   });
 
@@ -149,6 +166,10 @@ class GrammarLessonModel {
         explanation: json['explanation'] ?? '',
         explanationZh: json['explanation_zh'],
         usageNotes: json['usage_notes'],
+        isCommon: json['is_common'] as bool?,
+        frequencyRank: (json['frequency_rank'] as num?)?.toInt(),
+        difficulty: json['difficulty'] as String?,
+        category: json['category'] as String?,
         examples: (json['examples'] as List<dynamic>?)
                 ?.map((e) => GrammarExampleModel.fromJson(e))
                 .toList() ??

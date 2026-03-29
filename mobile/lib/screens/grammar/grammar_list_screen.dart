@@ -90,7 +90,7 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
       final data = res['data'] as List<GrammarLessonModel>;
       if (!mounted) return;
       setState(() {
-        _lessons.addAll(data);
+        _lessons.addAll(_sortCommonFirst(data));
         _hasMore = _lessons.length < _total;
         _loading = false;
       });
@@ -108,7 +108,9 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
       final data = res['data'] as List<GrammarLessonModel>;
       if (!mounted) return;
       setState(() {
-        _lessons.addAll(data);
+        _lessons
+          ..clear()
+          ..addAll(_sortCommonFirst([..._lessons, ...data]));
         _hasMore = _lessons.length < _total;
         _loadingMore = false;
       });
@@ -123,6 +125,39 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
   void _prefetch(int nextPage) {
     // 静默预加载，仅填充缓存，不影响UI
     apiService.getGrammarLessons(level: _selectedLevel, page: nextPage, limit: _pageSize);
+  }
+
+  List<GrammarLessonModel> _sortCommonFirst(List<GrammarLessonModel> input) {
+    final indexed = <MapEntry<int, GrammarLessonModel>>[];
+    for (var i = 0; i < input.length; i++) {
+      indexed.add(MapEntry(i, input[i]));
+    }
+
+    int priority(GrammarLessonModel g) {
+      if (g.isCommon == true) return 0;
+      if (g.frequencyRank != null) {
+        if (g.frequencyRank! <= 2000) return 0;
+        if (g.frequencyRank! >= 10000) return 2;
+        return 1;
+      }
+      final tags = '${g.category ?? ''} ${g.difficulty ?? ''} ${g.usageNotes ?? ''} ${g.titleZh ?? ''} ${g.title}'.toLowerCase();
+      if (tags.contains('常用') || tags.contains('common') || tags.contains('core') || tags.contains('daily') || tags.contains('basic')) {
+        return 0;
+      }
+      if (tags.contains('生僻') || tags.contains('rare') || tags.contains('uncommon') || tags.contains('hard')) {
+        return 2;
+      }
+      return 1;
+    }
+
+    indexed.sort((a, b) {
+      final pa = priority(a.value);
+      final pb = priority(b.value);
+      if (pa != pb) return pa.compareTo(pb);
+      return a.key.compareTo(b.key);
+    });
+
+    return indexed.map((e) => e.value).toList();
   }
 
   @override

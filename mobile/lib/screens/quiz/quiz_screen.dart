@@ -9,9 +9,6 @@ import '../../services/membership_service.dart';
 import '../../models/models.dart';
 import '../../widgets/membership_gate.dart';
 
-// ─── 测验来源 ──────────────────────────────────────────────────────────────────
-enum _QuizSource { server, local }
-
 // ─── 测验题型 ──────────────────────────────────────────────────────────────────
 enum _QuizType { meaning, reading }
 
@@ -25,7 +22,6 @@ class _QuizScreenState extends State<QuizScreen> {
   // ── 设置阶段 ─────────────────────────────────────────────────────────────
   bool _started = false;
   String       _level      = 'N5';
-  _QuizSource  _source     = _QuizSource.server;
   _QuizType    _quizType   = _QuizType.meaning;
   int          _count      = 10;
 
@@ -67,20 +63,12 @@ class _QuizScreenState extends State<QuizScreen> {
   Future<void> _startQuiz() async {
     setState(() { _loading = true; _error = null; });
     try {
-      List<QuizQuestionModel> qs;
-      if (_source == _QuizSource.server) {
-        // 服务端 quiz_type：meaning→vocabulary  reading→reading
-        final typeStr = _quizType == _QuizType.meaning ? 'vocabulary' : 'reading';
-        // level='ALL' 对服务端无效，降级为 N5
-        final effectiveLevel = (_level == 'ALL') ? 'N5' : _level;
-        qs = await apiService.generateQuiz(level: effectiveLevel, quizType: typeStr, count: _count);
-      } else {
-        qs = await _buildLocalQuiz();
-      }
+      final qs = await _buildDynamicQuizFromServer();
       if (qs.isEmpty) {
-        setState(() { _loading = false; _error = _source == _QuizSource.local
-            ? '本地词库没有足够的单词（至少需要 4 个），请先导入 Anki 词卡'
-            : '暂无题目，服务端可能尚无当前级别的题库，请换一个级别重试'; });
+        setState(() {
+          _loading = false;
+          _error = '暂无足够题目，请切换级别后重试';
+        });
         return;
       }
       setState(() {
@@ -104,50 +92,63 @@ class _QuizScreenState extends State<QuizScreen> {
     return msg.length > 80 ? '${msg.substring(0, 80)}…' : msg;
   }
 
-  /// 从本地 Anki 词库随机生成选择题
-  Future<List<QuizQuestionModel>> _buildLocalQuiz() async {
-    // 多取一些以便构造去重干扰项
-    final pool = await localDb.listByDeck(
-      level: _level == 'ALL' ? null : _level,
-      limit: max(_count * 6, 60),  // 加大池子确保去重后仍有足够干扰项
-    );
-    if (pool.length < 4) return [];
-
+  Future<List<QuizQuestionModel>> _buildDynamicQuizFromServer() async {
     final rng = Random();
-    pool.shuffle(rng);
+    final levels = _level == 'ALL' ? const ['N5', 'N4', 'N3', 'N2', 'N1'] : [_level];
+    final pool = <VocabularyModel>[];
+
+    for (final lv in levels) {
+      try {
+        final meta = await apiService.getVocabulary(level: lv, page: 1, limit: 1);
+        final total = (meta['total'] as int?) ?? 0;
+        final pageSize = max(_count * 8, 80);
+        final maxPage = total > 0 ? max(1, (total / pageSize).ceil()) : 1;
+        final randomPage = maxPage > 1 ? rng.nextInt(maxPage) + 1 : 1;
+
+        final pageSet = <int>{1, randomPage};
+        for (final p in pageSet) {
+          final res = await apiService.getVocabulary(level: lv, page: p, limit: pageSize);
+          final data = (res['data'] as List<VocabularyModel>?) ?? [];
+          pool.addAll(data);
+        }
+      } catch (_) {
+        // Ignore a single level failure and continue with others.
+      }
+    }
+
+    // 去重并打乱，确保每次题目不同
+    final byId = <String, VocabularyModel>{};
+    for (final w in pool) {
+      byId[w.id] = w;
+    }
+    final uniquePool = byId.values.toList()..shuffle(rng);
+    if (uniquePool.length < 4) return [];
 
     final questions = <QuizQuestionModel>[];
-    final take = min(_count, pool.length);
-
-    for (int i = 0; i < take; i++) {
-      final word = pool[i];
-      final distractors = pool.where((w) => w.id != word.id).toList()..shuffle(rng);
+    for (final word in uniquePool) {
+      final distractors = uniquePool.where((w) => w.id != word.id).toList()..shuffle(rng);
 
       if (_quizType == _QuizType.meaning) {
-        // 看单词 → 选中文意思（去重）
         final correctDef = word.meaningZh.trim();
-        if (correctDef.isEmpty) continue; // 无中文释义跳过
+        if (correctDef.isEmpty) continue;
         final wrongOpts = distractors
             .map((w) => w.meaningZh.trim())
             .where((m) => m.isNotEmpty && m != correctDef)
-            .toSet()  // 去重
+            .toSet()
             .take(3)
             .toList();
-        if (wrongOpts.length < 3) continue; // 干扰项不足则跳过该词
+        if (wrongOpts.length < 3) continue;
         final opts = [correctDef, ...wrongOpts]..shuffle(rng);
         questions.add(QuizQuestionModel(
-          id:            word.id,
-          questionType:  'vocabulary',
-          question:      word.reading.isNotEmpty
-              ? '${word.word}【${word.reading}】'
-              : word.word,
+          id: word.id,
+          questionType: 'vocabulary',
+          question: word.reading.isNotEmpty ? '${word.word}【${word.reading}】' : word.word,
           correctAnswer: correctDef,
-          options:       opts,
-          explanation:   '${word.word} → $correctDef',
-          jlptLevel:     word.jlptLevel,
+          options: opts,
+          explanation: '${word.word} → $correctDef',
+          jlptLevel: word.jlptLevel,
         ));
       } else {
-        // 看汉字+意思 → 选假名读音（去重）
         final correctReading = word.reading.trim();
         if (correctReading.isEmpty) continue;
         final wrongOpts = distractors
@@ -159,20 +160,19 @@ class _QuizScreenState extends State<QuizScreen> {
         if (wrongOpts.length < 3) continue;
         final opts = [correctReading, ...wrongOpts]..shuffle(rng);
         questions.add(QuizQuestionModel(
-          id:            word.id,
-          questionType:  'reading',
-          question:      '${word.word}\n${word.meaningZh}',
+          id: word.id,
+          questionType: 'reading',
+          question: '${word.word}\n${word.meaningZh}',
           correctAnswer: correctReading,
-          options:       opts,
-          explanation:   '${word.word} 的读音是 $correctReading',
-          jlptLevel:     word.jlptLevel,
+          options: opts,
+          explanation: '${word.word} 的读音是 $correctReading',
+          jlptLevel: word.jlptLevel,
         ));
       }
+
       if (questions.length >= _count) break;
     }
 
-    // 若生成题目不足（词库去重后干扰项不够），如实提示
-    if (questions.isEmpty) return [];
     return questions;
   }
 
@@ -232,22 +232,6 @@ class _QuizScreenState extends State<QuizScreen> {
     // 记录测验学习活动
     apiService.logActivity(activityType: 'quiz', durationSeconds: duration, score: score.toDouble());
 
-    if (_source == _QuizSource.server) {
-      final typeStr = _quizType == _QuizType.meaning ? 'vocabulary' : 'reading';
-      final effectiveLevel = (_level == 'ALL') ? 'N5' : _level;
-      final answers = _questions.map((q) => {
-        'question_id': q.id, 'user_answer': q.userAnswer ?? '', 'correct_answer': q.correctAnswer,
-      }).toList();
-      try {
-        final result = await apiService.submitQuiz(
-          level: effectiveLevel, quizType: typeStr,
-          answers: answers, timeSpentSeconds: duration,
-        );
-        if (mounted) context.go('/quiz/result', extra: result);
-        return;
-      } catch (_) { /* 提交失败则降级展示本地结果 */ }
-    }
-
     // 本地结果直接展示
     if (mounted) {
       context.go('/quiz/result', extra: {
@@ -282,40 +266,12 @@ class _QuizScreenState extends State<QuizScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // ── 来源选择 ─────────────────────────────────────────
-                  _SectionLabel(label: '词库来源', icon: Icons.storage_rounded),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    Expanded(child: _SourceTile(
-                      selected: _source == _QuizSource.server,
-                      icon: Icons.cloud_rounded,
-                      label: '服务器词库',
-                      sub: '按JLPT级别出题',
-                      onTap: () => setState(() {
-                        _source = _QuizSource.server;
-                        // 服务端不支持 'ALL'，自动重置为 N5
-                        if (_level == 'ALL') _level = 'N5';
-                      }),
-                    )),
-                    const SizedBox(width: 12),
-                    Expanded(child: _SourceTile(
-                      selected: _source == _QuizSource.local,
-                      icon: Icons.folder_rounded,
-                      label: '我的Anki词库',
-                      sub: '本地导入的词卡',
-                      onTap: () => setState(() => _source = _QuizSource.local),
-                    )),
-                  ]),
-
-                  const SizedBox(height: 24),
-
                   // ── JLPT 级别 ────────────────────────────────────────
                   _SectionLabel(label: 'JLPT 级别', icon: Icons.bar_chart_rounded),
                   const SizedBox(height: 8),
                   Wrap(spacing: 8, runSpacing: 8, children: [
-                    if (_source == _QuizSource.local)
-                      _LevelChip(label: '全部', value: 'ALL', selected: _level == 'ALL',
-                          onTap: () => setState(() => _level = 'ALL')),
+                    _LevelChip(label: '全部', value: 'ALL', selected: _level == 'ALL',
+                        onTap: () => setState(() => _level = 'ALL')),
                     ...['N5','N4','N3','N2','N1'].map((l) {
                       final locked = !_isMember && _freeJlptLevels.isNotEmpty && !_freeJlptLevels.contains(l);
                       return _LevelChip(
@@ -555,44 +511,6 @@ class _SectionLabel extends StatelessWidget {
       const SizedBox(width: 6),
       Text(label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: cs.primary)),
     ]);
-  }
-}
-
-class _SourceTile extends StatelessWidget {
-  final bool selected;
-  final IconData icon;
-  final String label;
-  final String sub;
-  final VoidCallback onTap;
-  const _SourceTile({required this.selected, required this.icon,
-      required this.label, required this.sub, required this.onTap});
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: selected ? cs.primaryContainer : cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? cs.primary : Colors.transparent,
-            width: 2,
-          ),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icon, color: selected ? cs.primary : cs.onSurfaceVariant, size: 26),
-          const SizedBox(height: 6),
-          Text(label, style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: selected ? cs.primary : cs.onSurface,
-          )),
-          Text(sub, style: TextStyle(fontSize: 11, color: cs.outline)),
-        ]),
-      ),
-    );
   }
 }
 

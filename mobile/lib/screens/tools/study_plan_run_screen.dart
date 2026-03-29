@@ -13,6 +13,7 @@ import '../../utils/japanese_text_utils.dart';
 import '../../utils/tts_helper.dart';
 import '../../utils/verb_conjugation.dart';
 import '../../widgets/furigana_text.dart';
+import '../vocabulary/vocab_whiteboard_screen.dart';
 
 class StudyPlanRunScreen extends StatefulWidget {
   final String planId;
@@ -137,7 +138,12 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
           })
           .toList();
 
-      _queue = filtered;
+          final sorted = _sortCommonFirst(filtered);
+
+      final dailyTarget = ((_plan?['dailyTarget'] as int?) ?? 20).clamp(1, 999);
+          final limited = sorted.take(dailyTarget).toList();
+
+      _queue = limited;
       _index = 0;
       if (_queue.isNotEmpty) {
         await _ensureCurrentLoaded();
@@ -269,7 +275,7 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('计划学习 · $planName'),
+        title: Text('学习计划 · $planName'),
       ),
       body: done
           ? _buildDoneView(context)
@@ -344,7 +350,31 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('第 ${completed + 1} / $total 项', style: const TextStyle(fontWeight: FontWeight.w600)),
+          Row(
+            children: [
+              Text('第 ${completed + 1} / $total 项', style: const TextStyle(fontWeight: FontWeight.w600)),
+              const Spacer(),
+              if (cardType == 'vocabulary')
+                IconButton(
+                  tooltip: '画布练习',
+                  icon: const Icon(Icons.draw_rounded),
+                  onPressed: () {
+                    final vocab = _vocabCache[refId];
+                    if (vocab == null) return;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => VocabWhiteboardScreen(
+                          word: vocab.word,
+                          reading: vocab.reading,
+                          meaningZh: vocab.meaningZh,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
@@ -564,18 +594,79 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
   }
 
   Widget _buildSlowBtn({required bool isExample, double size = 24}) {
+    final cs = Theme.of(context).colorScheme;
+    final loading = isExample ? _exampleLoading : _wordLoading;
+    final playing = isExample ? _examplePlaying : _ttsPlaying;
     return GestureDetector(
-      onTap: () => _playAudio(isExample: isExample, slow: true),
+      onTap: loading ? null : () => _playAudio(isExample: isExample, slow: true),
       child: Container(
         width: size + 8,
         height: size + 8,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.orange.withValues(alpha: 0.1),
+          color: playing ? cs.primary.withValues(alpha: 0.15) : Colors.orange.withValues(alpha: 0.1),
         ),
-        child: Center(child: Text('🐌', style: TextStyle(fontSize: size * 0.55))),
+        child: loading
+            ? Center(
+                child: SizedBox(
+                  width: size * 0.6,
+                  height: size * 0.6,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+                ),
+              )
+            : Center(child: Text('🐌', style: TextStyle(fontSize: size * 0.55))),
       ),
     );
+  }
+
+  List<Map<String, dynamic>> _sortCommonFirst(List<Map<String, dynamic>> items) {
+    final withIndex = <MapEntry<int, Map<String, dynamic>>>[];
+    for (var i = 0; i < items.length; i++) {
+      withIndex.add(MapEntry(i, items[i]));
+    }
+    withIndex.sort((a, b) {
+      final pa = _commonPriority(a.value);
+      final pb = _commonPriority(b.value);
+      if (pa != pb) return pa.compareTo(pb);
+      return a.key.compareTo(b.key);
+    });
+    return withIndex.map((e) => e.value).toList();
+  }
+
+  int _commonPriority(Map<String, dynamic> item) {
+    bool asBool(dynamic v) {
+      if (v is bool) return v;
+      if (v is num) return v != 0;
+      final s = (v ?? '').toString().toLowerCase();
+      return s == 'true' || s == '1' || s == 'yes';
+    }
+
+    if (asBool(item['is_common']) || asBool(item['isCommon']) || asBool(item['common'])) {
+      return 0;
+    }
+
+    final rank = item['frequency_rank'] ?? item['frequencyRank'] ?? item['freq_rank'] ?? item['rank'];
+    if (rank is num) {
+      if (rank <= 3000) return 0;
+      if (rank >= 15000) return 2;
+      return 1;
+    }
+
+    final tags = [
+      item['category'],
+      item['tags'],
+      item['word_tag'],
+      item['usage'],
+      item['difficulty'],
+    ].where((e) => e != null).join(' ').toLowerCase();
+
+    if (tags.contains('常用') || tags.contains('common') || tags.contains('core') || tags.contains('daily') || tags.contains('basic')) {
+      return 0;
+    }
+    if (tags.contains('生僻') || tags.contains('rare') || tags.contains('uncommon') || tags.contains('hard')) {
+      return 2;
+    }
+    return 1;
   }
 
   static String _posLabel(String pos) {
@@ -628,9 +719,19 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
                   Expanded(
                     child: FuriganaText(text: vocab.word, fontSize: 32, color: cs.onSurface),
                   ),
-                  const SizedBox(width: 4),
-                  _buildAudioBtn(isExample: false, playing: _ttsPlaying, loading: _wordLoading),
-                  // _buildSlowBtn(isExample: false),
+                  const SizedBox(width: 8),
+                  Padding(
+                    // Furigana 区域高度较高，按钮下移可与主词中心更接近水平对齐。
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildAudioBtn(isExample: false, playing: _ttsPlaying, loading: _wordLoading),
+                        const SizedBox(width: 4),
+                        _buildSlowBtn(isExample: false, size: 24),
+                      ],
+                    ),
+                  ),
                 ],
               ),
               if (vocab.reading.isNotEmpty && cleanReading(vocab.reading) != cleanWord(vocab.word))
@@ -649,7 +750,13 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
               ]),
               const Divider(height: 20),
               // ── 释义 ──
-              Text('[$posText] ${vocab.meaningZh}', style: const TextStyle(fontSize: 18)),
+              Row(children: [
+                Icon(Icons.translate_rounded, size: 18, color: cs.primary),
+                const SizedBox(width: 6),
+                Text('释义', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: cs.onSurfaceVariant)),
+              ]),
+              const SizedBox(height: 8),
+              Text(vocab.meaningZh, style: const TextStyle(fontSize: 18)),
               if (vocab.meaningEn != null) ...[  
                 const SizedBox(height: 4),
                 Text(vocab.meaningEn!, style: TextStyle(fontSize: 14, color: cs.outline)),
@@ -690,7 +797,8 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
                     const SizedBox(width: 4),
                     Column(children: [
                       _buildAudioBtn(isExample: true, playing: _examplePlaying, loading: _exampleLoading, size: 24),
-                      // _buildSlowBtn(isExample: true, size: 20),
+                      const SizedBox(height: 4),
+                      _buildSlowBtn(isExample: true, size: 20),
                     ]),
                   ],
                 ),

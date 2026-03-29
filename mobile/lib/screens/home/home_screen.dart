@@ -1152,7 +1152,13 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
             ),
             const Spacer(),
             GestureDetector(
-              onTap: widget.onNext,
+              onTap: () {
+                widget.onNext();
+                // Wait for parent to update widget.word, then auto play the new word audio.
+                Future<void>.delayed(const Duration(milliseconds: 120), () {
+                  if (mounted) _playWordAudio();
+                });
+              },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(

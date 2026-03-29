@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/local_db.dart';
 import '../../services/api_service.dart';
-import '../../services/plan_reminder_service.dart';
 
 class StudyPlanScreen extends StatefulWidget {
   const StudyPlanScreen({super.key});
@@ -63,14 +62,6 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
       _activePlanId = activePlanId;
       _loading = false;
     });
-
-    final activePlan = hasActive
-        ? plans.firstWhere((p) => (p['status'] ?? 'not_started').toString() == 'in_progress', orElse: () => <String, dynamic>{})
-        : <String, dynamic>{};
-    await PlanReminderService.instance.syncByPlanState(
-      hasActivePlan: activePlan.isNotEmpty,
-      activePlanName: activePlan['name']?.toString(),
-    );
 
     if (!hasActive && activePlanId != null) {
       final prefs2 = await SharedPreferences.getInstance();
@@ -271,7 +262,6 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     await _savePlans();
     if (_activePlanId == planId) {
       await _setActivePlan(null);
-      await PlanReminderService.instance.cancelDailyReminder();
     }
     if (mounted) setState(() {});
   }
@@ -293,48 +283,9 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     } catch (_) {
       // 后端接口失败不阻断本地计划
     }
-    final reminder = await PlanReminderService.instance.getReminderTime();
-    await PlanReminderService.instance.scheduleDailyReminder(
-      planName: (plan['name'] ?? '学习计划').toString(),
-      hour: reminder.hour,
-      minute: reminder.minute,
-    );
     if (!mounted) return;
     setState(() {});
     await _openPlanDetail(plan);
-  }
-
-  Future<void> _pickReminderTime() async {
-    final current = await PlanReminderService.instance.getReminderTime();
-    if (!mounted) return;
-    final selected = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(hour: current.hour, minute: current.minute),
-      helpText: '学习计划每日提醒时间',
-    );
-    if (selected == null) return;
-
-    await PlanReminderService.instance.saveReminderTime(
-      hour: selected.hour,
-      minute: selected.minute,
-    );
-
-    final active = _activePlan;
-    if (active != null) {
-      await PlanReminderService.instance.scheduleDailyReminder(
-        planName: (active['name'] ?? '学习计划').toString(),
-        hour: selected.hour,
-        minute: selected.minute,
-      );
-    }
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        content: Text('每日提醒时间已设置为 ${selected.hour.toString().padLeft(2, '0')}:${selected.minute.toString().padLeft(2, '0')}'),
-      ),
-    );
   }
 
   Future<void> _showPlanEditor({int? editIndex}) async {
@@ -594,11 +545,6 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
             tooltip: '新建计划',
             icon: const Icon(Icons.add_rounded),
             onPressed: () => _showPlanEditor(),
-          ),
-          IconButton(
-            tooltip: '设置每日提醒时间',
-            icon: const Icon(Icons.alarm_rounded),
-            onPressed: _pickReminderTime,
           ),
         ],
       ),

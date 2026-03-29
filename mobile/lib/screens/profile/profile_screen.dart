@@ -114,18 +114,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _checkPermissions() async {
-    if (!Platform.isAndroid) return;
     final mic = await Permission.microphone.status;
     final camera = await Permission.camera.status;
     final notification = await Permission.notification.status;
-    final storage = await Permission.storage.status;
+    final media = Platform.isIOS
+        ? await Permission.photos.status
+        : await Permission.storage.status;
     if (mounted) {
       setState(() {
         _permissions = {
           'microphone': mic.isGranted,
           'camera': camera.isGranted,
           'notification': notification.isGranted,
-          'storage': storage.isGranted,
+          'media': media.isGranted,
         };
       });
     }
@@ -905,7 +906,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   Text(s.settings, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 8),
                   // ── 权限状态栏 ──
-                  if (Platform.isAndroid && _permissions.isNotEmpty) ...[
+                  if (_permissions.isNotEmpty) ...[
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
@@ -936,7 +937,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 _PermChip(icon: Icons.mic, label: '麦克风', granted: _permissions['microphone'] ?? false),
                                 _PermChip(icon: Icons.volume_up, label: '扬声器', granted: true),
                                 _PermChip(icon: Icons.camera_alt, label: '相机', granted: _permissions['camera'] ?? false),
-                                _PermChip(icon: Icons.photo_library, label: '存储/相册', granted: _permissions['storage'] ?? false),
+                                _PermChip(
+                                  icon: Icons.photo_library,
+                                  label: Platform.isIOS ? '相册' : '存储/相册',
+                                  granted: _permissions['media'] ?? false,
+                                ),
                                 _PermChip(icon: Icons.notifications, label: '通知', granted: _permissions['notification'] ?? false),
                               ],
                             ),
