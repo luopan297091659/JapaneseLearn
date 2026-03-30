@@ -2402,12 +2402,12 @@ async function showVocabDetail(id) {
     const srsCard = await (async () => {
       try { const r = await GET(`/srs/card/${id}`); return r; } catch(_) { return null; }
     })();
-    const audioHtml = w.audio_url ? `<button class="btn btn-sm btn-outline" onclick="playAudio('${escHtml(w.audio_url)}')">🔊 发音</button><button class="btn btn-sm btn-outline" onclick="playAudioSlow('${escHtml(w.audio_url)}')" style="color:var(--warning);border-color:var(--warning)">🐌 慢速</button>` : `<button class="btn btn-sm btn-outline" onclick="speakJa('${escHtml(ttsText(w))}')">🔊 发音</button><button class="btn btn-sm btn-outline" onclick="speakJaSlow('${escHtml(ttsText(w))}')" style="color:var(--warning);border-color:var(--warning)">🐌 慢速</button>`;
+    const audioHtml = w.audio_url ? `<button class="btn btn-sm btn-outline" onclick="playAudio('${escHtml(w.audio_url)}')">🔊 发音</button><button class="btn btn-sm btn-outline" onclick="playAudioSlow('${escHtml(w.audio_url)}')" style="color:var(--warning);border-color:var(--warning)">🐌 慢速</button>` : `<button class="btn btn-sm btn-outline" data-tts="${escHtml(ttsText(w))}" data-tts-rate="0.8" onclick="speakJaFromEl(this)">🔊 发音</button><button class="btn btn-sm btn-outline" data-tts="${escHtml(ttsText(w))}" data-tts-rate="${_slowSpeed * 0.8}" onclick="speakJaFromEl(this)" style="color:var(--warning);border-color:var(--warning)">🐌 慢速</button>`;
     const srsHtml = srsCard
       ? `<button class="btn btn-sm btn-outline" style="color:var(--success);border-color:var(--success)" disabled>✓ 已加入 SRS</button>`
       : `<button class="btn btn-sm btn-primary" onclick="addToSrs('${escHtml(w.id)}')">+ 加入 SRS 复习</button>`;
     const posRaw = w.part_of_speech_raw || w.part_of_speech || '';
-    const exAudioHtml = w.example_audio_url ? `<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();playAudio('${escHtml(w.example_audio_url)}')" title="正常速度">🔊</button><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();playAudioSlow('${escHtml(w.example_audio_url)}')" title="慢速" style="color:var(--warning);border-color:var(--warning);font-size:10px">🐌</button></div>` : (w.example_sentence ? `<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();speakJa('${escHtml(w.example_sentence)}')" title="正常速度">🔊</button><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();speakJaSlow('${escHtml(w.example_sentence)}')" title="慢速" style="color:var(--warning);border-color:var(--warning);font-size:10px">🐌</button></div>` : '');
+    const exAudioHtml = w.example_audio_url ? `<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();playAudio('${escHtml(w.example_audio_url)}')" title="正常速度">🔊</button><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();playAudioSlow('${escHtml(w.example_audio_url)}')" title="慢速" style="color:var(--warning);border-color:var(--warning);font-size:10px">🐌</button></div>` : (w.example_sentence ? `<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0"><button class="btn btn-sm btn-outline" data-tts="${escHtml(w.example_sentence)}" data-tts-rate="0.8" onclick="event.stopPropagation();speakJaFromEl(this)" title="正常速度">🔊</button><button class="btn btn-sm btn-outline" data-tts="${escHtml(w.example_sentence)}" data-tts-rate="${_slowSpeed * 0.8}" onclick="event.stopPropagation();speakJaFromEl(this)" title="慢速" style="color:var(--warning);border-color:var(--warning);font-size:10px">🐌</button></div>` : '');
     document.getElementById('modal-body').innerHTML = `
       <div class="vocab-detail">
         ${vocabWords.length > 1 && curIdx >= 0 ? `
@@ -2571,8 +2571,8 @@ async function showGrammarDetail(id) {
       <div class="grammar-example-item">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <div style="font-size:15px;font-weight:600;flex:1">${hasBracketFurigana(ex.reading) ? renderFurigana(ex.reading) : escHtml(ex.sentence)}</div>
-          <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();speakJa('${escHtml(ex.sentence)}')">🔊</button>
-          <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px;color:var(--warning);border-color:var(--warning)" onclick="event.stopPropagation();speakJaSlow('${escHtml(ex.sentence)}')">🐌</button>
+          <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px" data-tts="${escHtml(ex.sentence)}" data-tts-rate="0.8" onclick="event.stopPropagation();speakJaFromEl(this)">🔊</button>
+          <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px;color:var(--warning);border-color:var(--warning)" data-tts="${escHtml(ex.sentence)}" data-tts-rate="${_slowSpeed * 0.8}" onclick="event.stopPropagation();speakJaFromEl(this)">🐌</button>
         </div>
         <div style="font-size:13px;color:var(--text-sub);margin-top:4px">${escHtml(ex.meaning_zh)}</div>
       </div>
@@ -3576,34 +3576,108 @@ function renderPronWord() {
 // 通用日语 TTS 朗读
 let _jaVoice = null;
 let _jaVoiceSearched = false;
+let _ttsReady = false;           // voices 是否已加载
+let _ttsReadyQueue = [];         // voices 加载前的等待队列
 function _findJaVoice() {
   if (_jaVoiceSearched) return _jaVoice;
   const voices = speechSynthesis.getVoices();
   if (!voices.length) return null; // voices not loaded yet
   _jaVoiceSearched = true;
+  _ttsReady = true;
   // 优先精确匹配 ja-JP，其次 ja 开头
   _jaVoice = voices.find(v => v.lang === 'ja-JP')
     || voices.find(v => v.lang.startsWith('ja'))
     || null;
+  console.log('[TTS] ja voice:', _jaVoice ? _jaVoice.name + ' (' + _jaVoice.lang + ')' : 'none (will use lang hint)');
   return _jaVoice;
 }
 // 浏览器异步加载 voices 列表
 if (typeof speechSynthesis !== 'undefined') {
-  speechSynthesis.onvoiceschanged = () => { _jaVoiceSearched = false; _jaVoice = null; };
+  speechSynthesis.onvoiceschanged = () => {
+    _jaVoiceSearched = false; _jaVoice = null;
+    _findJaVoice();
+    // 播放等待队列中的第一个
+    if (_ttsReadyQueue.length) {
+      const q = _ttsReadyQueue.shift();
+      _ttsReadyQueue = [];
+      speakJa(q.text, q.rate);
+    }
+  };
+  // 尝试立即加载（某些浏览器同步返回）
+  _findJaVoice();
 }
+
+// Chrome 15s TTS 静默 bug 的 workaround：定期 resume
+let _ttsKeepAliveTimer = null;
+function _ttsStartKeepAlive() {
+  _ttsStopKeepAlive();
+  _ttsKeepAliveTimer = setInterval(() => {
+    if (speechSynthesis.speaking && !speechSynthesis.paused) {
+      speechSynthesis.pause();
+      speechSynthesis.resume();
+    } else {
+      _ttsStopKeepAlive();
+    }
+  }, 10000);
+}
+function _ttsStopKeepAlive() {
+  if (_ttsKeepAliveTimer) { clearInterval(_ttsKeepAliveTimer); _ttsKeepAliveTimer = null; }
+}
+
 function speakJa(text, rate = 0.8) {
   if (!text) return;
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = 'ja-JP';
-  utter.rate = rate;
-  const v = _findJaVoice();
-  if (v) utter.voice = v;
+  // 反转义 HTML 实体（onclick 传入的文本可能含 &#39; 等）
+  const ta = document.createElement('textarea');
+  ta.innerHTML = text;
+  const clean = ta.value;
+  if (!clean) return;
+
+  if (typeof speechSynthesis === 'undefined') {
+    console.warn('[TTS] speechSynthesis not available');
+    toast('当前浏览器不支持语音合成');
+    return;
+  }
+
+  // voices 尚未加载，排队等待
+  if (!_ttsReady && speechSynthesis.getVoices().length === 0) {
+    console.log('[TTS] voices not ready, queuing:', clean.substring(0, 30));
+    _ttsReadyQueue = [{ text: clean, rate }];
+    return;
+  }
+
+  const doSpeak = () => {
+    const utter = new SpeechSynthesisUtterance(clean);
+    utter.lang = 'ja-JP';
+    utter.rate = rate;
+    const v = _findJaVoice();
+    if (v) utter.voice = v;
+    utter.onstart = () => { _ttsStartKeepAlive(); };
+    utter.onend = () => { _ttsStopKeepAlive(); };
+    utter.onerror = (ev) => {
+      _ttsStopKeepAlive();
+      // 'interrupted' 是 cancel() 触发的，忽略
+      if (ev.error !== 'interrupted') {
+        console.error('[TTS] error:', ev.error, clean.substring(0, 30));
+      }
+    };
+    speechSynthesis.speak(utter);
+  };
+
+  // Chrome bug: cancel() 后需要短暂延迟再 speak()
   speechSynthesis.cancel();
-  speechSynthesis.speak(utter);
+  setTimeout(doSpeak, 100);
 }
 
 function speakJaSlow(text) {
   speakJa(text, _slowSpeed * 0.8);
+}
+
+// 通过 data attribute 安全调用 TTS（避免 onclick 字符串中引号问题）
+function speakJaFromEl(el) {
+  if (!el) return;
+  const text = el.getAttribute('data-tts');
+  const rate = parseFloat(el.getAttribute('data-tts-rate') || '0.8');
+  if (text) speakJa(text, rate);
 }
 
 // 通用跟读练习（嵌入到任意容器）
@@ -5074,8 +5148,8 @@ function showKanaPractice(romaji, hira, kata) {
           <span style="background:var(--primary-bg);color:var(--primary);padding:3px 10px;border-radius:8px;font-size:13px">${escHtml(otherLabel)}: ${escHtml(otherKana)}</span>
         </div>
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px">
-          <button class="btn btn-outline btn-sm" onclick="speakJa('${escHtml(hira)}')" style="padding:8px 18px;border-radius:14px;display:flex;align-items:center;gap:4px"><span style='font-size:16px'>🔊</span> 发音</button>
-          <button class="btn btn-outline btn-sm" onclick="speakJaSlow('${escHtml(hira)}')" style="padding:8px 18px;border-radius:14px;display:flex;align-items:center;gap:4px;color:var(--warning);border-color:var(--warning)"><span style='font-size:16px'>🐌</span> 慢速</button>
+          <button class="btn btn-outline btn-sm" data-tts="${escHtml(hira)}" data-tts-rate="0.8" onclick="speakJaFromEl(this)" style="padding:8px 18px;border-radius:14px;display:flex;align-items:center;gap:4px"><span style='font-size:16px'>🔊</span> 发音</button>
+          <button class="btn btn-outline btn-sm" data-tts="${escHtml(hira)}" data-tts-rate="${_slowSpeed * 0.8}" onclick="speakJaFromEl(this)" style="padding:8px 18px;border-radius:14px;display:flex;align-items:center;gap:4px;color:var(--warning);border-color:var(--warning)"><span style='font-size:16px'>🐌</span> 慢速</button>
           <button class="btn btn-outline btn-sm" onclick="playKanaStrokeAnim()" style="padding:8px 18px;border-radius:14px;display:flex;align-items:center;gap:4px" id="kana-anim-btn"><span style='font-size:16px'>🔄</span> 重播</button>
         </div>
       </div>
@@ -5087,7 +5161,7 @@ function showKanaPractice(romaji, hira, kata) {
         <span style="font-size:14px;color:var(--text-secondary)">${escHtml(romaji)}</span>
         ${charSelectorHtml}
         <span style="flex:1"></span>
-        <span onclick="speakJa('${escHtml(hira)}')" style="cursor:pointer;font-size:18px" title="发音">🔊</span>
+        <span data-tts="${escHtml(hira)}" data-tts-rate="0.8" onclick="speakJaFromEl(this)" style="cursor:pointer;font-size:18px" title="发音">🔊</span>
         <span onclick="replayKanaPracticeAnim()" style="cursor:pointer;font-size:18px" title="笔顺">▶</span>
         <span onclick="toggleKanaRef()" style="cursor:pointer;font-size:18px" title="参考" id="kana-ref-toggle">👁</span>
         <span onclick="undoKanaStroke()" style="cursor:pointer;font-size:18px" title="撤销">↩</span>
