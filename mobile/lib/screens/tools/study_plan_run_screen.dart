@@ -257,8 +257,8 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
 
     if (_planType(_plan!) == 'anki') {
       final deckRoot = (_plan?['ankiDeckRoot'] ?? _plan?['ankiDeck'] ?? '__all__').toString();
-      final stage = widget.stage ?? 'learning';
-      final localStage = stage == 'mastered' ? 2 : (stage == 'new' ? 0 : 1);
+      final stage = widget.stage ?? 'new';
+      final localStage = stage == 'mastered' ? 2 : (stage == 'review' ? 1 : 0);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         context.go('/local-vocab?deck=${Uri.encodeComponent(deckRoot)}&stage=$localStage&planId=${widget.planId}');
@@ -490,16 +490,26 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
     }
     final player = isExample ? _examplePlayer! : _wordPlayer!;
 
-    if (mounted) setState(() {
-      if (isExample) _exampleLoading = true; else _wordLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        if (isExample) {
+          _exampleLoading = true;
+        } else {
+          _wordLoading = true;
+        }
+      });
+    }
     try {
       if (isExample) {
         await _wordPlayer?.stop();
-        if (mounted) setState(() => _ttsPlaying = false);
+        if (mounted) {
+          setState(() => _ttsPlaying = false);
+        }
       } else {
         await _examplePlayer?.stop();
-        if (mounted) setState(() => _examplePlaying = false);
+        if (mounted) {
+          setState(() => _examplePlaying = false);
+        }
       }
       await _tts.stop();
       await player.stop();
@@ -520,20 +530,40 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
         await player.setSpeed(1.0);
       }
       await player.setVolume(1.0);
-      if (mounted) setState(() {
-        if (isExample) { _exampleLoading = false; _examplePlaying = true; }
-        else { _wordLoading = false; _ttsPlaying = true; }
-      });
+      if (mounted) {
+        setState(() {
+          if (isExample) {
+            _exampleLoading = false;
+            _examplePlaying = true;
+          } else {
+            _wordLoading = false;
+            _ttsPlaying = true;
+          }
+        });
+      }
       await player.play();
-      if (mounted) setState(() {
-        if (isExample) _examplePlaying = false; else _ttsPlaying = false;
-      });
+      if (mounted) {
+        setState(() {
+          if (isExample) {
+            _examplePlaying = false;
+          } else {
+            _ttsPlaying = false;
+          }
+        });
+      }
     } catch (e) {
       debugPrint('Audio play error: $e');
-      if (mounted) setState(() {
-        if (isExample) { _exampleLoading = false; _examplePlaying = false; }
-        else { _wordLoading = false; _ttsPlaying = false; }
-      });
+      if (mounted) {
+        setState(() {
+          if (isExample) {
+            _exampleLoading = false;
+            _examplePlaying = false;
+          } else {
+            _wordLoading = false;
+            _ttsPlaying = false;
+          }
+        });
+      }
     }
   }
 
@@ -541,25 +571,44 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
     await _wordPlayer?.stop();
     await _examplePlayer?.stop();
     await _tts.stop();
-    if (mounted) setState(() {
-      if (isExample) { _exampleLoading = false; _examplePlaying = true; }
-      else { _wordLoading = false; _ttsPlaying = true; }
-    });
+    if (mounted) {
+      setState(() {
+        if (isExample) {
+          _exampleLoading = false;
+          _examplePlaying = true;
+        } else {
+          _wordLoading = false;
+          _ttsPlaying = true;
+        }
+      });
+    }
     try {
       await TtsHelper.setJapaneseVoice(_tts);
       final rate = slow ? 0.25 : 0.45;
       await _tts.setSpeechRate(rate);
       _tts.setCompletionHandler(() {
-        if (mounted) setState(() {
-          if (isExample) _examplePlaying = false; else _ttsPlaying = false;
-        });
+        if (mounted) {
+          setState(() {
+            if (isExample) {
+              _examplePlaying = false;
+            } else {
+              _ttsPlaying = false;
+            }
+          });
+        }
         _tts.setSpeechRate(0.5);
       });
       await TtsHelper.speakJapanese(_tts, text);
     } catch (_) {
-      if (mounted) setState(() {
-        if (isExample) _examplePlaying = false; else _ttsPlaying = false;
-      });
+      if (mounted) {
+        setState(() {
+          if (isExample) {
+            _examplePlaying = false;
+          } else {
+            _ttsPlaying = false;
+          }
+        });
+      }
     }
   }
 
@@ -594,27 +643,16 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
   }
 
   Widget _buildSlowBtn({required bool isExample, double size = 24}) {
-    final cs = Theme.of(context).colorScheme;
-    final loading = isExample ? _exampleLoading : _wordLoading;
-    final playing = isExample ? _examplePlaying : _ttsPlaying;
     return GestureDetector(
-      onTap: loading ? null : () => _playAudio(isExample: isExample, slow: true),
+      onTap: () => _playAudio(isExample: isExample, slow: true),
       child: Container(
         width: size + 8,
         height: size + 8,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: playing ? cs.primary.withValues(alpha: 0.15) : Colors.orange.withValues(alpha: 0.1),
+          color: Colors.orange.withValues(alpha: 0.1),
         ),
-        child: loading
-            ? Center(
-                child: SizedBox(
-                  width: size * 0.6,
-                  height: size * 0.6,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
-                ),
-              )
-            : Center(child: Text('🐌', style: TextStyle(fontSize: size * 0.55))),
+        child: Center(child: Text('🐌', style: TextStyle(fontSize: size * 0.55))),
       ),
     );
   }
@@ -865,7 +903,7 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
                   child: FilledButton.icon(
                     onPressed: () => _showGrammarExercise(grammar, exerciseCount),
                     icon: const Icon(Icons.quiz_outlined),
-                    label: Text('进入${exerciseCount}道例句练习'),
+                    label: Text('进入$exerciseCount道例句练习'),
                   ),
                 ),
               ],

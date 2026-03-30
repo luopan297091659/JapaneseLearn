@@ -992,7 +992,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           leading: const Icon(Icons.palette_rounded),
                           title: const Text('界面模式'),
                           subtitle: Text(
-                            appearance == AppAppearanceMode.anime ? '酷炫模式' : '经典模式',
+                            appearance == AppAppearanceMode.anime ? '蓝调模式' : '经典模式',
                           ),
                           trailing: ToggleButtons(
                             isSelected: [
@@ -1013,7 +1013,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ),
                               Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 8),
-                                child: Text('酷炫', style: TextStyle(fontWeight: FontWeight.bold)),
+                                child: Text('蓝调', style: TextStyle(fontWeight: FontWeight.bold)),
                               ),
                             ],
                           ),

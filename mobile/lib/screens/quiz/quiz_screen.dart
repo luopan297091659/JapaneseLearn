@@ -92,6 +92,31 @@ class _QuizScreenState extends State<QuizScreen> {
     return msg.length > 80 ? '${msg.substring(0, 80)}…' : msg;
   }
 
+  /// 判断字符串是否全部由假名/符号组成（即纯假名词，无汉字）
+  bool _isPureKana(String text) {
+    final t = text.trim();
+    if (t.isEmpty) return false;
+    return RegExp(r'^[\u3040-\u30ff\u30fc\uff70ー々〆〇\s]+$').hasMatch(t);
+  }
+
+  bool _isValidReadingOption(String text) {
+    final value = text.trim();
+    if (value.isEmpty) return false;
+    // 读音选项必须包含假名，且不应混入英文字母。
+    if (!RegExp(r'[\u3040-\u30ff]').hasMatch(value)) return false;
+    if (RegExp(r'[A-Za-z]').hasMatch(value)) return false;
+    return true;
+  }
+
+  bool _isValidMeaningOption(String text) {
+    final value = text.trim();
+    if (value.isEmpty) return false;
+    // 释义题优先展示中文释义，过滤纯英文项。
+    final hasCjk = RegExp(r'[\u4e00-\u9fff]').hasMatch(value);
+    final hasLatin = RegExp(r'[A-Za-z]').hasMatch(value);
+    return hasCjk || !hasLatin;
+  }
+
   Future<List<QuizQuestionModel>> _buildDynamicQuizFromServer() async {
     final rng = Random();
     final levels = _level == 'ALL' ? const ['N5', 'N4', 'N3', 'N2', 'N1'] : [_level];
@@ -130,10 +155,10 @@ class _QuizScreenState extends State<QuizScreen> {
 
       if (_quizType == _QuizType.meaning) {
         final correctDef = word.meaningZh.trim();
-        if (correctDef.isEmpty) continue;
+        if (!_isValidMeaningOption(correctDef)) continue;
         final wrongOpts = distractors
             .map((w) => w.meaningZh.trim())
-            .where((m) => m.isNotEmpty && m != correctDef)
+            .where((m) => m != correctDef && _isValidMeaningOption(m))
             .toSet()
             .take(3)
             .toList();
@@ -149,11 +174,13 @@ class _QuizScreenState extends State<QuizScreen> {
           jlptLevel: word.jlptLevel,
         ));
       } else {
+        // 词条本身已是纯假名，问读音毫无意义，跳过
+        if (_isPureKana(word.word)) continue;
         final correctReading = word.reading.trim();
-        if (correctReading.isEmpty) continue;
+        if (!_isValidReadingOption(correctReading)) continue;
         final wrongOpts = distractors
             .map((w) => w.reading.trim())
-            .where((r) => r.isNotEmpty && r != correctReading)
+            .where((r) => r != correctReading && _isValidReadingOption(r))
             .toSet()
             .take(3)
             .toList();
@@ -162,7 +189,7 @@ class _QuizScreenState extends State<QuizScreen> {
         questions.add(QuizQuestionModel(
           id: word.id,
           questionType: 'reading',
-          question: '${word.word}\n${word.meaningZh}',
+          question: word.word,
           correctAnswer: correctReading,
           options: opts,
           explanation: '${word.word} 的读音是 $correctReading',
@@ -405,6 +432,22 @@ class _QuizScreenState extends State<QuizScreen> {
           child: LinearProgressIndicator(value: (_current + 1) / _questions.length),
         ),
       ),
+      bottomNavigationBar: _answered
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: FilledButton(
+                  onPressed: _nextQuestion,
+                  style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16)),
+                  child: Text(
+                    _current + 1 < _questions.length ? '下一题 →' : '查看结果',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+            )
+          : null,
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -480,16 +523,6 @@ class _QuizScreenState extends State<QuizScreen> {
                 child: Text('💡 ${q.explanation!}', style: TextStyle(fontSize: 14, color: cs.onSecondaryContainer)),
               ),
             ],
-            const Spacer(),
-            if (_answered)
-              FilledButton(
-                onPressed: _nextQuestion,
-                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                child: Text(
-                  _current + 1 < _questions.length ? '下一题 →' : '查看结果',
-                  style: const TextStyle(fontSize: 16),
-                ),
-              ),
           ],
         ),
       ),

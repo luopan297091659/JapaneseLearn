@@ -470,6 +470,37 @@ class LocalDb {
     return {'total': total, 'data': data};
   }
 
+  /// 辞书检索的本地快速结果：跨级别检索缓存词库，优先精确/前缀匹配
+  Future<List<VocabularyModel>> searchCachedVocabularyQuick({
+    required String query,
+    int limit = 10,
+  }) async {
+    final q = query.trim();
+    if (q.isEmpty) return const [];
+
+    final database = await db;
+    final like = '%$q%';
+    final rows = await database.rawQuery(
+      '''
+      SELECT *
+      FROM $tableCachedVocab
+      WHERE (word LIKE ? OR reading LIKE ? OR meaning_zh LIKE ?)
+      ORDER BY
+        CASE
+          WHEN word = ? THEN 0
+          WHEN word LIKE ? THEN 1
+          WHEN reading LIKE ? THEN 2
+          ELSE 3
+        END,
+        jlpt_level ASC,
+        sort_order ASC
+      LIMIT ?
+      ''',
+      [like, like, like, q, '$q%', '$q%', limit],
+    );
+    return rows.map(_vocabFromRow).toList();
+  }
+
   /// 从缓存获取某级别全部单词 ID（保持排序）
   Future<List<String>> getCachedVocabularyIds(String level) async {
     final database = await db;

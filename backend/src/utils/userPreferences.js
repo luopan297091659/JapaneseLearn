@@ -74,7 +74,7 @@ function serializeUserPreferences(preferences) {
 function summarizeUserPreferences(preferences) {
   const pref = normalizeUserPreferences(preferences);
   const localeLabel = { zh: '中文', en: 'English', ja: '日本語' }[pref.locale] || pref.locale;
-  const appearanceLabel = pref.appearance_mode === 'anime' ? '酷炫' : '经典';
+  const appearanceLabel = pref.appearance_mode === 'anime' ? '蓝调' : '经典';
   const notificationLabel = pref.notification_enabled ? '通知开' : '通知关';
   return `${localeLabel} / ${appearanceLabel} / ${pref.slow_speed}x / ${pref.daily_goal_minutes}分 / ${notificationLabel}`;
 }

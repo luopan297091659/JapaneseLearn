@@ -57,22 +57,15 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
   late int _currentIndex;
   List<LocalVocabModel> _cards = const [];
   bool _wordPlaying = false;
-  bool _exampleBusy = false;
+  bool _examplePlaying = false;
+  bool _wordLoading = false;
+  bool _exampleLoading = false;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.args?.initialIndex ?? 0;
     _cards = widget.args?.cards ?? const [];
-    _player.playerStateStream.listen((state) {
-      if (!mounted) return;
-      if (state.processingState == ProcessingState.completed || !state.playing) {
-        setState(() {
-          if (_exampleBusy) _exampleBusy = false;
-          if (_wordPlaying) _wordPlaying = false;
-        });
-      }
-    });
     _loadCard();
   }
 
@@ -123,30 +116,50 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
     await _tts?.stop();
     if (!mounted) return;
     setState(() {
-      if (_exampleBusy) _exampleBusy = false;
-      if (_wordPlaying) _wordPlaying = false;
+      _wordLoading = false;
+      _exampleLoading = false;
+      _wordPlaying = false;
+      _examplePlaying = false;
     });
   }
 
   Future<void> _playTts(String text, {required bool isExample, bool slow = false}) async {
     if (text.trim().isEmpty) return;
-    await _stopAll();
     if (!mounted) return;
     setState(() {
       if (isExample) {
-        _exampleBusy = true;
+        _exampleLoading = true;
       } else {
-        _wordPlaying = true;
+        _wordLoading = true;
       }
     });
     try {
+      if (isExample) {
+        await _player.stop();
+        if (mounted) setState(() => _wordPlaying = false);
+      } else {
+        await _player.stop();
+        if (mounted) setState(() => _examplePlaying = false);
+      }
       final tts = await _getTts();
+      await tts.stop();
       await tts.setSpeechRate(slow ? 0.25 : 0.45);
+      if (mounted) {
+        setState(() {
+          if (isExample) {
+            _exampleLoading = false;
+            _examplePlaying = true;
+          } else {
+            _wordLoading = false;
+            _wordPlaying = true;
+          }
+        });
+      }
       tts.setCompletionHandler(() {
         if (!mounted) return;
         setState(() {
           if (isExample) {
-            _exampleBusy = false;
+            _examplePlaying = false;
           } else {
             _wordPlaying = false;
           }
@@ -157,8 +170,10 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
       if (!mounted) return;
       setState(() {
         if (isExample) {
-          _exampleBusy = false;
+          _exampleLoading = false;
+          _examplePlaying = false;
         } else {
+          _wordLoading = false;
           _wordPlaying = false;
         }
       });
@@ -198,23 +213,53 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
       return;
     }
 
-    await _stopAll();
     if (!mounted) return;
     setState(() {
       if (isExample) {
-        _exampleBusy = true;
+        _exampleLoading = true;
       } else {
-        _wordPlaying = true;
+        _wordLoading = true;
       }
     });
     try {
+      if (isExample) {
+        await _player.stop();
+        if (mounted) setState(() => _wordPlaying = false);
+      } else {
+        await _player.stop();
+        if (mounted) setState(() => _examplePlaying = false);
+      }
+      await _tts?.stop();
+
       final localPath = await _resolveAudioPath(audioUrl);
       if (localPath.isNotEmpty) {
         await _player.setFilePath(localPath);
       }
       await _player.setSpeed(slow ? 0.65 : 1.0);
       await _player.setVolume(1.0);
+
+      if (mounted) {
+        setState(() {
+          if (isExample) {
+            _exampleLoading = false;
+            _examplePlaying = true;
+          } else {
+            _wordLoading = false;
+            _wordPlaying = true;
+          }
+        });
+      }
+
       await _player.play();
+
+      if (!mounted) return;
+      setState(() {
+        if (isExample) {
+          _examplePlaying = false;
+        } else {
+          _wordPlaying = false;
+        }
+      });
     } catch (e) {
       await _playTts(fallbackText, isExample: isExample, slow: slow);
       if (!mounted) return;
@@ -397,8 +442,9 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
                               ],
                               const SizedBox(width: 12),
                               _WordAudioButton(
+                                loading: _wordLoading,
                                 playing: _wordPlaying,
-                                onTap: () => _playAudio(
+                                onTap: _wordLoading ? null : () => _playAudio(
                                   audioUrl: card.audioUrl,
                                   fallbackText: _localDisplayWord(card),
                                   isExample: false,
@@ -407,7 +453,7 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
                               ),
                               const SizedBox(width: 6),
                               _WordSlowButton(
-                                onTap: () => _playAudio(
+                                onTap: _wordLoading ? null : () => _playAudio(
                                   audioUrl: card.audioUrl,
                                   fallbackText: _localDisplayWord(card),
                                   isExample: false,
@@ -418,7 +464,8 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
                                   (card.exampleAudioUrl?.trim().isNotEmpty ?? false)) ...[
                                 const SizedBox(width: 8),
                                 _AudioCircleButton(
-                                  loading: _exampleBusy,
+                                  loading: _exampleLoading,
+                                  playing: _examplePlaying,
                                   icon: const Icon(Icons.record_voice_over_rounded, size: 18),
                                   onTap: () => _playAudio(
                                     audioUrl: card.exampleAudioUrl,
@@ -598,12 +645,14 @@ class _MetaChip extends StatelessWidget {
 
 class _AudioCircleButton extends StatelessWidget {
   final bool loading;
+  final bool playing;
   final Widget icon;
   final VoidCallback onTap;
   final Color color;
 
   const _AudioCircleButton({
     required this.loading,
+    required this.playing,
     required this.icon,
     required this.onTap,
     required this.color,
@@ -618,7 +667,7 @@ class _AudioCircleButton extends StatelessWidget {
         width: 34,
         height: 34,
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.15),
+          color: playing ? color.withValues(alpha: 0.2) : color.withValues(alpha: 0.15),
           shape: BoxShape.circle,
           border: Border.all(color: color.withValues(alpha: 0.35)),
         ),
@@ -640,11 +689,13 @@ class _AudioCircleButton extends StatelessWidget {
 }
 
 class _WordAudioButton extends StatelessWidget {
+  final bool loading;
   final bool playing;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Color color;
 
   const _WordAudioButton({
+    required this.loading,
     required this.playing,
     required this.onTap,
     required this.color,
@@ -661,18 +712,26 @@ class _WordAudioButton extends StatelessWidget {
           shape: BoxShape.circle,
           color: playing ? color.withValues(alpha: 0.15) : Colors.transparent,
         ),
-        child: Icon(
-          playing ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
-          color: color,
-          size: 28,
-        ),
+        child: loading
+            ? Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: color),
+                ),
+              )
+            : Icon(
+                playing ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+                color: color,
+                size: 28,
+              ),
       ),
     );
   }
 }
 
 class _WordSlowButton extends StatelessWidget {
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _WordSlowButton({required this.onTap});
 

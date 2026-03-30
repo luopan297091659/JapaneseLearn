@@ -1490,7 +1490,7 @@ async function loadUsers(){
       const prefSummary = u.preference_summary || '未同步';
       const prefHtml = `
         <div style="font-size:12px;line-height:1.6;min-width:180px">
-          <div><span class="badge badge-blue">${esc(pref.locale || 'zh')}</span> <span class="badge badge-purple">${esc(pref.appearance_mode === 'anime' ? '酷炫' : '经典')}</span></div>
+          <div><span class="badge badge-blue">${esc(pref.locale || 'zh')}</span> <span class="badge badge-purple">${esc(pref.appearance_mode === 'anime' ? '蓝调' : '经典')}</span></div>
           <div style="color:#64748b;margin-top:4px">慢速 ${esc(pref.slow_speed || 0.5)}x · 目标 ${esc(pref.daily_goal_minutes || 15)} 分</div>
           <div style="color:#94a3b8;margin-top:2px">${esc(prefSummary)}</div>
         </div>`;

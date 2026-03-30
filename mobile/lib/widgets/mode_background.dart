@@ -95,7 +95,7 @@ class _AnimePatternPainter extends CustomPainter {
 }
 
 // ─── Anime card decoration overlay ─────────────────────────────────────────
-/// 当处于酷炫模式时，在卡片上叠加星光/闪耀装饰图案。
+/// 当处于蓝调模式时，在卡片上叠加星光/闪耀装饰图案。
 /// 可直接包裹任意 Widget（通常为 Container 卡片），无需手动传 animeMode 参数。
 class AnimeCardDecoration extends StatelessWidget {
   final Widget child;

@@ -170,11 +170,31 @@ async function deduplicateVocab(req, res) {
         HAVING COUNT(*) > 1
       ) d ON v.word = d.word AND v.jlpt_level = d.jlpt_level AND v.created_at > d.minCreated
     `);
-    if (dupes.length === 0) return res.json({ deleted: 0, message: '没有发现重复数据' });
-    const ids = dupes.map(r => r.id);
+
+    // 跨级别去重：删除 N5 中与 N4 同 word + reading 的记录
+    const [crossLevelDupes] = await sequelize.query(`
+      SELECT n5.id
+      FROM vocabulary n5
+      WHERE n5.jlpt_level = 'N5'
+        AND EXISTS (
+          SELECT 1
+          FROM vocabulary n4
+          WHERE n4.jlpt_level = 'N4'
+            AND n4.word = n5.word
+            AND COALESCE(n4.reading, '') = COALESCE(n5.reading, '')
+        )
+    `);
+
+    const idSet = new Set([
+      ...dupes.map(r => r.id),
+      ...crossLevelDupes.map(r => r.id),
+    ]);
+    if (idSet.size === 0) return res.json({ deleted: 0, message: '没有发现重复数据' });
+
+    const ids = [...idSet];
     const count = await Vocabulary.destroy({ where: { id: { [Op.in]: ids } } });
     await bumpVersion('vocab_version');
-    res.json({ deleted: count, message: `已删除 ${count} 条重复词汇` });
+    res.json({ deleted: count, message: `已删除 ${count} 条重复词汇（含 N5/N4 交叉去重）` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -708,7 +728,7 @@ function localeLabel(locale) {
 }
 
 function appearanceLabel(mode) {
-  return mode === 'anime' ? '酷炫' : '经典';
+  return mode === 'anime' ? '蓝调' : '经典';
 }
 
 function buildPreferenceStats(rows) {

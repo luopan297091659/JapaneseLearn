@@ -184,7 +184,7 @@ class _StudyPlanDetailScreenState extends ConsumerState<StudyPlanDetailScreen> {
     }
 
     if (type == 'anki') {
-      final localStage = (stage == 'new') ? 0 : (stage == 'mastered' ? 2 : 1);
+      final localStage = (stage == 'review') ? 1 : (stage == 'mastered' ? 2 : 0);
       context.push('/local-vocab?deck=${Uri.encodeComponent(deckRoot)}&stage=$localStage&planId=$planId');
     }
   }

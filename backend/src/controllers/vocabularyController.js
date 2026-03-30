@@ -30,6 +30,15 @@ async function list(req, res) {
     ];
   }
 
+  // N5 数据中排除与 N4 相同的词条（word + reading）
+  if (level === 'N5') {
+    const ands = Array.isArray(where[Op.and]) ? where[Op.and] : [];
+    ands.push(Sequelize.literal(
+      "NOT EXISTS (SELECT 1 FROM vocabulary v4 WHERE v4.jlpt_level = 'N4' AND v4.word = Vocabulary.word AND COALESCE(v4.reading, '') = COALESCE(Vocabulary.reading, ''))"
+    ));
+    where[Op.and] = ands;
+  }
+
   const offset = (parseInt(page) - 1) * parseInt(limit);
   try {
     // 有搜索时按字母序，无搜索时按每日随机序（避免接头接尾词聚集在前面）
@@ -73,6 +82,13 @@ async function getByLevel(req, res) {
 async function getIdsByLevel(req, res) {
   try {
     const where = { jlpt_level: req.params.level };
+    if (req.params.level === 'N5') {
+      where[Op.and] = [
+        Sequelize.literal(
+          "NOT EXISTS (SELECT 1 FROM vocabulary v4 WHERE v4.jlpt_level = 'N4' AND v4.word = Vocabulary.word AND COALESCE(v4.reading, '') = COALESCE(Vocabulary.reading, ''))"
+        ),
+      ];
+    }
     const rows = await Vocabulary.findAll({
       where,
       attributes: ['id'],

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
+import '../../services/local_db.dart';
 
 const _kLangPrefKey = 'dict_lang';
 
@@ -110,28 +111,50 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       if (_history.length > 20) _history.removeLast();
     }
 
+    // 先返回本地缓存词库结果，减少首屏等待
+    if (reset) {
+      try {
+        final localQuick = await localDb.searchCachedVocabularyQuick(query: q, limit: 8);
+        if (!mounted) return;
+        setState(() {
+          _vocabResults = localQuick;
+          _hasSearched = true;
+        });
+      } catch (_) {}
+    }
+
     try {
-      // 优先搜索系统单词库
       if (reset) {
-        try {
-          final vocabRes = await apiService.getVocabulary(query: q, page: 1, limit: 5);
-          _vocabResults = vocabRes['data'] as List<VocabularyModel>;
-        } catch (_) {
-          _vocabResults = [];
-        }
+        final dictFuture = apiService.searchDictionary(q, page: _page, lang: _lang);
+        final vocabFuture = apiService
+            .getVocabulary(query: q, page: 1, limit: 8)
+            .catchError((_) => <String, dynamic>{'data': <VocabularyModel>[]});
+        final responses = await Future.wait<dynamic>([dictFuture, vocabFuture]);
+        final dictResult = responses[0] as DictionarySearchResult;
+        final vocabRes = responses[1] as Map<String, dynamic>;
+        final remoteVocab = (vocabRes['data'] as List<dynamic>? ?? const [])
+            .whereType<VocabularyModel>()
+            .toList();
+
+        setState(() {
+          _results = dictResult.data;
+          if (remoteVocab.isNotEmpty) {
+            _vocabResults = remoteVocab;
+          }
+          _hasMore = dictResult.data.length >= 20;
+          _loading = false;
+          _hasSearched = true;
+        });
+      } else {
+        final result = await apiService.searchDictionary(q, page: _page, lang: _lang);
+        setState(() {
+          _results.addAll(result.data);
+          _hasMore = result.data.length >= 20;
+          _loading = false;
+          _hasSearched = true;
+        });
       }
 
-      final result = await apiService.searchDictionary(q, page: _page, lang: _lang);
-      setState(() {
-        if (reset) {
-          _results = result.data;
-        } else {
-          _results.addAll(result.data);
-        }
-        _hasMore = result.data.length >= 20;
-        _loading = false;
-        _hasSearched = true;
-      });
       if (reset) {
         apiService.logActivity(activityType: 'dictionary', durationSeconds: 0);
       }
@@ -248,7 +271,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       ]);
     }
 
-    if (_loading && _results.isEmpty) {
+    if (_loading && _results.isEmpty && _vocabResults.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
