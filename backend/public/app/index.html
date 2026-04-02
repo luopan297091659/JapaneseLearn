@@ -822,7 +822,10 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
 
       <!-- 文法页 -->
       <div class="page" id="page-grammar">
-        <h2 style="margin-bottom:20px;font-size:22px">📝 文法課程</h2>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <h2 style="margin:0;font-size:22px">📝 文法課程</h2>
+          <button class="btn btn-outline btn-sm" id="grammar-admin-btn" style="display:none" onclick="openGrammarAdminModal()">📥 导入</button>
+        </div>
         <div class="chips" id="grammar-level-chips">
           <div class="chip active" onclick="selectGrammarLevel('N5')">N5</div>
           <div class="chip" onclick="selectGrammarLevel('N4')">N4</div>
@@ -6299,6 +6302,26 @@ function closeImmPlayer() {
   document.getElementById('imm-player-iframe').src = '';
   document.body.style.overflow = '';
 }
+
+// ──────── 文法管理 ────────
+function showGrammarAdminBtn() {
+  try {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return;
+    const user = JSON.parse(userStr);
+    if (user.role === 'admin') {
+      const btn = document.getElementById('grammar-admin-btn');
+      if (btn) btn.style.display = 'block';
+    }
+  } catch(e) {}
+}
+
+function openGrammarAdminModal() {
+  window.location.href = '/admin/?tab=import';
+}
+
+// 初始化时检查是否显示管理按钮
+setTimeout(() => showGrammarAdminBtn(), 500);
 
 
 </script>

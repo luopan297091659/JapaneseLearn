@@ -51,26 +51,34 @@ Remote-Upload-File "$LocalBackend\.env"         "$RemotePath/.env"
 # 步骤 2.3: 备份和恢复配置文件（保留用户自定义配置）
 Write-Host "[2.3/5] 备份和恢复用户配置..." -ForegroundColor Yellow
 # 检查远程是否有现有配置，如果有则备份
-Remote-Run "if [ -f $RemotePath/config/ai_settings.json ]; then cp $RemotePath/config/ai_settings.json $RemotePath/config/ai_settings.json.backup; echo '已备份ai_settings'; fi"
-Remote-Run "if [ -f $RemotePath/config/feature_tiers.json ]; then cp $RemotePath/config/feature_tiers.json $RemotePath/config/feature_tiers.json.backup; echo '已备份feature_tiers'; fi"
+$ConfigFiles = @(
+    'ai_settings.json',
+    'feature_tiers.json',
+    'feature_toggles.json',
+    'membership.json'
+)
 
-# 上传新的配置文件（必须存在于本地）
-if (Test-Path "$LocalBackend\config\ai_settings.json") {
-    Remote-Upload-File "$LocalBackend\config\ai_settings.json" "$RemotePath/config/ai_settings.json"
-    Write-Host "  - 已上传 ai_settings.json" -ForegroundColor Gray
-} else {
-    Write-Host "  - 警告: 本地不存在 ai_settings.json" -ForegroundColor Yellow
+foreach ($ConfigFile in $ConfigFiles) {
+    $RemoteConfig = "$RemotePath/config/$ConfigFile"
+    Remote-Run "if [ -f $RemoteConfig ]; then cp $RemoteConfig $RemoteConfig.backup && echo '已备份$ConfigFile'; else echo '$ConfigFile不存在'; fi"
 }
 
-if (Test-Path "$LocalBackend\config\feature_tiers.json") {
-    Remote-Upload-File "$LocalBackend\config\feature_tiers.json" "$RemotePath/config/feature_tiers.json"
-    Write-Host "  - 已上传 feature_tiers.json" -ForegroundColor Gray
-} else {
-    Write-Host "  - 警告: 本地不存在 feature_tiers.json" -ForegroundColor Yellow
+# 上传新的配置文件（如果本地存在，否则保留远程备份）
+foreach ($ConfigFile in $ConfigFiles) {
+    $LocalConfig = "$LocalBackend\config\$ConfigFile"
+    $RemoteConfig = "$RemotePath/config/$ConfigFile"
+    
+    if (Test-Path $LocalConfig) {
+        Remote-Upload-File $LocalConfig "$RemoteConfig"
+        Write-Host "  ✓ 上传 $ConfigFile" -ForegroundColor Gray
+    } else {
+        # 本地不存在，检查远程是否有备份，有则恢复
+        Remote-Run "if [ -f $RemoteConfig.backup ]; then cp $RemoteConfig.backup $RemoteConfig && echo '从备份恢复$ConfigFile'; fi"
+        Write-Host "  ⚠ 本地不存在 $ConfigFile，保留远程版本" -ForegroundColor Yellow
+    }
 }
 
-# 恢复关键配置（如果备份存在且新上传的配置不完整）
-Remote-Run "cd $RemotePath/config && [ -f ai_settings.json.backup ] && ! grep -q 'api_key' ai_settings.json 2>/dev/null && cp ai_settings.json.backup ai_settings.json && echo '已恢复ai_settings' || echo '已使用新ai_settings'"
+Write-Host "  配置文件保留完成" -ForegroundColor Green
 
 # 步骤 2.5: 修复 pscp 导致的日文文件名编码（EUC-JP → UTF-8）
 Write-Host "[2.5/5] 修复SVG文件名编码..." -ForegroundColor Yellow

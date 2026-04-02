@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文法导入 - 日语学习管理后台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #ddd;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            color: #2c3e50;
+        }
+        
+        .header .breadcrumb {
+            font-size: 13px;
+            color: #7f8c8d;
+        }
+        
+        .tab-nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .tab-nav a {
+            padding: 10px 15px;
+            text-decoration: none;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .tab-nav a.active {
+            color: #2196F3;
+            border-bottom-color: #2196F3;
+        }
+        
+        .tab-nav a:hover {
+            color: #2196F3;
+        }
+        
+        .import-panel {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .import-section {
+            display: none;
+        }
+        
+        .import-section.active {
+            display: block;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        
+        .upload-area {
+            border: 2px dashed #2196F3;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            background: #f8f9fa;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .upload-area:hover {
+            background: #e3f2fd;
+            border-color: #1976D2;
+        }
+        
+        .upload-area.dragover {
+            background: #e3f2fd;
+            border-color: #1976D2;
+            box-shadow: 0 0 10px rgba(33, 150, 243, 0.2);
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .upload-text {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .upload-hint {
+            font-size: 12px;
+            color: #999;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #2196F3;
+            box-shadow: 0 0 5px rgba(33, 150, 243, 0.2);
+        }
+        
+        .file-info {
+            background: #f0f4f8;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .file-info.show {
+            display: block;
+        }
+        
+        .file-name {
+            font-weight: 500;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .file-size {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex: 1;
+        }
+        
+        .btn-primary {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1976D2;
+        }
+        
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #666;
+            border: 1px solid #ddd;
+        }
+        
+        .btn-secondary:hover {
+            background: #e8e8e8;
+        }
+        
+        .progress-section {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .progress-section.show {
+            display: block;
+        }
+        
+        .progress-info {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50 0%, #81c784 100%);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .result-section {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .result-section.show {
+            display: block;
+        }
+        
+        .result-box {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        
+        .result-box.error {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+        
+        .result-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .stat-item {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2196F3;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .alert {
+            padding: 12px 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        
+        .alert-info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            color: #1976D2;
+        }
+        
+        .alert-warning {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            color: #e65100;
+        }
+        
+        .alert-success {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            color: #2e7d32;
+        }
+        
+        .alert-error {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            color: #c62828;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #2196F3;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .list-section {
+            margin-top: 30px;
+        }
+        
+        .grammar-list {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .grammar-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .grammar-item:last-child {
+            border-bottom: none;
+        }
+        
+        .grammar-info h3 {
+            font-size: 14px;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .grammar-meta {
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .tag {
+            display: inline-block;
+            background: #f0f0f0;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>📖 文法管理</h1>
+                <div class="breadcrumb">管理后台 / 文法管理 / 导入</div>
+            </div>
+        </div>
+        
+        <div class="tab-nav">
+            <a href="#" class="tab-link active" data-tab="import">导入 Apkg</a>
+            <a href="#" class="tab-link" data-tab="list">课程列表</a>
+        </div>
+        
+        <!-- 导入标签页 -->
+        <div id="import" class="import-section active">
+            <div class="import-panel">
+                <div class="section-title">导入 Anki 文法卡片</div>
+                
+                <div class="alert alert-info">
+                    💡 <strong>使用说明：</strong> 选择一个包含文法课程的 Anki 导出包 (.apkg) 文件，系统将自动识别并导入文法课程、例句和音频文件。不会覆盖已有数据。
+                </div>
+                
+                <div class="form-group">
+                    <label>选择 Apkg 文件</label>
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">📦</div>
+                        <div class="upload-text">点击或拖拽上传 .apkg 文件</div>
+                        <div class="upload-hint">支持最大 200MB 的 Anki 导出包</div>
+                    </div>
+                    <div class="file-info" id="fileInfo">
+                        <div class="file-name" id="fileName"></div>
+                        <div class="file-size" id="fileSize"></div>
+                    </div>
+                    <input type="file" id="fileInput" accept=".apkg" />
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn btn-primary" id="importBtn" disabled>开始导入</button>
+                    <button class="btn btn-secondary" id="clearBtn" style="display:none;">清空选择</button>
+                </div>
+                
+                <!-- 导入进度 -->
+                <div class="progress-section" id="progressSection">
+                    <div class="spinner"></div>
+                    <div class="progress-info">
+                        <div>正在处理文件，请稍候...</div>
+                        <div style="font-size: 12px; color: #666; margin-top: 5px;" id="progressText">解析 Anki 数据库中...</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                </div>
+                
+                <!-- 导入结果 -->
+                <div class="result-section" id="resultSection">
+                    <div class="result-box" id="resultBox">
+                        <div class="result-title" id="resultTitle"></div>
+                        <div id="resultMessage"></div>
+                        <div class="stats" id="resultStats"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 课程列表标签页 -->
+        <div id="list" class="import-section">
+            <div class="import-panel">
+                <div class="section-title">最近导入的课程</div>
+                <div class="grammar-list" id="grammarList">
+                    <div style="padding: 20px; text-align: center; color: #999;">
+                        <div>📭 暂无课程</div>
+                        <div style="font-size: 12px; margin-top: 5px;">先导入 Apkg 文件以查看课程列表</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const importBtn = document.getElementById('importBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const progressSection = document.getElementById('progressSection');
+        const resultSection = document.getElementById('resultSection');
+        const tabLinks = document.querySelectorAll('.tab-link');
+        let selectedFile = null;
+        
+        // 标签页切换
+        tabLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const tabName = link.getAttribute('data-tab');
+                document.querySelectorAll('.import-section').forEach(s => s.classList.remove('active'));
+                document.getElementById(tabName).classList.add('active');
+                tabLinks.forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+                if (tabName === 'list') loadGrammarList();
+            });
+        });
+        
+        // 上传区域点击
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        // 拖拽上传
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+        
+        // 文件选择
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+        
+        function handleFileSelect(file) {
+            if (!file.name.endsWith('.apkg')) {
+                alert('❌ 请选择 .apkg 文件');
+                return;
+            }
+            selectedFile = file;
+            fileName.textContent = `📄 ${file.name}`;
+            fileSize.textContent = `大小: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            fileInfo.classList.add('show');
+            importBtn.disabled = false;
+            clearBtn.style.display = 'block';
+            resultSection.classList.remove('show');
+        }
+        
+        // 清空选择
+        clearBtn.addEventListener('click', () => {
+            selectedFile = null;
+            fileInput.value = '';
+            fileInfo.classList.remove('show');
+            importBtn.disabled = true;
+            clearBtn.style.display = 'none';
+            resultSection.classList.remove('show');
+        });
+        
+        // 导入
+        importBtn.addEventListener('click', async () => {
+            if (!selectedFile) {
+                alert('请先选择文件');
+                return;
+            }
+            
+            importBtn.disabled = true;
+            uploadArea.style.opacity = '0.5';
+            uploadArea.style.pointerEvents = 'none';
+            progressSection.classList.add('show');
+            resultSection.classList.remove('show');
+            
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            
+            try {
+                // 模拟进度
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    if (progress < 80) {
+                        progress += Math.random() * 20;
+                        document.getElementById('progressFill').style.width = Math.min(progress, 80) + '%';
+                    }
+                }, 200);
+                
+                const token = localStorage.getItem('admin_token') || localStorage.getItem('token');
+                const headers = {};
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+                
+                const response = await fetch('/api/v1/admin/grammar/import-apkg', {
+                    method: 'POST',
+                    headers: headers,
+                    body: formData,
+                });
+                
+                clearInterval(progressInterval);
+                progress = 100;
+                document.getElementById('progressFill').style.width = '100%';
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // 成功
+                    document.getElementById('resultBox').classList.remove('error');
+                    document.getElementById('resultTitle').textContent = '✅ 导入成功！';
+                    document.getElementById('resultMessage').innerHTML = `
+                        <p style="margin: 10px 0;">${data.message}</p>
+                        <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                            ${data.stats.audios > 0 ? `✓ 自动提取并保存了 ${data.stats.audios} 个音频文件` : ''}
+                        </p>
+                    `;
+                    document.getElementById('resultStats').innerHTML = `
+                        <div class="stat-item">
+                            <div class="stat-number">${data.stats.lessons}</div>
+                            <div class="stat-label">新增课程</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">${data.stats.examples}</div>
+                            <div class="stat-label">新增例句</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">${data.stats.audios}</div>
+                            <div class="stat-label">音频文件</div>
+                        </div>
+                    `;
+                    clearBtn.click();
+                } else {
+                    // 错误
+                    document.getElementById('resultBox').classList.add('error');
+                    document.getElementById('resultTitle').textContent = '❌ 导入失败';
+                    document.getElementById('resultMessage').innerHTML = `<p>${data.error || '未知错误'}</p>`;
+                    document.getElementById('resultStats').innerHTML = '';
+                }
+                
+                progressSection.classList.remove('show');
+                resultSection.classList.add('show');
+            } catch (err) {
+                progressSection.classList.remove('show');
+                document.getElementById('resultBox').classList.add('error');
+                document.getElementById('resultTitle').textContent = '❌ 网络错误';
+                document.getElementById('resultMessage').innerHTML = `<p>${err.message}</p>`;
+                document.getElementById('resultStats').innerHTML = '';
+                resultSection.classList.add('show');
+            } finally {
+                importBtn.disabled = false;
+                uploadArea.style.opacity = '1';
+                uploadArea.style.pointerEvents = 'auto';
+            }
+        });
+        
+        // 加载课程列表
+        async function loadGrammarList() {
+            const list = document.getElementById('grammarList');
+            list.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">加载中...</div>';
+            
+            try {
+                const token = localStorage.getItem('admin_token') || localStorage.getItem('token');
+                const headers = {};
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+                
+                const response = await fetch('/api/v1/admin/grammar?limit=10&page=1', {
+                    headers: headers
+                });
+                const data = await response.json();
+                
+                if (data.data && data.data.length > 0) {
+                    list.innerHTML = data.data.map(lesson => `
+                        <div class="grammar-item">
+                            <div class="grammar-info">
+                                <h3>${lesson.pattern || lesson.title || 'N/A'}</h3>
+                                <div class="grammar-meta">
+                                    <span class="tag">${lesson.jlpt_level || 'N3'}</span>
+                                    <span class="tag">${lesson.example_count || 0} 个例句</span>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">📭 暂无课程</div>';
+                }
+            } catch (err) {
+                list.innerHTML = `<div style="padding: 20px; text-align: center; color: #f44336;">加载失败: ${err.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

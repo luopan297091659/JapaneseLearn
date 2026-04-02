@@ -476,6 +476,163 @@ async function bulkDeleteGrammar(req, res) {
   }
 }
 
+// ─── Anki Apkg 导入文法 ──────────────────────────────────────────────────────
+const AdmZip = require('adm-zip');
+const { getSqlJs, detectMapping } = require('../services/ankiService');
+
+async function importGrammarApkg(req, res) {
+  if (!req.file) return res.status(400).json({ error: '未上传文件' });
+
+  const audioDir = path.join(__dirname, '../../uploads/audio/grammar');
+  if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
+
+  try {
+    // 1. 解压 apkg 文件
+    const zip = new AdmZip(req.file.buffer);
+    const collectionEntry = zip.getEntry('collection.anki2');
+    if (!collectionEntry) {
+      return res.status(400).json({ error: 'apkg 文件损坏：未找到 collection.anki2' });
+    }
+
+    // 2. 解析 Anki 数据库
+    const SQL = await getSqlJs();
+    const dbData = collectionEntry.getData();
+    const db = new SQL.Database(new Uint8Array(dbData));
+
+    // 获取 notes 表
+    const notesResult = db.exec('SELECT * FROM notes');
+    if (!notesResult || notesResult.length === 0) {
+      return res.status(400).json({ error: 'apkg 文件中无有效 notes 数据' });
+    }
+
+    const columns = notesResult[0].columns;
+    const values = notesResult[0].values;
+    const mapping = detectMapping(columns);
+
+    // 检查媒体索引
+    const mediaEntry = zip.getEntry('media');
+    let mediaIndex = {};
+    if (mediaEntry) {
+      try {
+        const mediaStr = mediaEntry.getData().toString('utf-8');
+        mediaIndex = JSON.parse(mediaStr);
+      } catch (e) {
+        console.warn('Failed to parse media index:', e);
+      }
+    }
+
+    let lessonCreated = 0, exampleCreated = 0, audioCount = 0;
+    const audioMap = {}; // 记录已保存的音频文件，避免重复
+
+    // 3. 处理每个 note
+    for (const noteValues of values) {
+      try {
+        const patternField = noteValues[mapping.pattern ?? 0] || '';
+        const explanationField = noteValues[mapping.explanation ?? 1] || '';
+        const explanationZhField = noteValues[mapping.explanation_zh ?? 2] || '';
+        const exampleField = noteValues[mapping.example ?? 3] || '';
+
+        // 清理 HTML 和音频标签
+        const pattern = stripHtml(String(patternField)).trim();
+        const explanation = stripHtml(String(explanationField)).trim();
+        const explanation_zh = stripHtml(String(explanationZhField)).trim();
+        const exampleRaw = String(exampleField);
+
+        if (!pattern) continue;
+
+        // 4. 创建或获取文法课程
+        const [lesson] = await GrammarLesson.findOrCreate({
+          where: { pattern },
+          defaults: {
+            id: uuidv4(),
+            pattern,
+            title: pattern,
+            title_zh: pattern,
+            explanation: explanation || null,
+            explanation_zh: explanation_zh || null,
+            jlpt_level: 'N3',
+            order_index: 0,
+          },
+        });
+
+        // 5. 处理例句（可能包含音频）
+        if (exampleRaw && exampleRaw.trim()) {
+          // 提取 [sound:xxx] 标签
+          const soundMatches = exampleRaw.match(/\[sound:([^\]]+)\]/g) || [];
+          const soundFiles = soundMatches.map(s => s.match(/\[sound:([^\]]+)\]/)[1]);
+
+          const sentenceClean = stripHtml(exampleRaw.replace(/\[sound:[^\]]+\]/g, '')).trim();
+          if (sentenceClean) {
+            let audioUrl = null;
+
+            // 6. 处理音频文件
+            if (soundFiles.length > 0) {
+              for (const soundFile of soundFiles) {
+                const mediaEntry = zip.getEntry(soundFile);
+                if (mediaEntry) {
+                  const audioData = mediaEntry.getData();
+                  let audioFilename = audioMap[soundFile];
+
+                  if (!audioFilename) {
+                    // 生成唯一的文件名
+                    const ext = path.extname(soundFile) || '.mp3';
+                    audioFilename = `grammar_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
+                    const audioPath = path.join(audioDir, audioFilename);
+                    fs.writeFileSync(audioPath, audioData);
+                    audioMap[soundFile] = audioFilename;
+                    audioCount++;
+                  }
+
+                  audioUrl = `/audio/grammar/${audioFilename}`;
+                  break; // 只使用第一个音频
+                }
+              }
+            }
+
+            // 7. 创建例句
+            await GrammarExample.findOrCreate({
+              where: {
+                grammar_lesson_id: lesson.id,
+                sentence: sentenceClean,
+              },
+              defaults: {
+                id: uuidv4(),
+                grammar_lesson_id: lesson.id,
+                sentence: sentenceClean,
+                reading: null,
+                meaning_zh: null,
+                audio_url: audioUrl,
+              },
+            });
+
+            exampleCreated++;
+          }
+        }
+
+        lessonCreated++;
+      } catch (e) {
+        console.warn('Failed to import note:', e);
+      }
+    }
+
+    // 8. 递增文法版本
+    await bumpVersion('grammar_version');
+
+    res.json({
+      ok: true,
+      message: `导入成功：${lessonCreated} 个课程，${exampleCreated} 个例句，${audioCount} 个音频文件`,
+      stats: {
+        lessons: lessonCreated,
+        examples: exampleCreated,
+        audios: audioCount,
+      },
+    });
+  } catch (err) {
+    console.error('Grammar import error:', err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
 // ─── 听力管理 ─────────────────────────────────────────────────────────────────
 async function listTracks(req, res) {
   const { level, q, page = 1, limit = 30 } = req.query;
@@ -1644,7 +1801,7 @@ module.exports = {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, deduplicateVocab, fixVocabReadings,
   importVocab, importVocabFile,
-  listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar,
+  listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar, importGrammarApkg,
   listTracks, createTrack, updateTrack, deleteTrack,
   listUsers, updateUser, updateUserMembership,
   getContentVersion, publishContent,

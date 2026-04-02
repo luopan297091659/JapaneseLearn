@@ -8,7 +8,7 @@ const {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, deduplicateVocab, fixVocabReadings,
   importVocab, importVocabFile,
-  listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar,
+  listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar, importGrammarApkg,
   listTracks, createTrack, updateTrack, deleteTrack,
   listUsers, updateUser, updateUserMembership,
   getContentVersion, publishContent,
@@ -49,6 +49,17 @@ const appUpload = multer({
     },
   }),
   limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
+});
+
+// apkg 文件上传（Anki 导出包）
+const apkgUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 200 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.apkg') return cb(null, true);
+    cb(new Error('仅支持 .apkg 格式'));
+  },
 });
 
 // ── App 下载（公开，不需要 adminAuth）──
@@ -97,6 +108,7 @@ router.post('/grammar',       permissionCheck('grammar'), asyncHandler(createGra
 router.put('/grammar/:id',    permissionCheck('grammar'), asyncHandler(updateGrammar));
 router.delete('/grammar/:id', permissionCheck('grammar'), asyncHandler(deleteGrammar));
 router.post('/grammar/bulk-delete', permissionCheck('grammar'), asyncHandler(bulkDeleteGrammar));
+router.post('/grammar/import-apkg', permissionCheck('grammar'), apkgUpload.single('file'), asyncHandler(importGrammarApkg));
 
 // 听力管理
 router.get('/tracks',        permissionCheck('tracks'), asyncHandler(listTracks));
