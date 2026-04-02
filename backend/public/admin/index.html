@@ -296,19 +296,64 @@ tbody tr:hover td{background:#f8faff}
   </div>
 </div>
 <div class="modal-overlay" id="modal-vocab">
-  <div class="modal">
+  <div class="modal" style="width:780px;max-height:90vh;overflow-y:auto">
     <h2 id="mv-title">添加词汇</h2>
     <input type="hidden" id="mv-id" />
-    <div class="form-row"><label>单词 *</label><input id="mv-word" placeholder="e.g. 食べる" /></div>
-    <div class="form-row"><label>读音（假名）</label><input id="mv-reading" placeholder="e.g. たべる" /></div>
-    <div class="form-row"><label>意思 *</label><input id="mv-meaning" placeholder="e.g. 吃" /></div>
-    <div class="form-row"><label>词性</label>
-      <select id="mv-pos"><option value="verb">动词</option><option value="noun">名词</option><option value="adjective">形容词</option><option value="adverb">副词</option><option value="particle">助词</option><option value="conjunction">接续词</option><option value="interjection">感叹词</option><option value="other">其他</option></select>
+    
+    <!-- 基本信息 -->
+    <div style="border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-row"><label>单词 *</label><input id="mv-word" placeholder="e.g. 食べる" /></div>
+        <div class="form-row"><label>读音（假名）</label><input id="mv-reading" placeholder="e.g. たべる" /></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-row"><label>词性</label>
+          <select id="mv-pos"><option value="verb">动词</option><option value="noun">名词</option><option value="adjective">形容词</option><option value="adverb">副词</option><option value="particle">助词</option><option value="conjunction">接续词</option><option value="interjection">感叹词</option><option value="other">其他</option></select>
+        </div>
+        <div class="form-row"><label>级别</label>
+          <select id="mv-level"><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option></select>
+        </div>
+      </div>
+      <div class="form-row"><label>意思 *</label><input id="mv-meaning" placeholder="e.g. 吃" /></div>
     </div>
-    <div class="form-row"><label>例句</label><textarea id="mv-example" rows="2"></textarea></div>
-    <div class="form-row"><label>级别</label>
-      <select id="mv-level"><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option></select>
+
+    <!-- 音频 -->
+    <div style="border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin-bottom:12px">
+      <label style="display:block;margin-bottom:8px"><b>📻 单词音频</b></label>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <input type="text" id="mv-audio-url" placeholder="音频URL（可为空）" style="flex:1;padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
+        <button class="btn btn-ghost btn-sm" onclick="recordVocabAudio()">🎤 录音</button>
+        <button class="btn btn-ghost btn-sm" onclick="uploadVocabAudio()">📤 上传</button>
+        <button class="btn btn-ghost btn-sm" onclick="playAudio(document.getElementById('mv-audio-url').value)">🔊 试听</button>
+      </div>
+      <input type="file" id="mv-audio-file" accept="audio/*" style="display:none" />
+      <div style="font-size:12px;color:#999;margin-top:4px">支持 mp3、wav、m4a、aac、flac 格式，最大 10MB</div>
     </div>
+
+    <!-- 例句（多个） -->
+    <div style="border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <label style="display:block"><b>💡 原始例句</b></label>
+        <button class="btn btn-ghost btn-sm" onclick="addExampleRow()">➕ 添加例句</button>
+      </div>
+      <div id="mv-examples-container"></div>
+      <div style="font-size:12px;color:#999;margin-top:4px">可添加多个例句，包含日文、读音、中文释义和可选音频</div>
+    </div>
+
+    <!-- 动词变形 -->
+    <div id="mv-verb-forms-section" style="border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin-bottom:12px;display:none">
+      <label style="display:block;margin-bottom:8px"><b>🔄 动词变形</b></label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-row"><label>基本形</label><input id="mv-vf-base" placeholder="e.g. 食べる" readonly style="background:#f9f9f9" /></div>
+        <div class="form-row"><label>て形</label><input id="mv-vf-te" placeholder="e.g. 食べて" /></div>
+        <div class="form-row"><label>た形</label><input id="mv-vf-ta" placeholder="e.g. 食べた" /></div>
+        <div class="form-row"><label>ない形</label><input id="mv-vf-nai" placeholder="e.g. 食べない" /></div>
+        <div class="form-row"><label>ます形</label><input id="mv-vf-masu" placeholder="e.g. 食べます" /></div>
+        <div class="form-row"><label>ました形</label><input id="mv-vf-mashita" placeholder="e.g. 食べました" /></div>
+      </div>
+      <div style="font-size:12px;color:#999;margin-top:4px">可选项，自动保存为 JSON 格式</div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('modal-vocab')">取消</button>
       <button class="btn btn-primary" onclick="saveVocab()">保存</button>
@@ -350,17 +395,31 @@ tbody tr:hover td{background:#f8faff}
 
 <!-- GRAMMAR MODAL -->
 <div class="modal-overlay" id="modal-grammar">
-  <div class="modal" style="width:680px">
+  <div class="modal" style="width:780px;max-height:90vh;overflow-y:auto">
     <h2 id="mg-title">添加文法</h2>
     <input type="hidden" id="mg-id" />
-    <div class="form-row"><label>标题 *</label><input id="mg-title-input" placeholder="e.g. ～ている" /></div>
-    <div class="form-row"><label>级别</label>
-      <select id="mg-level"><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option></select>
+    
+    <!-- 基本信息 -->
+    <div style="border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-row"><label>标题 *</label><input id="mg-title-input" placeholder="e.g. ～ている" /></div>
+        <div class="form-row"><label>级别</label>
+          <select id="mg-level"><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option></select>
+        </div>
+      </div>
+      <div class="form-row"><label>说明 / 解释</label><textarea id="mg-desc" rows="3" placeholder="文型的中文说明和用法注解"></textarea></div>
     </div>
-    <div class="form-row"><label>说明 / 解释</label><textarea id="mg-desc"></textarea></div>
-    <div class="form-row"><label>例句（每行：日语|中文翻译）</label>
-      <textarea id="mg-examples" rows="4" placeholder="食べています|正在吃饭&#10;読んでいます|正在读书"></textarea>
+
+    <!-- 例句（带音频） -->
+    <div style="border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <label style="display:block"><b>💡 例句（含音频）</b></label>
+        <button class="btn btn-ghost btn-sm" onclick="addGrammarExampleRow()">➕ 添加例句</button>
+      </div>
+      <div id="mg-examples-container"></div>
+      <div style="font-size:12px;color:#999;margin-top:4px">每行包含：日文例句 | 中文释义，可选上传音频</div>
     </div>
+
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('modal-grammar')">取消</button>
       <button class="btn btn-primary" onclick="saveGrammar()">保存</button>
@@ -1219,26 +1278,420 @@ async function dedupVocab(){ if(!confirm('确认对词汇数据去重？（按 w
 async function fixReadings(){ if(!confirm('修复读音=单词的词汇？（从单词中提取[假名]作为读音）'))return; try{ const d=await api('POST','/admin/vocabulary/fix-readings'); toast(d.message); loadVocab(); }catch(e){ toast(e.message,true); } }
 function updateDelBtn(){ document.getElementById('v-del-btn').style.display=document.querySelectorAll('.v-cb:checked').length>0?'':'none'; }
 function toggleAllVocab(cb){ document.querySelectorAll('.v-cb').forEach(c=>c.checked=cb.checked); updateDelBtn(); }
+
+// 初始化例句行
+function initializeExampleRows(v=null){
+  const container = document.getElementById('mv-examples-container');
+  container.innerHTML = '';
+  let exIndex = 0;
+  
+  // 优先使用新格式 example_sentences
+  if(v?.example_sentences && Array.isArray(v.example_sentences)){
+    v.example_sentences.forEach((ex,i)=>{
+      addExampleRow(ex.jp, ex.reading, ex.zh, ex.audio_url);
+      exIndex = i + 1;
+    });
+  }
+  
+  // 降级支持旧格式
+  if(exIndex === 0 && v?.example_sentence){
+    addExampleRow(v.example_sentence, v.example_reading, v.example_meaning_zh, v.example_audio_url);
+    exIndex = 1;
+  }
+  
+  // 至少添加一个空行
+  if(exIndex === 0) addExampleRow();
+}
+
+function addExampleRow(jp='', reading='', zh='', audioUrl=''){
+  const container = document.getElementById('mv-examples-container');
+  const rowCount = container.children.length;
+  const rowId = `ex-${Date.now()}-${rowCount}`;
+  const html = `
+    <div class="example-row" id="${rowId}" style="display:grid;grid-template-columns:1fr 1fr 1fr 0.8fr 0.6fr 0.6fr 0.6fr 0.6fr;gap:8px;margin-bottom:8px;align-items:flex-end">
+      <input type="text" class="ex-jp" placeholder="日文例句" value="${esc(jp)}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
+      <input type="text" class="ex-reading" placeholder="读音（假名）" value="${esc(reading)}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
+      <input type="text" class="ex-zh" placeholder="中文释义" value="${esc(zh)}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
+      <input type="text" class="ex-audio" placeholder="音频URL" value="${esc(audioUrl||'')}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
+      <button class="btn btn-ghost btn-sm" onclick="uploadExampleAudio('${rowId}')" title="上传文件">📤</button>
+      <button class="btn btn-ghost btn-sm" onclick="recordExampleAudio('${rowId}')" title="浏览器录音" id="record-btn-${rowId}">🎤</button>
+      <button class="btn btn-ghost btn-sm" onclick="playAudio(document.querySelector('#${rowId} .ex-audio').value)" title="试听">🔊</button>
+      <button class="btn btn-ghost btn-sm" onclick="removeExampleRow('${rowId}')" title="删除">🗑️</button>
+    </div>`;
+  container.insertAdjacentHTML('beforeend', html);
+}
+
+function removeExampleRow(rowId){
+  const row = document.getElementById(rowId);
+  if(row) row.remove();
+}
+
+// 初始化动词变形
+function initializeVerbForms(v=null){
+  if(!v?.part_of_speech || v.part_of_speech !== 'verb'){
+    document.getElementById('mv-verb-forms-section').style.display = 'none';
+    return;
+  }
+  document.getElementById('mv-verb-forms-section').style.display = 'block';
+  document.getElementById('mv-vf-base').value = v?.word || '';
+  if(v?.verb_forms){
+    document.getElementById('mv-vf-te').value = v.verb_forms.te || '';
+    document.getElementById('mv-vf-ta').value = v.verb_forms.ta || '';
+    document.getElementById('mv-vf-nai').value = v.verb_forms.nai || '';
+    document.getElementById('mv-vf-masu').value = v.verb_forms.masu || '';
+    document.getElementById('mv-vf-mashita').value = v.verb_forms.mashita || '';
+  }
+}
+
 function openVocabModal(v=null){
   document.getElementById('mv-id').value = v?.id||'';
   document.getElementById('mv-word').value = v?.word||'';
   document.getElementById('mv-reading').value = v?.reading||'';
   document.getElementById('mv-meaning').value = v?.meaning_zh||'';
-  document.getElementById('mv-pos').value = v?.part_of_speech||'verb';
-  document.getElementById('mv-example').value = v?.example_sentence||'';
+  document.getElementById('mv-pos').value = v?.part_of_speech||'noun';
+  document.getElementById('mv-audio-url').value = v?.audio_url||'';
   document.getElementById('mv-level').value = v?.jlpt_level||'N5';
+  
+  initializeExampleRows(v);
+  initializeVerbForms(v);
+  
   document.getElementById('mv-title').textContent = v ? '编辑词汇' : '添加词汇';
+  
+  // 监听词性变化以显示/隐藏动词变形
+  document.getElementById('mv-pos').onchange = () => {
+    const isVerb = document.getElementById('mv-pos').value === 'verb';
+    document.getElementById('mv-verb-forms-section').style.display = isVerb ? 'block' : 'none';
+  };
+  
   openModal('modal-vocab');
 }
+
 function editVocab(id){ openVocabModal(_editCache['v_'+id]); }
+
+function uploadVocabAudio(){
+  document.getElementById('mv-audio-file').click();
+}
+
+function uploadExampleAudio(rowId){
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'audio/*';
+  fileInput.onchange = async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    try{
+      const fd = new FormData();
+      fd.append('audio', file);
+      const r = await api('POST', '/admin/audio/upload', fd, true);
+      document.querySelector(`#${rowId} .ex-audio`).value = r.url;
+      toast('音频上传成功');
+    }catch(e){ toast(e.message, true); }
+  };
+  fileInput.click();
+}
+
+document.getElementById('mv-audio-file')&&document.getElementById('mv-audio-file').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    const fd = new FormData();
+    fd.append('audio', file);
+    const r = await api('POST', '/admin/audio/upload', fd, true);
+    document.getElementById('mv-audio-url').value = r.url;
+    toast('音频上传成功');
+  }catch(e){ toast(e.message, true); }
+});
+
+function playAudio(url){
+  if(!url) { toast('没有音频', true); return; }
+  const audio = new Audio(url);
+  audio.play().catch(err => toast(err.message, true));
+}
+
+// === 录音功能 ===
+const RecordingState = {
+  mediaRecorder: null,
+  audioChunks: [],
+  stream: null,
+  isRecording: false,
+  currentRowId: null
+};
+
+async function initializeRecording(rowId, type='example') {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast('您的浏览器不支持音频录音功能', true);
+      return null;
+    }
+    
+    // 请求麦克风权限
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      audio: { 
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      } 
+    });
+    
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioContext = new AudioContext();
+    const mediaRecorder = new MediaRecorder(stream, {
+      mimeType: 'audio/webm;codecs=opus'
+    });
+    
+    let audioChunks = [];
+    
+    mediaRecorder.ondataavailable = (e) => {
+      audioChunks.push(e.data);
+    };
+    
+    mediaRecorder.onstop = async () => {
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      stream.getTracks().forEach(track => track.stop());
+      
+      // 上传录音
+      try {
+        const fd = new FormData();
+        fd.append('audio', audioBlob, `recording-${Date.now()}.webm`);
+        const r = await api('POST', '/admin/audio/upload', fd, true);
+        
+        if (type === 'example' && rowId) {
+          document.querySelector(`#${rowId} .ex-audio`).value = r.url;
+          toast('录音上传成功');
+        } else if (type === 'grammar' && rowId) {
+          document.querySelector(`#${rowId} .gex-audio`).value = r.url;
+          toast('录音上传成功');
+        } else if (type === 'vocab') {
+          document.getElementById('mv-audio-url').value = r.url;
+          toast('单词音频录音上传成功');
+        }
+      } catch (e) {
+        toast('上传失败: ' + e.message, true);
+      }
+    };
+    
+    return { mediaRecorder, stream, audioChunks };
+  } catch (err) {
+    toast('获取麦克风权限失败: ' + err.message, true);
+    return null;
+  }
+}
+
+async function recordExampleAudio(rowId) {
+  if (RecordingState.isRecording) {
+    toast('已有录音进行中，请先停止', true);
+    return;
+  }
+  
+  // 创建录音控制UI
+  const recordDiv = document.createElement('div');
+  recordDiv.id = 'record-control';
+  recordDiv.style.cssText = `position:fixed;bottom:20px;right:20px;background:#2c3e50;
+    border-radius:8px;padding:15px;z-index:10000;color:#fff;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.3)`;
+  recordDiv.innerHTML = `<div style="margin-bottom:10px">🎤 录音中... <span id="record-time">0:00</span></div>
+    <button onclick="stopRecording()" style="padding:8px 12px;background:#e74c3c;border:none;border-radius:4px;color:#fff;cursor:pointer;margin-right:5px">停止</button>
+    <button onclick="cancelRecording()" style="padding:8px 12px;background:#95a5a6;border:none;border-radius:4px;color:#fff;cursor:pointer">取消</button>`;
+  document.body.appendChild(recordDiv);
+  
+  // 初始化录音
+  const recordingCtx = await initializeRecording(rowId, 'example');
+  if (!recordingCtx) {
+    recordDiv.remove();
+    return;
+  }
+  
+  RecordingState.mediaRecorder = recordingCtx.mediaRecorder;
+  RecordingState.stream = recordingCtx.stream;
+  RecordingState.audioChunks = recordingCtx.audioChunks;
+  RecordingState.isRecording = true;
+  RecordingState.currentRowId = rowId;
+  
+  // 开始录音
+  RecordingState.mediaRecorder.start();
+  
+  // 显示录音时长
+  let seconds = 0;
+  const timer = setInterval(() => {
+    seconds++;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    const timeEl = document.getElementById('record-time');
+    if (timeEl) {
+      timeEl.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+    } else {
+      clearInterval(timer);
+    }
+  }, 1000);
+  
+  // 保存timer ID以便清理
+  recordDiv.dataset.timerId = timer;
+}
+
+async function recordGrammarExampleAudio(rowId) {
+  if (RecordingState.isRecording) {
+    toast('已有录音进行中，请先停止', true);
+    return;
+  }
+  
+  // 创建录音控制UI
+  const recordDiv = document.createElement('div');
+  recordDiv.id = 'record-control';
+  recordDiv.style.cssText = `position:fixed;bottom:20px;right:20px;background:#2c3e50;
+    border-radius:8px;padding:15px;z-index:10000;color:#fff;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.3)`;
+  recordDiv.innerHTML = `<div style="margin-bottom:10px">🎤 录音中... <span id="record-time">0:00</span></div>
+    <button onclick="stopRecording()" style="padding:8px 12px;background:#e74c3c;border:none;border-radius:4px;color:#fff;cursor:pointer;margin-right:5px">停止</button>
+    <button onclick="cancelRecording()" style="padding:8px 12px;background:#95a5a6;border:none;border-radius:4px;color:#fff;cursor:pointer">取消</button>`;
+  document.body.appendChild(recordDiv);
+  
+  // 初始化录音
+  const recordingCtx = await initializeRecording(rowId, 'grammar');
+  if (!recordingCtx) {
+    recordDiv.remove();
+    return;
+  }
+  
+  RecordingState.mediaRecorder = recordingCtx.mediaRecorder;
+  RecordingState.stream = recordingCtx.stream;
+  RecordingState.audioChunks = recordingCtx.audioChunks;
+  RecordingState.isRecording = true;
+  RecordingState.currentRowId = rowId;
+  
+  // 开始录音
+  RecordingState.mediaRecorder.start();
+  
+  // 显示录音时长
+  let seconds = 0;
+  const timer = setInterval(() => {
+    seconds++;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    const timeEl = document.getElementById('record-time');
+    if (timeEl) {
+      timeEl.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+    } else {
+      clearInterval(timer);
+    }
+  }, 1000);
+  
+  recordDiv.dataset.timerId = timer;
+}
+
+async function recordVocabAudio() {
+  if (RecordingState.isRecording) {
+    toast('已有录音进行中，请先停止', true);
+    return;
+  }
+  
+  // 创建录音控制UI
+  const recordDiv = document.createElement('div');
+  recordDiv.id = 'record-control';
+  recordDiv.style.cssText = `position:fixed;bottom:20px;right:20px;background:#2c3e50;
+    border-radius:8px;padding:15px;z-index:10000;color:#fff;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.3)`;
+  recordDiv.innerHTML = `<div style="margin-bottom:10px">🎤 录音中... <span id="record-time">0:00</span></div>
+    <button onclick="stopRecording()" style="padding:8px 12px;background:#e74c3c;border:none;border-radius:4px;color:#fff;cursor:pointer;margin-right:5px">停止</button>
+    <button onclick="cancelRecording()" style="padding:8px 12px;background:#95a5a6;border:none;border-radius:4px;color:#fff;cursor:pointer">取消</button>`;
+  document.body.appendChild(recordDiv);
+  
+  // 初始化录音
+  const recordingCtx = await initializeRecording(null, 'vocab');
+  if (!recordingCtx) {
+    recordDiv.remove();
+    return;
+  }
+  
+  RecordingState.mediaRecorder = recordingCtx.mediaRecorder;
+  RecordingState.stream = recordingCtx.stream;
+  RecordingState.audioChunks = recordingCtx.audioChunks;
+  RecordingState.isRecording = true;
+  
+  // 开始录音
+  RecordingState.mediaRecorder.start();
+  
+  // 显示录音时长
+  let seconds = 0;
+  const timer = setInterval(() => {
+    seconds++;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    const timeEl = document.getElementById('record-time');
+    if (timeEl) {
+      timeEl.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+    } else {
+      clearInterval(timer);
+    }
+  }, 1000);
+  
+  recordDiv.dataset.timerId = timer;
+}
+
+function stopRecording() {
+  if (!RecordingState.isRecording || !RecordingState.mediaRecorder) return;
+  
+  RecordingState.mediaRecorder.stop();
+  RecordingState.isRecording = false;
+  
+  const recordDiv = document.getElementById('record-control');
+  if (recordDiv && recordDiv.dataset.timerId) {
+    clearInterval(parseInt(recordDiv.dataset.timerId));
+  }
+  recordDiv?.remove();
+}
+
+function cancelRecording() {
+  if (!RecordingState.isRecording || !RecordingState.mediaRecorder) return;
+  
+  RecordingState.mediaRecorder.stop();
+  RecordingState.stream?.getTracks().forEach(track => track.stop());
+  RecordingState.isRecording = false;
+  RecordingState.audioChunks = [];
+  RecordingState.mediaRecorder = null;
+  RecordingState.stream = null;
+  
+  const recordDiv = document.getElementById('record-control');
+  if (recordDiv && recordDiv.dataset.timerId) {
+    clearInterval(parseInt(recordDiv.dataset.timerId));
+  }
+  recordDiv?.remove();
+  
+  toast('已取消录音');
+}
+
 async function saveVocab(){
   const id = document.getElementById('mv-id').value;
+  
+  // 收集例句
+  const exampleRows = document.querySelectorAll('.example-row');
+  const example_sentences = Array.from(exampleRows).map(row => ({
+    jp: row.querySelector('.ex-jp').value.trim(),
+    reading: row.querySelector('.ex-reading').value.trim(),
+    zh: row.querySelector('.ex-zh').value.trim(),
+    audio_url: row.querySelector('.ex-audio').value.trim() || null,
+  })).filter(ex => ex.jp);
+  
+  // 收集动词变形
+  let verb_forms = null;
+  if(document.getElementById('mv-pos').value === 'verb'){
+    const vfSection = document.getElementById('mv-verb-forms-section');
+    if(vfSection.style.display !== 'none'){
+      verb_forms = {
+        base: document.getElementById('mv-vf-base').value.trim(),
+        te: document.getElementById('mv-vf-te').value.trim() || null,
+        ta: document.getElementById('mv-vf-ta').value.trim() || null,
+        nai: document.getElementById('mv-vf-nai').value.trim() || null,
+        masu: document.getElementById('mv-vf-masu').value.trim() || null,
+        mashita: document.getElementById('mv-vf-mashita').value.trim() || null,
+      };
+    }
+  }
+  
   const body={
     word: document.getElementById('mv-word').value.trim(),
     reading: document.getElementById('mv-reading').value.trim(),
     meaning_zh: document.getElementById('mv-meaning').value.trim(),
     part_of_speech: document.getElementById('mv-pos').value,
-    example_sentence: document.getElementById('mv-example').value.trim(),
+    audio_url: document.getElementById('mv-audio-url').value.trim() || null,
+    example_sentences: example_sentences.length > 0 ? example_sentences : null,
+    verb_forms: verb_forms,
     jlpt_level: document.getElementById('mv-level').value,
   };
   try{
@@ -1341,15 +1794,67 @@ async function bulkDeleteGrammar(){
   if(!ids.length || !confirm(`确认删除 ${ids.length} 条文法？`)) return;
   try{ await api('POST','/admin/grammar/bulk-delete',{ids}); toast('已批量删除'); loadGrammar(); }catch(e){ toast(e.message,true) }
 }
+
+function initializeGrammarExamples(g=null){
+  const container = document.getElementById('mg-examples-container');
+  container.innerHTML = '';
+  if(g?.examples && Array.isArray(g.examples)){
+    g.examples.forEach((ex,i)=>{
+      addGrammarExampleRow(ex.sentence, ex.meaning_zh, ex.audio_url);
+    });
+  } else {
+    // 至少添加一个空行
+    addGrammarExampleRow();
+  }
+}
+
+function addGrammarExampleRow(sentence='', meaning_zh='', audioUrl=''){
+  const container = document.getElementById('mg-examples-container');
+  const rowCount = container.children.length;
+  const rowId = `gex-${Date.now()}-${rowCount}`;
+  const html = `
+    <div class="example-row" id="${rowId}" style="display:grid;grid-template-columns:1fr 1fr 0.8fr 0.6fr 0.6fr 0.6fr 0.6fr;gap:8px;margin-bottom:8px;align-items:flex-end">
+      <input type="text" class="gex-jp" placeholder="日文例句" value="${esc(sentence)}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
+      <input type="text" class="gex-zh" placeholder="中文释义" value="${esc(meaning_zh)}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
+      <input type="text" class="gex-audio" placeholder="音频URL" value="${esc(audioUrl||'')}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
+      <button class="btn btn-ghost btn-sm" onclick="uploadGrammarExampleAudio('${rowId}')" title="上传文件">📤</button>
+      <button class="btn btn-ghost btn-sm" onclick="recordGrammarExampleAudio('${rowId}')" title="浏览器录音">🎤</button>
+      <button class="btn btn-ghost btn-sm" onclick="playAudio(document.querySelector('#${rowId} .gex-audio').value)" title="试听">🔊</button>
+      <button class="btn btn-ghost btn-sm" onclick="removeExampleRow('${rowId}')" title="删除">🗑️</button>
+    </div>`;
+  container.insertAdjacentHTML('beforeend', html);
+}
+
+function uploadGrammarExampleAudio(rowId){
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'audio/*';
+  fileInput.onchange = async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    try{
+      const fd = new FormData();
+      fd.append('audio', file);
+      const r = await api('POST', '/admin/audio/upload', fd, true);
+      document.querySelector(`#${rowId} .gex-audio`).value = r.url;
+      toast('音频上传成功');
+    }catch(e){ toast(e.message, true); }
+  };
+  fileInput.click();
+}
+
 function openGrammarModal(g=null){
   document.getElementById('mg-id').value=g?.id||'';
   document.getElementById('mg-title-input').value=g?.title||g?.pattern||'';
   document.getElementById('mg-level').value=g?.jlpt_level||'N5';
   document.getElementById('mg-desc').value=g?.explanation_zh||g?.explanation||'';
-  document.getElementById('mg-examples').value=(g?.examples||[]).map(e=>`${e.sentence||''}|${e.meaning_zh||''}`).join('\n');
+  
+  initializeGrammarExamples(g);
+  
   document.getElementById('mg-title').textContent=g?'编辑文法':'添加文法';
   openModal('modal-grammar');
 }
+
 async function editGrammar(id){
   try {
     const g = await api('GET', `/admin/grammar/${id}`);
@@ -1359,10 +1864,18 @@ async function editGrammar(id){
     openGrammarModal(_editCache['g_'+id]);
   }
 }
+
 async function saveGrammar(){
   const id=document.getElementById('mg-id').value;
-  const examples=document.getElementById('mg-examples').value.trim().split('\n').filter(Boolean)
-    .map(l=>{ const[j,c]=l.split('|'); return {sentence:j?.trim(), meaning_zh:c?.trim()}; });
+  
+  // 收集例句
+  const exampleRows = document.querySelectorAll('#mg-examples-container .example-row');
+  const examples = Array.from(exampleRows).map(row => ({
+    sentence: row.querySelector('.gex-jp').value.trim(),
+    meaning_zh: row.querySelector('.gex-zh').value.trim(),
+    audio_url: row.querySelector('.gex-audio').value.trim() || null,
+  })).filter(ex => ex.sentence);
+  
   const body={
     title: document.getElementById('mg-title-input').value.trim(),
     jlpt_level: document.getElementById('mg-level').value,
@@ -1375,6 +1888,7 @@ async function saveGrammar(){
     toast('保存成功'); closeModal('modal-grammar'); loadGrammar();
   }catch(e){ toast(e.message,true) }
 }
+
 async function deleteGrammar(id){
   if(!confirm('确认删除？')) return;
   try{ await api('DELETE',`/admin/grammar/${id}`); toast('已删除'); loadGrammar(); }catch(e){ toast(e.message,true) }

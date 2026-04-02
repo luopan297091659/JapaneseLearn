@@ -23,6 +23,7 @@ const { Vocabulary, UserVocabulary, GrammarLesson, GrammarExample, ContentVersio
 // utilities moved to service for better separation
 const {
   UPLOAD_AUDIO_DIR,
+  getScopedAudioDir,
   getSqlJs,
   stripHtml,
   extractSoundRef,
@@ -44,7 +45,7 @@ const upload = multer({
 module.exports.upload = upload;
 
 // ─── 服务端解析 .apkg（含音频提取）────────────────────────────────────────────
-async function serverParseApkg(buffer) {
+async function serverParseApkg(buffer, audioScope = 'vocab') {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'anki-srv-'));
   try {
     const zip = new AdmZip(buffer);
@@ -62,18 +63,19 @@ async function serverParseApkg(buffer) {
       try { Object.assign(mediaMap, JSON.parse(fs.readFileSync(mediaFile, 'utf-8'))); } catch { /* ignore */ }
     }
 
-    // 提取音频文件 → uploads/audio/
+    // 提取音频文件 → uploads/audio/{vocab|grammar}/
+    const scoped = getScopedAudioDir(audioScope);
     const AUDIO_EXTS = new Set(['.mp3', '.ogg', '.wav', '.aac', '.m4a', '.flac', '.opus']);
-    const audioUrlMap = {}; // original filename → "/uploads/audio/uuid.ext"
+    const audioUrlMap = {}; // original filename → "/uploads/audio/{scope}/uuid.ext"
     for (const [idx, filename] of Object.entries(mediaMap)) {
       const ext = path.extname(filename).toLowerCase();
       if (!AUDIO_EXTS.has(ext)) continue;
       const srcFile = path.join(tmpDir, idx);
       if (!fs.existsSync(srcFile)) continue;
       const destName = `${uuidv4()}${ext}`;
-      const destPath = path.join(UPLOAD_AUDIO_DIR, destName);
+      const destPath = path.join(scoped.dir, destName);
       fs.copyFileSync(srcFile, destPath);
-      audioUrlMap[filename] = `/uploads/audio/${destName}`;
+      audioUrlMap[filename] = `/uploads/audio/${scoped.scope}/${destName}`;
     }
 
     // 用 sql.js 解析 SQLite（纯 JS 实现，无需 native）
@@ -166,9 +168,11 @@ async function previewImport(req, res) {
 
   try {
     const ext = path.extname(req.file.originalname).toLowerCase();
+    const importType = req.body.import_type === 'grammar' ? 'grammar' : 'vocabulary';
+    const audioScope = importType === 'grammar' ? 'grammar' : 'vocab';
 
     if (ext === '.apkg') {
-      const { notes, fieldNameMap, audioUrlMap } = await serverParseApkg(req.file.buffer);
+      const { notes, fieldNameMap, audioUrlMap } = await serverParseApkg(req.file.buffer, audioScope);
       if (!notes.length) return res.json({ format: 'apkg', fields: [], samples: [], total: 0, audioUrlMap: {} });
 
       const firstNote = notes[0];
@@ -244,7 +248,8 @@ async function serverImport(req, res) {
     let audioCount = 0;
 
     if (ext === '.apkg') {
-      const { notes, fieldNameMap, audioUrlMap } = await serverParseApkg(req.file.buffer);
+      const audioScope = import_type === 'grammar' ? 'grammar' : 'vocab';
+      const { notes, fieldNameMap, audioUrlMap } = await serverParseApkg(req.file.buffer, audioScope);
       audioCount = Object.keys(audioUrlMap).length;
       
       // ✅ 新增：Anki 导入上限检查
@@ -451,7 +456,7 @@ async function importAnki(req, res) {
     };
 
     if (ext === '.apkg') {
-      const { notes, fieldNameMap } = await serverParseApkg(req.file.buffer);
+      const { notes, fieldNameMap } = await serverParseApkg(req.file.buffer, 'vocab');
       for (const note of notes) {
         const flds = note.flds.split('\x1f');
         const row  = buildRow(flds);

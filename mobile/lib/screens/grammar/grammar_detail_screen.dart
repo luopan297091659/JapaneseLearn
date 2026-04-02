@@ -8,6 +8,7 @@ import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../config/app_config.dart';
 import '../../widgets/report_dialog.dart';
+import '../../widgets/furigana_text.dart';
 
 // ─── 段落标题 ──────────────────────────────────────────────────────────────────
 class _SectionHeader extends StatelessWidget {
@@ -285,7 +286,17 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
                                 children: [
                                   Row(
                                     children: [
-                                      Expanded(child: Text(e.sentence, style: const TextStyle(fontSize: 15, height: 1.4))),
+                                      Expanded(
+                                        child: (e.reading != null && hasFurigana(e.reading!))
+                                            ? FuriganaText(
+                                                text: e.reading!,
+                                                fontSize: 16,
+                                                color: cs.onSurface,
+                                                fontWeight: FontWeight.normal,
+                                                textAlign: TextAlign.start,
+                                              )
+                                            : Text(e.sentence, style: const TextStyle(fontSize: 15, height: 1.4)),
+                                      ),
                                       const SizedBox(width: 4),
                                       GestureDetector(
                                         onTap: isLoading ? null : () => _playExampleAudio(idx, e.sentence, e.audioUrl),
@@ -320,8 +331,6 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
                                       ),
                                     ],
                                   ),
-                                  if (e.reading != null) ...[const SizedBox(height: 2),
-                                    Text(e.reading!, style: TextStyle(color: cs.primary, fontSize: 12))],
                                   const SizedBox(height: 4),
                                   Text(e.meaningZh, style: TextStyle(fontSize: 13, color: cs.outline)),
                                 ],

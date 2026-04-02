@@ -45,9 +45,32 @@ Write-Host "[2/5] 上传文件..." -ForegroundColor Yellow
 Remote-Upload-Dir  "$LocalBackend\src"          "$RemotePath/"
 Remote-Upload-Dir  "$LocalBackend\public"       "$RemotePath/"
 Remote-Upload-Dir  "$LocalBackend\scripts"      "$RemotePath/"
-Remote-Upload-Dir  "$LocalBackend\config"       "$RemotePath/"
 Remote-Upload-File "$LocalBackend\package.json" "$RemotePath/package.json"
 Remote-Upload-File "$LocalBackend\.env"         "$RemotePath/.env"
+
+# 步骤 2.3: 备份和恢复配置文件（保留用户自定义配置）
+Write-Host "[2.3/5] 备份和恢复用户配置..." -ForegroundColor Yellow
+# 检查远程是否有现有配置，如果有则备份
+Remote-Run "if [ -f $RemotePath/config/ai_settings.json ]; then cp $RemotePath/config/ai_settings.json $RemotePath/config/ai_settings.json.backup; echo '已备份ai_settings'; fi"
+Remote-Run "if [ -f $RemotePath/config/feature_tiers.json ]; then cp $RemotePath/config/feature_tiers.json $RemotePath/config/feature_tiers.json.backup; echo '已备份feature_tiers'; fi"
+
+# 上传新的配置文件（必须存在于本地）
+if (Test-Path "$LocalBackend\config\ai_settings.json") {
+    Remote-Upload-File "$LocalBackend\config\ai_settings.json" "$RemotePath/config/ai_settings.json"
+    Write-Host "  - 已上传 ai_settings.json" -ForegroundColor Gray
+} else {
+    Write-Host "  - 警告: 本地不存在 ai_settings.json" -ForegroundColor Yellow
+}
+
+if (Test-Path "$LocalBackend\config\feature_tiers.json") {
+    Remote-Upload-File "$LocalBackend\config\feature_tiers.json" "$RemotePath/config/feature_tiers.json"
+    Write-Host "  - 已上传 feature_tiers.json" -ForegroundColor Gray
+} else {
+    Write-Host "  - 警告: 本地不存在 feature_tiers.json" -ForegroundColor Yellow
+}
+
+# 恢复关键配置（如果备份存在且新上传的配置不完整）
+Remote-Run "cd $RemotePath/config && [ -f ai_settings.json.backup ] && ! grep -q 'api_key' ai_settings.json 2>/dev/null && cp ai_settings.json.backup ai_settings.json && echo '已恢复ai_settings' || echo '已使用新ai_settings'"
 
 # 步骤 2.5: 修复 pscp 导致的日文文件名编码（EUC-JP → UTF-8）
 Write-Host "[2.5/5] 修复SVG文件名编码..." -ForegroundColor Yellow

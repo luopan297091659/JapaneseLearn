@@ -108,9 +108,7 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
       final data = res['data'] as List<GrammarLessonModel>;
       if (!mounted) return;
       setState(() {
-        _lessons
-          ..clear()
-          ..addAll(_sortCommonFirst([..._lessons, ...data]));
+        _lessons.addAll(_sortCommonFirst(data));
         _hasMore = _lessons.length < _total;
         _loadingMore = false;
       });

@@ -9,6 +9,13 @@ const { Vocabulary, GrammarLesson, GrammarExample, ContentVersion } = require('.
 const UPLOAD_AUDIO_DIR = path.resolve(__dirname, '../../uploads/audio');
 if (!fs.existsSync(UPLOAD_AUDIO_DIR)) fs.mkdirSync(UPLOAD_AUDIO_DIR, { recursive: true });
 
+function getScopedAudioDir(scope = 'vocab') {
+  const safeScope = scope === 'grammar' ? 'grammar' : 'vocab';
+  const dir = path.join(UPLOAD_AUDIO_DIR, safeScope);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return { dir, scope: safeScope };
+}
+
 let _sqlJsPromise = null;
 async function getSqlJs() {
   if (!_sqlJsPromise) _sqlJsPromise = require('sql.js')();
@@ -94,6 +101,7 @@ async function bumpVersion(type) {
 
 module.exports = {
   UPLOAD_AUDIO_DIR,
+  getScopedAudioDir,
   getSqlJs,
   stripHtml,
   extractSoundRef,

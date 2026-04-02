@@ -14,14 +14,17 @@ const Vocabulary = sequelize.define('Vocabulary', {
   },
   part_of_speech_raw: { type: DataTypes.STRING(100), allowNull: true, comment: '原始日文词性 e.g. 名・自他動3' },
   jlpt_level: { type: DataTypes.ENUM('N5','N4','N3','N2','N1'), allowNull: false },
-  example_sentence: { type: DataTypes.TEXT, allowNull: true },
-  example_reading: { type: DataTypes.TEXT, allowNull: true },
-  example_meaning_zh: { type: DataTypes.TEXT, allowNull: true },
-  example_audio_url: { type: DataTypes.STRING(500), allowNull: true },
-  audio_url: { type: DataTypes.STRING(500), allowNull: true },
+  audio_url: { type: DataTypes.STRING(500), allowNull: true, comment: '单词音频' },
   image_url: { type: DataTypes.STRING(500), allowNull: true },
   category: { type: DataTypes.STRING(50), allowNull: true, comment: 'e.g. food, travel, body' },
+  example_sentences: { type: DataTypes.JSON, allowNull: true, comment: '例句数组: [{jp, reading, zh, audio_url}]' },
+  verb_forms: { type: DataTypes.JSON, allowNull: true, comment: '动词变形: {base, te, ta, nai, ...}' },
   tags: { type: DataTypes.JSON, allowNull: true },
+  // 已弃用字段（保留兼容性）
+  example_sentence: { type: DataTypes.TEXT, allowNull: true, deprecated: true },
+  example_reading: { type: DataTypes.TEXT, allowNull: true, deprecated: true },
+  example_meaning_zh: { type: DataTypes.TEXT, allowNull: true, deprecated: true },
+  example_audio_url: { type: DataTypes.STRING(500), allowNull: true, deprecated: true },
 }, { tableName: 'vocabulary' });
 
 // ────────── User Vocabulary (Anki 导入 — 与系统词库分离) ──────────

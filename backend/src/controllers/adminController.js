@@ -112,7 +112,30 @@ async function listVocab(req, res) {
 
 async function createVocab(req, res) {
   try {
-    const vocab = await Vocabulary.create({ id: uuidv4(), ...req.body });
+    const { example_sentences, verb_forms, ...vocabData } = req.body;
+    
+    // 规范化例句格式
+    const normalizedExamples = Array.isArray(example_sentences)
+      ? example_sentences.map(ex => ({
+          jp: ex.jp || ex.sentence || '',
+          reading: ex.reading || '',
+          zh: ex.zh || ex.meaning_zh || '',
+          audio_url: ex.audio_url || null,
+        })).filter(ex => ex.jp)
+      : [];
+    
+    // 规范化动词变形格式
+    const normalizedVerbForms = verb_forms && typeof verb_forms === 'object'
+      ? verb_forms
+      : null;
+
+    const vocab = await Vocabulary.create({
+      id: uuidv4(),
+      ...vocabData,
+      example_sentences: normalizedExamples.length > 0 ? normalizedExamples : null,
+      verb_forms: normalizedVerbForms,
+    });
+    
     await bumpVersion('vocab_version');
     res.status(201).json(vocab);
   } catch (err) {
@@ -124,7 +147,30 @@ async function updateVocab(req, res) {
   try {
     const vocab = await Vocabulary.findByPk(req.params.id);
     if (!vocab) return res.status(404).json({ error: 'Not found' });
-    await vocab.update(req.body);
+    
+    const { example_sentences, verb_forms, ...vocabData } = req.body;
+    
+    // 规范化例句格式
+    const normalizedExamples = Array.isArray(example_sentences)
+      ? example_sentences.map(ex => ({
+          jp: ex.jp || ex.sentence || '',
+          reading: ex.reading || '',
+          zh: ex.zh || ex.meaning_zh || '',
+          audio_url: ex.audio_url || null,
+        })).filter(ex => ex.jp)
+      : [];
+    
+    // 规范化动词变形格式
+    const normalizedVerbForms = verb_forms && typeof verb_forms === 'object'
+      ? verb_forms
+      : null;
+
+    await vocab.update({
+      ...vocabData,
+      example_sentences: normalizedExamples.length > 0 ? normalizedExamples : null,
+      verb_forms: normalizedVerbForms,
+    });
+    
     await bumpVersion('vocab_version');
     res.json(vocab);
   } catch (err) {
@@ -333,7 +379,7 @@ async function listGrammar(req, res) {
   try {
     const { count, rows } = await GrammarLesson.findAndCountAll({
       where, limit: lim, offset,
-      include: [{ model: GrammarExample, as: 'examples', attributes: ['sentence', 'meaning_zh'] }],
+      include: [{ model: GrammarExample, as: 'examples', attributes: ['id', 'sentence', 'reading', 'meaning_zh', 'audio_url'] }],
       order: [['jlpt_level', 'ASC'], ['order_index', 'ASC']],
       distinct: true,
       subQuery: false,
@@ -354,7 +400,7 @@ async function listGrammar(req, res) {
 async function getGrammar(req, res) {
   try {
     const lesson = await GrammarLesson.findByPk(req.params.id, {
-      include: [{ model: GrammarExample, as: 'examples', attributes: ['sentence', 'meaning_zh'] }],
+      include: [{ model: GrammarExample, as: 'examples', attributes: ['id', 'sentence', 'reading', 'meaning_zh', 'audio_url'] }],
     });
     if (!lesson) return res.status(404).json({ error: 'Not found' });
     res.json(lesson);

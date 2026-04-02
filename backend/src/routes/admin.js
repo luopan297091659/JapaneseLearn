@@ -3,6 +3,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const multer = require('multer');
 const path = require('path');
 const { adminAuth, superAdminAuth, permissionCheck } = require('../middlewares/adminAuth');
+const { audioUpload } = require('../services/audioService');
 const {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, deduplicateVocab, fixVocabReadings,
@@ -79,6 +80,15 @@ router.post('/vocabulary/deduplicate', permissionCheck('vocabulary'), asyncHandl
 router.post('/vocabulary/fix-readings', permissionCheck('vocabulary'), asyncHandler(fixVocabReadings));
 router.post('/vocabulary/import',      permissionCheck('vocabulary'), asyncHandler(importVocab));
 router.post('/vocabulary/import-file', permissionCheck('vocabulary'), upload.single('file'), asyncHandler(importVocabFile));
+
+// 音频管理
+router.post('/audio/upload', permissionCheck('vocabulary'), audioUpload.single('audio'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: '未找到音频文件' });
+  }
+  const audioUrl = `/audio/${req.file.filename}`;
+  res.json({ filename: req.file.filename, url: audioUrl, size: req.file.size });
+});
 
 // 文法管理
 router.get('/grammar',        permissionCheck('grammar'), asyncHandler(listGrammar));
