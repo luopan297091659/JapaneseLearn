@@ -207,14 +207,15 @@ async function bulkDeleteVocab(req, res) {
 /** 批量生成词汇Kokoro音频 （单词本身和例句） */
 async function generateVocabExamplesKokoroAudio(req, res) {
   try {
-    // 获取所有词汇，包括例句
+    // 获取所有需要音频的词汇（无audio_url）
     const vocabs = await Vocabulary.findAll({
+      where: { audio_url: { [Op.or]: [null, ''] } },  // ✅ 只获取没有音频的词汇
       attributes: ['id', 'word', 'reading'],
       raw: false,
     });
     
     if (vocabs.length === 0) {
-      return res.status(400).json({ error: '未找到词汇数据' });
+      return res.status(400).json({ error: '所有词汇都已有读音音频' });
     }
     
     // 获取所有需要音频的例句（来自VocabularyExample表）
@@ -232,7 +233,7 @@ async function generateVocabExamplesKokoroAudio(req, res) {
     const textsToGenerate = [];
     const textIndexMap = new Map();
     
-    // 添加单词本身
+    // 添加单词本身（已过滤为仅无音频的词汇）
     vocabs.forEach((v, idx) => {
       if (v.reading && v.reading.trim()) {
         textsToGenerate.push(v.reading);
