@@ -1,8 +1,112 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:just_audio/just_audio.dart';
+import 'dart:io';
+import 'dart:convert';
+import '../config/app_config.dart';
 
 /// 全局 TTS 辅助工具，确保引擎正确初始化并提供诊断信息
+
 class TtsHelper {
+    /// 智能播放日语例句：优先本地音频→本地TTS→后端Kokoro
+    /// [audioUrl]：服务器已有音频文件URL（可为null）
+    /// [text]：要朗读的日语文本
+    /// [slow]：慢速播放
+    /// [onComplete]：播放完成回调
+    static Future<void> playJapaneseSmart({
+      String? audioUrl,
+      required String text,
+      FlutterTts? tts,
+      bool slow = false,
+      void Function()? onComplete,
+    }) async {
+      // 1. 优先本地/服务器音频
+      if (audioUrl != null && audioUrl.isNotEmpty) {
+        try {
+          final player = AudioPlayer();
+          String? localPath;
+          if (audioUrl.startsWith('/uploads/')) {
+            // 下载到本地临时文件
+            final dir = await getTemporaryDirectory();
+            final fileName = audioUrl.split('/').last;
+            localPath = '${dir.path}/$fileName';
+            if (!File(localPath).existsSync()) {
+              final resp = await Dio().get(
+                audioUrl,
+                options: Options(responseType: ResponseType.bytes),
+              );
+              await File(localPath).writeAsBytes(resp.data);
+            }
+          }
+          if (localPath != null && File(localPath).existsSync()) {
+            await player.setFilePath(localPath);
+          } else {
+            await player.setUrl(audioUrl);
+          }
+          await player.setVolume(1.0);
+          await player.setSpeed(slow ? 0.5 : 1.0);
+          await player.play();
+          player.playerStateStream.listen((state) {
+            if (state.processingState == ProcessingState.completed) {
+              player.dispose();
+              if (onComplete != null) onComplete();
+            }
+          });
+          return;
+        } catch (e) {
+          debugPrint('音频播放失败，尝试TTS: $e');
+        }
+      }
+
+      // 2. 本地TTS（有可用引擎）
+      final ttsInst = tts ?? FlutterTts();
+      try {
+        await configureForJapanese(ttsInst);
+        await ttsInst.setVolume(1.0);
+        await ttsInst.setSpeechRate(slow ? 0.25 : 0.5);
+        ttsInst.setCompletionHandler(() {
+          if (onComplete != null) onComplete();
+        });
+        final result = await ttsInst.speak(text);
+        if (result == 1) return;
+      } catch (e) {
+        debugPrint('本地TTS失败，尝试Kokoro: $e');
+      }
+
+    // 3. 后端Kokoro TTS
+    try {
+      final dio = Dio();
+      final resp = await dio.post(
+        AppConfig.kokoroTtsUrl,
+        data: jsonEncode({
+          'text': text,
+          'voice': 'kokoro-82m-ja-female-1',
+          'emotion': 'neutral',
+          'speed': slow ? 0.7 : 1.0,
+        }),
+        options: Options(headers: {'Content-Type': 'application/json'}),
+      );
+      final audioUrl = resp.data['audio_url'] as String?;
+        if (audioUrl != null && audioUrl.isNotEmpty) {
+          final player = AudioPlayer();
+          await player.setUrl(audioUrl);
+          await player.setVolume(1.0);
+          await player.setSpeed(slow ? 0.5 : 1.0);
+          await player.play();
+          player.playerStateStream.listen((state) {
+            if (state.processingState == ProcessingState.completed) {
+              player.dispose();
+              if (onComplete != null) onComplete();
+            }
+          });
+        }
+      } catch (e) {
+        debugPrint('Kokoro TTS后端失败: $e');
+        if (onComplete != null) onComplete();
+      }
+    }
   TtsHelper._();
   static final TtsHelper instance = TtsHelper._();
 

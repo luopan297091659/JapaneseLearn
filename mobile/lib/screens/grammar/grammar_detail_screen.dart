@@ -81,60 +81,17 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
 
   /// 播放例句音频：有 audio_url 用 just_audio，否则回退到 TTS
   Future<void> _playExampleAudio(int idx, String text, String? audioUrl, {bool slow = false}) async {
-    // 设 loading
     if (mounted) setState(() { _playingExampleIdx = idx; _exampleLoading = true; });
-
     try {
-      // 停止上一次播放
-      await _examplePlayer?.stop();
-      await _tts.stop();
-
-      if (audioUrl != null && audioUrl.isNotEmpty) {
-        // ── 用 just_audio 播放音频文件 ─────────────────────
-        _examplePlayer ??= AudioPlayer();
-        final player = _examplePlayer!;
-
-        if (audioUrl.startsWith('/uploads/')) {
-          final fullUrl = AppConfig.serverRoot + audioUrl;
-          final localPath = await apiService.downloadToTempFile(fullUrl);
-          await player.setFilePath(localPath);
-        } else {
-          await player.setUrl(audioUrl);
-        }
-
-        if (slow) {
-          final prefs = await SharedPreferences.getInstance();
-          final slowSpeed = prefs.getDouble('slow_speed') ?? 0.5;
-          await player.setSpeed(slowSpeed);
-        } else {
-          await player.setSpeed(1.0);
-        }
-        await player.setVolume(1.0);
-        if (mounted) setState(() => _exampleLoading = false);
-        await player.play();
-        if (mounted) setState(() => _playingExampleIdx = -1);
-      } else {
-        // ── TTS 回退 ──────────────────────────────────────
-        if (!_ttsReady) {
+      await TtsHelper.playJapaneseSmart(
+        audioUrl: audioUrl,
+        text: text,
+        tts: _tts,
+        slow: slow,
+        onComplete: () {
           if (mounted) setState(() { _playingExampleIdx = -1; _exampleLoading = false; });
-          return;
-        }
-        await TtsHelper.setJapaneseVoice(_tts);
-        await _tts.setVolume(1.0);
-        if (slow) {
-          final prefs = await SharedPreferences.getInstance();
-          final slowRate = prefs.getDouble('slow_speed') ?? 0.5;
-          await _tts.setSpeechRate(slowRate * 0.5);
-        } else {
-          await _tts.setSpeechRate(0.5);
-        }
-        if (mounted) setState(() => _exampleLoading = false);
-        _tts.setCompletionHandler(() {
-          if (mounted) setState(() => _playingExampleIdx = -1);
-          _tts.setSpeechRate(0.5);
-        });
-        await _tts.speak(text);
-      }
+        },
+      );
     } catch (e) {
       debugPrint('Grammar audio error: $e');
       if (mounted) setState(() { _playingExampleIdx = -1; _exampleLoading = false; });

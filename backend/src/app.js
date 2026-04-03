@@ -37,6 +37,7 @@ const wrongAnswersRoutes = require('./routes/wrongAnswers');
 const pronunciationRoutes = require('./routes/pronunciation');
 const listeningChannelRoutes = require('./routes/listeningChannel');
 const reportRoutes = require('./routes/reports');
+const kokoroTtsRoutes = require('./routes/kokoroTts');
 
 const app = express();
 
@@ -131,6 +132,7 @@ app.use('/api/v1/wrong-answers', wrongAnswersRoutes);
 app.use('/api/v1/pronunciation', pronunciationRoutes);
 app.use('/api/v1/listening-channels', listeningChannelRoutes);
 app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/tts', kokoroTtsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
