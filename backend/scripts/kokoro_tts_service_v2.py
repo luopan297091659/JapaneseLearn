@@ -307,6 +307,23 @@ class TTSResponse(BaseModel):
     voice: str
     emotion: str
 
+class BatchTTSRequest(BaseModel):
+    texts: list
+    voice: str = CONFIG["default_voice"]
+    emotion: str = CONFIG["default_emotion"]
+    speed: float = 1.0
+    engine: str = None  # 可选:指定TTS引擎
+
+class BatchTTSResult(BaseModel):
+    text: str
+    success: bool
+    audio_url: str = None
+    error: str = None
+
+class BatchTTSResponse(BaseModel):
+    results: list
+    summary: dict  # {total, success, failed}
+
 # ─── API 端点 ────────────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -379,6 +396,79 @@ async def kokoro_tts_api(req: TTSRequest, background_tasks: BackgroundTasks):
     except Exception as e:
         print(f"TTS Error: {e}")
         raise HTTPException(status_code=500, detail=f"TTS synthesis failed: {str(e)}")
+
+@app.post("/api/v1/tts/batch-generate", response_model=BatchTTSResponse)
+async def batch_tts_api(req: BatchTTSRequest, background_tasks: BackgroundTasks):
+    """批量生成TTS音频"""
+    if not KOKORO_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Kokoro TTS service not available")
+    
+    # 参数验证
+    if not req.texts or len(req.texts) == 0:
+        raise HTTPException(status_code=400, detail="Texts list cannot be empty")
+    
+    if req.voice not in CONFIG["voices"]:
+        raise HTTPException(status_code=400, detail=f"Invalid voice: {req.voice}")
+    
+    if req.emotion not in CONFIG["voices"][req.voice]["supported_emotions"]:
+        raise HTTPException(status_code=400, detail=f"Invalid emotion for voice {req.voice}")
+    
+    if not (0.5 <= req.speed <= 2.0):
+        raise HTTPException(status_code=400, detail="Speed must be between 0.5 and 2.0")
+    
+    results = []
+    success_count = 0
+    
+    for text in req.texts:
+        if not text or len(text.strip()) == 0:
+            results.append(BatchTTSResult(
+                text=text,
+                success=False,
+                error="Text cannot be empty"
+            ))
+            continue
+        
+        try:
+            # 在线程池中运行合成
+            def synthesize_sync():
+                tts = get_tts_instance(req.voice, req.emotion, engine=req.engine)
+                return tts.synthesize(text, speed=req.speed)
+            
+            audio_bytes = await asyncio.to_thread(synthesize_sync)
+            
+            # 保存到临时文件
+            filename = f"kokoro_{uuid.uuid4().hex}.wav"
+            file_path = TEMP_AUDIO_DIR / filename
+            
+            with open(file_path, "wb") as f:
+                f.write(audio_bytes)
+            
+            # 后台清理(1小时后删除)
+            background_tasks.add_task(cleanup_file, str(file_path), delay=3600)
+            
+            results.append(BatchTTSResult(
+                text=text,
+                success=True,
+                audio_url=f"/api/v1/tts/kokoro/audio/{filename}"
+            ))
+            success_count += 1
+            
+        except Exception as e:
+            print(f"Batch TTS Error for text '{text}': {e}")
+            results.append(BatchTTSResult(
+                text=text,
+                success=False,
+                error=str(e)
+            ))
+    
+    return BatchTTSResponse(
+        results=results,
+        summary={
+            "total": len(req.texts),
+            "success": success_count,
+            "failed": len(req.texts) - success_count
+        }
+    )
 
 @app.get("/api/v1/tts/kokoro/audio/{filename}")
 async def get_audio(filename: str):
