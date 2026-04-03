@@ -7,6 +7,7 @@ const { sequelize } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
+const axios = require('axios');
 const User = require('../models/User');
 const {
   Vocabulary, GrammarLesson, GrammarExample,
@@ -629,6 +630,87 @@ async function importGrammarApkg(req, res) {
     });
   } catch (err) {
     console.error('Grammar import error:', err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// ─── Kokoro 生成文法例句音频 ────────────────────────────────────────────────
+async function generateGrammarExampleAudio(req, res) {
+  const { lessonId, exId } = req.params;
+  
+  try {
+    // 1. 检查例句是否存在
+    const example = await GrammarExample.findOne({
+      where: { id: exId, grammar_lesson_id: lessonId },
+    });
+    
+    if (!example) {
+      return res.status(404).json({ error: '例句不存在' });
+    }
+    
+    // 2. 获取管理员配置的 Kokoro 参数
+    let defaultVoice = 'a';
+    let defaultEmotion = 'neutral';
+    let defaultSpeed = 1.0;
+    
+    try {
+      const kv = await sequelize.models.AppConfig?.findOne({
+        where: { key: 'kokoro_tts_settings' }
+      });
+      if (kv && kv.value) {
+        const kokoroConfig = JSON.parse(kv.value);
+        defaultVoice = kokoroConfig.default_voice || 'a';
+        defaultEmotion = kokoroConfig.default_emotion || 'neutral';
+        defaultSpeed = kokoroConfig.default_speed || 1.0;
+      }
+    } catch (_) {}
+    
+    // 3. 调用 Kokoro TTS 服务生成音频
+    const KOKORO_SERVICE_URL = process.env.KOKORO_SERVICE_URL || 'http://127.0.0.1:8010';
+    
+    try {
+      const ttsResponse = await axios.post(
+        `${KOKORO_SERVICE_URL}/api/v1/tts/kokoro`,
+        {
+          text: example.sentence,
+          voice: defaultVoice,
+          emotion: defaultEmotion,
+          speed: defaultSpeed,
+        },
+        { timeout: 30000 }
+      );
+      
+      // 音频 URL 示例：/api/v1/tts/kokoro/audio/kokoro_abc123def456.wav
+      const audioUrl = ttsResponse.data.audio_url;
+      
+      // 4. 更新数据库中的 audio_url
+      await example.update({ audio_url: audioUrl });
+      
+      // 5. 返回更新后的例句
+      res.json({
+        ok: true,
+        example: example.toJSON(),
+        audio_url: audioUrl,
+        message: '音频生成成功',
+      });
+      
+      console.log(`[Grammar Audio] 生成成功: lesson_id=${lessonId}, example_id=${exId}, audio_url=${audioUrl}`);
+    } catch (kokoroError) {
+      console.error('[Kokoro] 音频生成失败:', kokoroError.message);
+      
+      if (kokoroError.code === 'ECONNREFUSED') {
+        return res.status(503).json({ error: 'Kokoro 服务不可用', code: 'KOKORO_UNAVAILABLE' });
+      } else if (kokoroError.response?.status) {
+        return res.status(kokoroError.response.status).json({
+          error: '音频生成失败',
+          details: kokoroError.response.data
+        });
+      } else {
+        return res.status(500).json({ error: '音频生成失败: ' + kokoroError.message });
+      }
+    }
+  } catch (err) {
+    console.error('[Grammar Audio] 操作失败:', err);
     res.status(500).json({ error: err.message });
   }
 }
@@ -1801,7 +1883,7 @@ module.exports = {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, deduplicateVocab, fixVocabReadings,
   importVocab, importVocabFile,
-  listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar, importGrammarApkg,
+  listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar, importGrammarApkg, generateGrammarExampleAudio,
   listTracks, createTrack, updateTrack, deleteTrack,
   listUsers, updateUser, updateUserMembership,
   getContentVersion, publishContent,
@@ -1857,7 +1939,7 @@ async function getKokoroSettings(req, res) {
     
     res.json({
       kokoro_tts: kokoroConfig,
-      service_url: process.env.KOKORO_SERVICE_URL || 'http://localhost:8010',
+      service_url: process.env.KOKORO_SERVICE_URL || 'http://127.0.0.1:8010',
     });
   } catch (err) {
     console.error('获取Kokoro配置失败:', err);
@@ -1890,7 +1972,7 @@ async function saveKokoroSettings(req, res) {
       default_emotion: default_emotion || 'neutral',
       default_speed: speed,
       speed_range: { min: 0.5, max: 2.0 },
-      service_url: service_url || process.env.KOKORO_SERVICE_URL || 'http://localhost:8010',
+      service_url: service_url || process.env.KOKORO_SERVICE_URL || 'http://127.0.0.1:8010',
     };
     
     // 保存到数据库

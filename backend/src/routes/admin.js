@@ -8,7 +8,7 @@ const {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, deduplicateVocab, fixVocabReadings,
   importVocab, importVocabFile,
-  listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar, importGrammarApkg,
+  listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar, importGrammarApkg, generateGrammarExampleAudio,
   listTracks, createTrack, updateTrack, deleteTrack,
   listUsers, updateUser, updateUserMembership,
   getContentVersion, publishContent,
@@ -110,6 +110,7 @@ router.put('/grammar/:id',    permissionCheck('grammar'), asyncHandler(updateGra
 router.delete('/grammar/:id', permissionCheck('grammar'), asyncHandler(deleteGrammar));
 router.post('/grammar/bulk-delete', permissionCheck('grammar'), asyncHandler(bulkDeleteGrammar));
 router.post('/grammar/import-apkg', permissionCheck('grammar'), apkgUpload.single('file'), asyncHandler(importGrammarApkg));
+router.post('/grammar/:lessonId/examples/:exId/generate-audio', permissionCheck('grammar'), asyncHandler(generateGrammarExampleAudio));
 
 // 听力管理
 router.get('/tracks',        permissionCheck('tracks'), asyncHandler(listTracks));

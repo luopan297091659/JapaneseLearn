@@ -1456,18 +1456,45 @@ async function initializeRecording(rowId, type='example') {
         fd.append('audio', audioBlob, `recording-${Date.now()}.webm`);
         const r = await api('POST', '/admin/audio/upload', fd, true);
         
+        let targetInput = null;
         if (type === 'example' && rowId) {
-          document.querySelector(`#${rowId} .ex-audio`).value = r.url;
+          targetInput = document.querySelector(`#${rowId} .ex-audio`);
+          if (!targetInput) {
+            toast('无法找到音频输入框', true);
+            return;
+          }
+          targetInput.value = r.url;
           toast('录音上传成功');
         } else if (type === 'grammar' && rowId) {
-          document.querySelector(`#${rowId} .gex-audio`).value = r.url;
+          targetInput = document.querySelector(`#${rowId} .gex-audio`);
+          if (!targetInput) {
+            toast('无法找到音频输入框', true);
+            return;
+          }
+          targetInput.value = r.url;
           toast('录音上传成功');
         } else if (type === 'vocab') {
-          document.getElementById('mv-audio-url').value = r.url;
+          targetInput = document.getElementById('mv-audio-url');
+          if (!targetInput) {
+            toast('无法找到音频输入框', true);
+            return;
+          }
+          targetInput.value = r.url;
           toast('单词音频录音上传成功');
         }
+        
+        // 清理录音状态
+        RecordingState.audioChunks = [];
+        RecordingState.mediaRecorder = null;
+        RecordingState.stream = null;
+        RecordingState.currentRowId = null;
       } catch (e) {
-        toast('上传失败: ' + e.message, true);
+        console.error('录音上传失败:', e);
+        toast('上传失败: ' + (e.message || '服务器错误'), true);
+        RecordingState.audioChunks = [];
+        RecordingState.mediaRecorder = null;
+        RecordingState.stream?.getTracks().forEach(track => track.stop());
+        RecordingState.stream = null;
       }
     };
     
@@ -1802,7 +1829,7 @@ function initializeGrammarExamples(g=null){
   container.innerHTML = '';
   if(g?.examples && Array.isArray(g.examples)){
     g.examples.forEach((ex,i)=>{
-      addGrammarExampleRow(ex.sentence, ex.meaning_zh, ex.audio_url);
+      addGrammarExampleRow(ex.sentence, ex.meaning_zh, ex.audio_url, ex.id);
     });
   } else {
     // 至少添加一个空行
@@ -1810,17 +1837,18 @@ function initializeGrammarExamples(g=null){
   }
 }
 
-function addGrammarExampleRow(sentence='', meaning_zh='', audioUrl=''){
+function addGrammarExampleRow(sentence='', meaning_zh='', audioUrl='', exampleId=''){
   const container = document.getElementById('mg-examples-container');
   const rowCount = container.children.length;
   const rowId = `gex-${Date.now()}-${rowCount}`;
   const html = `
-    <div class="example-row" id="${rowId}" style="display:grid;grid-template-columns:1fr 1fr 0.8fr 0.6fr 0.6fr 0.6fr 0.6fr;gap:8px;margin-bottom:8px;align-items:flex-end">
+    <div class="example-row" id="${rowId}" data-example-id="${esc(exampleId||'')}" style="display:grid;grid-template-columns:1fr 1fr 0.8fr 0.5fr 0.5fr 0.5fr 0.5fr 0.5fr 0.5fr;gap:6px;margin-bottom:8px;align-items:flex-end">
       <input type="text" class="gex-jp" placeholder="日文例句" value="${esc(sentence)}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
       <input type="text" class="gex-zh" placeholder="中文释义" value="${esc(meaning_zh)}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
       <input type="text" class="gex-audio" placeholder="音频URL" value="${esc(audioUrl||'')}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
       <button class="btn btn-ghost btn-sm" onclick="uploadGrammarExampleAudio('${rowId}')" title="上传文件">📤</button>
       <button class="btn btn-ghost btn-sm" onclick="recordGrammarExampleAudio('${rowId}')" title="浏览器录音">🎤</button>
+      <button class="btn btn-ghost btn-sm" onclick="generateGrammarExampleAudioKokoro('${rowId}')" title="用Kokoro生成">🎵</button>
       <button class="btn btn-ghost btn-sm" onclick="playAudio(document.querySelector('#${rowId} .gex-audio').value)" title="试听">🔊</button>
       <button class="btn btn-ghost btn-sm" onclick="removeExampleRow('${rowId}')" title="删除">🗑️</button>
     </div>`;
@@ -1843,6 +1871,52 @@ function uploadGrammarExampleAudio(rowId){
     }catch(e){ toast(e.message, true); }
   };
   fileInput.click();
+}
+
+async function generateGrammarExampleAudioKokoro(rowId) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  
+  const exampleId = row.dataset.exampleId;
+  const grammarId = document.getElementById('mg-id').value;
+  const sentence = row.querySelector('.gex-jp').value.trim();
+  
+  // 只允许为已保存的例句生成音频
+  if (!grammarId) {
+    toast('请先保存文法课程', true);
+    return;
+  }
+  
+  if (!exampleId) {
+    toast('请先保存包含此例句的文法课程', true);
+    return;
+  }
+  
+  if (!sentence) {
+    toast('请输入例句内容', true);
+    return;
+  }
+  
+  // 禁用按钮并显示loading
+  const btn = row.querySelector('button[onclick*="generateGrammarExampleAudioKokoro"]');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳';
+  
+  try {
+    const result = await api('POST', `/admin/grammar/${grammarId}/examples/${exampleId}/generate-audio`);
+    if (result.ok && result.audio_url) {
+      row.querySelector('.gex-audio').value = result.audio_url;
+      toast('Kokoro音频生成成功');
+    } else {
+      toast('音频生成失败: ' + (result.error || '未知错误'), true);
+    }
+  } catch(e) {
+    toast('音频生成失败: ' + e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
 }
 
 function openGrammarModal(g=null){

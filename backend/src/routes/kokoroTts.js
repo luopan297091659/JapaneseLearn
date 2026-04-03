@@ -6,7 +6,7 @@ const { authenticate } = require('../middlewares/auth');
 const { sequelize } = require('../config/database');
 
 // Kokoro Python 服务地址（与Node后端部署在同一服务器）
-const KOKORO_SERVICE_URL = process.env.KOKORO_SERVICE_URL || 'http://localhost:8010';
+const KOKORO_SERVICE_URL = process.env.KOKORO_SERVICE_URL || 'http://127.0.0.1:8010';
 
 // ─── 公开端点：获取可用人声列表 ────────────────────────────────────────
 router.get('/voices', async (req, res) => {
