@@ -1827,25 +1827,24 @@ module.exports = {
 /** 获取 Kokoro TTS 配置 */
 async function getKokoroSettings(req, res) {
   try {
-    const { readFileSync } = require('fs');
-    const path = require('path');
-    const kokoroConfigPath = path.join(__dirname, '../../../backend/config/kokoro_tts_settings.py');
-    
-    // 从Python配置文件读取默认配置
+    // 默认配置
     let kokoroConfig = {
       enabled: true,
       default_voice: 'a',
       default_emotion: 'neutral',
+      default_speed: 1.0,
+      speed_range: { min: 0.5, max: 2.0 },
       voices: {
-        'a': { name: '女声优美', lang: 'ja_JP', emotions: ['neutral'] },
-        'b': { name: '女声清晰', lang: 'ja_JP', emotions: ['neutral'] },
-        'c': { name: '男声深沉', lang: 'ja_JP', emotions: ['neutral'] },
+        'a': { name: '女声优美', lang: 'ja_JP', emotions: ['neutral', 'happy', 'sad'] },
+        'b': { name: '女声清晰', lang: 'ja_JP', emotions: ['neutral', 'happy', 'sad'] },
+        'c': { name: '男声深沉', lang: 'ja_JP', emotions: ['neutral', 'happy', 'sad'] },
       },
+      emotions: ['neutral', 'happy', 'sad'],
       port: 8010,
       host: '0.0.0.0',
     };
     
-    // 尝试从数据库读取用户设置（如果存在）
+    // 尝试从数据库读取用户设置
     try {
       const kv = await sequelize.models.AppConfig?.findOne({
         where: { key: 'kokoro_tts_settings' }
@@ -1869,7 +1868,7 @@ async function getKokoroSettings(req, res) {
 /** 保存 Kokoro TTS 配置 */
 async function saveKokoroSettings(req, res) {
   try {
-    const { enabled, default_voice, default_emotion, service_url } = req.body;
+    const { enabled, default_voice, default_emotion, default_speed, service_url } = req.body;
     
     // 验证voice参数
     if (default_voice && !['a', 'b', 'c'].includes(default_voice)) {
@@ -1878,13 +1877,19 @@ async function saveKokoroSettings(req, res) {
     
     // 验证emotion参数
     if (default_emotion && !['neutral', 'happy', 'sad'].includes(default_emotion)) {
-      return res.status(400).json({ error: 'Invalid emotion' });
+      return res.status(400).json({ error: 'Invalid emotion: must be neutral, happy, or sad' });
     }
+    
+    // 验证speed参数（0.5-2.0x）
+    let speed = parseFloat(default_speed) || 1.0;
+    speed = Math.max(0.5, Math.min(2.0, speed));
     
     const settings = {
       enabled: enabled !== false,
       default_voice: default_voice || 'a',
       default_emotion: default_emotion || 'neutral',
+      default_speed: speed,
+      speed_range: { min: 0.5, max: 2.0 },
       service_url: service_url || process.env.KOKORO_SERVICE_URL || 'http://localhost:8010',
     };
     
@@ -1903,6 +1908,13 @@ async function saveKokoroSettings(req, res) {
     if (service_url) {
       process.env.KOKORO_SERVICE_URL = service_url;
     }
+    
+    console.log('[Kokoro] 配置已更新:', {
+      voice: settings.default_voice,
+      emotion: settings.default_emotion,
+      speed: settings.default_speed,
+      enabled: settings.enabled,
+    });
     
     res.json({
       success: true,

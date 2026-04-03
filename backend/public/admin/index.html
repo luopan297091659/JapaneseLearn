@@ -242,6 +242,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item" onclick="nav('sync')" id="nav-sync"><span class="icon">🔄</span>全局同步</div>
   <div class="nav-item" onclick="nav('app')" id="nav-app"><span class="icon">📱</span>App管理</div>
   <div class="nav-item" onclick="nav('ai-settings')" id="nav-ai-settings"><span class="icon">🤖</span>AI设置</div>
+  <div class="nav-item" onclick="nav('kokoro-settings')" id="nav-kokoro-settings"><span class="icon">🎤</span>Kokoro TTS</div>
   <div class="nav-item" onclick="nav('admin-mgmt')" id="nav-admin-mgmt"><span class="icon">🔐</span>权限管理</div>
   <div class="sidebar-footer"><div class="sidebar-footer-txt">言旅 · JapaneseLearn v1.0</div></div>
 </div>
@@ -592,7 +593,7 @@ function showApp(){
   nav('dashboard');
 }
 function applySidebarPermissions(){
-  const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-ai-settings','nav-admin-mgmt'];
+  const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-ai-settings','nav-kokoro-settings','nav-admin-mgmt'];
   const permNavMap = {
     'nav-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-tracks': 'tracks',
     'nav-users': 'users', 'nav-reports': 'reports', 'nav-stat-users': 'stats', 'nav-stat-traffic': 'stats',
@@ -621,7 +622,7 @@ const PAGE_TITLES = {
   'stat-users':'用户统计', 'stat-traffic':'流量监控',
   'stat-behavior':'行为分析',
   membership:'会员配置', import:'内容导入', sync:'全局同步', 'feature-tiers':'功能分级',
-  app:'App管理', 'feature-toggles':'功能开关', 'ai-settings':'AI设置',
+  app:'App管理', 'feature-toggles':'功能开关', 'ai-settings':'AI设置', 'kokoro-settings':'Kokoro TTS设置',
   'admin-mgmt':'权限管理'
 };
 const PAGE_ICONS = {
@@ -630,7 +631,7 @@ const PAGE_ICONS = {
   'stat-users':'📈', 'stat-traffic':'🌐',
   'stat-behavior':'🧠',
   membership:'👑', import:'📥', sync:'🔄', 'feature-tiers':'🎯',
-  app:'📱', 'feature-toggles':'🔀', 'ai-settings':'🤖',
+  app:'📱', 'feature-toggles':'🔀', 'ai-settings':'🤖', 'kokoro-settings':'🎤',
   'admin-mgmt':'🔐'
 };
 const PAGE_DESCS = {
@@ -639,7 +640,7 @@ const PAGE_DESCS = {
   'stat-users':'用户数据分析', 'stat-traffic':'API流量监控',
   'stat-behavior':'用户行为数据分析',
   membership:'会员套餐管理', import:'Anki/CSV导入', sync:'内容版本发布', 'feature-tiers':'会员功能分级配置',
-  app:'App上传下载', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量',
+  app:'App上传下载', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量', 'kokoro-settings':'Kokoro TTS 合成参数配置',
   'admin-mgmt':'管理员权限配置'
 };
 
@@ -670,7 +671,7 @@ const PAGE_FNS = {
   'stat-users': renderStatUsers, 'stat-traffic': renderStatTraffic,
   'stat-behavior': renderStatBehavior,
   membership: renderMembership, import: renderImport, sync: renderSync,
-  app: renderAppManage, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings,
+  app: renderAppManage, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings, 'kokoro-settings': renderKokoroSettings,
   'admin-mgmt': renderAdminMgmt, reports: renderReports,
 };
 /* ─────────────────────────── 功能分级（会员权益）───────────────────────────── */
@@ -3103,6 +3104,182 @@ async function resetAiUsageFn() {
     renderAiSettings();
   } catch(e) {
     toast('重置失败: ' + e.message, true);
+  }
+}
+
+/* ─────────────────────────── KOKORO TTS 设置 ───────────────────────────────── */
+let _kokoroSettings = null;
+
+async function renderKokoroSettings() {
+  document.getElementById('content').innerHTML = '<p style="color:#aaa;padding:40px;text-align:center">加载中…</p>';
+  try {
+    const res = await api('GET', '/admin/settings/kokoro');
+    _kokoroSettings = res.kokoro_tts;
+    renderKokoroSettingsUI();
+  } catch(e) {
+    document.getElementById('content').innerHTML = `<div class="panel"><p style="color:#e74c3c">加载失败: ${esc(e.message)}</p></div>`;
+  }
+}
+
+function renderKokoroSettingsUI() {
+  const s = _kokoroSettings || {};
+  const enabled = s.enabled !== false ? 'checked' : '';
+
+  document.getElementById('content').innerHTML = `
+    <div style="max-width:700px">
+      <div class="panel">
+        <div class="panel-header">
+          <h3>🎤 Kokoro TTS 合成设置</h3>
+          <span style="font-size:12px;color:var(--text-muted)">配置文本转语音的默认参数</span>
+        </div>
+
+        <!-- 启用开关 -->
+        <div class="form-row" style="margin-bottom:20px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+            <span>启用 Kokoro TTS</span>
+            <div style="position:relative;display:inline-block;width:44px;height:24px">
+              <input type="checkbox" id="kokoro-enabled" ${enabled} style="opacity:0;width:0;height:0">
+              <span style="position:absolute;inset:0;background:${s.enabled!==false?'#6366f1':'#d1d5db'};border-radius:12px;transition:.3s;cursor:pointer"
+                    onclick="const cb=document.getElementById('kokoro-enabled');cb.checked=!cb.checked;this.style.background=cb.checked?'#6366f1':'#d1d5db';this.nextElementSibling.style.left=cb.checked?'22px':'2px'"></span>
+              <span style="position:absolute;top:2px;left:${s.enabled!==false?'22px':'2px'};width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;box-shadow:0 1px 3px rgba(0,0,0,.2);pointer-events:none"></span>
+            </div>
+          </label>
+        </div>
+
+        <!-- 人声选择 -->
+        <div class="form-row" style="margin-bottom:16px">
+          <label>💬 默认人声</label>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="voice-a-label" onclick="selectVoice('a')">
+              <input type="radio" name="default_voice" value="a" ${s.default_voice==='a'?'checked':''} style="cursor:pointer;width:16px;height:16px" />
+              <span>👩 女优美 (a)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="voice-b-label" onclick="selectVoice('b')">
+              <input type="radio" name="default_voice" value="b" ${s.default_voice==='b'?'checked':''} style="cursor:pointer;width:16px;height:16px" />
+              <span>👩 女清晰 (b)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="voice-c-label" onclick="selectVoice('c')">
+              <input type="radio" name="default_voice" value="c" ${s.default_voice==='c'?'checked':''} style="cursor:pointer;width:16px;height:16px" />
+              <span>👨 男深沉 (c)</span>
+            </label>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">选择APP用户播放文法例句的默认人声</div>
+        </div>
+
+        <!-- 情感合成 -->
+        <div class="form-row" style="margin-bottom:16px">
+          <label>😊 情感合成</label>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="emotion-neutral-label" onclick="selectEmotion('neutral')">
+              <input type="radio" name="default_emotion" value="neutral" ${s.default_emotion==='neutral'?'checked':''} style="cursor:pointer;width:16px;height:16px" />
+              <span>😐 自然</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="emotion-happy-label" onclick="selectEmotion('happy')">
+              <input type="radio" name="default_emotion" value="happy" ${s.default_emotion==='happy'?'checked':''} style="cursor:pointer;width:16px;height:16px" />
+              <span>😊 高兴</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="emotion-sad-label" onclick="selectEmotion('sad')">
+              <input type="radio" name="default_emotion" value="sad" ${s.default_emotion==='sad'?'checked':''} style="cursor:pointer;width:16px;height:16px" />
+              <span>😢 伤心</span>
+            </label>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">影响音频合成的语气色彩</div>
+        </div>
+
+        <!-- 语速调节 -->
+        <div class="form-row" style="margin-bottom:16px">
+          <label>⚡ 语速倍数（${s.default_speed}x）</label>
+          <input id="kokoro-speed" type="range" min="0.5" max="2.0" step="0.1" value="${s.default_speed || 1.0}"
+                 style="width:100%;cursor:pointer" oninput="updateSpeedDisplay(this.value)" />
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:6px">
+            <span>0.5x (最慢)</span>
+            <span>1.0x (标准)</span>
+            <span>2.0x (最快)</span>
+          </div>
+        </div>
+
+        <!-- 服务地址 -->
+        <div class="form-row" style="margin-bottom:16px">
+          <label>🔗 Kokoro Service URL</label>
+          <input id="kokoro-service-url" type="text" value="${esc(s.service_url || 'http://localhost:8010')}"
+                 style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;width:100%" />
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Python Kokoro服务的地址（通常无需修改）</div>
+        </div>
+
+        <!-- 保存按钮 -->
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:24px">
+          <button class="btn btn-ghost" onclick="renderKokoroSettings()">取消</button>
+          <button class="btn" style="background:#6366f1;color:#fff" onclick="saveKokoroSettingsFn()">保存设置</button>
+        </div>
+      </div>
+    </div>`;
+
+  // 添加动态样式：选中时高亮
+  updateVoiceColorUI();
+  updateEmotionColorUI();
+}
+
+function selectVoice(voice) {
+  const radios = document.querySelectorAll('input[name="default_voice"]');
+  radios.forEach(r => r.checked = r.value === voice);
+  updateVoiceColorUI();
+}
+
+function selectEmotion(emotion) {
+  const radios = document.querySelectorAll('input[name="default_emotion"]');
+  radios.forEach(r => r.checked = r.value === emotion);
+  updateEmotionColorUI();
+}
+
+function updateVoiceColorUI() {
+  const selected = document.querySelector('input[name="default_voice"]:checked')?.value;
+  ['a', 'b', 'c'].forEach(v => {
+    const label = document.getElementById(`voice-${v}-label`);
+    if (label) {
+      label.style.borderColor = selected === v ? '#6366f1' : '#e5e7eb';
+      label.style.background = selected === v ? '#f0f4ff' : '#fff';
+      label.style.color = selected === v ? '#4f46e5' : '#1e293b';
+    }
+  });
+}
+
+function updateEmotionColorUI() {
+  const selected = document.querySelector('input[name="default_emotion"]:checked')?.value;
+  ['neutral', 'happy', 'sad'].forEach(e => {
+    const label = document.getElementById(`emotion-${e}-label`);
+    if (label) {
+      label.style.borderColor = selected === e ? '#6366f1' : '#e5e7eb';
+      label.style.background = selected === e ? '#f0f4ff' : '#fff';
+      label.style.color = selected === e ? '#4f46e5' : '#1e293b';
+    }
+  });
+}
+
+function updateSpeedDisplay(value) {
+  const label = document.querySelector('label:has(input#kokoro-speed)');
+  if(label) label.textContent = '⚡ 语速倍数（' + parseFloat(value).toFixed(1) + 'x）';
+}
+
+async function saveKokoroSettingsFn() {
+  const data = {
+    enabled: document.getElementById('kokoro-enabled').checked,
+    default_voice: document.querySelector('input[name="default_voice"]:checked')?.value || 'a',
+    default_emotion: document.querySelector('input[name="default_emotion"]:checked')?.value || 'neutral',
+    default_speed: parseFloat(document.getElementById('kokoro-speed').value) || 1.0,
+    service_url: document.getElementById('kokoro-service-url').value.trim(),
+  };
+  try {
+    await api('POST', '/admin/settings/kokoro', data);
+    toast('Kokoro TTS 设置已保存 ✓', 'success');
+    renderKokoroSettings();
+  } catch(e) {
+    toast('保存失败: ' + e.message, 'error');
   }
 }
 

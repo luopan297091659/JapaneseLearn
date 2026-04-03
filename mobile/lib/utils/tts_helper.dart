@@ -97,14 +97,16 @@ class TtsHelper {
       final kokoroAudioUrl = resp.data['audio_url'] as String?;
       debugPrint('[TTS] 返回的audio_url: $kokoroAudioUrl');
       if (kokoroAudioUrl != null && kokoroAudioUrl.isNotEmpty) {
-        // 如果是相对URL，拼接上服务器地址
+        // 后端返回相对路径（/api/v1/tts/kokoro/audio/xxx.wav），需要拼接基地址
+        // 这样APP永远通过8002来访问，不直接访问8010，满足安全架构要求
         String fullUrl = kokoroAudioUrl;
         if (!kokoroAudioUrl.startsWith('http')) {
-          // 从kokoroTtsUrl中提取基地址
+          // 从kokoroTtsUrl (https://139.196.44.6:8002/api/v1/tts/kokoro-speak)
+          // 提取基地址 (https://139.196.44.6:8002)
           final baseUrl = AppConfig.kokoroTtsUrl.replaceAll(RegExp(r'/api/v1/tts/.*'), '');
           fullUrl = baseUrl + kokoroAudioUrl;
         }
-        debugPrint('[TTS] 最终播放URL: $fullUrl');
+        debugPrint('[TTS] 最终播放URL (通过8002): $fullUrl');
         final player = AudioPlayer();
         debugPrint('[TTS] 开始播放...');
         await player.setUrl(fullUrl);
