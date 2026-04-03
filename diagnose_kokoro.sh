@@ -6,7 +6,7 @@ echo ""
 
 # 1. 检查 Python 服务是否运行
 echo "[1] 检查 Python Kokoro 服务 (port 8010)..."
-curl -s http://localhost:8010/health | jq . && echo "✅ Kokoro Python 服务正常" || echo "❌ Kokoro Python 服务异常"
+curl -s http://127.0.0.1:8010/health | jq . && echo "✅ Kokoro Python 服务正常" || echo "❌ Kokoro Python 服务异常"
 
 echo ""
 

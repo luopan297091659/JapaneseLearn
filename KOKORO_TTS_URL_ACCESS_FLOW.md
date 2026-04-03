@@ -331,7 +331,7 @@ debugPrint('Available languages: $languages');
                    ▼
 ┌─────────────────────────────────────────────────────────┐
 │ 4. Node.js 转发到 Python Kokoro（port 8010）            │
-│    POST http://localhost:8010/api/v1/tts/kokoro       │
+│    POST http://127.0.0.1:8010/api/v1/tts/kokoro       │
 │    同样的 JSON 数据                                      │
 └──────────────────┬──────────────────────────────────────┘
                    │

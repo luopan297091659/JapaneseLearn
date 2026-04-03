@@ -351,6 +351,11 @@ tbody tr:hover td{background:#f8faff}
         <div class="form-row"><label>ない形</label><input id="mv-vf-nai" placeholder="e.g. 食べない" /></div>
         <div class="form-row"><label>ます形</label><input id="mv-vf-masu" placeholder="e.g. 食べます" /></div>
         <div class="form-row"><label>ました形</label><input id="mv-vf-mashita" placeholder="e.g. 食べました" /></div>
+        <div class="form-row"><label>可能形</label><input id="mv-vf-kano" placeholder="e.g. 食べられる" /></div>
+        <div class="form-row"><label>意向形</label><input id="mv-vf-ishou" placeholder="e.g. 食べよう" /></div>
+        <div class="form-row"><label>命令形</label><input id="mv-vf-meirei" placeholder="e.g. 食べろ" /></div>
+        <div class="form-row"><label>受身形</label><input id="mv-vf-ukemi" placeholder="e.g. 食べられる" /></div>
+        <div class="form-row"><label>使役形</label><input id="mv-vf-shieki" placeholder="e.g. 食べさせる" /></div>
       </div>
       <div style="font-size:12px;color:#999;margin-top:4px">可选项，自动保存为 JSON 格式</div>
     </div>
@@ -1236,6 +1241,7 @@ async function renderVocab(){
     <button class="btn btn-primary" onclick="vocabSearch()">搜索</button>
     <button class="btn btn-ghost" onclick="openVocabModal()">＋ 添加</button>
     <button class="btn btn-ghost" onclick="openModal('modal-import')">📥 导入</button>
+    <button class="btn btn-ghost" onclick="generateVocabKokoroAudio()" style="background:#8b5cf6;color:#fff">🎤 一键生成Kokoro音频</button>
     <button class="btn btn-ghost" onclick="dedupVocab()">🧹 去重</button>
     <button class="btn btn-ghost" onclick="fixReadings()">🔧 修复读音</button>
     <button class="btn btn-danger btn-sm" id="v-del-btn" style="display:none" onclick="bulkDeleteVocab()">删除选中</button>
@@ -1341,6 +1347,11 @@ function initializeVerbForms(v=null){
     document.getElementById('mv-vf-nai').value = v.verb_forms.nai || '';
     document.getElementById('mv-vf-masu').value = v.verb_forms.masu || '';
     document.getElementById('mv-vf-mashita').value = v.verb_forms.mashita || '';
+    document.getElementById('mv-vf-kano').value = v.verb_forms.kano || '';
+    document.getElementById('mv-vf-ishou').value = v.verb_forms.ishou || '';
+    document.getElementById('mv-vf-meirei').value = v.verb_forms.meirei || '';
+    document.getElementById('mv-vf-ukemi').value = v.verb_forms.ukemi || '';
+    document.getElementById('mv-vf-shieki').value = v.verb_forms.shieki || '';
   }
 }
 
@@ -1405,8 +1416,17 @@ document.getElementById('mv-audio-file')&&document.getElementById('mv-audio-file
 
 function playAudio(url){
   if(!url) { toast('没有音频', true); return; }
-  const audio = new Audio(url);
-  audio.play().catch(err => toast(err.message, true));
+  // 处理相对路径：如果是相对路径，需要加上完整域名
+  let fullUrl = url;
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    // 相对路径 - 相对于当前域名
+    fullUrl = window.location.origin + url;
+  }
+  const audio = new Audio(fullUrl);
+  audio.play().catch(err => {
+    console.error('[PlayAudio] 播放失败:', err, 'URL:', fullUrl);
+    toast('播放失败: ' + err.message, true);
+  });
 }
 
 // === 录音功能 ===
@@ -1708,6 +1728,11 @@ async function saveVocab(){
         nai: document.getElementById('mv-vf-nai').value.trim() || null,
         masu: document.getElementById('mv-vf-masu').value.trim() || null,
         mashita: document.getElementById('mv-vf-mashita').value.trim() || null,
+        kano: document.getElementById('mv-vf-kano').value.trim() || null,
+        ishou: document.getElementById('mv-vf-ishou').value.trim() || null,
+        meirei: document.getElementById('mv-vf-meirei').value.trim() || null,
+        ukemi: document.getElementById('mv-vf-ukemi').value.trim() || null,
+        shieki: document.getElementById('mv-vf-shieki').value.trim() || null,
       };
     }
   }
@@ -1736,6 +1761,33 @@ async function bulkDeleteVocab(){
   const ids=[...(document.querySelectorAll('.v-cb:checked'))].map(c=>c.value);
   if(!ids.length || !confirm(`确认删除 ${ids.length} 条词汇？`)) return;
   try{ await api('POST','/admin/vocabulary/bulk-delete',{ids}); toast('已批量删除'); loadVocab(); }catch(e){ toast(e.message,true) }
+}
+
+async function generateVocabKokoroAudio(){
+  if(!confirm('确认为所有单词及例句生成Kokoro音频？此操作可能需要几分钟')) return;
+  
+  const progressDiv = document.createElement('div');
+  progressDiv.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:10000`;
+  progressDiv.innerHTML = `
+    <div style="background:#fff;padding:30px;border-radius:12px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+      <div style="font-size:16px;margin-bottom:15px">🎤 正在生成音频...</div>
+      <div style="width:200px;height:6px;background:#e5e7eb;border-radius:3px;margin-bottom:15px">
+        <div id="progress-bar" style="height:100%;background:#8b5cf6;border-radius:3px;width:0%;transition:width .3s"></div>
+      </div>
+      <div id="progress-text" style="font-size:13px;color:#666">等待中...</div>
+    </div>`;
+  document.body.appendChild(progressDiv);
+  
+  try {
+    const resp = await api('POST', '/admin/vocabulary/generate-kokoro-audio', {});
+    localStorage.removeItem('_vocabCache');
+    toast(`✓ 成功生成${resp.generated}/${resp.total}个音频`, 'success');
+    loadVocab();
+  } catch(e) {
+    toast('生成失败: ' + e.message, true);
+  } finally {
+    progressDiv.remove();
+  }
 }
 async function doImport(){
   const active=['json','file','txt'].find(t=>document.getElementById(`imp-${t}`).classList.contains('active'));
@@ -1779,6 +1831,7 @@ async function renderGrammar(){
     <button class="btn btn-primary" onclick="grammarSearch()">搜索</button>
     <button class="btn btn-ghost" onclick="openGrammarModal()">＋ 添加</button>
     <button class="btn btn-ghost" onclick="window.location.href='/admin/grammar-import.html'">📥 导入</button>
+    <button class="btn btn-ghost" onclick="generateGrammarKokoroAudio()" style="background:#8b5cf6;color:#fff">🎤 一键生成Kokoro音频</button>
     <button class="btn btn-danger btn-sm" id="gr-del-btn" style="display:none" onclick="bulkDeleteGrammar()">删除选中</button>
   </div>
   <div class="panel" style="padding:0">
@@ -1968,6 +2021,33 @@ async function saveGrammar(){
 async function deleteGrammar(id){
   if(!confirm('确认删除？')) return;
   try{ await api('DELETE',`/admin/grammar/${id}`); toast('已删除'); loadGrammar(); }catch(e){ toast(e.message,true) }
+}
+
+async function generateGrammarKokoroAudio(){
+  if(!confirm('确认为所有文法例句生成Kokoro音频？此操作可能需要几分钟')) return;
+  
+  const progressDiv = document.createElement('div');
+  progressDiv.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:10000`;
+  progressDiv.innerHTML = `
+    <div style="background:#fff;padding:30px;border-radius:12px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+      <div style="font-size:16px;margin-bottom:15px">🎤 正在生成音频...</div>
+      <div style="width:200px;height:6px;background:#e5e7eb;border-radius:3px;margin-bottom:15px">
+        <div id="progress-bar" style="height:100%;background:#8b5cf6;border-radius:3px;width:0%;transition:width .3s"></div>
+      </div>
+      <div id="progress-text" style="font-size:13px;color:#666">等待中...</div>
+    </div>`;
+  document.body.appendChild(progressDiv);
+  
+  try {
+    const resp = await api('POST', '/admin/grammar/generate-kokoro-audio', {});
+    localStorage.removeItem('_grammarCache');
+    toast(`✓ 成功生成${resp.generated}/${resp.total}个音频`, 'success');
+    loadGrammar();
+  } catch(e) {
+    toast('生成失败: ' + e.message, true);
+  } finally {
+    progressDiv.remove();
+  }
 }
 
 /* ───────────────────────────────── TRACKS ────────────────────────────────── */
@@ -3225,18 +3305,18 @@ function renderKokoroSettingsUI() {
           <label>💬 默认人声</label>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px">
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
-                   id="voice-a-label" onclick="selectVoice('a')">
-              <input type="radio" name="default_voice" value="a" ${s.default_voice==='a'?'checked':''} style="cursor:pointer;width:16px;height:16px" />
+                   id="voice-a-label">
+              <input type="radio" name="default_voice" value="a" ${s.default_voice==='a'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateVoiceColorUI()" />
               <span>👩 女优美 (a)</span>
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
-                   id="voice-b-label" onclick="selectVoice('b')">
-              <input type="radio" name="default_voice" value="b" ${s.default_voice==='b'?'checked':''} style="cursor:pointer;width:16px;height:16px" />
+                   id="voice-b-label">
+              <input type="radio" name="default_voice" value="b" ${s.default_voice==='b'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateVoiceColorUI()" />
               <span>👩 女清晰 (b)</span>
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
-                   id="voice-c-label" onclick="selectVoice('c')">
-              <input type="radio" name="default_voice" value="c" ${s.default_voice==='c'?'checked':''} style="cursor:pointer;width:16px;height:16px" />
+                   id="voice-c-label">
+              <input type="radio" name="default_voice" value="c" ${s.default_voice==='c'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateVoiceColorUI()" />
               <span>👨 男深沉 (c)</span>
             </label>
           </div>
@@ -3245,30 +3325,59 @@ function renderKokoroSettingsUI() {
 
         <!-- 情感合成 -->
         <div class="form-row" style="margin-bottom:16px">
-          <label>😊 情感合成</label>
+          <label>😊 情感合成 <span style="font-weight:300;font-size:11px;color:#f59e0b">（⚠️ Edge-TTS暂不支持，未来扩展）</span></label>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px">
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
-                   id="emotion-neutral-label" onclick="selectEmotion('neutral')">
-              <input type="radio" name="default_emotion" value="neutral" ${s.default_emotion==='neutral'?'checked':''} style="cursor:pointer;width:16px;height:16px" />
+                   id="emotion-neutral-label">
+              <input type="radio" name="default_emotion" value="neutral" ${s.default_emotion==='neutral'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateEmotionColorUI()" />
               <span>😐 自然</span>
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
-                   id="emotion-happy-label" onclick="selectEmotion('happy')">
-              <input type="radio" name="default_emotion" value="happy" ${s.default_emotion==='happy'?'checked':''} style="cursor:pointer;width:16px;height:16px" />
+                   id="emotion-happy-label">
+              <input type="radio" name="default_emotion" value="happy" ${s.default_emotion==='happy'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateEmotionColorUI()" />
               <span>😊 高兴</span>
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
-                   id="emotion-sad-label" onclick="selectEmotion('sad')">
-              <input type="radio" name="default_emotion" value="sad" ${s.default_emotion==='sad'?'checked':''} style="cursor:pointer;width:16px;height:16px" />
+                   id="emotion-sad-label">
+              <input type="radio" name="default_emotion" value="sad" ${s.default_emotion==='sad'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateEmotionColorUI()" />
               <span>😢 伤心</span>
             </label>
           </div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">影响音频合成的语气色彩</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">情感选项将在未来的TTS引擎中支持（gTTS、Google TTS等）</div>
+        </div>
+
+        <!-- TTS引擎选择 -->
+        <div class="form-row" style="margin-bottom:16px">
+          <label>⚙️ TTS 合成引擎</label>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="engine-edge-label">
+              <input type="radio" name="default_engine" value="edge-tts" ${s.default_engine==='edge-tts'||(!s.default_engine)?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateEngineColorUI()" />
+              <span>🔵 Edge-TTS (Microsoft)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="engine-gtts-label">
+              <input type="radio" name="default_engine" value="gtts" ${s.default_engine==='gtts'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateEngineColorUI()" />
+              <span>🔴 gTTS (Google)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="engine-google-label">
+              <input type="radio" name="default_engine" value="google-tts" ${s.default_engine==='google-tts'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateEngineColorUI()" />
+              <span>🟠 Google TTS (云)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="engine-white-label">
+              <input type="radio" name="default_engine" value="white-noise" ${s.default_engine==='white-noise'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateEngineColorUI()" />
+              <span>⚪ 白噪声 (备选)</span>
+            </label>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+            <strong>推荐：</strong>Edge-TTS (中国服务器可用) → gTTS (备选) → Google TTS (需密钥) → 白噪声 (应急)</div>
         </div>
 
         <!-- 语速调节 -->
         <div class="form-row" style="margin-bottom:16px">
-          <label>⚡ 语速倍数（${s.default_speed}x）</label>
+          <label id="kokoro-speed-label">⚡ 语速倍数（${s.default_speed || 1.0}x）</label>
           <input id="kokoro-speed" type="range" min="0.5" max="2.0" step="0.1" value="${s.default_speed || 1.0}"
                  style="width:100%;cursor:pointer" oninput="updateSpeedDisplay(this.value)" />
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:6px">
@@ -3281,7 +3390,7 @@ function renderKokoroSettingsUI() {
         <!-- 服务地址 -->
         <div class="form-row" style="margin-bottom:16px">
           <label>🔗 Kokoro Service URL</label>
-          <input id="kokoro-service-url" type="text" value="${esc(s.service_url || 'http://localhost:8010')}"
+          <input id="kokoro-service-url" type="text" value="${esc(s.service_url || 'http://127.0.0.1:8010')}"
                  style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;width:100%" />
           <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Python Kokoro服务的地址（通常无需修改）</div>
         </div>
@@ -3297,6 +3406,7 @@ function renderKokoroSettingsUI() {
   // 添加动态样式：选中时高亮
   updateVoiceColorUI();
   updateEmotionColorUI();
+  updateEngineColorUI();
 }
 
 function selectVoice(voice) {
@@ -3309,6 +3419,12 @@ function selectEmotion(emotion) {
   const radios = document.querySelectorAll('input[name="default_emotion"]');
   radios.forEach(r => r.checked = r.value === emotion);
   updateEmotionColorUI();
+}
+
+function selectEngine(engine) {
+  const radios = document.querySelectorAll('input[name="default_engine"]');
+  radios.forEach(r => r.checked = r.value === engine);
+  updateEngineColorUI();
 }
 
 function updateVoiceColorUI() {
@@ -3335,8 +3451,21 @@ function updateEmotionColorUI() {
   });
 }
 
+function updateEngineColorUI() {
+  const selected = document.querySelector('input[name="default_engine"]:checked')?.value;
+  ['edge', 'gtts', 'google', 'white'].forEach(id => {
+    const label = document.getElementById(`engine-${id}-label`);
+    let engineValue = id === 'edge' ? 'edge-tts' : (id === 'google' ? 'google-tts' : (id === 'white' ? 'white-noise' : id));
+    if (label) {
+      label.style.borderColor = selected === engineValue ? '#6366f1' : '#e5e7eb';
+      label.style.background = selected === engineValue ? '#f0f4ff' : '#fff';
+      label.style.color = selected === engineValue ? '#4f46e5' : '#1e293b';
+    }
+  });
+}
+
 function updateSpeedDisplay(value) {
-  const label = document.querySelector('label:has(input#kokoro-speed)');
+  const label = document.getElementById('kokoro-speed-label');
   if(label) label.textContent = '⚡ 语速倍数（' + parseFloat(value).toFixed(1) + 'x）';
 }
 
@@ -3345,6 +3474,7 @@ async function saveKokoroSettingsFn() {
     enabled: document.getElementById('kokoro-enabled').checked,
     default_voice: document.querySelector('input[name="default_voice"]:checked')?.value || 'a',
     default_emotion: document.querySelector('input[name="default_emotion"]:checked')?.value || 'neutral',
+    default_engine: document.querySelector('input[name="default_engine"]:checked')?.value || 'edge-tts',
     default_speed: parseFloat(document.getElementById('kokoro-speed').value) || 1.0,
     service_url: document.getElementById('kokoro-service-url').value.trim(),
   };

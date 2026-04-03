@@ -14,7 +14,7 @@
    - 包含: TTS代理路由 `/api/v1/tts/*`
 
 2. **Kokoro Python TTS 微服务** (pm2: kokoro-tts)
-   - 地址: `http://localhost:8010`
+   - 地址: `http://127.0.0.1:8010`
    - 状态: ✅ online
    - 端口: 8010
    - 功能: 日语TTS实时合成

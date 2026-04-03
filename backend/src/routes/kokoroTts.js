@@ -23,7 +23,7 @@ router.get('/voices', async (req, res) => {
 
 // ─── 公开端点：Kokoro TTS 合成（客户端直接调用） ────────────────────────
 router.post('/kokoro-speak', async (req, res) => {
-  const { text, voice, emotion, speed } = req.body;
+  const { text, voice, emotion, engine, speed } = req.body;
   
   // 基本参数验证
   if (!text || text.trim().length === 0) {
@@ -34,6 +34,7 @@ router.post('/kokoro-speak', async (req, res) => {
     // 获取管理员配置的默认参数
     let defaultVoice = 'a';
     let defaultEmotion = 'neutral';
+    let defaultEngine = 'edge-tts';
     let defaultSpeed = 1.0;
     
     try {
@@ -44,6 +45,7 @@ router.post('/kokoro-speak', async (req, res) => {
         const kokoroConfig = JSON.parse(kv.value);
         defaultVoice = kokoroConfig.default_voice || 'a';
         defaultEmotion = kokoroConfig.default_emotion || 'neutral';
+        defaultEngine = kokoroConfig.default_engine || 'edge-tts';
         defaultSpeed = kokoroConfig.default_speed || 1.0;
       }
     } catch (_) {}
@@ -55,6 +57,7 @@ router.post('/kokoro-speak', async (req, res) => {
         text: text.trim(),
         voice: voice || defaultVoice,
         emotion: emotion || defaultEmotion,
+        engine: engine || defaultEngine,
         speed: Math.min(Math.max(parseFloat(speed) || defaultSpeed, 0.5), 2.0),
       },
       { timeout: 30000 }  // 合成可能需要较长时间
@@ -69,7 +72,7 @@ router.post('/kokoro-speak', async (req, res) => {
       emotion: resp.data.emotion,
     });
     
-    console.log(`TTS合成成功: text_len=${text.trim().length}, voice=${voice || defaultVoice}, emotion=${emotion || defaultEmotion}, speed=${speed || defaultSpeed}`);
+    console.log(`TTS合成成功: text_len=${text.trim().length}, voice=${voice || defaultVoice}, emotion=${emotion || defaultEmotion}, engine=${engine || defaultEngine}, speed=${speed || defaultSpeed}`);
   } catch (error) {
     console.error('Kokoro TTS 合成失败:', error.message);
     
@@ -114,6 +117,110 @@ router.get('/kokoro/audio/:filename', async (req, res) => {
       res.status(503).json({ error: 'Failed to retrieve audio from Kokoro service' });
     }
   }
+});
+
+// ─── 管理员端点：批量生成Kokoro音频 ─────────────────────────────────────
+// 用途：为文法例句、单词例句等批量生成音频
+// 请求体: { texts: ['文本1', '文本2', ...], voice: 'a', emotion: 'neutral', engine: 'edge-tts', speed: 1.0 }
+// 响应: { results: [{text, audio_url, success, error}, ...], failed: 0, success: 0, total: 0 }
+router.post('/batch-generate', authenticate, async (req, res) => {
+  const { texts, voice, emotion, engine, speed } = req.body;
+  
+  // 参数验证
+  if (!Array.isArray(texts) || texts.length === 0) {
+    return res.status(400).json({ error: 'texts must be non-empty array' });
+  }
+  
+  if (texts.length > 100) {
+    return res.status(400).json({ error: 'texts array too large (max 100)' });
+  }
+  
+  // 获取默认配置
+  let defaultVoice = 'a';
+  let defaultEmotion = 'neutral';
+  let defaultEngine = 'edge-tts';
+  let defaultSpeed = 1.0;
+  
+  try {
+    const kv = await sequelize.models.AppConfig?.findOne({
+      where: { key: 'kokoro_tts_settings' }
+    });
+    if (kv && kv.value) {
+      const config = JSON.parse(kv.value);
+      defaultVoice = config.default_voice || 'a';
+      defaultEmotion = config.default_emotion || 'neutral';
+      defaultEngine = config.default_engine || 'edge-tts';
+      defaultSpeed = config.default_speed || 1.0;
+    }
+  } catch (_) {}
+  
+  const results = [];
+  let successCount = 0;
+  let failCount = 0;
+  
+  // 串行处理 - 避免并发过多导致服务过载
+  for (let i = 0; i < texts.length; i++) {
+    const text = texts[i];
+    if (!text || text.trim().length === 0) {
+      results.push({
+        index: i,
+        text: text,
+        audio_url: null,
+        success: false,
+        error: 'Empty text'
+      });
+      failCount++;
+      continue;
+    }
+    
+    try {
+      const resp = await axios.post(
+        `${KOKORO_SERVICE_URL}/api/v1/tts/kokoro`,
+        {
+          text: text.trim(),
+          voice: voice || defaultVoice,
+          emotion: emotion || defaultEmotion,
+          engine: engine || defaultEngine,
+          speed: Math.min(Math.max(parseFloat(speed) || defaultSpeed, 0.5), 2.0),
+        },
+        { timeout: 30000 }
+      );
+      
+      results.push({
+        index: i,
+        text: text,
+        audio_url: resp.data.audio_url,
+        success: true,
+        error: null
+      });
+      successCount++;
+      
+      // 避免过于频繁的请求 - 短暂延迟
+      if (i < texts.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } catch (error) {
+      console.error(`[KokoroAudio] Batch generation failed for text ${i}:`, error.message);
+      results.push({
+        index: i,
+        text: text,
+        audio_url: null,
+        success: false,
+        error: error.message || 'TTS synthesis failed'
+      });
+      failCount++;
+    }
+  }
+  
+  res.json({
+    success: failCount === 0,
+    results,
+    summary: {
+      total: texts.length,
+      success: successCount,
+      failed: failCount
+    }
+  });
 });
 
 // ─── 公开端点：健康检查 ────────────────────────────────────────

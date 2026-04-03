@@ -39,7 +39,7 @@ Remote-Run "mkdir -p $RemotePath"
 # 步骤 3: 上传 Kokoro TTS 服务脚本
 Write-Host "[3/5] 上传 Kokoro 服务脚本..." -ForegroundColor Yellow
 Remote-Upload-File "$LocalBackend\config\kokoro_tts_settings.py" "$RemotePath/kokoro_tts_settings.py"
-Remote-Upload-File "$LocalBackend\scripts\kokoro_tts_service.py" "$RemotePath/kokoro_tts_service.py"
+Remote-Upload-File "$LocalBackend\scripts\kokoro_tts_service_v2.py" "$RemotePath/kokoro_tts_service_v2.py"
 
 # 步骤 4: 创建 requirements.txt 并安装依赖
 Write-Host "[4/5] 安装 Python 3.11 依赖..." -ForegroundColor Yellow
@@ -50,6 +50,7 @@ python-multipart==0.0.6
 pydantic==2.5.0
 numpy>=1.24.0
 aiofiles>=23.2.0
+gtts>=2.4.0
 ENDOFREQ"
 
 Remote-Run "cd $RemotePath && python3.11 -m pip install -r /tmp/req.txt --quiet 2>&1 || python3.11 -m pip install -r /tmp/req.txt"
@@ -57,18 +58,18 @@ Remote-Run "cd $RemotePath && python3.11 -m pip install -r /tmp/req.txt --quiet 
 # 步骤 5: 启动 Kokoro 服务（使用 pm2）
 Write-Host "[5/5] 启动 Kokoro 服务..." -ForegroundColor Yellow
 Remote-Run "which pm2 >/dev/null 2>&1 || npm install -g pm2 >/dev/null 2>&1"
-Remote-Run "pm2 delete kokoro-tts 2>/dev/null || true"
-Remote-Run "cd $RemotePath && pm2 start 'python3.11 -m uvicorn kokoro_tts_service:app --host 0.0.0.0 --port 8010' --name kokoro-tts"
+Remote-Run "cd $RemotePath && pm2 kill 2>/dev/null; pm2 start 'python3.11 -m uvicorn kokoro_tts_service_v2:app --host 0.0.0.0 --port 8010' --name kokoro-tts"
 Remote-Run "sleep 3"
 Remote-Run "pm2 list"
 Remote-Run "pm2 logs kokoro-tts --lines 30"
 
 Write-Host ""
-Write-Host "[✓] Kokoro 部署完成" -ForegroundColor Green
-Write-Host "  Kokoro TTS: http://${ServerHost}:8010/docs" -ForegroundColor Cyan
+Write-Host "[✓] Kokoro 部署完成 (gTTS 轻量级方案)" -ForegroundColor Green
+Write-Host "  Kokoro TTS API: http://${ServerHost}:8010/docs" -ForegroundColor Cyan
 Write-Host "  后端 TTS 代理: http://${ServerHost}:8002/api/v1/tts/kokoro-speak" -ForegroundColor Cyan
+Write-Host "  TTS 引擎: gTTS (优先) / Google TTS (备选)" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "测试 Kokoro 服务:" -ForegroundColor Yellow
-Write-Host '  curl -X POST "http://localhost:8010/api/v1/tts/kokoro"'
+Write-Host '  curl -X POST "http://127.0.0.1:8010/api/v1/tts/kokoro"'
 Write-Host '    -H "Content-Type: application/json"'
 Write-Host '    -d "{\"text\":\"こんにちは\",\"voice\":\"a\",\"emotion\":\"neutral\",\"speed\":1.0}"'

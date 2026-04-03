@@ -13,7 +13,7 @@ const {
   Vocabulary, GrammarLesson, GrammarExample,
   ListeningTrack, UserProgress, ContentVersion, ApiLog,
   QuizSession, SrsCard,
-  AppRelease, MembershipPlan,
+  AppRelease, AppConfig, MembershipPlan,
   StudyPlanDailyTask, StudyPlanCardState,
 } = require('../models');
 const {
@@ -200,6 +200,111 @@ async function bulkDeleteVocab(req, res) {
     await bumpVersion('vocab_version');
     res.json({ deleted: count });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/** 批量生成词汇Kokoro音频 （单词本身和例句） */
+async function generateVocabExamplesKokoroAudio(req, res) {
+  try {
+    // 获取所有词汇，包括例句
+    const vocabs = await Vocabulary.findAll({
+      attributes: ['id', 'word', 'reading'],
+      raw: false,
+    });
+    
+    if (vocabs.length === 0) {
+      return res.status(400).json({ error: '未找到词汇数据' });
+    }
+    
+    // 获取所有需要音频的例句（来自VocabularyExample表）
+    const VocabExample = sequelize.models.VocabularyExample;
+    if (!VocabExample) {
+      return res.status(400).json({ error: 'VocabularyExample model not initialized' });
+    }
+    
+    const examples = await VocabExample.findAll({
+      where: { audio_url: { [Op.or]: [null, ''] } },
+      raw: false,
+    });
+    
+    // 收集需要生成音频的文本
+    const textsToGenerate = [];
+    const textIndexMap = new Map();
+    
+    // 添加单词本身
+    vocabs.forEach((v, idx) => {
+      if (v.reading && v.reading.trim()) {
+        textsToGenerate.push(v.reading);
+        textIndexMap.set(idx, { type: 'word', id: v.id, text: v.reading });
+      }
+    });
+    
+    // 添加例句
+    examples.forEach((ex, idx) => {
+      if (ex.sentence && ex.sentence.trim()) {
+        textsToGenerate.push(ex.sentence);
+        textIndexMap.set(vocabs.length + idx, { type: 'example', id: ex.id, text: ex.sentence });
+      }
+    });
+    
+    if (textsToGenerate.length === 0) {
+      return res.json({ success: true, message: '所有内容都已有音频或无有效文本', generated: 0, total: 0 });
+    }
+    
+    // 调用批量生成API
+    const axios = require('axios');
+    
+    try {
+      const resp = await axios.post(
+        'http://127.0.0.1:8010/api/v1/tts/batch-generate',
+        { texts: textsToGenerate, voice: 'a', emotion: 'neutral', engine: 'edge-tts', speed: 1.0 },
+        { timeout: 180000 }  // 批量操作可能耗时较长
+      );
+      
+      const results = resp.data.results || [];
+      let updateCount = 0;
+      const Vocabulary = sequelize.models.Vocabulary;
+      
+      // 更新数据库中的音频URL
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        const info = textIndexMap.get(i);
+        
+        if (result.success && result.audio_url && info) {
+          if (info.type === 'word') {
+            await Vocabulary.update(
+              { audio_url: result.audio_url },
+              { where: { id: info.id } }
+            );
+          } else if (info.type === 'example') {
+            await VocabExample.update(
+              { audio_url: result.audio_url },
+              { where: { id: info.id } }
+            );
+          }
+          updateCount++;
+        }
+      }
+      
+      // 更新版本号
+      if (updateCount > 0) {
+        await bumpVersion('vocab_version');
+      }
+      
+      res.json({
+        success: true,
+        message: `成功生成 ${updateCount}/${textsToGenerate.length} 个音频`,
+        generated: updateCount,
+        total: textsToGenerate.length,
+        details: resp.data.summary
+      });
+    } catch (apiErr) {
+      console.error('[Vocab Audio] Kokoro API调用失败:', apiErr.message);
+      res.status(503).json({ error: 'Kokoro TTS 服务不可用: ' + apiErr.message });
+    }
+  } catch (err) {
+    console.error('[Vocab Audio] 批量生成失败:', err);
     res.status(500).json({ error: err.message });
   }
 }
@@ -477,6 +582,94 @@ async function bulkDeleteGrammar(req, res) {
   }
 }
 
+/** 批量生成文法例句Kokoro音频 */
+async function generateGrammarExamplesKokoroAudio(req, res) {
+  try {
+    const { grammar_ids } = req.body;
+    
+    // 获取所有待处理的文法
+    const grammars = await GrammarLesson.findAll({
+      where: grammar_ids ? { id: { [Op.in]: grammar_ids } } : {},
+      include: [{ model: GrammarExample, as: 'examples' }],
+      raw: false,
+    });
+    
+    if (grammars.length === 0) {
+      return res.status(400).json({ error: '未找到文法数据' });
+    }
+    
+    // 收集所有需要音频的例句
+    const examplesNeedingAudio = [];
+    grammars.forEach(g => {
+      if (g.examples && Array.isArray(g.examples)) {
+        g.examples.forEach(ex => {
+          if (!ex.audio_url || ex.audio_url.trim() === '') {
+            examplesNeedingAudio.push({
+              id: ex.id,
+              sentence: ex.sentence,
+              grammar_id: g.id,
+            });
+          }
+        });
+      }
+    });
+    
+    if (examplesNeedingAudio.length === 0) {
+      return res.json({ success: true, message: '所有例句都已有音频', updated: 0, total: 0 });
+    }
+    
+    // 调用批量生成API
+    const axios = require('axios');
+    const KOKORO_SERVICE_URL = process.env.KOKORO_SERVICE_URL || 'http://127.0.0.1:8010';
+    
+    const texts = examplesNeedingAudio.map(e => e.sentence);
+    
+    try {
+      const resp = await axios.post(
+        'http://127.0.0.1:8010/api/v1/tts/batch-generate',
+        { texts, voice: 'a', emotion: 'neutral', engine: 'edge-tts', speed: 1.0 },
+        { timeout: 120000 }  // 批量操作可能耗时较长
+      );
+      
+      const results = resp.data.results || [];
+      let updateCount = 0;
+      
+      // 更新数据库中的音频URL
+      for (let i = 0; i < examplesNeedingAudio.length; i++) {
+        const example = examplesNeedingAudio[i];
+        const result = results[i];
+        
+        if (result.success && result.audio_url) {
+          await GrammarExample.update(
+            { audio_url: result.audio_url },
+            { where: { id: example.id } }
+          );
+          updateCount++;
+        }
+      }
+      
+      // 更新版本号
+      if (updateCount > 0) {
+        await bumpVersion('grammar_version');
+      }
+      
+      res.json({
+        success: true,
+        message: `成功生成 ${updateCount}/${examplesNeedingAudio.length} 个音频`,
+        generated: updateCount,
+        total: examplesNeedingAudio.length,
+        details: resp.data.summary
+      });
+    } catch (apiErr) {
+      console.error('[Grammar Audio] Kokoro API调用失败:', apiErr.message);
+      res.status(503).json({ error: 'Kokoro TTS 服务不可用: ' + apiErr.message });
+    }
+  } catch (err) {
+    console.error('[Grammar Audio]批量生成失败:', err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
 // ─── Anki Apkg 导入文法 ──────────────────────────────────────────────────────
 const AdmZip = require('adm-zip');
 const { getSqlJs, detectMapping } = require('../services/ankiService');
@@ -667,6 +860,10 @@ async function generateGrammarExampleAudio(req, res) {
     
     // 3. 调用 Kokoro TTS 服务生成音频
     const KOKORO_SERVICE_URL = process.env.KOKORO_SERVICE_URL || 'http://127.0.0.1:8010';
+    const grammarAudioDir = path.join(__dirname, '../../uploads/grammar/audio');
+    if (!fs.existsSync(grammarAudioDir)) {
+      fs.mkdirSync(grammarAudioDir, { recursive: true });
+    }
     
     try {
       const ttsResponse = await axios.post(
@@ -680,21 +877,47 @@ async function generateGrammarExampleAudio(req, res) {
         { timeout: 30000 }
       );
       
-      // 音频 URL 示例：/api/v1/tts/kokoro/audio/kokoro_abc123def456.wav
-      const audioUrl = ttsResponse.data.audio_url;
+      // 获得Kokoro返回的相对URL: /api/v1/tts/kokoro/audio/kokoro_abc123.wav
+      const kokoroAudioUrl = ttsResponse.data.audio_url;
       
-      // 4. 更新数据库中的 audio_url
-      await example.update({ audio_url: audioUrl });
+      let savedAudioUrl = null;
       
-      // 5. 返回更新后的例句
-      res.json({
-        ok: true,
-        example: example.toJSON(),
-        audio_url: audioUrl,
-        message: '音频生成成功',
-      });
-      
-      console.log(`[Grammar Audio] 生成成功: lesson_id=${lessonId}, example_id=${exId}, audio_url=${audioUrl}`);
+      if (kokoroAudioUrl) {
+        try {
+          // 从Kokoro服务下载音频文件
+          const audioResponse = await axios.get(
+            `${KOKORO_SERVICE_URL}${kokoroAudioUrl}`,
+            { responseType: 'arraybuffer', timeout: 10000 }
+          );
+          
+          // 提取文件名 (e.g., kokoro_abc123.wav)
+          const filename = path.basename(kokoroAudioUrl);
+          const audioFilePath = path.join(grammarAudioDir, filename);
+          
+          // 保存到本地磁盘
+          fs.writeFileSync(audioFilePath, audioResponse.data);
+          
+          // 保存相对URL到数据库
+          savedAudioUrl = `/uploads/grammar/audio/${filename}`;
+          
+          // 更新数据库
+          await example.update({ audio_url: savedAudioUrl });
+          
+          res.json({
+            ok: true,
+            example: example.toJSON(),
+            audio_url: savedAudioUrl,
+            message: '音频生成成功',
+          });
+          
+          console.log(`[Grammar Audio] 生成成功: lesson_id=${lessonId}, example_id=${exId}, audio_url=${savedAudioUrl}, file_size=${audioResponse.data.length} bytes`);
+        } catch (fileError) {
+          console.error('[Grammar Audio] 文件保存失败:', fileError.message);
+          return res.status(500).json({ error: '音频文件保存失败: ' + fileError.message });
+        }
+      } else {
+        return res.status(500).json({ error: 'Kokoro未返回有效的音频URL' });
+      }
     } catch (kokoroError) {
       console.error('[Kokoro] 音频生成失败:', kokoroError.message);
       
@@ -1879,11 +2102,159 @@ async function getStudyPlanStats(req, res) {
   });
 }
 
+// ─── Kokoro TTS 设置 ───────────────────────────────────────────────────────────
+
+/** 获取 Kokoro TTS 配置 */
+async function getKokoroSettings(req, res) {
+  try {
+    // 默认配置
+    let kokoroConfig = {
+      enabled: true,
+      default_voice: 'a',
+      default_emotion: 'neutral',
+      default_engine: 'edge-tts',
+      default_speed: 1.0,
+      speed_range: { min: 0.5, max: 2.0 },
+      engines: ['edge-tts', 'gtts', 'google-tts', 'white-noise'],
+      voices: {
+        'a': { name: '女声优美', lang: 'ja_JP', emotions: ['neutral', 'happy', 'sad'] },
+        'b': { name: '女声清晰', lang: 'ja_JP', emotions: ['neutral', 'happy', 'sad'] },
+        'c': { name: '男声深沉', lang: 'ja_JP', emotions: ['neutral', 'happy', 'sad'] },
+      },
+      emotions: ['neutral', 'happy', 'sad'],
+      port: 8010,
+      host: '0.0.0.0',
+    };
+    
+    // 尝试从数据库读取用户设置
+    try {
+      const AppConfigModel = sequelize.models.AppConfig;
+      if (AppConfigModel) {
+        const kv = await AppConfigModel.findOne({
+          where: { key: 'kokoro_tts_settings' }
+        });
+        if (kv && kv.value) {
+          const userSettings = JSON.parse(kv.value);
+          console.log('[Kokoro] 从数据库加载配置:', userSettings);
+          kokoroConfig = { ...kokoroConfig, ...userSettings };
+        } else {
+          console.log('[Kokoro] 数据库中无已保存的配置，使用默认值');
+        }
+      }
+    } catch (dbErr) {
+      console.error('[Kokoro] 从数据库读取配置失败:', dbErr.message);
+      // 继续使用默认配置
+    }
+    
+    res.json({
+      kokoro_tts: kokoroConfig,
+      service_url: process.env.KOKORO_SERVICE_URL || 'http://127.0.0.1:8010',
+    });
+  } catch (err) {
+    console.error('获取Kokoro配置失败:', err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/** 保存 Kokoro TTS 配置 */
+async function saveKokoroSettings(req, res) {
+  try {
+    const { enabled, default_voice, default_emotion, default_engine, default_speed, service_url } = req.body;
+    
+    // 验证voice参数
+    if (default_voice && !['a', 'b', 'c'].includes(default_voice)) {
+      return res.status(400).json({ error: 'Invalid voice: must be a, b, or c' });
+    }
+    
+    // 验证emotion参数
+    if (default_emotion && !['neutral', 'happy', 'sad'].includes(default_emotion)) {
+      return res.status(400).json({ error: 'Invalid emotion: must be neutral, happy, or sad' });
+    }
+    
+    // 验证engine参数
+    const validEngines = ['edge-tts', 'gtts', 'google-tts', 'white-noise'];
+    if (default_engine && !validEngines.includes(default_engine)) {
+      return res.status(400).json({ error: `Invalid engine: must be one of ${validEngines.join(', ')}` });
+    }
+    
+    // 验证speed参数（0.5-2.0x）
+    let speed = parseFloat(default_speed) || 1.0;
+    speed = Math.max(0.5, Math.min(2.0, speed));
+    
+    const settings = {
+      enabled: enabled !== false,
+      default_voice: default_voice || 'a',
+      default_emotion: default_emotion || 'neutral',
+      default_engine: default_engine || 'edge-tts',  // 新增
+      default_speed: speed,
+      speed_range: { min: 0.5, max: 2.0 },
+      service_url: service_url || process.env.KOKORO_SERVICE_URL || 'http://127.0.0.1:8010',
+    };
+    
+    console.log('[Kokoro] 准备保存配置:', settings);
+    
+    // 保存到数据库
+    const AppConfigModel = sequelize.models.AppConfig;
+    if (!AppConfigModel) {
+      console.error('[Kokoro] AppConfig 模型未初始化！');
+      return res.status(500).json({ error: 'AppConfig model not initialized' });
+    }
+    
+    try {
+      // 使用 upsert 执行保存
+      const [config, created] = await AppConfigModel.upsert({
+        key: 'kokoro_tts_settings',
+        value: JSON.stringify(settings),
+      });
+      console.log(`[Kokoro] 配置${created ? '创建' : '更新'}成功`);
+      
+      // 验证数据确实被保存到数据库
+      const verify = await AppConfigModel.findOne({
+        where: { key: 'kokoro_tts_settings' }
+      });
+      
+      if (!verify) {
+        console.error('[Kokoro] 保存验证失败：数据库中找不到保存的配置');
+        return res.status(500).json({ error: 'Failed to verify saved configuration' });
+      }
+      
+      const verifiedSettings = JSON.parse(verify.value);
+      console.log('[Kokoro] 保存验证成功，数据库中的值:', verifiedSettings);
+      
+    } catch (dbErr) {
+      console.error('[Kokoro] 数据库操作失败:', dbErr.message);
+      console.error('[Kokoro] 完整错误:', dbErr.stack);
+      throw dbErr;
+    }
+    
+    // 同时更新环境变量
+    if (service_url) {
+      process.env.KOKORO_SERVICE_URL = service_url;
+    }
+    
+    console.log('[Kokoro] 配置已更新:', {
+      voice: settings.default_voice,
+      emotion: settings.default_emotion,
+      engine: settings.default_engine,
+      speed: settings.default_speed,
+      enabled: settings.enabled,
+    });
+    
+    res.json({
+      success: true,
+      settings,
+    });
+  } catch (err) {
+    console.error('保存Kokoro配置失败:', err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
 module.exports = {
   getDashboard,
-  listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, deduplicateVocab, fixVocabReadings,
+  listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, generateVocabExamplesKokoroAudio, deduplicateVocab, fixVocabReadings,
   importVocab, importVocabFile,
-  listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar, importGrammarApkg, generateGrammarExampleAudio,
+  listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar, generateGrammarExamplesKokoroAudio, importGrammarApkg, generateGrammarExampleAudio,
   listTracks, createTrack, updateTrack, deleteTrack,
   listUsers, updateUser, updateUserMembership,
   getContentVersion, publishContent,
@@ -1903,107 +2274,3 @@ module.exports = {
   listReports, getReport, updateReport, deleteReport,
   getStudyPlanStats,
 };
-
-// ─── Kokoro TTS 设置 ───────────────────────────────────────────────────────────
-
-/** 获取 Kokoro TTS 配置 */
-async function getKokoroSettings(req, res) {
-  try {
-    // 默认配置
-    let kokoroConfig = {
-      enabled: true,
-      default_voice: 'a',
-      default_emotion: 'neutral',
-      default_speed: 1.0,
-      speed_range: { min: 0.5, max: 2.0 },
-      voices: {
-        'a': { name: '女声优美', lang: 'ja_JP', emotions: ['neutral', 'happy', 'sad'] },
-        'b': { name: '女声清晰', lang: 'ja_JP', emotions: ['neutral', 'happy', 'sad'] },
-        'c': { name: '男声深沉', lang: 'ja_JP', emotions: ['neutral', 'happy', 'sad'] },
-      },
-      emotions: ['neutral', 'happy', 'sad'],
-      port: 8010,
-      host: '0.0.0.0',
-    };
-    
-    // 尝试从数据库读取用户设置
-    try {
-      const kv = await sequelize.models.AppConfig?.findOne({
-        where: { key: 'kokoro_tts_settings' }
-      });
-      if (kv && kv.value) {
-        const userSettings = JSON.parse(kv.value);
-        kokoroConfig = { ...kokoroConfig, ...userSettings };
-      }
-    } catch (_) {}
-    
-    res.json({
-      kokoro_tts: kokoroConfig,
-      service_url: process.env.KOKORO_SERVICE_URL || 'http://127.0.0.1:8010',
-    });
-  } catch (err) {
-    console.error('获取Kokoro配置失败:', err);
-    res.status(500).json({ error: err.message });
-  }
-}
-
-/** 保存 Kokoro TTS 配置 */
-async function saveKokoroSettings(req, res) {
-  try {
-    const { enabled, default_voice, default_emotion, default_speed, service_url } = req.body;
-    
-    // 验证voice参数
-    if (default_voice && !['a', 'b', 'c'].includes(default_voice)) {
-      return res.status(400).json({ error: 'Invalid voice: must be a, b, or c' });
-    }
-    
-    // 验证emotion参数
-    if (default_emotion && !['neutral', 'happy', 'sad'].includes(default_emotion)) {
-      return res.status(400).json({ error: 'Invalid emotion: must be neutral, happy, or sad' });
-    }
-    
-    // 验证speed参数（0.5-2.0x）
-    let speed = parseFloat(default_speed) || 1.0;
-    speed = Math.max(0.5, Math.min(2.0, speed));
-    
-    const settings = {
-      enabled: enabled !== false,
-      default_voice: default_voice || 'a',
-      default_emotion: default_emotion || 'neutral',
-      default_speed: speed,
-      speed_range: { min: 0.5, max: 2.0 },
-      service_url: service_url || process.env.KOKORO_SERVICE_URL || 'http://127.0.0.1:8010',
-    };
-    
-    // 保存到数据库
-    try {
-      const AppConfigModel = sequelize.models.AppConfig;
-      if (AppConfigModel) {
-        await AppConfigModel.upsert({
-          key: 'kokoro_tts_settings',
-          value: JSON.stringify(settings),
-        });
-      }
-    } catch (_) {}
-    
-    // 同时更新环境变量
-    if (service_url) {
-      process.env.KOKORO_SERVICE_URL = service_url;
-    }
-    
-    console.log('[Kokoro] 配置已更新:', {
-      voice: settings.default_voice,
-      emotion: settings.default_emotion,
-      speed: settings.default_speed,
-      enabled: settings.enabled,
-    });
-    
-    res.json({
-      success: true,
-      settings,
-    });
-  } catch (err) {
-    console.error('保存Kokoro配置失败:', err);
-    res.status(500).json({ error: err.message });
-  }
-}

@@ -353,6 +353,29 @@ const ListeningChannel = sequelize.define('ListeningChannel', {
   tableName: 'listening_channels',
 });
 
+// ────────── App Config (配置存储) ──────────
+const AppConfig = sequelize.define('AppConfig', {
+  key: {
+    type: DataTypes.STRING(100),
+    primaryKey: true,
+    comment: '配置键名 e.g. kokoro_tts_settings'
+  },
+  value: {
+    type: DataTypes.TEXT('medium'),
+    allowNull: true,
+    comment: 'JSON 格式的配置值'
+  },
+  description: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    comment: '配置说明'
+  },
+}, {
+  tableName: 'app_config',
+  timestamps: true,
+  comment: '应用全局配置存储'
+});
+
 const AppRelease = require('./AppRelease');
 
 module.exports = {
@@ -373,6 +396,7 @@ module.exports = {
   ContentVersion,
   ApiLog,
   AppRelease,
+  AppConfig,
   GameScore,
   GameConfig,
   MembershipPlan,

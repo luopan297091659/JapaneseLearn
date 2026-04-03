@@ -6,9 +6,9 @@ const { adminAuth, superAdminAuth, permissionCheck } = require('../middlewares/a
 const { audioUpload } = require('../services/audioService');
 const {
   getDashboard,
-  listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, deduplicateVocab, fixVocabReadings,
+  listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, generateVocabExamplesKokoroAudio, deduplicateVocab, fixVocabReadings,
   importVocab, importVocabFile,
-  listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar, importGrammarApkg, generateGrammarExampleAudio,
+  listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar, generateGrammarExamplesKokoroAudio, importGrammarApkg, generateGrammarExampleAudio,
   listTracks, createTrack, updateTrack, deleteTrack,
   listUsers, updateUser, updateUserMembership,
   getContentVersion, publishContent,
@@ -88,6 +88,7 @@ router.post('/vocabulary',             permissionCheck('vocabulary'), asyncHandl
 router.put('/vocabulary/:id',          permissionCheck('vocabulary'), asyncHandler(updateVocab));
 router.delete('/vocabulary/:id',       permissionCheck('vocabulary'), asyncHandler(deleteVocab));
 router.post('/vocabulary/bulk-delete', permissionCheck('vocabulary'), asyncHandler(bulkDeleteVocab));
+router.post('/vocabulary/generate-kokoro-audio', permissionCheck('vocabulary'), asyncHandler(generateVocabExamplesKokoroAudio));
 router.post('/vocabulary/deduplicate', permissionCheck('vocabulary'), asyncHandler(deduplicateVocab));
 router.post('/vocabulary/fix-readings', permissionCheck('vocabulary'), asyncHandler(fixVocabReadings));
 router.post('/vocabulary/import',      permissionCheck('vocabulary'), asyncHandler(importVocab));
@@ -109,6 +110,7 @@ router.post('/grammar',       permissionCheck('grammar'), asyncHandler(createGra
 router.put('/grammar/:id',    permissionCheck('grammar'), asyncHandler(updateGrammar));
 router.delete('/grammar/:id', permissionCheck('grammar'), asyncHandler(deleteGrammar));
 router.post('/grammar/bulk-delete', permissionCheck('grammar'), asyncHandler(bulkDeleteGrammar));
+router.post('/grammar/generate-kokoro-audio', permissionCheck('grammar'), asyncHandler(generateGrammarExamplesKokoroAudio));
 router.post('/grammar/import-apkg', permissionCheck('grammar'), apkgUpload.single('file'), asyncHandler(importGrammarApkg));
 router.post('/grammar/:lessonId/examples/:exId/generate-audio', permissionCheck('grammar'), asyncHandler(generateGrammarExampleAudio));
 

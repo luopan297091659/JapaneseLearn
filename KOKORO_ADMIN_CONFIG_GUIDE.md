@@ -15,7 +15,7 @@
 | **人声选择** | a / b / c | a | 👩女优美 / 👩女清晰 / 👨男深沉 |
 | **情感合成** | neutral / happy / sad | neutral | 😐自然 / 😊高兴 / 😢伤心 |
 | **语速倍数** | 0.5x - 2.0x | 1.0x | 调整朗读速度 |
-| **服务URL** | 文本输入 | http://localhost:8010 | Kokoro Python服务地址 |
+| **服务URL** | 文本输入 | http://127.0.0.1:8010 | Kokoro Python服务地址 |
 
 ---
 
@@ -105,7 +105,7 @@
   "default_emotion": "neutral",
   "default_speed": 1.0,
   "speed_range": { "min": 0.5, "max": 2.0 },
-  "service_url": "http://localhost:8010"
+  "service_url": "http://127.0.0.1:8010"
 }
 ```
 
@@ -131,7 +131,7 @@ Authorization: Bearer <token>
     "emotions": ["neutral", "happy", "sad"],
     "speed_range": { "min": 0.5, "max": 2.0 }
   },
-  "service_url": "http://localhost:8010"
+  "service_url": "http://127.0.0.1:8010"
 }
 ```
 
@@ -147,7 +147,7 @@ Content-Type: application/json
   "default_voice": "a",
   "default_emotion": "neutral",
   "default_speed": 1.0,
-  "service_url": "http://localhost:8010"
+  "service_url": "http://127.0.0.1:8010"
 }
 
 响应：
@@ -207,7 +207,7 @@ async function saveKokoroSettings(req, res) {
     default_emotion,
     default_speed: speed,
     speed_range: { min: 0.5, max: 2.0 },
-    service_url: service_url || 'http://localhost:8010'
+    service_url: service_url || 'http://127.0.0.1:8010'
   };
   
   await sequelize.models.AppConfig.upsert({

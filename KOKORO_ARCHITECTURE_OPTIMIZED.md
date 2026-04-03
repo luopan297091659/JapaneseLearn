@@ -92,7 +92,7 @@ router.get('/kokoro/audio/:filename', async (req, res) => {
   try {
     // 代理请求到本地8010
     const audioResponse = await axios.get(
-      `http://localhost:8010/api/v1/tts/kokoro/audio/${filename}`,
+      `http://127.0.0.1:8010/api/v1/tts/kokoro/audio/${filename}`,
       { responseType: 'arraybuffer', timeout: 5000 }
     );
     
@@ -153,7 +153,7 @@ Content-Type: application/json
 ### 步骤 2：Node.js后端代理到Python Kokoro
 
 ```
-POST http://localhost:8010/api/v1/tts/kokoro
+POST http://127.0.0.1:8010/api/v1/tts/kokoro
 {...same data...}
 ```
 
@@ -189,7 +189,7 @@ Node.js代理路由处理（新增）：
 router.get('/kokoro/audio/:filename', async (req, res) => {
   // 从本地8010获取音频
   const audioResponse = await axios.get(
-    `http://localhost:8010/api/v1/tts/kokoro/audio/${kokoro_abc123def456.wav}`,
+    `http://127.0.0.1:8010/api/v1/tts/kokoro/audio/${kokoro_abc123def456.wav}`,
     { responseType: 'arraybuffer' }
   );
   res.send(audioResponse.data);
@@ -257,7 +257,7 @@ dio.httpClientAdapter = DefaultHttpClientAdapter()
 |------|--------|------|---------|
 | **8002可达性** | APP可访问 | `curl -k https://139.196.44.6:8002/api/v1/tts/health` | 200 OK |
 | **8010隔离** | 外部无法访问 | `curl http://139.196.44.6:8010/health` | 连接拒绝 ❌ |
-| **8010内网访问** | Node.js可访问 | `docker exec japanese-learn curl http://localhost:8010/health` | 200 OK ✅ |
+| **8010内网访问** | Node.js可访问 | `docker exec japanese-learn curl http://127.0.0.1:8010/health` | 200 OK ✅ |
 | **相对URL返回** | 后端响应格式 | `curl -X POST https://139.196.44.6:8002/api/v1/tts/kokoro-speak -d {...}` | `"audio_url": "/api/v1/tts/..."` ✅ |
 | **代理端点** | 音频下载 | `curl https://139.196.44.6:8002/api/v1/tts/kokoro/audio/kokoro_xxx.wav` | WAV文件 ✅ |
 | **APP日志** | 完整流程 | `adb logcat \| grep "\[TTS\]"` | 显示8002的URL ✅ |
