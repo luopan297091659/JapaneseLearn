@@ -397,9 +397,61 @@ async def kokoro_tts_api(req: TTSRequest, background_tasks: BackgroundTasks):
         print(f"TTS Error: {e}")
         raise HTTPException(status_code=500, detail=f"TTS synthesis failed: {str(e)}")
 
+async def synthesize_single(text: str, voice: str, emotion: str, engine: str, speed: float, background_tasks: BackgroundTasks) -> BatchTTSResult:
+    """异步合成单个文本 (带超时保护)"""
+    if not text or len(text.strip()) == 0:
+        return BatchTTSResult(
+            text=text,
+            success=False,
+            error="Text cannot be empty"
+        )
+    
+    try:
+        # 在线程池中运行合成（IO密集型），单个文本超时设为15秒
+        def synthesize_sync():
+            tts = get_tts_instance(voice, emotion, engine=engine)
+            return tts.synthesize(text, speed=speed)
+        
+        # 单个文本的超时: 15秒
+        audio_bytes = await asyncio.wait_for(
+            asyncio.to_thread(synthesize_sync),
+            timeout=15.0
+        )
+        
+        # 保存到临时文件
+        filename = f"kokoro_{uuid.uuid4().hex}.wav"
+        file_path = TEMP_AUDIO_DIR / filename
+        
+        with open(file_path, "wb") as f:
+            f.write(audio_bytes)
+        
+        # 后台清理(1小时后删除)
+        background_tasks.add_task(cleanup_file, str(file_path), delay=3600)
+        
+        return BatchTTSResult(
+            text=text,
+            success=True,
+            audio_url=f"/api/v1/tts/kokoro/audio/{filename}"
+        )
+        
+    except asyncio.TimeoutError:
+        print(f"[!] TTS timeout for text '{text[:50]}...'")
+        return BatchTTSResult(
+            text=text,
+            success=False,
+            error="Synthesis timeout (15s exceeded)"
+        )
+    except Exception as e:
+        print(f"[!] Batch TTS Error for text '{text[:50]}...': {e}")
+        return BatchTTSResult(
+            text=text,
+            success=False,
+            error=str(e)
+        )
+
 @app.post("/api/v1/tts/batch-generate", response_model=BatchTTSResponse)
 async def batch_tts_api(req: BatchTTSRequest, background_tasks: BackgroundTasks):
-    """批量生成TTS音频"""
+    """批量生成TTS音频 (并发处理，启用超时保护)"""
     if not KOKORO_AVAILABLE:
         raise HTTPException(status_code=503, detail="Kokoro TTS service not available")
     
@@ -416,57 +468,46 @@ async def batch_tts_api(req: BatchTTSRequest, background_tasks: BackgroundTasks)
     if not (0.5 <= req.speed <= 2.0):
         raise HTTPException(status_code=400, detail="Speed must be between 0.5 and 2.0")
     
-    results = []
-    success_count = 0
+    print(f"[*] Batch TTS: Starting to synthesize {len(req.texts)} texts (concurrent)")
     
-    for text in req.texts:
-        if not text or len(text.strip()) == 0:
-            results.append(BatchTTSResult(
-                text=text,
-                success=False,
-                error="Text cannot be empty"
-            ))
-            continue
-        
-        try:
-            # 在线程池中运行合成
-            def synthesize_sync():
-                tts = get_tts_instance(req.voice, req.emotion, engine=req.engine)
-                return tts.synthesize(text, speed=req.speed)
-            
-            audio_bytes = await asyncio.to_thread(synthesize_sync)
-            
-            # 保存到临时文件
-            filename = f"kokoro_{uuid.uuid4().hex}.wav"
-            file_path = TEMP_AUDIO_DIR / filename
-            
-            with open(file_path, "wb") as f:
-                f.write(audio_bytes)
-            
-            # 后台清理(1小时后删除)
-            background_tasks.add_task(cleanup_file, str(file_path), delay=3600)
-            
-            results.append(BatchTTSResult(
-                text=text,
-                success=True,
-                audio_url=f"/api/v1/tts/kokoro/audio/{filename}"
-            ))
-            success_count += 1
-            
-        except Exception as e:
-            print(f"Batch TTS Error for text '{text}': {e}")
-            results.append(BatchTTSResult(
-                text=text,
-                success=False,
-                error=str(e)
-            ))
+    # 使用 asyncio.gather 并发处理所有文本 (最多同时3个)
+    # 这避免了顺序处理的低效，提速显著
+    semaphore = asyncio.Semaphore(3)  # 最多同时合成3个文本
+    
+    # 计算整体超时: 每个文本约需5秒 (含网络开销), 加上20秒的buffer
+    total_timeout = max(30, len(req.texts) * 5 + 20)
+    
+    async def bounded_synthesize(text):
+        async with semaphore:
+            return await synthesize_single(text, req.voice, req.emotion, req.engine, req.speed, background_tasks)
+    
+    try:
+        # 并发运行所有合成任务，且加上总体超时保护
+        tasks = [bounded_synthesize(text) for text in req.texts]
+        results = await asyncio.wait_for(
+            asyncio.gather(*tasks),
+            timeout=total_timeout
+        )
+    except asyncio.TimeoutError:
+        print(f"[!] Batch TTS timeout after {total_timeout}s")
+        # 返回已完成的结果（可能不完整）
+        raise HTTPException(
+            status_code=504, 
+            detail=f"Batch generation timeout: {total_timeout}s exceeded for {len(req.texts)} texts"
+        )
+    
+    # 统计结果
+    success_count = sum(1 for r in results if r.success)
+    failed_count = len(results) - success_count
+    
+    print(f"[✓] Batch TTS: Synthesized {success_count}/{len(req.texts)} successfully, {failed_count} failed")
     
     return BatchTTSResponse(
         results=results,
         summary={
             "total": len(req.texts),
             "success": success_count,
-            "failed": len(req.texts) - success_count
+            "failed": failed_count
         }
     )
 

@@ -55,10 +55,11 @@ ENDOFREQ"
 
 Remote-Run "cd $RemotePath && python3.11 -m pip install -r /tmp/req.txt --quiet 2>&1 || python3.11 -m pip install -r /tmp/req.txt"
 
-# 步骤 5: 启动 Kokoro 服务（使用 pm2）
+# 步骤 5: 启动 Kokoro 服务（使用 pm2，启用多worker并发）
 Write-Host "[5/5] 启动 Kokoro 服务..." -ForegroundColor Yellow
-Remote-Run "which pm2 >/dev/null 2>&1 || npm install -g pm2 >/dev/null 2>&1"
-Remote-Run "cd $RemotePath && pm2 kill 2>/dev/null; pm2 start 'python3.11 -m uvicorn kokoro_tts_service_v2:app --host 0.0.0.0 --port 8010' --name kokoro-tts"
+# 使用多workers (4-8个) 来支持高并发批量生成
+# uvicorn 会自动使用thread pool来处理sync操作
+Remote-Run "cd $RemotePath; pm2 start 'python3.11 -m uvicorn kokoro_tts_service_v2:app --host 0.0.0.0 --port 8010 --workers 4' --name kokoro-tts"
 Remote-Run "sleep 3"
 Remote-Run "pm2 list"
 Remote-Run "pm2 logs kokoro-tts --lines 30"

@@ -256,36 +256,48 @@ async function generateVocabExamplesKokoroAudio(req, res) {
     const axios = require('axios');
     
     try {
+      // 计算合理的超时: 文本数量 * 5秒 + buffer
+      const timeoutMs = Math.max(30000, textsToGenerate.length * 5000 + 20000);
+      
       const resp = await axios.post(
         'http://127.0.0.1:8010/api/v1/tts/batch-generate',
         { texts: textsToGenerate, voice: 'a', emotion: 'neutral', engine: 'edge-tts', speed: 1.0 },
-        { timeout: 180000 }  // 批量操作可能耗时较长
+        { timeout: timeoutMs }
       );
       
       const results = resp.data.results || [];
-      let updateCount = 0;
       const Vocabulary = sequelize.models.Vocabulary;
+      
+      // 并发更新所有的数据库记录
+      const updatePromises = [];
       
       // 更新数据库中的音频URL
       for (let i = 0; i < results.length; i++) {
         const result = results[i];
         const info = textIndexMap.get(i);
         
-        if (result.success && result.audio_url && info) {
+        if (result && result.success && result.audio_url && info) {
           if (info.type === 'word') {
-            await Vocabulary.update(
-              { audio_url: result.audio_url },
-              { where: { id: info.id } }
+            updatePromises.push(
+              Vocabulary.update(
+                { audio_url: result.audio_url },
+                { where: { id: info.id } }
+              )
             );
           } else if (info.type === 'example') {
-            await VocabExample.update(
-              { audio_url: result.audio_url },
-              { where: { id: info.id } }
+            updatePromises.push(
+              VocabExample.update(
+                { audio_url: result.audio_url },
+                { where: { id: info.id } }
+              )
             );
           }
-          updateCount++;
         }
       }
+      
+      // 等待所有更新完成
+      const updateResults = await Promise.all(updatePromises);
+      const updateCount = updateResults.length;
       
       // 更新版本号
       if (updateCount > 0) {
@@ -301,7 +313,15 @@ async function generateVocabExamplesKokoroAudio(req, res) {
       });
     } catch (apiErr) {
       console.error('[Vocab Audio] Kokoro API调用失败:', apiErr.message);
-      res.status(503).json({ error: 'Kokoro TTS 服务不可用: ' + apiErr.message });
+      
+      // 区分不同的错误
+      if (apiErr.code === 'ECONNABORTED' || apiErr.message.includes('timeout')) {
+        res.status(504).json({ error: '音频生成超时，请检查文本数量或网络连接' });
+      } else if (apiErr.response?.status === 504) {
+        res.status(504).json({ error: 'Kokoro TTS 服务超时' });
+      } else {
+        res.status(503).json({ error: 'Kokoro TTS 服务不可用: ' + apiErr.message });
+      }
     }
   } catch (err) {
     console.error('[Vocab Audio] 批量生成失败:', err);
@@ -625,28 +645,38 @@ async function generateGrammarExamplesKokoroAudio(req, res) {
     const texts = examplesNeedingAudio.map(e => e.sentence);
     
     try {
+      // 计算合理的超时: 文本数量 * 5秒 + buffer
+      const timeoutMs = Math.max(30000, examplesNeedingAudio.length * 5000 + 20000);
+      
       const resp = await axios.post(
         'http://127.0.0.1:8010/api/v1/tts/batch-generate',
         { texts, voice: 'a', emotion: 'neutral', engine: 'edge-tts', speed: 1.0 },
-        { timeout: 120000 }  // 批量操作可能耗时较长
+        { timeout: timeoutMs }
       );
       
       const results = resp.data.results || [];
-      let updateCount = 0;
       
-      // 更新数据库中的音频URL
+      // 并发更新所有的数据库记录 (而不是顺序更新)
+      const updatePromises = [];
+      
       for (let i = 0; i < examplesNeedingAudio.length; i++) {
         const example = examplesNeedingAudio[i];
         const result = results[i];
         
-        if (result.success && result.audio_url) {
-          await GrammarExample.update(
-            { audio_url: result.audio_url },
-            { where: { id: example.id } }
+        if (result && result.success && result.audio_url) {
+          // 并发执行所有数据库更新
+          updatePromises.push(
+            GrammarExample.update(
+              { audio_url: result.audio_url },
+              { where: { id: example.id } }
+            )
           );
-          updateCount++;
         }
       }
+      
+      // 等待所有更新完成
+      const updateResults = await Promise.all(updatePromises);
+      const updateCount = updateResults.length;
       
       // 更新版本号
       if (updateCount > 0) {
@@ -662,7 +692,15 @@ async function generateGrammarExamplesKokoroAudio(req, res) {
       });
     } catch (apiErr) {
       console.error('[Grammar Audio] Kokoro API调用失败:', apiErr.message);
-      res.status(503).json({ error: 'Kokoro TTS 服务不可用: ' + apiErr.message });
+      
+      // 区分不同的错误
+      if (apiErr.code === 'ECONNABORTED' || apiErr.message.includes('timeout')) {
+        res.status(504).json({ error: '音频生成超时，请检查文本数量或网络连接' });
+      } else if (apiErr.response?.status === 504) {
+        res.status(504).json({ error: 'Kokoro TTS 服务超时' });
+      } else {
+        res.status(503).json({ error: 'Kokoro TTS 服务不可用: ' + apiErr.message });
+      }
     }
   } catch (err) {
     console.error('[Grammar Audio]批量生成失败:', err);
