@@ -28,9 +28,9 @@ function Remote-Upload-File([string]$Local, [string]$RemoteFile) {
     & pscp -batch -hostkey $HostKey -pw $Passwd -P $Port $Local "${User}@${ServerHost}:${RemoteFile}"
 }
 
-# 步骤 1: 检查/安装 Python 及依赖
-Write-Host "[1/5] 检查/安装 Python 环境..." -ForegroundColor Yellow
-Remote-Run "python3 --version && pip3 --version || (dnf install -y python3 python3-pip && pip3 install --upgrade pip setuptools wheel)"
+# 步骤 1: 检查 Python 3.11
+Write-Host "[1/5] 检查 Python 3.11 环境..." -ForegroundColor Yellow
+Remote-Run "python3.11 --version && python3.11 -m pip --version"
 
 # 步骤 2: 创建远程目录
 Write-Host "[2/5] 创建远程目录..." -ForegroundColor Yellow
@@ -42,51 +42,26 @@ Remote-Upload-File "$LocalBackend\config\kokoro_tts_settings.py" "$RemotePath/ko
 Remote-Upload-File "$LocalBackend\scripts\kokoro_tts_service.py" "$RemotePath/kokoro_tts_service.py"
 
 # 步骤 4: 创建 requirements.txt 并安装依赖
-Write-Host "[4/5] 安装 Python 依赖..." -ForegroundColor Yellow
-Remote-Run @"
-cat > $RemotePath/requirements.txt << 'EOF'
+Write-Host "[4/5] 安装 Python 3.11 依赖..." -ForegroundColor Yellow
+Remote-Run "cd $RemotePath && cat > /tmp/req.txt << ENDOFREQ
 fastapi==0.104.1
 uvicorn==0.24.0
 python-multipart==0.0.6
 pydantic==2.5.0
-# Kokoro TTS 依赖
-kokoro-onnx==0.3.0
-onnxruntime==1.17.1
-numpy==1.24.3
-misaki>=0.2.5
-EOF
-cd $RemotePath && pip3 install -r requirements.txt --quiet
-"@
+numpy>=1.24.0
+aiofiles>=23.2.0
+ENDOFREQ"
+
+Remote-Run "cd $RemotePath && python3.11 -m pip install -r /tmp/req.txt --quiet 2>&1 || python3.11 -m pip install -r /tmp/req.txt"
 
 # 步骤 5: 启动 Kokoro 服务（使用 pm2）
 Write-Host "[5/5] 启动 Kokoro 服务..." -ForegroundColor Yellow
-Remote-Run @"
-which pm2 >/dev/null 2>&1 || npm install -g pm2 >/dev/null 2>&1
-
-cd $RemotePath
-
-# 创建启动脚本
-cat > start_kokoro.js << 'EOF'
-const { spawn } = require('child_process');
-const path = require('path');
-
-const child = spawn('python3', ['kokoro_tts_service.py'], {
-  cwd: __dirname,
-  stdio: 'inherit',
-  env: { ...process.env, PYTHONUNBUFFERED: '1' }
-});
-
-child.on('exit', (code) => {
-  console.log(\`Kokoro TTS service exited with code \${code}\`);
-  process.exit(code);
-});
-EOF
-
-# pm2 启动/重启
-pm2 restart kokoro-tts 2>/dev/null || pm2 start start_kokoro.js --name kokoro-tts --interpreter node --env prod
-pm2 save --force
-pm2 list
-"@
+Remote-Run "which pm2 >/dev/null 2>&1 || npm install -g pm2 >/dev/null 2>&1"
+Remote-Run "pm2 delete kokoro-tts 2>/dev/null || true"
+Remote-Run "cd $RemotePath && pm2 start 'python3.11 -m uvicorn kokoro_tts_service:app --host 0.0.0.0 --port 8010' --name kokoro-tts"
+Remote-Run "sleep 3"
+Remote-Run "pm2 list"
+Remote-Run "pm2 logs kokoro-tts --lines 30"
 
 Write-Host ""
 Write-Host "[✓] Kokoro 部署完成" -ForegroundColor Green

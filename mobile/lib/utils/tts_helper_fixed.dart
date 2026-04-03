@@ -77,25 +77,18 @@ class TtsHelper {
 
     // 3. 后端Kokoro TTS
     try {
-      debugPrint('[TTS] 第3层：尝试Kokoro后端合成 - URL: ${AppConfig.kokoroTtsUrl}');
       final dio = Dio();
-      final requestData = {
-        'text': text,
-        'voice': 'a',  // 'a', 'b', 或 'c'
-        'emotion': 'neutral',
-        'speed': slow ? 0.7 : 1.0,
-      };
-      debugPrint('[TTS] 请求数据: ${jsonEncode(requestData)}');
-      
       final resp = await dio.post(
         AppConfig.kokoroTtsUrl,
-        data: jsonEncode(requestData),
+        data: jsonEncode({
+          'text': text,
+          'voice': 'a',  // 'a', 'b', 或 'c'
+          'emotion': 'neutral',
+          'speed': slow ? 0.7 : 1.0,
+        }),
         options: Options(headers: {'Content-Type': 'application/json'}),
       );
-      
-      debugPrint('[TTS] 收到响应: ${resp.statusCode}');
       final kokoroAudioUrl = resp.data['audio_url'] as String?;
-      debugPrint('[TTS] 返回的audio_url: $kokoroAudioUrl');
       if (kokoroAudioUrl != null && kokoroAudioUrl.isNotEmpty) {
         // 如果是相对URL，拼接上服务器地址
         String fullUrl = kokoroAudioUrl;
@@ -104,9 +97,7 @@ class TtsHelper {
           final baseUrl = AppConfig.kokoroTtsUrl.replaceAll(RegExp(r'/api/v1/tts/.*'), '');
           fullUrl = baseUrl + kokoroAudioUrl;
         }
-        debugPrint('[TTS] 最终播放URL: $fullUrl');
         final player = AudioPlayer();
-        debugPrint('[TTS] 开始播放...');
         await player.setUrl(fullUrl);
         await player.setVolume(1.0);
         await player.setSpeed(slow ? 0.5 : 1.0);
@@ -119,7 +110,7 @@ class TtsHelper {
         });
       }
     } catch (e) {
-      debugPrint('[TTS] Kokoro TTS后端失败: $e');
+      debugPrint('Kokoro TTS后端失败: $e');
       if (onComplete != null) onComplete();
     }
   }

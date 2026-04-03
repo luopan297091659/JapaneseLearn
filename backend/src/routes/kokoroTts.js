@@ -43,11 +43,18 @@ router.post('/kokoro-speak', async (req, res) => {
     );
     
     // 返回 Kokoro 服务的响应
+    // 重要：返回可从APP访问的完整URL，而不是localhost
+    const publicAudioUrl = process.env.KOKORO_PUBLIC_URL 
+      ? `${process.env.KOKORO_PUBLIC_URL}${resp.data.audio_url}`
+      : `${KOKORO_SERVICE_URL}${resp.data.audio_url}`.replace('localhost:8010', '139.196.44.6:8010');
+    
     res.json({
-      audio_url: `${KOKORO_SERVICE_URL}${resp.data.audio_url}`,
+      audio_url: publicAudioUrl,
       voice: resp.data.voice,
       emotion: resp.data.emotion,
     });
+    
+    console.log(`TTS合成成功: text_len=${text.trim().length}, voice=${voice}, url=${publicAudioUrl}`);
   } catch (error) {
     console.error('Kokoro TTS 合成失败:', error.message);
     

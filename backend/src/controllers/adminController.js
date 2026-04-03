@@ -1816,7 +1816,100 @@ module.exports = {
   downloadApp,
   deleteAppRelease,
   getAiSettings, saveAiSettings, getAiUsage, resetAiUsage, readAiSettings, saveAiSettingsFile,
+  getKokoroSettings, saveKokoroSettings,
   listAdmins, updateAdminPermissions, getAdminInfo,
   listReports, getReport, updateReport, deleteReport,
   getStudyPlanStats,
 };
+
+// ─── Kokoro TTS 设置 ───────────────────────────────────────────────────────────
+
+/** 获取 Kokoro TTS 配置 */
+async function getKokoroSettings(req, res) {
+  try {
+    const { readFileSync } = require('fs');
+    const path = require('path');
+    const kokoroConfigPath = path.join(__dirname, '../../../backend/config/kokoro_tts_settings.py');
+    
+    // 从Python配置文件读取默认配置
+    let kokoroConfig = {
+      enabled: true,
+      default_voice: 'a',
+      default_emotion: 'neutral',
+      voices: {
+        'a': { name: '女声优美', lang: 'ja_JP', emotions: ['neutral'] },
+        'b': { name: '女声清晰', lang: 'ja_JP', emotions: ['neutral'] },
+        'c': { name: '男声深沉', lang: 'ja_JP', emotions: ['neutral'] },
+      },
+      port: 8010,
+      host: '0.0.0.0',
+    };
+    
+    // 尝试从数据库读取用户设置（如果存在）
+    try {
+      const kv = await sequelize.models.AppConfig?.findOne({
+        where: { key: 'kokoro_tts_settings' }
+      });
+      if (kv && kv.value) {
+        const userSettings = JSON.parse(kv.value);
+        kokoroConfig = { ...kokoroConfig, ...userSettings };
+      }
+    } catch (_) {}
+    
+    res.json({
+      kokoro_tts: kokoroConfig,
+      service_url: process.env.KOKORO_SERVICE_URL || 'http://localhost:8010',
+    });
+  } catch (err) {
+    console.error('获取Kokoro配置失败:', err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/** 保存 Kokoro TTS 配置 */
+async function saveKokoroSettings(req, res) {
+  try {
+    const { enabled, default_voice, default_emotion, service_url } = req.body;
+    
+    // 验证voice参数
+    if (default_voice && !['a', 'b', 'c'].includes(default_voice)) {
+      return res.status(400).json({ error: 'Invalid voice: must be a, b, or c' });
+    }
+    
+    // 验证emotion参数
+    if (default_emotion && !['neutral', 'happy', 'sad'].includes(default_emotion)) {
+      return res.status(400).json({ error: 'Invalid emotion' });
+    }
+    
+    const settings = {
+      enabled: enabled !== false,
+      default_voice: default_voice || 'a',
+      default_emotion: default_emotion || 'neutral',
+      service_url: service_url || process.env.KOKORO_SERVICE_URL || 'http://localhost:8010',
+    };
+    
+    // 保存到数据库
+    try {
+      const AppConfigModel = sequelize.models.AppConfig;
+      if (AppConfigModel) {
+        await AppConfigModel.upsert({
+          key: 'kokoro_tts_settings',
+          value: JSON.stringify(settings),
+        });
+      }
+    } catch (_) {}
+    
+    // 同时更新环境变量
+    if (service_url) {
+      process.env.KOKORO_SERVICE_URL = service_url;
+    }
+    
+    res.json({
+      success: true,
+      settings,
+    });
+  } catch (err) {
+    console.error('保存Kokoro配置失败:', err);
+    res.status(500).json({ error: err.message });
+  }
+}

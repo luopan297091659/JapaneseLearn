@@ -18,6 +18,7 @@ const {
   getFeatureTiers, saveFeatureTiers,
   uploadApp, listAppReleases, publishAppRelease, getLatestAppRelease, downloadApp, deleteAppRelease,
   getAiSettings, saveAiSettings, getAiUsage, resetAiUsage,
+  getKokoroSettings, saveKokoroSettings,
   listAdmins, updateAdminPermissions, getAdminInfo,
   listReports, getReport, updateReport, deleteReport,
   getStudyPlanStats,
@@ -168,5 +169,9 @@ router.delete('/reports/:id', permissionCheck('reports'), asyncHandler(deleteRep
 
 // 学习计划管理
 router.get('/study-plan/stats', permissionCheck('stats'), asyncHandler(getStudyPlanStats));
+
+// Kokoro TTS 配置管理
+router.get('/settings/kokoro',  adminAuth, asyncHandler(getKokoroSettings));
+router.post('/settings/kokoro', permissionCheck('settings'), asyncHandler(saveKokoroSettings));
 
 module.exports = router;
