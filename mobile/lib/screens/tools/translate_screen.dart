@@ -140,9 +140,10 @@ class _TranslateScreenState extends State<TranslateScreen> with SingleTickerProv
 
   void _speak(String text) async {
     if (text.isEmpty) return;
-    try {
-      await _tts.speak(text.substring(0, text.length.clamp(0, 500)));
-    } catch (_) {}
+    await TtsHelper.playJapaneseSmart(
+      text: text.substring(0, text.length.clamp(0, 500)),
+      tts: _tts,
+    );
   }
 
   void _onSubmit() {

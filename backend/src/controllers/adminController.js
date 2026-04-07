@@ -207,15 +207,24 @@ async function bulkDeleteVocab(req, res) {
 /** 批量生成词汇Kokoro音频 （单词本身和例句） */
 async function generateVocabExamplesKokoroAudio(req, res) {
   try {
+    const audioLocalizationService = require('../services/audioLocalizationService');
+    const { selectedIds } = req.body || {};
+    
+    // 构建WHERE条件
+    let vocabWhere = { audio_url: { [Op.or]: [null, ''] } };
+    if (selectedIds && Array.isArray(selectedIds) && selectedIds.length > 0) {
+      vocabWhere.id = { [Op.in]: selectedIds };
+    }
+    
     // 获取所有需要音频的词汇（无audio_url）
     const vocabs = await Vocabulary.findAll({
-      where: { audio_url: { [Op.or]: [null, ''] } },  // ✅ 只获取没有音频的词汇
+      where: vocabWhere,
       attributes: ['id', 'word', 'reading'],
       raw: false,
     });
     
     if (vocabs.length === 0) {
-      return res.status(400).json({ error: '所有词汇都已有读音音频' });
+      return res.status(400).json({ error: '所有词汇都已有读音音频或未选择任何项目' });
     }
     
     // 获取所有需要音频的例句（来自VocabularyExample表）
@@ -255,43 +264,105 @@ async function generateVocabExamplesKokoroAudio(req, res) {
     
     // 调用批量生成API
     const axios = require('axios');
+    const KOKORO_SERVICE_URL = process.env.KOKORO_SERVICE_URL || 'http://127.0.0.1:8010';
+    
+    // 读取管理员配置的Kokoro参数
+    let defaultVoice = 'a';
+    let defaultEmotion = 'neutral';
+    let defaultEngine = 'edge-tts';
+    let defaultSpeed = 1.0;
+    try {
+      const kv = await sequelize.models.AppConfig?.findOne({
+        where: { key: 'kokoro_tts_settings' }
+      });
+      if (kv && kv.value) {
+        const kokoroConfig = JSON.parse(kv.value);
+        defaultVoice = kokoroConfig.default_voice || 'a';
+        defaultEmotion = kokoroConfig.default_emotion || 'neutral';
+        defaultEngine = kokoroConfig.default_engine || 'edge-tts';
+        defaultSpeed = kokoroConfig.default_speed || 1.0;
+        console.log(`[Vocab Audio] 使用管理员配置: voice=${defaultVoice}, emotion=${defaultEmotion}, engine=${defaultEngine}, speed=${defaultSpeed}`);
+      }
+    } catch (configErr) {
+      console.warn(`[Vocab Audio] 读取Kokoro配置失败，使用默认值: ${configErr.message}`);
+    }
     
     try {
       // 计算合理的超时: 文本数量 * 5秒 + buffer
       const timeoutMs = Math.max(30000, textsToGenerate.length * 5000 + 20000);
       
+      console.log(`[Vocab Audio] 调用Kokoro API生成 ${textsToGenerate.length} 条音频...`);
       const resp = await axios.post(
-        'http://127.0.0.1:8010/api/v1/tts/batch-generate',
-        { texts: textsToGenerate, voice: 'a', emotion: 'neutral', engine: 'edge-tts', speed: 1.0 },
+        `${KOKORO_SERVICE_URL}/api/v1/tts/batch-generate`,
+        { texts: textsToGenerate, voice: defaultVoice, emotion: defaultEmotion, engine: defaultEngine, speed: defaultSpeed },
         { timeout: timeoutMs }
       );
       
       const results = resp.data.results || [];
-      const Vocabulary = sequelize.models.Vocabulary;
+      console.log(`[Vocab Audio] Kokoro返回 ${results.length} 条结果，正在下载并本地化...`);
+      
+      // 提取所有成功的音频URL用于下载，需要拼接完整URL
+      const successfulAudioUrls = results
+        .filter(r => r.success && r.audio_url)
+        .map(r => {
+          // r.audio_url 是相对路径，需要拼接完整URL
+          const audioUrl = r.audio_url.startsWith('http') 
+            ? r.audio_url 
+            : `${KOKORO_SERVICE_URL}${r.audio_url}`;
+          return audioUrl;
+        });
+      
+      console.log(`[Vocab Audio] 待下载的完整URL示例: ${successfulAudioUrls[0] || 'N/A'}`);
+      
+      // 批量下载并本地化音频到 /uploads/audio/vocab/ 目录
+      const localizationResults = await audioLocalizationService.batchDownloadAndLocalize(successfulAudioUrls, 'vocabulary');
+      const localizationMap = new Map(localizationResults.map(r => [r.originalUrl, r.localPath]));
       
       // 并发更新所有的数据库记录
+      const Vocabulary = sequelize.models.Vocabulary;
       const updatePromises = [];
+      const now = new Date();
       
-      // 更新数据库中的音频URL
+      // 更新数据库中的音频URL（使用本地路径）
       for (let i = 0; i < results.length; i++) {
         const result = results[i];
         const info = textIndexMap.get(i);
         
         if (result && result.success && result.audio_url && info) {
-          if (info.type === 'word') {
-            updatePromises.push(
-              Vocabulary.update(
-                { audio_url: result.audio_url },
-                { where: { id: info.id } }
-              )
-            );
-          } else if (info.type === 'example') {
-            updatePromises.push(
-              VocabExample.update(
-                { audio_url: result.audio_url },
-                { where: { id: info.id } }
-              )
-            );
+          // 查询Map时也需要拼接为完整URL
+          const fullUrl = result.audio_url.startsWith('http')
+            ? result.audio_url
+            : `${KOKORO_SERVICE_URL}${result.audio_url}`;
+          const localPath = localizationMap.get(fullUrl);
+          
+          if (localPath) {
+            if (info.type === 'word') {
+              updatePromises.push(
+                Vocabulary.update(
+                  {
+                    audio_url: localPath,
+                    audio_url_type: 'kokoro',
+                    audio_generated_at: now,
+                    audio_expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) // 30天后过期
+                  },
+                  { where: { id: info.id } }
+                )
+              );
+            } else if (info.type === 'example') {
+              updatePromises.push(
+                VocabExample.update(
+                  {
+                    audio_url: localPath,
+                    audio_url_type: 'kokoro',
+                    audio_generated_at: now,
+                    audio_expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+                  },
+                  { where: { id: info.id } }
+                )
+              );
+            }
+          } else {
+            console.warn(`[Vocab Audio] ⚠️ 找不到本地路径: result.audio_url=${result.audio_url}, fullUrl=${fullUrl}`);
           }
         }
       }
@@ -304,6 +375,8 @@ async function generateVocabExamplesKokoroAudio(req, res) {
       if (updateCount > 0) {
         await bumpVersion('vocab_version');
       }
+      
+      console.log(`[Vocab Audio] ✓ 完成: 生成 ${updateCount}/${textsToGenerate.length}`);
       
       res.json({
         success: true,
@@ -493,23 +566,32 @@ async function listGrammar(req, res) {
   const lim = Math.min(parseInt(limit) || 30, 200);
   const where = {};
   if (level) where.jlpt_level = level;
-  if (q) {
-    where[Op.or] = [
-      { title: { [Op.like]: `%${q}%` } },
-      { pattern: { [Op.like]: `%${q}%` } },
-      { explanation_zh: { [Op.like]: `%${q}%` } },
-      { '$examples.sentence$': { [Op.like]: `%${q}%` } },
-      { '$examples.meaning_zh$': { [Op.like]: `%${q}%` } },
-    ];
-  }
   const offset = (parseInt(page) - 1) * lim;
   try {
+    if (q) {
+      // 搜索例句时先单独查出匹配的课程ID，避免 JOIN + LIMIT 导致分页按例句行数计算
+      const exMatches = await GrammarExample.findAll({
+        where: { [Op.or]: [
+          { sentence: { [Op.like]: `%${q}%` } },
+          { meaning_zh: { [Op.like]: `%${q}%` } },
+        ]},
+        attributes: ['grammar_lesson_id'],
+        group: ['grammar_lesson_id'],
+        raw: true,
+      });
+      const exIds = exMatches.map(r => r.grammar_lesson_id);
+      where[Op.or] = [
+        { title: { [Op.like]: `%${q}%` } },
+        { pattern: { [Op.like]: `%${q}%` } },
+        { explanation_zh: { [Op.like]: `%${q}%` } },
+        ...(exIds.length > 0 ? [{ id: exIds }] : []),
+      ];
+    }
     const { count, rows } = await GrammarLesson.findAndCountAll({
       where, limit: lim, offset,
       include: [{ model: GrammarExample, as: 'examples', attributes: ['id', 'sentence', 'reading', 'meaning_zh', 'audio_url'] }],
       order: [['jlpt_level', 'ASC'], ['order_index', 'ASC']],
       distinct: true,
-      subQuery: false,
     });
     // 附加 example_count 并截取例句摘要
     const data = rows.map(r => {
@@ -606,6 +688,7 @@ async function bulkDeleteGrammar(req, res) {
 /** 批量生成文法例句Kokoro音频 */
 async function generateGrammarExamplesKokoroAudio(req, res) {
   try {
+    const audioLocalizationService = require('../services/audioLocalizationService');
     const { grammar_ids } = req.body;
     
     // 获取所有待处理的文法
@@ -645,33 +728,89 @@ async function generateGrammarExamplesKokoroAudio(req, res) {
     
     const texts = examplesNeedingAudio.map(e => e.sentence);
     
+    // 读取管理员配置的Kokoro参数
+    let defaultVoice = 'a';
+    let defaultEmotion = 'neutral';
+    let defaultEngine = 'edge-tts';
+    let defaultSpeed = 1.0;
+    try {
+      const kv = await sequelize.models.AppConfig?.findOne({
+        where: { key: 'kokoro_tts_settings' }
+      });
+      if (kv && kv.value) {
+        const kokoroConfig = JSON.parse(kv.value);
+        defaultVoice = kokoroConfig.default_voice || 'a';
+        defaultEmotion = kokoroConfig.default_emotion || 'neutral';
+        defaultEngine = kokoroConfig.default_engine || 'edge-tts';
+        defaultSpeed = kokoroConfig.default_speed || 1.0;
+        console.log(`[Grammar Audio] 使用管理员配置: voice=${defaultVoice}, emotion=${defaultEmotion}, engine=${defaultEngine}, speed=${defaultSpeed}`);
+      }
+    } catch (configErr) {
+      console.warn(`[Grammar Audio] 读取Kokoro配置失败，使用默认值: ${configErr.message}`);
+    }
+    
     try {
       // 计算合理的超时: 文本数量 * 5秒 + buffer
       const timeoutMs = Math.max(30000, examplesNeedingAudio.length * 5000 + 20000);
       
+      console.log(`[Grammar Audio] 调用Kokoro API生成 ${examplesNeedingAudio.length} 条音频...`);
       const resp = await axios.post(
-        'http://127.0.0.1:8010/api/v1/tts/batch-generate',
-        { texts, voice: 'a', emotion: 'neutral', engine: 'edge-tts', speed: 1.0 },
+        `${KOKORO_SERVICE_URL}/api/v1/tts/batch-generate`,
+        { texts, voice: defaultVoice, emotion: defaultEmotion, engine: defaultEngine, speed: defaultSpeed },
         { timeout: timeoutMs }
       );
       
       const results = resp.data.results || [];
+      console.log(`[Grammar Audio] Kokoro返回 ${results.length} 条结果，正在下载并本地化...`);
       
-      // 并发更新所有的数据库记录 (而不是顺序更新)
+      // 提取所有成功的音频URL用于下载，需要拼接完整URL
+      const successfulAudioUrls = results
+        .filter(r => r.success && r.audio_url)
+        .map(r => {
+          // r.audio_url 是相对路径，需要拼接完整URL
+          const audioUrl = r.audio_url.startsWith('http') 
+            ? r.audio_url 
+            : `${KOKORO_SERVICE_URL}${r.audio_url}`;
+          return audioUrl;
+        });
+      
+      console.log(`[Grammar Audio] 待下载的完整URL示例: ${successfulAudioUrls[0] || 'N/A'}`);
+      
+      // 批量下载并本地化音频到 /uploads/grammar/audio/ 目录
+      const localizationResults = await audioLocalizationService.batchDownloadAndLocalize(successfulAudioUrls, 'grammar');
+      const localizationMap = new Map(localizationResults.map(r => [r.originalUrl, r.localPath]));
+      
+      // 并发更新所有的数据库记录
       const updatePromises = [];
+      const now = new Date();
       
       for (let i = 0; i < examplesNeedingAudio.length; i++) {
         const example = examplesNeedingAudio[i];
         const result = results[i];
         
         if (result && result.success && result.audio_url) {
-          // 并发执行所有数据库更新
-          updatePromises.push(
-            GrammarExample.update(
-              { audio_url: result.audio_url },
-              { where: { id: example.id } }
-            )
-          );
+          // 查询Map时也需要拼接为完整URL
+          const fullUrl = result.audio_url.startsWith('http')
+            ? result.audio_url
+            : `${KOKORO_SERVICE_URL}${result.audio_url}`;
+          const localPath = localizationMap.get(fullUrl);
+          
+          if (localPath) {
+            // 并发执行所有数据库更新
+            updatePromises.push(
+              GrammarExample.update(
+                {
+                  audio_url: localPath,
+                  audio_url_type: 'kokoro',
+                  audio_generated_at: now,
+                  audio_expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) // 30天后过期
+                },
+                { where: { id: example.id } }
+              )
+            );
+          } else {
+            console.warn(`[Grammar Audio] ⚠️ 找不到本地路径: result.audio_url=${result.audio_url}, fullUrl=${fullUrl}`);
+          }
         }
       }
       
@@ -683,6 +822,8 @@ async function generateGrammarExamplesKokoroAudio(req, res) {
       if (updateCount > 0) {
         await bumpVersion('grammar_version');
       }
+      
+      console.log(`[Grammar Audio] ✓ 完成: 生成 ${updateCount}/${examplesNeedingAudio.length}`);
       
       res.json({
         success: true,
@@ -883,6 +1024,7 @@ async function generateGrammarExampleAudio(req, res) {
     // 2. 获取管理员配置的 Kokoro 参数
     let defaultVoice = 'a';
     let defaultEmotion = 'neutral';
+    let defaultEngine = 'edge-tts';
     let defaultSpeed = 1.0;
     
     try {
@@ -893,6 +1035,7 @@ async function generateGrammarExampleAudio(req, res) {
         const kokoroConfig = JSON.parse(kv.value);
         defaultVoice = kokoroConfig.default_voice || 'a';
         defaultEmotion = kokoroConfig.default_emotion || 'neutral';
+        defaultEngine = kokoroConfig.default_engine || 'edge-tts';
         defaultSpeed = kokoroConfig.default_speed || 1.0;
       }
     } catch (_) {}
@@ -911,6 +1054,7 @@ async function generateGrammarExampleAudio(req, res) {
           text: example.sentence,
           voice: defaultVoice,
           emotion: defaultEmotion,
+          engine: defaultEngine,
           speed: defaultSpeed,
         },
         { timeout: 30000 }
@@ -2289,6 +2433,290 @@ async function saveKokoroSettings(req, res) {
   }
 }
 
+// ─── 五十音管理 ────────────────────────────────────────
+/** 列出所有五十音 */
+async function listKana(req, res) {
+  try {
+    const { type, category } = req.query;  // 可选: hiragana或katakana; 五十音/濁音/半濁音/拗音
+    let where = {};
+    if (type) where.type = type;
+    if (category) where.category = category;
+    
+    const kanas = await sequelize.models.Kana.findAll({
+      where,
+      attributes: ['id', 'type', 'character', 'romanization', 'category', 'audio_url', 'order_index'],
+      order: [['order_index', 'ASC'], ['type', 'ASC']],
+      raw: true,
+    });
+    
+    res.json({ data: kanas });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/** 批量生成五十音音频 */
+async function batchGenerateKanaAudio(req, res) {
+  try {
+    const audioLocalizationService = require('../services/audioLocalizationService');
+    const { selectedIds } = req.body || {};
+    
+    // 构建WHERE条件
+    let where = { audio_url: { [Op.or]: [null, ''] } };
+    if (selectedIds && Array.isArray(selectedIds) && selectedIds.length > 0) {
+      where.id = { [Op.in]: selectedIds };
+    }
+    
+    const Kana = sequelize.models.Kana;
+    const kanas = await Kana.findAll({
+      where,
+      attributes: ['id', 'character', 'romanization'],
+      order: [['order_index', 'ASC']],
+      raw: false,
+    });
+    
+    if (kanas.length === 0) {
+      return res.json({ success: true, message: '所有五十音都已有音频或未选择任何项目', generated: 0, total: 0 });
+    }
+    
+    // 收集所有需要生成音频的文本（使用字符本身）
+    const textsToGenerate = kanas.map(k => k.character);
+    
+    try {
+      const axios = require('axios');
+      const timeoutMs = Math.max(30000, textsToGenerate.length * 5000 + 20000);
+      
+      // 读取管理员配置
+      let kanaEngine = 'edge-tts', kanaVoice = 'a', kanaEmotion = 'neutral', kanaSpeed = 1.0;
+      try {
+        const kv = await sequelize.models.AppConfig?.findOne({ where: { key: 'kokoro_tts_settings' } });
+        if (kv && kv.value) {
+          const cfg = JSON.parse(kv.value);
+          kanaEngine = cfg.default_engine || 'edge-tts';
+          kanaVoice = cfg.default_voice || 'a';
+          kanaEmotion = cfg.default_emotion || 'neutral';
+          kanaSpeed = cfg.default_speed || 1.0;
+        }
+      } catch (_) {}
+      
+      const resp = await axios.post(
+        'http://127.0.0.1:8010/api/v1/tts/batch-generate',
+        { texts: textsToGenerate, voice: kanaVoice, emotion: kanaEmotion, engine: kanaEngine, speed: kanaSpeed },
+        { timeout: timeoutMs }
+      );
+      
+      const results = resp.data.results || [];
+      
+      // 提取成功的Kokoro音频URL，批量下载到 /uploads/audio/kana/
+      const successfulUrls = results
+        .filter(r => r && r.success && r.audio_url)
+        .map(r => r.audio_url);
+      
+      const localizationResults = await audioLocalizationService.batchDownloadAndLocalize(successfulUrls, 'kana');
+      const localizationMap = new Map(localizationResults.map(r => [r.originalUrl, r.localPath]));
+      
+      const updatePromises = [];
+      
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        if (result && result.success && result.audio_url && kanas[i]) {
+          const localPath = localizationMap.get(result.audio_url);
+          if (localPath) {
+            updatePromises.push(
+              Kana.update(
+                { audio_url: localPath },
+                { where: { id: kanas[i].id } }
+              )
+            );
+          }
+        }
+      }
+      
+      const updateResults = await Promise.all(updatePromises);
+      const updateCount = updateResults.length;
+      
+      res.json({
+        success: true,
+        generated: updateCount,
+        total: textsToGenerate.length,
+        message: `成功生成${updateCount}/${textsToGenerate.length}个五十音音频`,
+      });
+    } catch (apiErr) {
+      console.error('[Kana Audio] Kokoro API调用失败:', apiErr.message);
+      
+      if (apiErr.code === 'ECONNABORTED' || apiErr.message.includes('timeout')) {
+        res.status(504).json({ error: '音频生成超时，请检查网络连接' });
+      } else if (apiErr.code === 'ECONNREFUSED') {
+        res.status(503).json({ error: 'Kokoro TTS服务不可用' });
+      } else {
+        res.status(500).json({ error: 'Kokoro API调用失败: ' + apiErr.message });
+      }
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/** 获取五十音（分页） */
+async function getKanaList(req, res) {
+  try {
+    const { page = 1, limit = 20, q = '', type = '', category = '' } = req.query;
+    const offset = (page - 1) * limit;
+    const Kana = sequelize.models.Kana;
+    
+    let where = {};
+    if (q) where.character = { [Op.like]: `%${q}%` };
+    if (type) where.type = type;
+    if (category) where.category = category;
+    
+    const { count, rows } = await Kana.findAndCountAll({
+      where,
+      offset,
+      limit: parseInt(limit),
+      order: [['order_index', 'ASC']],
+      attributes: ['id', 'character', 'romanization', 'type', 'category', 'audio_url', 'order_index'],
+    });
+    
+    res.json({ data: rows, total: count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/** 获取单个五十音 */
+async function getKanaById(req, res) {
+  try {
+    const Kana = sequelize.models.Kana;
+    const kana = await Kana.findByPk(req.params.id);
+    if (!kana) return res.status(404).json({ error: '五十音不存在' });
+    res.json(kana);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/** 创建五十音 */
+async function createKanaItem(req, res) {
+  try {
+    const { character, romanization, type, category, audio_url } = req.body;
+    if (!character) return res.status(400).json({ error: '字符不能为空' });
+    if (!romanization) return res.status(400).json({ error: '罗马音不能为空' });
+    
+    const Kana = sequelize.models.Kana;
+    const maxOrder = await Kana.max('order_index');
+    const kana = await Kana.create({
+      character,
+      romanization,
+      type: type || 'hiragana',
+      category: category || '五十音',
+      audio_url: audio_url || null,
+      order_index: (maxOrder || 0) + 1,
+    });
+    
+    res.json({ message: '已创建', data: kana });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/** 更新五十音 */
+async function updateKanaItem(req, res) {
+  try {
+    const { character, romanization, type, category, audio_url } = req.body;
+    const Kana = sequelize.models.Kana;
+    
+    const kana = await Kana.findByPk(req.params.id);
+    if (!kana) return res.status(404).json({ error: '五十音不存在' });
+    
+    await kana.update({
+      character: character || kana.character,
+      romanization: romanization || kana.romanization,
+      type: type || kana.type,
+      category: category || kana.category,
+      audio_url: audio_url !== undefined ? audio_url : kana.audio_url,
+    });
+    
+    res.json({ message: '已更新', data: kana });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/** 删除五十音 */
+async function deleteKanaItem(req, res) {
+  try {
+    const Kana = sequelize.models.Kana;
+    const result = await Kana.destroy({ where: { id: req.params.id } });
+    if (!result) return res.status(404).json({ error: '五十音不存在' });
+    res.json({ message: '已删除' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/** 批量删除五十音 */
+async function bulkDeleteKanaItems(req, res) {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'IDs不能为空' });
+    }
+    
+    const Kana = sequelize.models.Kana;
+    const result = await Kana.destroy({ where: { id: { [Op.in]: ids } } });
+    res.json({ message: `已删除 ${result} 项`, deleted: result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+/** 单条TTS生成并持久化到本地 */
+async function generateSingleAudio(req, res) {
+  const { text, subdir = 'vocab' } = req.body;
+  if (!text || !text.trim()) return res.status(400).json({ error: '文本不能为空' });
+
+  const allowedDirs = ['vocab', 'kana', 'grammar/audio'];
+  if (!allowedDirs.includes(subdir)) return res.status(400).json({ error: '无效的subdir' });
+
+  // 读取管理员TTS配置
+  let voice = 'a', emotion = 'neutral', engine = 'edge-tts', speed = 1.0;
+  try {
+    const kv = await sequelize.models.AppConfig?.findOne({ where: { key: 'kokoro_tts_settings' } });
+    if (kv && kv.value) {
+      const cfg = JSON.parse(kv.value);
+      voice = cfg.default_voice || 'a';
+      emotion = cfg.default_emotion || 'neutral';
+      engine = cfg.default_engine || 'edge-tts';
+      speed = cfg.default_speed || 1.0;
+    }
+  } catch (_) {}
+
+  const KOKORO_SERVICE_URL = process.env.KOKORO_SERVICE_URL || 'http://127.0.0.1:8010';
+  try {
+    const ttsResp = await axios.post(
+      `${KOKORO_SERVICE_URL}/api/v1/tts/kokoro`,
+      { text: text.trim(), voice, emotion, engine, speed },
+      { timeout: 30000 }
+    );
+    const kokoroUrl = ttsResp.data.audio_url;
+    if (!kokoroUrl) return res.status(500).json({ error: 'TTS未返回音频URL' });
+
+    // 下载并保存到本地
+    const audioDir = path.join(__dirname, `../../uploads/audio/${subdir}`);
+    if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
+
+    const audioResp = await axios.get(`${KOKORO_SERVICE_URL}${kokoroUrl}`, { responseType: 'arraybuffer', timeout: 10000 });
+    const filename = path.basename(kokoroUrl);
+    fs.writeFileSync(path.join(audioDir, filename), audioResp.data);
+
+    const persistentUrl = `/uploads/audio/${subdir}/${filename}`;
+    res.json({ ok: true, audio_url: persistentUrl });
+  } catch (e) {
+    console.error('[SingleAudio] 生成失败:', e.message);
+    res.status(500).json({ error: 'TTS生成失败: ' + e.message });
+  }
+}
+
 module.exports = {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, generateVocabExamplesKokoroAudio, deduplicateVocab, fixVocabReadings,
@@ -2299,6 +2727,7 @@ module.exports = {
   getContentVersion, publishContent,
   getTrafficStats, getUserStats, getBehaviorStats, getFeatureUsage,
   getMembershipConfig, saveMembershipConfig,
+  listKana, batchGenerateKanaAudio, getKanaList, getKanaById, createKanaItem, updateKanaItem, deleteKanaItem, bulkDeleteKanaItems,  // ✅ 五十音CRUD
   getFeatureToggles, saveFeatureToggles,
   getFeatureTiers, saveFeatureTiers,
   uploadApp,
@@ -2312,4 +2741,5 @@ module.exports = {
   listAdmins, updateAdminPermissions, getAdminInfo,
   listReports, getReport, updateReport, deleteReport,
   getStudyPlanStats,
+  generateSingleAudio,
 };

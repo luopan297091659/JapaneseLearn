@@ -1,7 +1,8 @@
 ﻿# deploy.ps1 — 自动部署 Japanese Learn 后端（Rocky Linux）
 # 使用 PuTTY plink/pscp，自动信任主机密钥、自动输入密码
 param(
-    [string]$ServerHost = "139.196.44.6",
+    # [string]$ServerHost = "139.196.44.6",
+    # [string]$ServerHost = "47.76.27.234",
     [string]$User       = "root",
     [string]$Passwd     = "Xiaoyun@123",
     [int]   $Port       = 22,
@@ -23,6 +24,7 @@ if (-not (Get-Command plink -EA SilentlyContinue)) {
 }
 
 # 主机密钥指纹（从首次连接中获取，避免每次询问）
+# $HostKey = "SHA256:QH97HV9yERJhO4cuy/DdMVwX0WVAKrQXl7bbvT0Eqls"
 $HostKey = "SHA256:ySCdPD8LyDCmPPcUT7OjO6r+c0RUwBLMU/UWlOA9GHg"
 
 function Remote-Run([string]$Cmd) {
@@ -65,18 +67,22 @@ foreach ($ConfigFile in $ConfigFiles) {
 
 # 上传新的配置文件（如果本地存在，否则保留远程备份）
 foreach ($ConfigFile in $ConfigFiles) {
-    $LocalConfig = "$LocalBackend\config\$ConfigFile"
+    # $LocalConfig = "$LocalBackend\config\$ConfigFile"
     $RemoteConfig = "$RemotePath/config/$ConfigFile"
-    
-    if (Test-Path $LocalConfig) {
-        Remote-Upload-File $LocalConfig "$RemoteConfig"
-        Write-Host "  ✓ 上传 $ConfigFile" -ForegroundColor Gray
-    } else {
-        # 本地不存在，检查远程是否有备份，有则恢复
-        Remote-Run "if [ -f $RemoteConfig.backup ]; then cp $RemoteConfig.backup $RemoteConfig && echo '从备份恢复$ConfigFile'; fi"
-        Write-Host "  ⚠ 本地不存在 $ConfigFile，保留远程版本" -ForegroundColor Yellow
-    }
+    Remote-Run "if [ -f $RemoteConfig.backup ]; then cp $RemoteConfig.backup $RemoteConfig && echo '从备份恢复$ConfigFile'; fi"
+    Write-Host "  ⚠ 本地不存在 $ConfigFile，保留远程版本" -ForegroundColor Yellow
+    # if (Test-Path $LocalConfig) {
+        # Remote-Upload-File $LocalConfig "$RemoteConfig"
+        # Write-Host "  ✓ 上传 $ConfigFile" -ForegroundColor Gray
+        # Remote-Run "if [ -f $RemoteConfig.backup ]; then cp $RemoteConfig.backup $RemoteConfig && echo '从备份恢复$ConfigFile'; fi"
+        # Write-Host "  ⚠ 本地不存在 $ConfigFile，保留远程版本" -ForegroundColor Yellow
+    # } else {
+    #     # 本地不存在，检查远程是否有备份，有则恢复
+    #     Remote-Run "if [ -f $RemoteConfig.backup ]; then cp $RemoteConfig.backup $RemoteConfig && echo '从备份恢复$ConfigFile'; fi"
+    #     Write-Host "  ⚠ 本地不存在 $ConfigFile，保留远程版本" -ForegroundColor Yellow
+    # }
 }
+
 
 Write-Host "  配置文件保留完成" -ForegroundColor Green
 

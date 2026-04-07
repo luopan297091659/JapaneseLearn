@@ -147,6 +147,8 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
       _index = 0;
       if (_queue.isNotEmpty) {
         await _ensureCurrentLoaded();
+        // 后台预缓存队列中所有词汇音频
+        _precacheQueueAudio();
       }
 
       if (!mounted) return;
@@ -175,6 +177,43 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
       final model = await apiService.getGrammarLesson(refId);
       _grammarCache[refId] = model;
     }
+  }
+
+  /// 后台预缓存队列前N个词汇/文法的音频
+  void _precacheQueueAudio() {
+    () async {
+      for (final item in _queue.take(20)) {
+        final cardType = item['card_type']?.toString() ?? '';
+        final refId = item['ref_id']?.toString() ?? '';
+        if (refId.isEmpty) continue;
+        try {
+          if (cardType == 'vocabulary') {
+            if (!_vocabCache.containsKey(refId)) {
+              _vocabCache[refId] = await apiService.getVocabularyById(refId);
+            }
+            final v = _vocabCache[refId];
+            if (v?.audioUrl != null && v!.audioUrl!.isNotEmpty) {
+              await TtsHelper.precacheAudioUrl(v.audioUrl!);
+            }
+            if (v?.exampleAudioUrl != null && v!.exampleAudioUrl!.isNotEmpty) {
+              await TtsHelper.precacheAudioUrl(v.exampleAudioUrl!);
+            }
+          } else if (cardType == 'grammar') {
+            if (!_grammarCache.containsKey(refId)) {
+              _grammarCache[refId] = await apiService.getGrammarLesson(refId);
+            }
+            final g = _grammarCache[refId];
+            if (g != null) {
+              for (final e in g.examples) {
+                if (e.audioUrl != null && e.audioUrl!.isNotEmpty) {
+                  await TtsHelper.precacheAudioUrl(e.audioUrl!);
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    }();
   }
 
   Future<void> _submitAnswer(String answer) async {

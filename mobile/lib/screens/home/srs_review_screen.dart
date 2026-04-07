@@ -61,22 +61,25 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
     return _tts!;
   }
 
-  /// 朗读单词
-  Future<void> _speakWord(String text, {bool slow = false}) async {
+  /// 朗读单词：系统音频优先，TTS兜底
+  Future<void> _speakWord(String text, {String? audioUrl, bool slow = false}) async {
     if (!mounted) return;
     setState(() => _wordLoading = true);
     try {
       final tts = await _getOrInitTts();
       await tts.stop();
-      final rate = slow ? 0.25 : 0.45;
-      await tts.setSpeechRate(rate);
       if (mounted) setState(() { _wordLoading = false; _wordPlaying = true; });
-      tts.setCompletionHandler(() {
-        if (mounted) setState(() => _wordPlaying = false);
-      });
-      await TtsHelper.speakJapanese(tts, text);
+      await TtsHelper.playJapaneseSmart(
+        audioUrl: audioUrl,
+        text: text,
+        tts: tts,
+        slow: slow,
+        onComplete: () {
+          if (mounted) setState(() => _wordPlaying = false);
+        },
+      );
     } catch (e) {
-      if (mounted) setState(() => _wordLoading = false);
+      if (mounted) setState(() { _wordLoading = false; _wordPlaying = false; });
     }
   }
 
@@ -114,6 +117,13 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
         }
       }
       setState(() { _cards = enriched; _loading = false; });
+      // 后台预缓存所有词汇卡音频
+      final audioUrls = enriched
+          .where((c) => c.content is VocabularyModel)
+          .map((c) => (c.content as VocabularyModel).audioUrl)
+          .where((u) => u != null && u.isNotEmpty)
+          .cast<String>();
+      TtsHelper.precacheAudioUrls(audioUrls);
     } catch (_) {
       setState(() => _loading = false);
       if (mounted) {
@@ -347,7 +357,7 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
               if (!_wordLoading && !_wordPlaying)
                 IconButton(
                   icon: Icon(Icons.volume_up_rounded, color: cs.primary, size: 28),
-                  onPressed: () => _speakWord(vocab.word),
+                  onPressed: () => _speakWord(vocab.word, audioUrl: vocab.audioUrl),
                   tooltip: '朗读单词',
                 )
               else if (_wordLoading)

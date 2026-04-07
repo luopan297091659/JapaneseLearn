@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../services/local_db.dart';
+import '../../utils/tts_helper.dart';
 
 const _kLangPrefKey = 'dict_lang';
 
@@ -50,8 +51,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   }
 
   Future<void> _initTts() async {
-    await _tts.setLanguage('ja-JP');
-    await _tts.setSpeechRate(0.5);
+    await TtsHelper.configureForJapanese(_tts);
     _tts.setCompletionHandler(() {
       if (mounted) setState(() => _playingId = null);
     });
@@ -63,10 +63,16 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     });
   }
 
-  void _playWord(String word, {String? id}) {
-    _tts.stop();
+  void _playWord(String word, {String? id, String? audioUrl}) {
     setState(() => _playingId = id ?? word);
-    _tts.speak(word);
+    TtsHelper.playJapaneseSmart(
+      audioUrl: audioUrl,
+      text: word,
+      tts: _tts,
+      onComplete: () {
+        if (mounted) setState(() => _playingId = null);
+      },
+    );
   }
 
   @override
@@ -312,7 +318,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         if (i < vocabCount) {
           final vocab = _vocabResults[i];
           final id = 'vocab_$i';
-          return _VocabResultCard(vocab: vocab, onWordTap: _searchWord, playingId: _playingId, itemId: id, onPlay: (word) => _playWord(word, id: id));
+          return _VocabResultCard(vocab: vocab, onWordTap: _searchWord, playingId: _playingId, itemId: id, onPlay: (word) => _playWord(word, id: id, audioUrl: vocab.audioUrl));
         }
         final dictIndex = i - vocabCount;
         if (dictIndex == _results.length) {

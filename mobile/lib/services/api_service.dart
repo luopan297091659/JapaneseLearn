@@ -485,6 +485,22 @@ class ApiService {
     return VocabularyModel.fromJson(res.data);
   }
 
+  /// 获取五十音音频URL映射 (character -> audio_url)
+  Future<Map<String, String>> getKanaAudioMap() async {
+    final cached = _cache.get('kana_audio_map');
+    if (cached != null) return Map<String, String>.from(cached);
+    try {
+      final res = await _dio.get('/kana/audio-map');
+      final data = (res.data['data'] as Map<String, dynamic>?) ?? {};
+      final map = data.map((k, v) => MapEntry(k, v.toString()));
+      _cache.set('kana_audio_map', map, AppConfig.cacheTtlLong);
+      return map;
+    } catch (e) {
+      print('获取假名音频映射失败: $e');
+      return {};
+    }
+  }
+
   /// ✅ 新增：预加载音频到本地缓存（在 WiFi 环境下使用）
   /// 支持按级别预加载词汇音频，提供后续播放的快速体验
   /// 返回成功预加载的音频数量和失败数量

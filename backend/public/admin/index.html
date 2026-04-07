@@ -225,6 +225,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="sidebar-section">内容管理</div>
   <div class="nav-item" onclick="nav('vocab')"   id="nav-vocab">  <span class="icon">📚</span>词汇管理</div>
   <div class="nav-item" onclick="nav('grammar')" id="nav-grammar"><span class="icon">📖</span>文法管理</div>
+  <div class="nav-item" onclick="nav('kana')"    id="nav-kana">  <span class="icon">🔤</span>五十音管理</div>
   <div class="nav-item" onclick="nav('tracks')"  id="nav-tracks"> <span class="icon">🎧</span>听力管理</div>
   <div class="nav-item" onclick="nav('channels')" id="nav-channels"><span class="icon">📺</span>频道管理</div>
   <div class="nav-item" onclick="nav('users')"   id="nav-users">  <span class="icon">👥</span>用户管理</div>
@@ -323,6 +324,7 @@ tbody tr:hover td{background:#f8faff}
       <label style="display:block;margin-bottom:8px"><b>📻 单词音频</b></label>
       <div style="display:flex;gap:8px;align-items:flex-end">
         <input type="text" id="mv-audio-url" placeholder="音频URL（可为空）" style="flex:1;padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
+        <button class="btn btn-ghost btn-sm" onclick="generateVocabWordAudioKokoro()" title="用Kokoro生成" style="background:#8b5cf6;color:#fff">🎵 Kokoro</button>
         <button class="btn btn-ghost btn-sm" onclick="recordVocabAudio()">🎤 录音</button>
         <button class="btn btn-ghost btn-sm" onclick="uploadVocabAudio()">📤 上传</button>
         <button class="btn btn-ghost btn-sm" onclick="playAudio(document.getElementById('mv-audio-url').value)">🔊 试听</button>
@@ -395,6 +397,41 @@ tbody tr:hover td{background:#f8faff}
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('modal-import')">取消</button>
       <button class="btn btn-primary" onclick="doImport()">导入</button>
+    </div>
+  </div>
+</div>
+
+<!-- KANA MODAL -->
+<div class="modal-overlay" id="modal-kana">
+  <div class="modal" style="width:550px">
+    <h2 id="mk-title">添加五十音</h2>
+    <input type="hidden" id="mk-id" />
+    <div class="form-row"><label>字符 *</label><input id="mk-character" placeholder="e.g. あ、きゃ" /></div>
+    <div class="form-row"><label>罗马音 *</label><input id="mk-romanization" placeholder="e.g. a、kya" /></div>
+    <div class="form-row"><label>平假名/片假名 *</label>
+      <select id="mk-kana-type">
+        <option value="hiragana">平假名</option>
+        <option value="katakana">片假名</option>
+      </select>
+    </div>
+    <div class="form-row"><label>音型 *</label>
+      <select id="mk-category">
+        <option value="五十音">基本五十音</option>
+        <option value="濁音">浊音</option>
+        <option value="半濁音">半浊音</option>
+        <option value="拗音">拗音</option>
+      </select>
+    </div>
+    <div class="form-row"><label>音频 URL</label>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <input id="mk-audio-url" placeholder="e.g. /uploads/audio/a.mp3" style="flex:1;padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
+        <button class="btn btn-ghost btn-sm" onclick="generateKanaAudioKokoro()" title="用Kokoro生成" style="background:#8b5cf6;color:#fff">🎵 Kokoro</button>
+        <button class="btn btn-ghost btn-sm" onclick="playAudio(document.getElementById('mk-audio-url').value)" title="试听">🔊 试听</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-kana')">取消</button>
+      <button class="btn btn-primary" onclick="saveKana()">保存</button>
     </div>
   </div>
 </div>
@@ -600,7 +637,7 @@ function showApp(){
 function applySidebarPermissions(){
   const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-ai-settings','nav-kokoro-settings','nav-admin-mgmt'];
   const permNavMap = {
-    'nav-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-tracks': 'tracks',
+    'nav-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-kana': 'vocabulary', 'nav-tracks': 'tracks',
     'nav-users': 'users', 'nav-reports': 'reports', 'nav-stat-users': 'stats', 'nav-stat-traffic': 'stats',
     'nav-stat-feature': 'stats', 'nav-membership': 'membership', 'nav-sync': 'sync',
     'nav-import': 'vocabulary',
@@ -622,7 +659,7 @@ function applySidebarPermissions(){
 
 /* ───────────────────────────────── NAV ───────────────────────────────────── */
 const PAGE_TITLES = {
-  dashboard:'仪表板', vocab:'词汇管理', grammar:'文法管理',
+  dashboard:'仪表板', vocab:'词汇管理', grammar:'文法管理', kana:'五十音管理',
   tracks:'听力管理', channels:'频道管理', users:'用户管理', reports:'问题反馈',
   'stat-users':'用户统计', 'stat-traffic':'流量监控',
   'stat-behavior':'行为分析',
@@ -631,7 +668,7 @@ const PAGE_TITLES = {
   'admin-mgmt':'权限管理'
 };
 const PAGE_ICONS = {
-  dashboard:'📊', vocab:'📚', grammar:'📖',
+  dashboard:'📊', vocab:'📚', grammar:'📖', kana:'🔤',
   tracks:'🎧', channels:'📺', users:'👥', reports:'🐛',
   'stat-users':'📈', 'stat-traffic':'🌐',
   'stat-behavior':'🧠',
@@ -640,7 +677,7 @@ const PAGE_ICONS = {
   'admin-mgmt':'🔐'
 };
 const PAGE_DESCS = {
-  vocab:'管理词汇条目', grammar:'管理文法条目', reports:'查看用户反馈的问题',
+  vocab:'管理词汇条目', grammar:'管理文法条目', kana:'管理五十音数据', reports:'查看用户反馈的问题',
   tracks:'管理听力素材', channels:'管理YouTube/B站频道', users:'查看管理用户',
   'stat-users':'用户数据分析', 'stat-traffic':'API流量监控',
   'stat-behavior':'用户行为数据分析',
@@ -671,7 +708,7 @@ function getFrequentNav(limit){
   try{ return JSON.parse(localStorage.getItem('admin_recent_nav')||'[]').sort((a,b)=>(b.count||1)-(a.count||1)).slice(0,limit); }catch(_){ return []; }
 }
 const PAGE_FNS = {
-  dashboard: renderDashboard, vocab: renderVocab, grammar: renderGrammar,
+  dashboard: renderDashboard, vocab: renderVocab, grammar: renderGrammar, kana: renderKana,
   tracks: renderTracks, channels: renderChannels, users: renderUsers,
   'stat-users': renderStatUsers, 'stat-traffic': renderStatTraffic,
   'stat-behavior': renderStatBehavior,
@@ -1103,9 +1140,16 @@ function renderPager(containerId, page, total, onPage, state){
   const sizeSelect = state ? `<select style="margin-left:12px;padding:2px 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#fff" onchange="pageSizeChange('${containerId}',this.value)">
     ${[20,50,100].map(n=>`<option value="${n}" ${state.limit===n?'selected':''}>${n}条/页</option>`).join('')}
   </select>` : '';
-  el.innerHTML = `<div class="pagination">${btns.join('')}<span class="page-info"> 共 ${total} 页${sizeSelect}</span></div>`;
+  let rangeInfo = '';
+  if(state && state.total !== undefined){
+    const start = state.total > 0 ? (page - 1) * state.limit + 1 : 0;
+    const pageCount = state._pageCount || 0;
+    const end = start > 0 ? start + pageCount - 1 : 0;
+    rangeInfo = state.total > 0 ? `<span style="margin-left:12px;font-size:12px;color:#64748b">第 ${start}-${end} 条 / 共 <b>${state.total}</b> 条</span>` : `<span style="margin-left:12px;font-size:12px;color:#aaa">共 0 条</span>`;
+  }
+  el.innerHTML = `<div class="pagination">${btns.join('')}<span class="page-info"> 共 ${total} 页${sizeSelect}</span>${rangeInfo}</div>`;
 }
-const _pagerMap = {'v-pager':{s:()=>vState,fn:()=>loadVocab()}, 'gr-pager':{s:()=>gState,fn:()=>loadGrammar()}, 'tr-pager':{s:()=>tState,fn:()=>loadTracks()}, 'us-pager':{s:()=>uState,fn:()=>loadUsers()}, 'rp-pager':{s:()=>rpState,fn:()=>loadReports()}};
+const _pagerMap = {'v-pager':{s:()=>vState,fn:()=>loadVocab()}, 'gr-pager':{s:()=>gState,fn:()=>loadGrammar()}, 'tr-pager':{s:()=>tState,fn:()=>loadTracks()}, 'us-pager':{s:()=>uState,fn:()=>loadUsers()}, 'rp-pager':{s:()=>rpState,fn:()=>loadReports()}, 'k-pager':{s:()=>kState,fn:()=>loadKana()}};
 function pageSizeChange(cid,v){ const m=_pagerMap[cid]; if(!m)return; const s=m.s(); s.limit=parseInt(v); s.page=1; m.fn(); }
 
 /* ───────────────────────────────── DASHBOARD ─────────────────────────────── */
@@ -1260,8 +1304,10 @@ async function loadVocab(){
     const levelParam = vState.level ? `&level=${vState.level}` : '';
     const d = await api('GET',`/admin/vocabulary?page=${vState.page}&limit=${vState.limit}&q=${encodeURIComponent(vState.search)}${levelParam}`);
     vState.total = d.total||0;
+    const _vData = d.data||[];
+    vState._pageCount = _vData.length;
     const vtBody = document.getElementById('vt-body'); if(!vtBody) return;
-    vtBody.innerHTML = (d.data||[]).map(v=>{
+    vtBody.innerHTML = _vData.map(v=>{
       _editCache['v_'+v.id] = v;
       return `
       <tr>
@@ -1315,13 +1361,14 @@ function addExampleRow(jp='', reading='', zh='', audioUrl=''){
   const rowCount = container.children.length;
   const rowId = `ex-${Date.now()}-${rowCount}`;
   const html = `
-    <div class="example-row" id="${rowId}" style="display:grid;grid-template-columns:1fr 1fr 1fr 0.8fr 0.6fr 0.6fr 0.6fr 0.6fr;gap:8px;margin-bottom:8px;align-items:flex-end">
+    <div class="example-row" id="${rowId}" style="display:grid;grid-template-columns:1fr 1fr 1fr 0.8fr 0.5fr 0.5fr 0.5fr 0.5fr 0.5fr;gap:8px;margin-bottom:8px;align-items:flex-end">
       <input type="text" class="ex-jp" placeholder="日文例句" value="${esc(jp)}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
       <input type="text" class="ex-reading" placeholder="读音（假名）" value="${esc(reading)}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
       <input type="text" class="ex-zh" placeholder="中文释义" value="${esc(zh)}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
       <input type="text" class="ex-audio" placeholder="音频URL" value="${esc(audioUrl||'')}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
       <button class="btn btn-ghost btn-sm" onclick="uploadExampleAudio('${rowId}')" title="上传文件">📤</button>
       <button class="btn btn-ghost btn-sm" onclick="recordExampleAudio('${rowId}')" title="浏览器录音" id="record-btn-${rowId}">🎤</button>
+      <button class="btn btn-ghost btn-sm" onclick="generateVocabExampleAudioKokoro('${rowId}')" title="用Kokoro生成" style="background:#8b5cf6;color:#fff">🎵</button>
       <button class="btn btn-ghost btn-sm" onclick="playAudio(document.querySelector('#${rowId} .ex-audio').value)" title="试听">🔊</button>
       <button class="btn btn-ghost btn-sm" onclick="removeExampleRow('${rowId}')" title="删除">🗑️</button>
     </div>`;
@@ -1427,6 +1474,44 @@ function playAudio(url){
     console.error('[PlayAudio] 播放失败:', err, 'URL:', fullUrl);
     toast('播放失败: ' + err.message, true);
   });
+}
+
+// === Kokoro单项音频生成（持久化到本地） ===
+async function _kokoroSpeak(text, btnEl, subdir = 'vocab') {
+  if (!text) { toast('请输入文本内容', true); return null; }
+  const orig = btnEl ? btnEl.textContent : '';
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳'; }
+  try {
+    const r = await api('POST', '/admin/tts/generate-single', { text, subdir });
+    if (r.audio_url) return r.audio_url;
+    toast('音频生成失败', true); return null;
+  } catch(e) { toast('Kokoro生成失败: ' + e.message, true); return null; }
+  finally { if (btnEl) { btnEl.disabled = false; btnEl.textContent = orig; } }
+}
+
+async function generateVocabWordAudioKokoro() {
+  const word = document.getElementById('mv-word').value.trim();
+  const reading = document.getElementById('mv-reading').value.trim();
+  const text = reading || word;
+  const btn = document.querySelector('#modal-vocab button[onclick*="generateVocabWordAudioKokoro"]');
+  const url = await _kokoroSpeak(text, btn, 'vocab');
+  if (url) { document.getElementById('mv-audio-url').value = url; toast('单词Kokoro音频生成成功'); }
+}
+
+async function generateVocabExampleAudioKokoro(rowId) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  const sentence = row.querySelector('.ex-jp').value.trim();
+  const btn = row.querySelector('button[onclick*="generateVocabExampleAudioKokoro"]');
+  const url = await _kokoroSpeak(sentence, btn, 'vocab');
+  if (url) { row.querySelector('.ex-audio').value = url; toast('例句Kokoro音频生成成功'); }
+}
+
+async function generateKanaAudioKokoro() {
+  const character = document.getElementById('mk-character').value.trim();
+  const btn = document.querySelector('#modal-kana button[onclick*="generateKanaAudioKokoro"]');
+  const url = await _kokoroSpeak(character, btn, 'kana');
+  if (url) { document.getElementById('mk-audio-url').value = url; toast('假名Kokoro音频生成成功'); }
 }
 
 // === 录音功能 ===
@@ -1764,13 +1849,22 @@ async function bulkDeleteVocab(){
 }
 
 async function generateVocabKokoroAudio(){
-  if(!confirm('确认为所有单词及例句生成Kokoro音频？此操作可能需要几分钟')) return;
+  // ✅ 收集勾选的词汇ID
+  const selectedIds = Array.from(document.querySelectorAll('.v-cb:checked')).map(cb => cb.value);
+  const isSelective = selectedIds.length > 0;
+  
+  const confirmMsg = isSelective 
+    ? `确认为选中的${selectedIds.length}项词汇生成Kokoro音频？此操作可能需要几分钟`
+    : '确认为所有单词及例句生成Kokoro音频？此操作可能需要几分钟';
+  
+  if(!confirm(confirmMsg)) return;
   
   const progressDiv = document.createElement('div');
   progressDiv.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:10000`;
   progressDiv.innerHTML = `
     <div style="background:#fff;padding:30px;border-radius:12px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3)">
-      <div style="font-size:16px;margin-bottom:15px">🎤 正在生成音频...</div>
+      <div style="font-size:16px;margin-bottom:15px">🎤 正在生成音频</div>
+      <div style="font-size:12px;color:#999;margin-bottom:12px">${isSelective ? `目标: ${selectedIds.length}项词汇` : '目标: 全部词汇'}</div>
       <div style="width:200px;height:6px;background:#e5e7eb;border-radius:3px;margin-bottom:15px">
         <div id="progress-bar" style="height:100%;background:#8b5cf6;border-radius:3px;width:0%;transition:width .3s"></div>
       </div>
@@ -1779,9 +1873,11 @@ async function generateVocabKokoroAudio(){
   document.body.appendChild(progressDiv);
   
   try {
-    const resp = await api('POST', '/admin/vocabulary/generate-kokoro-audio', {});
+    // ✅ 传递选中项ID列表（如果有的话）
+    const body = selectedIds.length > 0 ? { selectedIds } : {};
+    const resp = await api('POST', '/admin/vocabulary/generate-kokoro-audio', body);
     localStorage.removeItem('_vocabCache');
-    toast(`✓ 成功生成${resp.generated}/${resp.total}个音频`, 'success');
+    toast(`✓ 成功生成${resp.generated}/${resp.total}个音频${resp.details?.skipped ? `，已跳过${resp.details.skipped}项` : ''}`, 'success');
     loadVocab();
   } catch(e) {
     toast('生成失败: ' + e.message, true);
@@ -1848,8 +1944,10 @@ async function loadGrammar(){
     const levelParam = gState.level ? `&level=${gState.level}` : '';
     const d=await api('GET',`/admin/grammar?page=${gState.page}&limit=${gState.limit}&q=${encodeURIComponent(gState.search)}${levelParam}`);
     gState.total=d.total||0;
+    const _gData = d.data||[];
+    gState._pageCount = _gData.length;
     const grBody = document.getElementById('gr-body'); if(!grBody) return;
-    grBody.innerHTML=(d.data||[]).map(g=>{
+    grBody.innerHTML=_gData.map(g=>{
       _editCache['g_'+g.id] = g;
       return `
       <tr>
@@ -2024,7 +2122,15 @@ async function deleteGrammar(id){
 }
 
 async function generateGrammarKokoroAudio(){
-  if(!confirm('确认为所有文法例句生成Kokoro音频？此操作可能需要几分钟')) return;
+  // ✅ 收集勾选的文法ID
+  const selectedIds = Array.from(document.querySelectorAll('.gr-cb:checked')).map(cb => cb.value);
+  const isSelective = selectedIds.length > 0;
+  
+  const confirmMsg = isSelective 
+    ? `确认为选中的${selectedIds.length}项文法生成Kokoro音频？此操作可能需要几分钟`
+    : '确认为所有文法例句生成Kokoro音频？此操作可能需要几分钟';
+  
+  if(!confirm(confirmMsg)) return;
   
   const progressDiv = document.createElement('div');
   progressDiv.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:10000`;
@@ -2039,10 +2145,159 @@ async function generateGrammarKokoroAudio(){
   document.body.appendChild(progressDiv);
   
   try {
-    const resp = await api('POST', '/admin/grammar/generate-kokoro-audio', {});
+    // ✅ 传递选中项ID列表（如果有的话）
+    const body = selectedIds.length > 0 ? { grammar_ids: selectedIds } : {};
+    const resp = await api('POST', '/admin/grammar/generate-kokoro-audio', body);
     localStorage.removeItem('_grammarCache');
     toast(`✓ 成功生成${resp.generated}/${resp.total}个音频`, 'success');
     loadGrammar();
+  } catch(e) {
+    toast('生成失败: ' + e.message, true);
+  } finally {
+    progressDiv.remove();
+  }
+}
+
+/* ───────────────────────────────── KANA ────────────────────────────────── */
+let kState = {page:1, limit:20, search:'', type:'', category:'', total:0};
+async function renderKana(){
+  document.getElementById('content').innerHTML = `
+  <div class="toolbar">
+    <input type="text" id="k-search" placeholder="搜索五十音…" onkeydown="if(event.key==='Enter')kanaSearch()" />
+    <select id="k-type-filter" onchange="kanaFilterType()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;background:#fff">
+      <option value="">全部范围</option>
+      <option value="hiragana">平假名</option>
+      <option value="katakana">片假名</option>
+    </select>
+    <select id="k-category-filter" onchange="kanaFilterCategory()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;background:#fff">
+      <option value="">全部音型</option>
+      <option value="五十音">基本五十音</option>
+      <option value="濁音">浊音</option>
+      <option value="半濁音">半浊音</option>
+      <option value="拗音">拗音</option>
+    </select>
+    <button class="btn btn-primary" onclick="kanaSearch()">搜索</button>
+    <button class="btn btn-ghost" onclick="openKanaModal()">＋ 添加</button>
+    <button class="btn btn-danger btn-sm" id="k-del-btn" style="display:none" onclick="bulkDeleteKana()">删除选中</button>
+    <button class="btn btn-success btn-sm" onclick="generateKanaAudio()">🎤 生成音频</button>
+  </div>
+  <div class="panel" style="padding:0">
+    <table><thead><tr>
+      <th><input type="checkbox" onchange="toggleAllKana(this)" /></th>
+      <th>字符</th><th>罗马音</th><th>平假名/片假名</th><th>音型</th><th>音频</th><th>操作</th></tr></thead>
+    <tbody id="k-body"></tbody></table>
+    <div style="padding:12px 16px" id="k-pager"></div>
+  </div>`;
+  await loadKana();
+}
+async function loadKana(){
+  try{
+    const typeParam = kState.type ? `&type=${kState.type}` : '';
+    const catParam = kState.category ? `&category=${encodeURIComponent(kState.category)}` : '';
+    const d=await api('GET',`/admin/kana?page=${kState.page}&limit=${kState.limit}&q=${encodeURIComponent(kState.search)}${typeParam}${catParam}`);
+    const data = d.data || [];
+    kState.total = d.total || data.length;
+    kState._pageCount = data.length;
+    const kBody = document.getElementById('k-body'); if(!kBody) return;
+    kBody.innerHTML = data.map(k=>{
+      const hasAudio = k.audio_url && k.audio_url.trim() !== '';
+      const typeText = k.type==='hiragana'? '平假名':'片假名';
+      const catMap = {'五十音':'基本', '濁音':'浊音', '半濁音':'半浊音', '拗音':'拗音'};
+      const catText = catMap[k.category] || k.category;
+      const catColor = {'五十音':'#0ea5e9', '濁音':'#ef4444', '半濁音':'#f59e0b', '拗音':'#8b5cf6'}[k.category] || '#6b7280';
+      return `<tr>
+        <td><input type="checkbox" class="k-cb" value="${k.id}" onchange="updateKDelBtn()" /></td>
+        <td style="font-size:18px;font-weight:bold">${esc(k.character)}</td>
+        <td>${esc(k.romanization||'—')}</td>
+        <td><span class="badge badge-blue">${typeText}</span></td>
+        <td><span class="badge" style="background:${catColor}">${catText}</span></td>
+        <td>${hasAudio?'<span style="color:#10b981;font-weight:600">✓ 有</span>':'<span style="color:#999">无</span>'}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="editKana('${esc(String(k.id))}')">编辑</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteKana('${esc(String(k.id))}')">删除</button>
+        </td>
+      </tr>`;
+    }).join('');
+    renderPager('k-pager', kState.page, Math.ceil(kState.total/kState.limit), p=>{ kState.page=p; loadKana(); }, kState);
+  }catch(e){ toast(e.message,true) }
+}
+function kanaSearch(){ kState.page=1; kState.search=document.getElementById('k-search').value; loadKana(); }
+function kanaFilterType(){ kState.page=1; kState.type=document.getElementById('k-type-filter').value; loadKana(); }
+function kanaFilterCategory(){ kState.page=1; kState.category=document.getElementById('k-category-filter').value; loadKana(); }
+function updateKDelBtn(){ document.getElementById('k-del-btn').style.display=document.querySelectorAll('.k-cb:checked').length>0?'':'none'; }
+function toggleAllKana(cb){ document.querySelectorAll('.k-cb').forEach(c=>c.checked=cb.checked); updateKDelBtn(); }
+async function bulkDeleteKana(){
+  const ids=[...(document.querySelectorAll('.k-cb:checked'))].map(c=>c.value);
+  if(!ids.length || !confirm(`确认删除 ${ids.length} 条五十音？`)) return;
+  try{ await api('POST','/admin/kana/bulk-delete',{ids}); toast('已批量删除'); loadKana(); }catch(e){ toast(e.message,true) }
+}
+function openKanaModal(){
+  document.getElementById('mk-id').value = '';
+  document.getElementById('mk-character').value = '';
+  document.getElementById('mk-romanization').value = '';
+  document.getElementById('mk-kana-type').value = 'hiragana';
+  document.getElementById('mk-category').value = '五十音';
+  document.getElementById('mk-audio-url').value = '';
+  document.getElementById('mk-title').textContent = '添加五十音';
+  document.getElementById('modal-kana').classList.add('open');
+}
+async function editKana(id){
+  try{
+    const k=await api('GET',`/admin/kana/${id}`);
+    document.getElementById('mk-id').value = k.id;
+    document.getElementById('mk-character').value = k.character;
+    document.getElementById('mk-romanization').value = k.romanization||'';
+    document.getElementById('mk-kana-type').value = k.type;
+    document.getElementById('mk-category').value = k.category;
+    document.getElementById('mk-audio-url').value = k.audio_url||'';
+    document.getElementById('mk-title').textContent = '编辑五十音';
+    document.getElementById('modal-kana').classList.add('open');
+  }catch(e){ toast(e.message,true) }
+}
+async function saveKana(){
+  const id=document.getElementById('mk-id').value;
+  const d={
+    character:document.getElementById('mk-character').value,
+    romanization:document.getElementById('mk-romanization').value,
+    type:document.getElementById('mk-kana-type').value,
+    category:document.getElementById('mk-category').value,
+    audio_url:document.getElementById('mk-audio-url').value
+  };
+  if(!d.character){toast('请输入字符',true); return;}
+  if(!d.romanization){toast('请输入罗马音',true); return;}
+  try{
+    const method = id ? 'PUT' : 'POST';
+    const path = id ? `/admin/kana/${id}` : '/admin/kana';
+    await api(method, path, d);
+    toast(id?'已更新':'已添加');
+    closeModal('modal-kana');
+    loadKana();
+  }catch(e){ toast(e.message,true) }
+}
+async function deleteKana(id){
+  if(!confirm('确认删除？')) return;
+  try{ await api('DELETE',`/admin/kana/${id}`); toast('已删除'); loadKana(); }catch(e){ toast(e.message,true) }
+}
+async function generateKanaAudio(){
+  const ids=[...(document.querySelectorAll('.k-cb:checked'))].map(c=>c.value);
+  const progressDiv = document.createElement('div');
+  progressDiv.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:10000`;
+  progressDiv.innerHTML = `
+    <div style="background:#fff;padding:30px;border-radius:12px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+      <div style="font-size:16px;margin-bottom:15px">🎤 正在生成音频...</div>
+      <div style="width:200px;height:6px;background:#e5e7eb;border-radius:3px;margin-bottom:15px">
+        <div id="progress-bar" style="height:100%;background:#8b5cf6;border-radius:3px;width:0%;transition:width .3s"></div>
+      </div>
+      <div id="progress-text" style="font-size:13px;color:#666">等待中...</div>
+    </div>`;
+  document.body.appendChild(progressDiv);
+  
+  try {
+    const body = ids.length > 0 ? { selectedIds: ids } : {};
+    const resp = await api('POST', '/admin/kana/batch-audio', body);
+    localStorage.removeItem('_kanaCache');
+    toast(`✓ 成功生成${resp.generated}/${resp.total}个音频`, 'success');
+    loadKana();
   } catch(e) {
     toast('生成失败: ' + e.message, true);
   } finally {
@@ -2070,8 +2325,10 @@ async function loadTracks(){
   try{
     const d=await api('GET',`/admin/tracks?page=${tState.page}&limit=${tState.limit}&q=${encodeURIComponent(tState.search)}`);
     tState.total=d.total||0;
+    const _tData = d.data||[];
+    tState._pageCount = _tData.length;
     const trBody = document.getElementById('tr-body'); if(!trBody) return;
-    trBody.innerHTML=(d.data||[]).map(t=>{
+    trBody.innerHTML=_tData.map(t=>{
       _editCache['t_'+t.id] = t;
       return `
       <tr>
@@ -2138,8 +2395,10 @@ async function loadUsers(){
   try{
     const d=await api('GET',`/admin/users?page=${uState.page}&limit=${uState.limit}&q=${encodeURIComponent(uState.search)}`);
     uState.total=d.total||0;
+    const _uData = d.data||[];
+    uState._pageCount = _uData.length;
     const usBody = document.getElementById('us-body'); if(!usBody) return;
-    usBody.innerHTML=(d.data||[]).map(u=>{
+    usBody.innerHTML=_uData.map(u=>{
       const mp = u.membership_plan;
       const me = u.membership_expire;
       const isExpired = me && new Date(me) < new Date();
@@ -3617,8 +3876,10 @@ async function loadReports(){
     const rt = rpState.ref_type ? `&ref_type=${rpState.ref_type}` : '';
     const d = await api('GET',`/admin/reports?page=${rpState.page}&limit=${rpState.limit}${st}${rt}${q}`);
     rpState.total = d.total || 0;
+    const _rpData = d.data||[];
+    rpState._pageCount = _rpData.length;
     const body = document.getElementById('rp-body'); if(!body) return;
-    body.innerHTML = (d.data||[]).map(r=>{
+    body.innerHTML = _rpData.map(r=>{
       const statusMap = {pending:'<span class="badge badge-orange">待处理</span>', resolved:'<span class="badge badge-green">已解决</span>', rejected:'<span class="badge badge-red">已驳回</span>'};
       const typeMap = {vocabulary:'词汇', grammar:'文法'};
       const sid = esc(String(r.id));

@@ -13,6 +13,7 @@ const {
   listUsers, updateUser, updateUserMembership,
   getContentVersion, publishContent,
   getTrafficStats, getUserStats, getBehaviorStats, getFeatureUsage,
+  listKana, batchGenerateKanaAudio, getKanaList, getKanaById, createKanaItem, updateKanaItem, deleteKanaItem, bulkDeleteKanaItems,  // ✅ 五十音CRUD
   getMembershipConfig, saveMembershipConfig,
   getFeatureToggles, saveFeatureToggles,
   getFeatureTiers, saveFeatureTiers,
@@ -22,6 +23,7 @@ const {
   listAdmins, updateAdminPermissions, getAdminInfo,
   listReports, getReport, updateReport, deleteReport,
   getStudyPlanStats,
+  generateSingleAudio,
 } = require('../controllers/adminController');
 const {
   adminListChannels, adminCreateChannel, adminUpdateChannel, adminDeleteChannel, adminRefreshChannel,
@@ -176,5 +178,17 @@ router.get('/study-plan/stats', permissionCheck('stats'), asyncHandler(getStudyP
 // Kokoro TTS 配置管理
 router.get('/settings/kokoro',  adminAuth, asyncHandler(getKokoroSettings));
 router.post('/settings/kokoro', permissionCheck('settings'), asyncHandler(saveKokoroSettings));
+
+// 五十音管理 - 具体路由必须在参数化路由之前
+router.post('/kana/batch-audio',         permissionCheck('vocabulary'), asyncHandler(batchGenerateKanaAudio));
+
+// 通用单条TTS生成（持久化）
+router.post('/tts/generate-single',      permissionCheck('vocabulary'), asyncHandler(generateSingleAudio));
+router.post('/kana/bulk-delete',         permissionCheck('vocabulary'), asyncHandler(bulkDeleteKanaItems));
+router.get('/kana',                      permissionCheck('vocabulary'), asyncHandler(getKanaList));
+router.get('/kana/:id',                  permissionCheck('vocabulary'), asyncHandler(getKanaById));
+router.post('/kana',                     permissionCheck('vocabulary'), asyncHandler(createKanaItem));
+router.put('/kana/:id',                  permissionCheck('vocabulary'), asyncHandler(updateKanaItem));
+router.delete('/kana/:id',               permissionCheck('vocabulary'), asyncHandler(deleteKanaItem));
 
 module.exports = router;

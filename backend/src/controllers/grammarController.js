@@ -38,7 +38,11 @@ async function list(req, res) {
 async function getById(req, res) {
   try {
     const lesson = await GrammarLesson.findByPk(req.params.id, {
-      include: [{ model: GrammarExample, as: 'examples' }],
+      include: [{
+        model: GrammarExample,
+        as: 'examples',
+        attributes: ['id', 'sentence', 'reading', 'meaning_zh', 'audio_url'],
+      }],
     });
     if (!lesson) return res.status(404).json({ error: 'Not found' });
     res.json(lesson);

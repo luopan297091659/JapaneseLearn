@@ -1,11 +1,26 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:just_audio/just_audio.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../config/app_config.dart';
+
+/// 创建支持自签名证书的 Dio 实例
+Dio _createTrustingDio() {
+  final dio = Dio();
+  (dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
+    final client = HttpClient();
+    client.badCertificateCallback = (cert, host, port) {
+      const knownHosts = ['139.196.44.6', 'localhost', '127.0.0.1'];
+      return knownHosts.contains(host);
+    };
+    return client;
+  };
+  return dio;
+}
 
 /// 全局 TTS 辅助工具，确保引擎正确初始化并提供诊断信息
 
@@ -28,13 +43,15 @@ class TtsHelper {
         final player = AudioPlayer();
         String? localPath;
         if (audioUrl.startsWith('/uploads/')) {
-          // 下载到本地临时文件
+          // 相对路径，拼接服务器地址后下载到本地临时文件
+          final fullUrl = AppConfig.serverRoot + audioUrl;
           final dir = await getTemporaryDirectory();
           final fileName = audioUrl.split('/').last;
           localPath = '${dir.path}/$fileName';
           if (!File(localPath).existsSync()) {
-            final resp = await Dio().get(
-              audioUrl,
+            final dio = _createTrustingDio();
+            final resp = await dio.get(
+              fullUrl,
               options: Options(responseType: ResponseType.bytes),
             );
             await File(localPath).writeAsBytes(resp.data);
@@ -42,8 +59,10 @@ class TtsHelper {
         }
         if (localPath != null && File(localPath).existsSync()) {
           await player.setFilePath(localPath);
-        } else {
+        } else if (audioUrl.startsWith('http')) {
           await player.setUrl(audioUrl);
+        } else {
+          await player.setUrl(AppConfig.serverRoot + audioUrl);
         }
         await player.setVolume(1.0);
         await player.setSpeed(slow ? 0.5 : 1.0);
@@ -78,7 +97,7 @@ class TtsHelper {
     // 3. 后端Kokoro TTS
     try {
       debugPrint('[TTS] 第3层：尝试Kokoro后端合成 - URL: ${AppConfig.kokoroTtsUrl}');
-      final dio = Dio();
+      final dio = _createTrustingDio();
       final requestData = {
         'text': text,
         'voice': 'a',  // 'a', 'b', 或 'c'
@@ -124,6 +143,37 @@ class TtsHelper {
       debugPrint('[TTS] Kokoro TTS后端失败: $e');
       if (onComplete != null) onComplete();
     }
+  }
+
+  /// 预缓存单个音频文件到本地（不播放），已缓存则跳过
+  static Future<void> precacheAudioUrl(String audioUrl) async {
+    if (audioUrl.isEmpty) return;
+    try {
+      final dir = await getTemporaryDirectory();
+      final fileName = audioUrl.split('/').last;
+      final localPath = '${dir.path}/$fileName';
+      if (File(localPath).existsSync()) return;
+      String fullUrl = audioUrl;
+      if (audioUrl.startsWith('/uploads/')) {
+        fullUrl = AppConfig.serverRoot + audioUrl;
+      }
+      final dio = _createTrustingDio();
+      final resp = await dio.get(fullUrl, options: Options(responseType: ResponseType.bytes));
+      if ((resp.data as List<int>).isNotEmpty) {
+        await File(localPath).writeAsBytes(resp.data);
+      }
+    } catch (e) {
+      debugPrint('预缓存音频失败: $e');
+    }
+  }
+
+  /// 批量预缓存音频URL列表（后台逐个下载，不阻塞UI）
+  static void precacheAudioUrls(Iterable<String> urls) {
+    () async {
+      for (final url in urls) {
+        if (url.isNotEmpty) await precacheAudioUrl(url);
+      }
+    }();
   }
 
   TtsHelper._();

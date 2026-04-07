@@ -38,6 +38,8 @@ const pronunciationRoutes = require('./routes/pronunciation');
 const listeningChannelRoutes = require('./routes/listeningChannel');
 const reportRoutes = require('./routes/reports');
 const kokoroTtsRoutes = require('./routes/kokoroTts');
+const kokoroAudioManagementRoutes = require('./routes/kokoroAudioManagement');
+const kanaRoutes = require('./routes/kana');
 
 const app = express();
 
@@ -133,6 +135,8 @@ app.use('/api/v1/pronunciation', pronunciationRoutes);
 app.use('/api/v1/listening-channels', listeningChannelRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/tts', kokoroTtsRoutes);
+app.use('/api/v1/kokoro-audio', kokoroAudioManagementRoutes);
+app.use('/api/v1/kana', kanaRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -198,11 +202,30 @@ async function start() {
     // 如需新增字段请手动执行 SQL migration
     // 确保 Forum 模型已注册到 sequelize
     require('./models/Forum');
-    await sequelize.sync({ alter: { drop: false } }); // 自动添加新列，但不删除现有列/数据
+    try {
+      await sequelize.sync({ alter: { drop: false } }); // 自动添加新列，但不删除现有列/数据
+    } catch (syncErr) {
+      // 忽略已存在的唯一索引冲突（ER_DUP_ENTRY on ADD INDEX）
+      if (syncErr.original && syncErr.original.errno === 1062) {
+        logger.warn('Sync warning: duplicate index skipped - ' + syncErr.original.sqlMessage);
+      } else {
+        throw syncErr;
+      }
+    }
 
     // 初始化论坛默认分类
     const { seedCategories } = require('./controllers/forumController');
     await seedCategories();
+
+    // 初始化音频存储服务
+    const audioLocalizationService = require('./services/audioLocalizationService');
+    await audioLocalizationService.ensureAudioDirectories();
+    logger.info('Audio storage directories initialized.');
+
+    // 启动Kokoro音频定时清理任务
+    const audioCleanupService = require('./services/audioCleanupService');
+    audioCleanupService.startCleanupSchedule();
+    logger.info('Kokoro audio cleanup scheduler started.');
 
     const certPath = process.env.SSL_CERT_PATH || './certs/cert.pem';
     const keyPath  = process.env.SSL_KEY_PATH  || './certs/key.pem';

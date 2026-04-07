@@ -208,23 +208,10 @@ class _NhkDetailScreenState extends State<NhkDetailScreen> {
             onPressed: () async {
               final text = _plainText(_body);
               if (text.isEmpty) return;
-              try {
-                await TtsHelper.setJapaneseVoice(_tts);
-                await _tts.setVolume(1.0);
-                final result = await _tts.speak(text.substring(0, text.length.clamp(0, 500)));
-                if (result != 1 && mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('语音引擎不可用，请检查系统TTS设置'), duration: Duration(seconds: 3)),
-                  );
-                }
-              } catch (e) {
-                debugPrint('TTS speak error: $e');
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('朗读出错：$e'), duration: const Duration(seconds: 3)),
-                  );
-                }
-              }
+              await TtsHelper.playJapaneseSmart(
+                text: text.substring(0, text.length.clamp(0, 500)),
+                tts: _tts,
+              );
             },
           ),
         ],

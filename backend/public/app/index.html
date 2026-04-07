@@ -2574,8 +2574,11 @@ async function showGrammarDetail(id) {
       <div class="grammar-example-item">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <div style="font-size:15px;font-weight:600;flex:1">${hasBracketFurigana(ex.reading) ? renderFurigana(ex.reading) : escHtml(ex.sentence)}</div>
+          ${ex.audio_url ? `
+          <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();playAudio('${escHtml(ex.audio_url)}')" title="正常速度">🔊</button>
+          <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px;color:var(--warning);border-color:var(--warning)" onclick="event.stopPropagation();playAudioSlow('${escHtml(ex.audio_url)}')" title="慢速">🐌</button>` : `
           <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px" data-tts="${escHtml(ex.sentence)}" data-tts-rate="0.8" onclick="event.stopPropagation();speakJaFromEl(this)">🔊</button>
-          <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px;color:var(--warning);border-color:var(--warning)" data-tts="${escHtml(ex.sentence)}" data-tts-rate="${_slowSpeed * 0.8}" onclick="event.stopPropagation();speakJaFromEl(this)">🐌</button>
+          <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px;color:var(--warning);border-color:var(--warning)" data-tts="${escHtml(ex.sentence)}" data-tts-rate="${_slowSpeed * 0.8}" onclick="event.stopPropagation();speakJaFromEl(this)">🐌</button>`}
         </div>
         <div style="font-size:13px;color:var(--text-sub);margin-top:4px">${escHtml(ex.meaning_zh)}</div>
       </div>
@@ -3124,8 +3127,9 @@ async function searchDict() {
         return `<div style="margin-bottom:6px">${s}</div>`;
       }).join('');
       const jlpt = e.jlpt && e.jlpt.length ? `<span class="badge badge-${e.jlpt[0].toLowerCase().replace('-','')}">${e.jlpt[0]}</span>` : '';
+      const ttsWord = reading || word;
       return `<div class="dict-entry">
-        <div class="dict-word">${escHtml(word)} ${jlpt}</div>
+        <div class="dict-word">${escHtml(word)} ${jlpt} <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px;margin-left:6px" onclick="event.stopPropagation();speakJa('${escHtml(ttsWord).replace(/'/g,"\\'")}')" title="发音">🔊</button></div>
         <div class="dict-reading">${escHtml(reading)}</div>
         <div class="dict-def" style="margin-top:8px">${defsHtml}</div>
       </div>`;
@@ -3737,7 +3741,12 @@ function stopInlinePron() { if (window._inlinePronRecog) window._inlinePronRecog
 
 function pronPlayAudio() {
   if (_pronWords.length === 0) return;
-  speakJa(ttsText(_pronWords[_pronIdx]));
+  const w = _pronWords[_pronIdx];
+  if (w.audio_url) {
+    playAudio(w.audio_url);
+  } else {
+    speakJa(ttsText(w));
+  }
 }
 
 async function pronToggleRecord() {
@@ -6336,7 +6345,9 @@ let _slowSpeed = parseFloat(localStorage.getItem('slow_speed') || '0.5');
 function playAudio(url) {
   if (!url) return;
   if (_audioEl) { _audioEl.pause(); _audioEl = null; }
-  _audioEl = new Audio(url);
+  let fullUrl = url;
+  if (url.startsWith('/')) fullUrl = location.origin + url;
+  _audioEl = new Audio(fullUrl);
   _audioEl.playbackRate = 1.0;
   _audioEl.play().catch(() => toast('音频播放失败，请检查浏览器设置'));
 }
@@ -6344,7 +6355,9 @@ function playAudio(url) {
 function playAudioSlow(url) {
   if (!url) return;
   if (_audioEl) { _audioEl.pause(); _audioEl = null; }
-  _audioEl = new Audio(url);
+  let fullUrl = url;
+  if (url.startsWith('/')) fullUrl = location.origin + url;
+  _audioEl = new Audio(fullUrl);
   _audioEl.playbackRate = _slowSpeed;
   _audioEl.play().catch(() => toast('音频播放失败，请检查浏览器设置'));
 }
@@ -6456,19 +6469,24 @@ async function renderSpCard() {
     let content = '';
     if (item.card_type === 'vocabulary') {
       const v = await GET(`/vocabulary/${item.ref_id}`);
+      const audioBtn = v.audio_url ? `<div style="display:flex;gap:6px;justify-content:center;margin-top:8px"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();playAudio('${escHtml(v.audio_url)}')">🔊 发音</button><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();playAudioSlow('${escHtml(v.audio_url)}')" style="color:var(--warning);border-color:var(--warning)">🐌 慢速</button></div>` : `<div style="display:flex;gap:6px;justify-content:center;margin-top:8px"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();speakJa('${escHtml(ttsText(v)).replace(/'/g,"\\'")}')" >🔊 发音</button></div>`;
       content = `
         <div style="font-size:12px;color:var(--text-sub);margin-bottom:8px">${item.source === 'review' || item.source === 'difficult' ? '🔄 复习' : '🆕 新词'} · 词汇</div>
         <div style="font-size:32px;font-weight:700;margin:16px 0">${escHtml(v.word || '')}</div>
         <div style="font-size:16px;color:var(--text-sub);margin-bottom:8px">${escHtml(v.reading || '')}</div>
+        ${audioBtn}
         <div id="sp-answer" style="display:none">
           <div style="font-size:18px;margin:20px 0;padding:16px;background:var(--bg);border-radius:12px">${escHtml(v.meaning_zh || v.meaning || '')}</div>
           ${v.example_ja ? `<div style="font-size:14px;color:var(--text-sub);margin-bottom:12px"><b>例：</b>${escHtml(v.example_ja)}</div>` : ''}
         </div>`;
     } else {
       const g = await GET(`/grammar/${item.ref_id}`);
+      const gPattern = g.pattern || '';
+      const gAudioBtn = `<div style="display:flex;gap:6px;justify-content:center;margin-top:8px"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();speakJa('${escHtml(gPattern).replace(/'/g,"\\'")}')">🔊 发音</button></div>`;
       content = `
         <div style="font-size:12px;color:var(--text-sub);margin-bottom:8px">${item.source === 'review' || item.source === 'difficult' ? '🔄 复习' : '🆕 新文法'} · 文法</div>
-        <div style="font-size:28px;font-weight:700;margin:16px 0">${escHtml(g.pattern || '')}</div>
+        <div style="font-size:28px;font-weight:700;margin:16px 0">${escHtml(gPattern)}</div>
+        ${gAudioBtn}
         <div id="sp-answer" style="display:none">
           <div style="font-size:16px;margin:20px 0;padding:16px;background:var(--bg);border-radius:12px">${escHtml(g.explanation_zh || g.explanation || '')}</div>
           ${(g.examples && g.examples.length) ? `<div style="font-size:14px;color:var(--text-sub);margin-top:8px"><b>例：</b>${escHtml(g.examples[0].japanese || '')}<br/><span style="font-size:12px">${escHtml(g.examples[0].chinese || '')}</span></div>` : ''}

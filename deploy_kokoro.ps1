@@ -1,6 +1,7 @@
 # deploy_kokoro.ps1 — 部署 Kokoro TTS Python 微服务
 param(
-    [string]$ServerHost = "139.196.44.6",
+    # [string]$ServerHost = "139.196.44.6",
+    [string]$ServerHost = "47.76.27.234",
     [string]$User       = "root",
     [string]$Passwd     = "Xiaoyun@123",
     [int]   $Port       = 22,
@@ -17,7 +18,8 @@ if (-not (Get-Command plink -EA SilentlyContinue)) {
     $env:PATH = $env:PATH + ";C:\Program Files\PuTTY"
 }
 
-$HostKey = "SHA256:ySCdPD8LyDCmPPcUT7OjO6r+c0RUwBLMU/UWlOA9GHg"
+# $HostKey = "SHA256:ySCdPD8LyDCmPPcUT7OjO6r+c0RUwBLMU/UWlOA9GHg"
+$HostKey = "SHA256:QH97HV9yERJhO4cuy/DdMVwX0WVAKrQXl7bbvT0Eqls"
 
 function Remote-Run([string]$Cmd) {
     & plink -batch -hostkey $HostKey -pw $Passwd -P $Port "${User}@${ServerHost}" $Cmd
@@ -59,7 +61,9 @@ Remote-Run "cd $RemotePath && python3.11 -m pip install -r /tmp/req.txt --quiet 
 Write-Host "[5/5] 启动 Kokoro 服务..." -ForegroundColor Yellow
 # 使用多workers (4-8个) 来支持高并发批量生成
 # uvicorn 会自动使用thread pool来处理sync操作
-Remote-Run "cd $RemotePath; pm2 start 'python3.11 -m uvicorn kokoro_tts_service_v2:app --host 0.0.0.0 --port 8010 --workers 4' --name kokoro-tts"
+# 先停止并完全删除旧的kokoro-tts进程，防止重复启动
+Remote-Run "pm2 stop kokoro-tts 2>/dev/null ; pm2 delete kokoro-tts 2>/dev/null ; sleep 1"
+Remote-Run "cd $RemotePath && pm2 start 'python3.11 -m uvicorn kokoro_tts_service_v2:app --host 0.0.0.0 --port 8010 --workers 2' --name kokoro-tts"
 Remote-Run "sleep 3"
 Remote-Run "pm2 list"
 Remote-Run "pm2 logs kokoro-tts --lines 30"

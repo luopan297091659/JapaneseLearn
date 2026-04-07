@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../data/kana_data.dart';
 import '../../utils/tts_helper.dart';
 import '../../widgets/kana_stroke_widget.dart';
+import '../../services/api_service.dart';
 
 class KanaWritingTestScreen extends StatefulWidget {
   const KanaWritingTestScreen({super.key});
@@ -14,6 +15,7 @@ class KanaWritingTestScreen extends StatefulWidget {
 
 class _KanaWritingTestScreenState extends State<KanaWritingTestScreen> {
   final FlutterTts _tts = FlutterTts();
+  Map<String, String> _kanaAudioMap = {};
 
   // ── 设置 ──
   bool _started = false;
@@ -100,13 +102,15 @@ class _KanaWritingTestScreenState extends State<KanaWritingTestScreen> {
   Future<void> _playPrompt() async {
     if (_questions.isEmpty) return;
     final q = _questions[_current];
-    try {
-      try { await TtsHelper.setJapaneseVoice(_tts); } catch (_) {}
-      await _tts.setVolume(1.0);
-      await _tts.speak(q['kana']!);
-    } catch (e) {
-      debugPrint('TTS error: $e');
+    final kana = q['kana']!;
+    if (_kanaAudioMap.isEmpty) {
+      try { _kanaAudioMap = await apiService.getKanaAudioMap(); } catch (_) {}
     }
+    await TtsHelper.playJapaneseSmart(
+      audioUrl: _kanaAudioMap[kana],
+      text: kana,
+      tts: _tts,
+    );
   }
 
   void _submitAnswer() {

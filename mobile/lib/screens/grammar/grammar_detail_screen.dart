@@ -114,6 +114,11 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
     try {
       final lesson = await apiService.getGrammarLesson(_currentId);
       setState(() { _lesson = lesson; _loading = false; });
+      // 后台预缓存所有例句音频
+      final audioUrls = lesson.examples
+          .where((e) => e.audioUrl != null && e.audioUrl!.isNotEmpty)
+          .map((e) => e.audioUrl!);
+      TtsHelper.precacheAudioUrls(audioUrls);
     } catch (_) { setState(() => _loading = false); }
   }
 
