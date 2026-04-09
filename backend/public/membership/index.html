@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>会员订阅 — 言旅 Kotabi</title>
+<link rel="icon" type="image/png" href="/app/favicon.png">
+<style>
+:root {
+  --primary: #4361ee;
+  --primary-dark: #2f4ac1;
+  --primary-light: #eef0fd;
+  --surface: #ffffff;
+  --surface2: #f8f9fc;
+  --border: #e5e7ef;
+  --text: #1a1c2e;
+  --text-sub: #6b7280;
+  --text-hint: #9ca3af;
+  --radius: 16px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 16px rgba(67,97,238,.08);
+  --shadow-md: 0 4px 24px rgba(67,97,238,.13);
+  --nav-h: 56px;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { font-family: "Noto Sans CJK SC","PingFang SC","Microsoft YaHei",sans-serif; color: var(--text); background: var(--surface2); line-height: 1.6; }
+a { text-decoration: none; color: var(--primary); }
+
+/* ── Nav ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h);
+  background: rgba(255,255,255,.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border); display: flex; align-items: center;
+  padding: 0 clamp(12px,4vw,48px); gap: 8px; z-index: 100;
+}
+nav .logo { font-size: 20px; font-weight: 800; color: var(--primary); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+nav .logo img { width: 32px; height: 32px; border-radius: 8px; }
+nav .logo sub { font-size: 11px; font-weight: 400; color: var(--text-sub); margin-left: 2px; vertical-align: baseline; }
+nav .spacer { flex: 1; }
+nav .nav-link { font-size: 13px; font-weight: 600; color: var(--text-sub); padding: 5px 10px; border-radius: var(--radius-sm); transition: all .15s; white-space: nowrap; }
+nav .nav-link:hover { color: var(--primary); background: var(--primary-light); }
+nav .nav-link.active { color: var(--primary); }
+.user-account { display: none; flex-direction: column; align-items: center; position: relative; }
+.user-account.show { display: flex; }
+.user-badge { font-size: 13px; font-weight: 600; color: var(--primary); padding: 5px 12px; border-radius: var(--radius-sm); background: var(--primary-light); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.user-badge .vip-icon { font-size: 14px; margin-right: 2px; }
+.user-badge.is-member { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; }
+.user-sub { font-size: 10px; color: var(--text-sub); white-space: nowrap; margin-top: 1px; }
+
+/* ── Hero section ── */
+.membership-hero {
+  margin-top: var(--nav-h); padding: 48px 20px 32px; text-align: center;
+  background: linear-gradient(135deg, #0f0c29, #1a1a4e, #24243e); color: #fff;
+}
+.membership-hero h1 { font-size: clamp(22px,4vw,36px); font-weight: 900; margin-bottom: 8px; }
+.membership-hero h1 span { background: linear-gradient(90deg,#60a5fa,#a78bfa,#f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.membership-hero p { font-size: 15px; color: rgba(255,255,255,.7); max-width: 500px; margin: 0 auto; }
+
+/* ── Plans ── */
+.plans-section { max-width: 900px; margin: -24px auto 0; padding: 0 16px 48px; position: relative; z-index: 1; }
+.plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+.plan-card {
+  background: var(--surface); border-radius: var(--radius); padding: 28px 24px;
+  box-shadow: var(--shadow); transition: transform .2s, box-shadow .2s; position: relative; display: flex; flex-direction: column;
+}
+.plan-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+.plan-card.popular { border: 2px solid var(--primary); }
+.plan-card.popular::before {
+  content: '推荐'; position: absolute; top: -11px; right: 20px;
+  background: var(--primary); color: #fff; font-size: 11px; font-weight: 700;
+  padding: 2px 12px; border-radius: 10px;
+}
+.plan-name { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+.plan-price { font-size: 32px; font-weight: 900; color: var(--primary); margin: 8px 0; }
+.plan-price small { font-size: 14px; font-weight: 500; color: var(--text-sub); }
+.plan-desc { font-size: 13px; color: var(--text-sub); margin-bottom: 16px; }
+.plan-features { list-style: none; flex: 1; margin-bottom: 20px; }
+.plan-features li { font-size: 13px; padding: 4px 0; display: flex; align-items: center; gap: 6px; }
+.plan-features li::before { content: '✓'; color: var(--success); font-weight: 700; font-size: 14px; }
+.plan-btn {
+  display: block; width: 100%; padding: 11px; border: none; border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 700; cursor: pointer; transition: all .2s; text-align: center;
+}
+.plan-btn-primary { background: var(--primary); color: #fff; }
+.plan-btn-primary:hover { background: var(--primary-dark); }
+.plan-btn-secondary { background: var(--primary-light); color: var(--primary); }
+.plan-btn-secondary:hover { background: #dde0f8; }
+.plan-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Feature comparison ── */
+.comparison { max-width: 800px; margin: 0 auto 48px; padding: 0 16px; }
+.comparison h2 { text-align: center; font-size: 22px; font-weight: 800; margin-bottom: 20px; }
+.comparison table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+.comparison th, .comparison td { padding: 12px 16px; text-align: left; font-size: 13px; border-bottom: 1px solid var(--border); }
+.comparison th { background: var(--surface2); font-weight: 700; }
+.comparison td:nth-child(2), .comparison td:nth-child(3) { text-align: center; }
+.comparison th:nth-child(2), .comparison th:nth-child(3) { text-align: center; }
+.check { color: var(--success); font-weight: 700; }
+.limit { color: var(--warning); font-size: 12px; }
+
+
+
+/* ── Auth Modal ── */
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,.5); z-index: 200; align-items: center; justify-content: center;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: var(--surface); border-radius: var(--radius); padding: 32px 28px;
+  width: 100%; max-width: 400px; margin: 16px; box-shadow: 0 8px 40px rgba(0,0,0,.2);
+}
+.modal h2 { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+.modal .subtitle { font-size: 13px; color: var(--text-sub); margin-bottom: 20px; }
+.modal .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+.modal .tab {
+  flex: 1; padding: 8px; text-align: center; font-size: 13px; font-weight: 600;
+  border: none; background: var(--surface2); color: var(--text-sub);
+  border-radius: var(--radius-sm); cursor: pointer; transition: all .15s;
+}
+.modal .tab.active { background: var(--primary); color: #fff; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: var(--text-sub); }
+.form-group input {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 14px; outline: none; transition: border .15s;
+}
+.form-group input:focus { border-color: var(--primary); }
+.form-error { font-size: 12px; color: var(--danger); margin-top: 16px; display: none; text-align: center; }
+.form-error.show { display: block; }
+.modal-btn {
+  width: 100%; padding: 11px; border: none; border-radius: var(--radius-sm);
+  background: var(--primary); color: #fff; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: all .15s; margin-top: 6px;
+}
+.modal-btn:hover { background: var(--primary-dark); }
+.modal-btn:disabled { opacity: .6; cursor: not-allowed; }
+.modal-close {
+  position: absolute; top: 10px; right: 14px; background: none; border: none;
+  font-size: 20px; color: var(--text-hint); cursor: pointer;
+}
+
+/* ── Toast ── */
+.toast {
+  position: fixed; top: 72px; left: 50%; transform: translateX(-50%);
+  padding: 10px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+  color: #fff; z-index: 300; opacity: 0; transition: opacity .3s;
+}
+.toast.show { opacity: 1; }
+.toast-success { background: var(--success); }
+.toast-error { background: var(--danger); }
+
+/* ── Footer ── */
+footer { text-align: center; padding: 28px 16px; font-size: 12px; color: var(--text-hint); border-top: 1px solid var(--border); }
+
+/* ── Loading spinner on button ── */
+.btn-loading { pointer-events: none; opacity: .7; }
+.spinner-sm { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: 4px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 480px) {
+  .plans-grid { grid-template-columns: 1fr; }
+  .comparison table { font-size: 12px; }
+  .comparison th, .comparison td { padding: 8px 10px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="logo" onclick="location.href='/'">
+    <img src="/home/app_icon.png" alt="言旅">
+    言旅<sub>Kotabi</sub>
+  </div>
+  <div class="spacer"></div>
+  <a class="nav-link" href="/">首页</a>
+  <a class="nav-link active" href="/membership">会员</a>
+  <a class="nav-link" href="/forum">社区</a>
+  <a class="nav-link" href="/app">浏览器版</a>
+  <div class="user-account" id="userAccount">
+    <span class="user-badge" id="userBadge" onclick="showUserMenu()"></span>
+    <span class="user-sub" id="memberExpire"></span>
+  </div>
+  <a class="nav-link" id="loginBtn" href="javascript:void(0)" onclick="showAuthModal()">登录</a>
+</nav>
+
+<!-- Hero -->
+<section class="membership-hero">
+  <h1>解锁<span>全部功能</span></h1>
+  <p>成为会员，畅享 N5–N1 全等级词汇语法、无限 SRS 复习、AI 对话、听力训练等全部功能</p>
+</section>
+
+<!-- Plans -->
+<section class="plans-section">
+  <div class="plans-grid" id="plansGrid">
+    <!-- Dynamically filled -->
+  </div>
+</section>
+
+<!-- Feature comparison -->
+<section class="comparison">
+  <h2>功能对比</h2>
+  <table>
+    <thead><tr><th>功能</th><th>免费版</th><th>会员</th></tr></thead>
+    <tbody id="comparisonBody">
+      <tr><td>五十音学习</td><td class="check">✓</td><td class="check">✓</td></tr>
+      <tr><td>都道府县测验</td><td class="check">✓</td><td class="check">✓</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>© 2026 言旅 Kotabi — 让日语学习成为一段美好旅程</footer>
+
+<!-- Auth Modal -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal" style="position:relative;">
+    <button class="modal-close" onclick="closeAuthModal()">✕</button>
+    <h2 id="authTitle">登录账号</h2>
+    <p class="subtitle" id="authSubtitle">登录后即可开通会员</p>
+    <div class="tabs">
+      <button class="tab active" id="tabLogin" onclick="switchTab('login')">登录</button>
+      <button class="tab" id="tabRegister" onclick="switchTab('register')">注册</button>
+    </div>
+    <form id="authForm" onsubmit="handleAuth(event)">
+      <div class="form-group" id="usernameGroup" style="display:none;">
+        <label>用户名</label>
+        <input type="text" id="regUsername" placeholder="3-50 个字符" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>邮箱</label>
+        <input type="email" id="authEmail" placeholder="your@email.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="authPassword" placeholder="至少 8 位" required minlength="8" autocomplete="current-password">
+      </div>
+      <div class="form-error" id="authError"></div>
+      <button type="submit" class="modal-btn" id="authSubmitBtn">登录</button>
+    </form>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '/api/v1';
+
+// ── Token & User State ──
+let accessToken = localStorage.getItem('kotabi_token');
+let refreshTokenStr = localStorage.getItem('kotabi_refresh');
+let currentUser = null;
+let pendingPlanId = null; // plan to buy after login
+
+async function apiCall(method, path, body, raw) {
+  const headers = {};
+  if (accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+  if (!raw) headers['Content-Type'] = 'application/json';
+  const opts = { method, headers };
+  if (body && method !== 'GET') opts.body = JSON.stringify(body);
+  let res = await fetch(API + path, opts);
+  // try refresh
+  if (res.status === 401 && refreshTokenStr) {
+    const rr = await fetch(API + '/auth/refresh', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: refreshTokenStr })
+    });
+    if (rr.ok) {
+      const rd = await rr.json();
+      accessToken = rd.accessToken;
+      localStorage.setItem('kotabi_token', accessToken);
+      headers['Authorization'] = 'Bearer ' + accessToken;
+      res = await fetch(API + path, { method, headers, body: opts.body });
+    } else {
+      logout();
+      throw new Error('SESSION_EXPIRED');
+    }
+  }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || data.message || 'Request failed');
+  return data;
+}
+
+function logout() {
+  accessToken = null; refreshTokenStr = null; currentUser = null;
+  localStorage.removeItem('kotabi_token');
+  localStorage.removeItem('kotabi_refresh');
+  updateUI();
+}
+
+// ── Auth Modal ──
+let authMode = 'login';
+function showAuthModal() {
+  document.getElementById('authModal').classList.add('show');
+  document.getElementById('authError').classList.remove('show');
+  switchTab('login');
+}
+function closeAuthModal() {
+  document.getElementById('authModal').classList.remove('show');
+  pendingPlanId = null;
+}
+function switchTab(mode) {
+  authMode = mode;
+  document.getElementById('tabLogin').classList.toggle('active', mode === 'login');
+  document.getElementById('tabRegister').classList.toggle('active', mode === 'register');
+  document.getElementById('usernameGroup').style.display = mode === 'register' ? '' : 'none';
+  document.getElementById('authSubmitBtn').textContent = mode === 'login' ? '登录' : '注册';
+  document.getElementById('authTitle').textContent = mode === 'login' ? '登录账号' : '注册账号';
+  document.getElementById('authError').classList.remove('show');
+}
+
+async function handleAuth(e) {
+  e.preventDefault();
+  const btn = document.getElementById('authSubmitBtn');
+  const errEl = document.getElementById('authError');
+  errEl.classList.remove('show');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-sm"></span>' + (authMode === 'login' ? '登录中...' : '注册中...');
+  try {
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+    let data;
+    if (authMode === 'register') {
+      const username = document.getElementById('regUsername').value.trim();
+      if (!username || username.length < 3) throw new Error('用户名至少 3 个字符');
+      data = await apiCall('POST', '/auth/register', { username, email, password, platform: 'web' });
+    } else {
+      data = await apiCall('POST', '/auth/login', { email, password, platform: 'web' });
+    }
+    accessToken = data.accessToken;
+    refreshTokenStr = data.refreshToken;
+    localStorage.setItem('kotabi_token', accessToken);
+    localStorage.setItem('kotabi_refresh', refreshTokenStr);
+    currentUser = data.user;
+    const pid = pendingPlanId;
+    closeAuthModal();
+    updateUI();
+    showToast(authMode === 'login' ? '登录成功' : '注册成功', 'success');
+    // if there's a pending plan, start checkout
+    if (pid) {
+      startCheckout(pid);
+    }
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = authMode === 'login' ? '登录' : '注册';
+  }
+}
+
+// ── User Menu ──
+function showUserMenu() {
+  if (confirm('确定退出登录？')) logout();
+}
+
+// ── Load Plans ──
+async function loadPlans() {
+  try {
+    const data = await fetch(API + '/sync/membership-plans').then(r => r.json());
+    const plans = (data.plans || []).filter(p => p.enabled);
+    renderPlans(plans);
+  } catch {
+    renderPlans([
+      { id: 'monthly', name: '月度会员', price: 18, period: 'month', features: ['全功能解锁', '所有功能无限制使用', 'AI 对话 · 发音评测', '错题集 · 学习计划'], description: '按月订阅，灵活选择' },
+      { id: 'yearly', name: '年度会员', price: 128, period: 'year', features: ['全功能解锁', '所有功能无限制使用', 'AI 对话 · 发音评测', '错题集 · 学习计划', '比月付节省 41%'], description: '年度订阅，最高性价比' },
+    ]);
+  }
+}
+
+function renderPlans(plans) {
+  const grid = document.getElementById('plansGrid');
+  grid.innerHTML = '';
+  // free card
+  grid.innerHTML += `
+    <div class="plan-card">
+      <div class="plan-name">免费版</div>
+      <div class="plan-price">¥0</div>
+      <div class="plan-desc">基础学习功能，适合入门体验</div>
+      <ul class="plan-features">
+        <li>五十音学习</li>
+        <li>都道府县测验</li>
+        <li>部分功能有每日次数限制</li>
+        <li>AI·发音·Anki 等高级功能不可用</li>
+      </ul>
+      <button class="plan-btn plan-btn-secondary" disabled>当前使用中</button>
+    </div>
+  `;
+  plans.forEach((p, i) => {
+    const isPopular = p.id === 'yearly' || (plans.length === 1 && i === 0);
+    const periodLabel = { month: '/月', year: '/年', forever: ' 终身' }[p.period] || '';
+    const features = Array.isArray(p.features) && p.features.length
+      ? p.features
+      : ['全功能解锁', '所有功能无限制使用', 'AI 对话 · 发音评测', '错题集 · 学习计划'];
+    grid.innerHTML += `
+      <div class="plan-card ${isPopular ? 'popular' : ''}">
+        <div class="plan-name">${esc(p.name)}</div>
+        <div class="plan-price">¥${p.price}<small>${periodLabel}</small></div>
+        <div class="plan-desc">${esc(p.description || '')}</div>
+        <ul class="plan-features">
+          ${features.map(f => '<li>' + esc(String(f)) + '</li>').join('')}
+        </ul>
+        <button class="plan-btn plan-btn-primary" onclick="handleBuy('${esc(p.id)}')">立即开通</button>
+      </div>
+    `;
+  });
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ── Buy Flow ──
+function handleBuy(planId) {
+  if (!accessToken || !currentUser) {
+    pendingPlanId = planId;
+    showAuthModal();
+    return;
+  }
+  startCheckout(planId);
+}
+
+async function startCheckout(planId) {
+  // find the button and show loading
+  const btns = document.querySelectorAll('.plan-btn-primary');
+  btns.forEach(b => { b.disabled = true; b.classList.add('btn-loading'); });
+  try {
+    const data = await apiCall('POST', '/stripe/create-checkout-session', { planId });
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      showToast('无法创建支付会话', 'error');
+    }
+  } catch (err) {
+    showToast(err.message || '支付请求失败', 'error');
+  } finally {
+    btns.forEach(b => { b.disabled = false; b.classList.remove('btn-loading'); });
+  }
+}
+
+// ── Check Payment Status ──
+async function checkPaymentStatus() {
+  const params = new URLSearchParams(location.search);
+  const status = params.get('status');
+  const sessionId = params.get('session_id');
+  if (status === 'success' && sessionId) {
+    showToast('支付成功！会员已开通', 'success');
+    // refresh user info
+    try { await loadUser(); } catch {}
+    // clean URL
+    history.replaceState(null, '', '/membership');
+  } else if (status === 'cancel') {
+    showToast('支付已取消', 'error');
+    history.replaceState(null, '', '/membership');
+  }
+}
+
+// ── Load User ──
+async function loadUser() {
+  if (!accessToken) return;
+  try {
+    const data = await apiCall('GET', '/auth/me');
+    currentUser = data.user;
+    updateUI();
+  } catch {
+    logout();
+  }
+}
+
+// ── Update UI ──
+function updateUI() {
+  const loginBtn = document.getElementById('loginBtn');
+  const badge = document.getElementById('userBadge');
+  const account = document.getElementById('userAccount');
+  const subEl = document.getElementById('memberExpire');
+
+  if (currentUser) {
+    loginBtn.style.display = 'none';
+    account.classList.add('show');
+    if (currentUser.is_member) {
+      badge.classList.add('is-member');
+      badge.innerHTML = '<span class="vip-icon">👑</span>' + esc(currentUser.username || currentUser.email);
+      const days = currentUser.membership_days_left;
+      subEl.textContent = days !== undefined ? `会员 · 剩余 ${days} 天` : '会员';
+    } else {
+      badge.classList.remove('is-member');
+      badge.textContent = currentUser.username || currentUser.email;
+      subEl.textContent = '免费版';
+    }
+  } else {
+    loginBtn.style.display = '';
+    account.classList.remove('show');
+  }
+}
+
+// ── Toast ──
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast toast-' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── Load Feature Tiers (dynamic comparison table) ──
+async function loadTiers() {
+  try {
+    const data = await fetch(API + '/sync/tiers').then(r => r.json());
+    const tiers = data.tiers || [];
+    if (!tiers.length) return;
+    const tbody = document.getElementById('comparisonBody');
+    // keep the first two static rows (五十音 + 都道府県)
+    const staticRows = tbody.querySelectorAll('tr');
+    const fragment = document.createDocumentFragment();
+    staticRows.forEach(r => fragment.appendChild(r.cloneNode(true)));
+    tiers.forEach(t => {
+      const tr = document.createElement('tr');
+      const tdName = document.createElement('td');
+      tdName.textContent = (t.icon || '') + ' ' + t.name;
+      tr.appendChild(tdName);
+      const tdFree = document.createElement('td');
+      tdFree.style.textAlign = 'center';
+      if (t.type === 'blocked') {
+        tdFree.textContent = '—';
+      } else {
+        tdFree.textContent = t.free_label;
+        tdFree.className = 'limit';
+      }
+      tr.appendChild(tdFree);
+      const tdMember = document.createElement('td');
+      tdMember.style.textAlign = 'center';
+      tdMember.className = 'check';
+      tdMember.textContent = t.member_label;
+      tr.appendChild(tdMember);
+      fragment.appendChild(tr);
+    });
+    tbody.innerHTML = '';
+    tbody.appendChild(fragment);
+  } catch {}
+}
+
+// ── Init ──
+(async function init() {
+  loadPlans();
+  loadTiers();
+  if (accessToken) await loadUser();
+  updateUI();
+  checkPaymentStatus();
+})();
+</script>
+</body>
+</html>

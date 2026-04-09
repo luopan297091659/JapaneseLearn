@@ -37,7 +37,6 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
   bool _attemptFinalized = false;
   Timer? _resultDebounce;
   Timer? _safetyTimeout;
-  Timer? _earlySilenceTimer;
 
   // scoring
   int? _score;
@@ -115,34 +114,6 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
     if (mounted) setState(() {});
   }
 
-  Future<bool> _prepareSpeechSession() async {
-    _resultDebounce?.cancel();
-    _safetyTimeout?.cancel();
-    _earlySilenceTimer?.cancel();
-
-    // Cancel / stop any ongoing session (with timeout to avoid hangs on Samsung etc.)
-    try { await _speech.cancel().timeout(const Duration(seconds: 2)); } catch (_) {}
-    try { await _speech.stop().timeout(const Duration(seconds: 2)); } catch (_) {}
-
-    // If already initialised, reuse — avoids the expensive re-init that hangs on some devices
-    if (_speechAvailable && _speechLocaleId != null) {
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      if (mounted) setState(() { _debugStatus = 'ready(reused)'; });
-      return true;
-    }
-
-    // Full (re)initialisation with timeout protection
-    if (mounted) setState(() { _debugStatus = 'reinit'; });
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    try {
-      await _initSpeech().timeout(const Duration(seconds: 5));
-    } catch (e) {
-      debugPrint('Speech init timeout/error: $e');
-      _speechAvailable = false;
-    }
-    return _speechAvailable;
-  }
-
   Future<void> _loadWords() async {
     setState(() { _loading = true; _score = null; _recognized = ''; _feedback = ''; });
     try {
@@ -217,48 +188,12 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
     return msg.contains('error_network') || msg.contains('error_client');
   }
 
-  String _sttUnavailableMessage() {
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return '当前设备未检测到可用的系统语音识别服务。\n\n很多国内安卓手机因未安装或无法使用 Google 语音服务，点击开始识别后无法进行本地 STT 评分。\n\n建议：\n1. 检查系统是否支持语音识别\n2. 安装并启用 Google 语音服务\n3. 确认麦克风权限已开启';
-      case TargetPlatform.iOS:
-        return '当前设备未检测到可用的系统语音识别能力。\n\n这通常是因为系统语音识别权限未开启，或 Siri 与听写功能不可用。\n\n建议：\n1. 在系统设置中开启麦克风权限\n2. 开启语音识别权限\n3. 确认 Siri 与系统听写可正常使用';
-      default:
-        return '当前设备未检测到可用的系统语音识别服务，请检查麦克风权限和系统语音识别设置。';
-    }
-  }
-
-  Future<void> _showSttUnavailableDialog() async {
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('本机语音识别不可用'),
-        content: Text(_sttUnavailableMessage()),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Navigator.of(dialogCtx).pop();
-              await PermissionService.openPermissionSettings();
-            },
-            child: const Text('打开设置'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: const Text('知道了'),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// 统一 finalize 入口 —— 所有路径都走这里
   void _finalizeAttempt() {
     if (_attemptFinalized || !mounted) return;
     _attemptFinalized = true;
     _resultDebounce?.cancel();
     _safetyTimeout?.cancel();
-    _earlySilenceTimer?.cancel();
     _speech.stop();
     if (_lastRecognized.trim().isNotEmpty) {
       _processResult(_lastRecognized);
@@ -294,10 +229,11 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
       return;
     }
 
-    final speechReady = await _prepareSpeechSession();
-    if (!speechReady) {
+    if (!_speechAvailable) {
+      await _initSpeech();
+    }
+    if (!_speechAvailable) {
       if (mounted) {
-        await _showSttUnavailableDialog();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('语音识别不可用，请检查系统设置或安装 Google 语音服务')),
         );
@@ -310,7 +246,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
     _safetyTimeout?.cancel();
     _listenStartTime = DateTime.now();
     setState(() {
-      _listening = false;
+      _listening = true;
       _score = null;
       _recognized = '';
       _feedback = '';
@@ -366,7 +302,6 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
       final modesToTry = _preferOnDevice ? [true, false] : [false];
       for (final tryOnDevice in modesToTry) {
         try {
-          // 给 listen() 加超时，避免在三星等设备上挂起
           final dynamic listenResult = await _speech.listen(
             localeId: _speechLocaleId ?? 'ja-JP',
             onDevice: tryOnDevice,
@@ -374,29 +309,16 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
             listenFor: const Duration(seconds: 10),
             pauseFor: const Duration(seconds: 3),
             onSoundLevelChange: null,
-          ).timeout(const Duration(seconds: 4), onTimeout: () => false);
+          );
           final started = listenResult is bool ? listenResult : true;
           debugPrint('listen(onDevice: $tryOnDevice) => $listenResult');
           if (started) {
-            // 验证 STT 是否真正启动（部分安卓设备 listen 返回成功但实际未启动）
-            await Future<void>.delayed(const Duration(milliseconds: 500));
-            if (!_speech.isListening && !_attemptFinalized) {
-              debugPrint('Phantom listen: isListening=false after 500ms (onDevice=$tryOnDevice)');
-              if (mounted) setState(() => _debugListenStarted = 'phantom(onDevice=$tryOnDevice)');
-              try { await _speech.stop(); } catch (_) {}
-              continue; // 尝试下一个模式
-            }
             if (!tryOnDevice && _preferOnDevice) {
               _preferOnDevice = false;
               debugPrint('Falling back to online STT for this device');
             }
             listenStarted = true;
-            if (mounted) {
-              setState(() {
-                _listening = true;
-                _debugListenStarted = 'ok(onDevice=$tryOnDevice)';
-              });
-            }
+            if (mounted) setState(() => _debugListenStarted = 'ok(onDevice=$tryOnDevice)');
             break;
           }
           try { await _speech.stop(); } catch (_) {}
@@ -409,29 +331,21 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
       }
 
       if (!listenStarted) {
-        // 所有模式都失败，强制重置 _speechAvailable 以便下次重新 initialize
-        _speechAvailable = false;
-        _speechLocaleId = null;
         if (mounted) {
           setState(() {
             _listening = false;
             _feedback = '语音识别未启动，请检查系统语音服务';
             _debugListenStarted = 'failed';
           });
-          await _showSttUnavailableDialog();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('语音识别未启动，请检查麦克风权限和系统语音服务'),
+              duration: Duration(seconds: 3),
+            ),
+          );
         }
         return;
       }
-
-      // 3 秒早期静默检测：没收到任何 partial result 且 STT 已停止 → 立即报错
-      _earlySilenceTimer = Timer(const Duration(seconds: 3), () {
-        if (_listening && _lastRecognized.isEmpty && !_attemptFinalized && mounted) {
-          if (!_speech.isListening) {
-            debugPrint('Early silence: STT stopped with no results after 3s');
-            _finalizeAttempt();
-          }
-        }
-      });
 
       // 安全超时：无论如何 13 秒后强制结束
       _safetyTimeout = Timer(const Duration(seconds: 13), () {
@@ -579,7 +493,6 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
   void dispose() {
     _resultDebounce?.cancel();
     _safetyTimeout?.cancel();
-    _earlySilenceTimer?.cancel();
     _tts.stop();
     _speech.stop();
     super.dispose();

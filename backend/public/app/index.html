@@ -2398,6 +2398,7 @@ function buildConjugationHtml(w) {
 }
 
 async function showVocabDetail(id) {
+  _stopAllAudio();
   const curIdx = vocabWords.findIndex(w => String(w.id) === String(id));
   openModal('単語詳細', '<div class="loading"><div class="spinner"></div></div>');
   try {
@@ -2566,6 +2567,7 @@ function grammarGoPage(p) {
 }
 
 async function showGrammarDetail(id) {
+  _stopAllAudio();
   const gIdx = grammarLessons.findIndex(g => String(g.id) === String(id));
   openModal('文法詳細', '<div class="loading"><div class="spinner"></div></div>');
   try {
@@ -3199,9 +3201,11 @@ function renderLsSentence() {
 
 function lsPlayAudio() {
   if (_lsSentences.length === 0) return;
+  _stopAllAudio();
   const s = _lsSentences[_lsIdx];
   if (s.audio_url) {
     const a = new Audio(s.audio_url.startsWith('/') ? location.origin + s.audio_url : s.audio_url);
+    _audioEl = a;
     a.playbackRate = 1.0;
     a.play().catch(() => speakJa(s.sentence, 0.8));
   } else {
@@ -3211,9 +3215,11 @@ function lsPlayAudio() {
 
 function lsPlaySlow() {
   if (_lsSentences.length === 0) return;
+  _stopAllAudio();
   const s = _lsSentences[_lsIdx];
   if (s.audio_url) {
     const a = new Audio(s.audio_url.startsWith('/') ? location.origin + s.audio_url : s.audio_url);
+    _audioEl = a;
     a.playbackRate = 0.6;
     a.play().catch(() => speakJa(s.sentence, 0.4));
   } else {
@@ -3401,25 +3407,24 @@ function renderLeQ() {
 }
 
 function lePlayAudio() {
+  _stopAllAudio();
   const q = leQuestions[leCurrent];
   if (q.audio_url) {
-    // 使用服务端音频
     const audioEl = document.getElementById('le-audio');
     let src = q.audio_url;
     if (src.startsWith('/')) src = location.origin + src;
     audioEl.src = src;
     audioEl.playbackRate = 1.0;
     audioEl.play().catch(() => {
-      // 音频播放失败，降级使用 TTS
       speakJa(q.sentence, 0.8);
     });
   } else {
-    // TTS 降级
     speakJa(q.sentence, 0.8);
   }
 }
 
 function lePlaySlow() {
+  _stopAllAudio();
   const q = leQuestions[leCurrent];
   if (q.audio_url) {
     const audioEl = document.getElementById('le-audio');
@@ -3633,11 +3638,25 @@ function _ttsStopKeepAlive() {
 
 function speakJa(text, rate = 0.8) {
   if (!text) return;
+  // 停止其他音频
+  if (_audioEl) { _audioEl.pause(); _audioEl = null; }
+  if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
   // 反转义 HTML 实体（onclick 传入的文本可能含 &#39; 等）
   const ta = document.createElement('textarea');
   ta.innerHTML = text;
   const clean = ta.value;
   if (!clean) return;
+
+  // 优先使用服务器音频（假名）
+  const audioUrl = _kanaAudioMap[clean];
+  if (audioUrl) {
+    if (rate < 0.6) {
+      playAudioSlow(audioUrl);
+    } else {
+      playAudio(audioUrl);
+    }
+    return;
+  }
 
   if (typeof speechSynthesis === 'undefined') {
     console.warn('[TTS] speechSynthesis not available');
@@ -6342,9 +6361,26 @@ let _audioEl = null;
 let _audioSpeed = 1.0;
 let _slowSpeed = parseFloat(localStorage.getItem('slow_speed') || '0.5');
 
+// 停止所有正在播放的音频（互斥）
+function _stopAllAudio() {
+  if (_audioEl) { _audioEl.pause(); _audioEl = null; }
+  if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
+  const leAudio = document.getElementById('le-audio');
+  if (leAudio) { leAudio.pause(); leAudio.currentTime = 0; }
+}
+
+// ── Kana Audio Map (server-side audio) ──
+let _kanaAudioMap = {};
+(function loadKanaAudioMap() {
+  fetch('/api/v1/kana/audio-map')
+    .then(r => r.json())
+    .then(j => { if (j.success && j.data) _kanaAudioMap = j.data; })
+    .catch(() => {});
+})();
+
 function playAudio(url) {
   if (!url) return;
-  if (_audioEl) { _audioEl.pause(); _audioEl = null; }
+  _stopAllAudio();
   let fullUrl = url;
   if (url.startsWith('/')) fullUrl = location.origin + url;
   _audioEl = new Audio(fullUrl);
@@ -6354,7 +6390,7 @@ function playAudio(url) {
 
 function playAudioSlow(url) {
   if (!url) return;
-  if (_audioEl) { _audioEl.pause(); _audioEl = null; }
+  _stopAllAudio();
   let fullUrl = url;
   if (url.startsWith('/')) fullUrl = location.origin + url;
   _audioEl = new Audio(fullUrl);

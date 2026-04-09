@@ -3,6 +3,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/tts_helper.dart';
+import '../../utils/audio_manager.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
@@ -63,9 +64,14 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
   bool get _hasNext => widget.lessonIds != null && _currentIndex >= 0 && _currentIndex < widget.lessonIds!.length - 1;
 
   void _goToLesson(String id) {
+    AudioManager.instance.stopAll();
+    _tts.stop();
+    _examplePlayer?.stop();
     setState(() {
       _currentId = id;
       _loading = true;
+      _playingExampleIdx = -1;
+      _exampleLoading = false;
     });
     _load();
   }
@@ -83,6 +89,7 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
   Future<void> _playExampleAudio(int idx, String text, String? audioUrl, {bool slow = false}) async {
     if (mounted) setState(() { _playingExampleIdx = idx; _exampleLoading = true; });
     try {
+      await AudioManager.instance.requestTts(_tts);
       await TtsHelper.playJapaneseSmart(
         audioUrl: audioUrl,
         text: text,
@@ -104,6 +111,7 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
     if (_lesson != null && dur > 2) {
       apiService.logActivity(activityType: 'grammar', refId: _currentId, durationSeconds: dur);
     }
+    AudioManager.instance.stopAll();
     _tts.stop();
     _examplePlayer?.stop();
     _examplePlayer?.dispose();

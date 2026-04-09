@@ -1,7 +1,13 @@
 class AppConfig {
-  static const String baseUrl    = 'https://139.196.44.6:8002/api/v1';
-  static const String serverRoot = 'https://139.196.44.6:8002'; // 不含 /api/v1，用于拼接静态资源 URL
-  static const String kokoroTtsUrl = 'https://139.196.44.6:8002/api/v1/tts/kokoro-speak'; // Kokoro TTS 服务端点
+  static const String _env = String.fromEnvironment('ENV', defaultValue: 'test');
+
+  static const String _testHost = 'https://139.196.44.6:8002';
+  static const String _prodHost = 'https://www.kotabi.top';
+  static String get _host => _env == 'prod' ? _prodHost : _testHost;
+
+  static String get baseUrl      => '$_host/api/v1';
+  static String get serverRoot   => _host; // 不含 /api/v1，用于拼接静态资源 URL
+  static String get kokoroTtsUrl => '$_host/api/v1/tts/kokoro-speak'; // Kokoro TTS 服务端点
   static const Duration connectTimeout = Duration(seconds: 15);
   static const Duration receiveTimeout = Duration(seconds: 30);
 

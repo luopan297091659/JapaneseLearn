@@ -7,6 +7,7 @@ import 'package:just_audio/just_audio.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../config/app_config.dart';
+import 'audio_manager.dart';
 
 /// 创建支持自签名证书的 Dio 实例
 Dio _createTrustingDio() {
@@ -41,6 +42,7 @@ class TtsHelper {
     if (audioUrl != null && audioUrl.isNotEmpty) {
       try {
         final player = AudioPlayer();
+        await AudioManager.instance.requestPlay(player);
         String? localPath;
         if (audioUrl.startsWith('/uploads/')) {
           // 相对路径，拼接服务器地址后下载到本地临时文件
@@ -82,6 +84,7 @@ class TtsHelper {
     // 2. 本地TTS（有可用引擎）
     final ttsInst = tts ?? FlutterTts();
     try {
+      await AudioManager.instance.requestTts(ttsInst);
       await configureForJapanese(ttsInst);
       await ttsInst.setVolume(1.0);
       await ttsInst.setSpeechRate(slow ? 0.25 : 0.5);

@@ -32,6 +32,19 @@ function apiError(message, status = 400, code) {
   return err;
 }
 
+// ─── 工具：读取 Kokoro TTS 配置 ──────────────────────────────────────────────
+async function getKokoroConfig() {
+  const defaults = { voice: 'a', emotion: 'neutral', engine: 'edge-tts', speed: 1.0 };
+  try {
+    const kv = await sequelize.models.AppConfig?.findOne({ where: { key: 'kokoro_tts_settings' } });
+    if (kv && kv.value) {
+      const c = JSON.parse(kv.value);
+      return { voice: c.default_voice || 'a', emotion: c.default_emotion || 'neutral', engine: c.default_engine || 'edge-tts', speed: c.default_speed || 1.0 };
+    }
+  } catch (_) {}
+  return defaults;
+}
+
 // ─── 工具：版本号递增 ─────────────────────────────────────────────────────────
 async function bumpVersion(field = 'version') {
   try {
@@ -263,29 +276,11 @@ async function generateVocabExamplesKokoroAudio(req, res) {
     }
     
     // 调用批量生成API
-    const axios = require('axios');
     const KOKORO_SERVICE_URL = process.env.KOKORO_SERVICE_URL || 'http://127.0.0.1:8010';
     
     // 读取管理员配置的Kokoro参数
-    let defaultVoice = 'a';
-    let defaultEmotion = 'neutral';
-    let defaultEngine = 'edge-tts';
-    let defaultSpeed = 1.0;
-    try {
-      const kv = await sequelize.models.AppConfig?.findOne({
-        where: { key: 'kokoro_tts_settings' }
-      });
-      if (kv && kv.value) {
-        const kokoroConfig = JSON.parse(kv.value);
-        defaultVoice = kokoroConfig.default_voice || 'a';
-        defaultEmotion = kokoroConfig.default_emotion || 'neutral';
-        defaultEngine = kokoroConfig.default_engine || 'edge-tts';
-        defaultSpeed = kokoroConfig.default_speed || 1.0;
-        console.log(`[Vocab Audio] 使用管理员配置: voice=${defaultVoice}, emotion=${defaultEmotion}, engine=${defaultEngine}, speed=${defaultSpeed}`);
-      }
-    } catch (configErr) {
-      console.warn(`[Vocab Audio] 读取Kokoro配置失败，使用默认值: ${configErr.message}`);
-    }
+    const { voice: defaultVoice, emotion: defaultEmotion, engine: defaultEngine, speed: defaultSpeed } = await getKokoroConfig();
+    console.log(`[Vocab Audio] 使用配置: voice=${defaultVoice}, emotion=${defaultEmotion}, engine=${defaultEngine}, speed=${defaultSpeed}`);
     
     try {
       // 计算合理的超时: 文本数量 * 5秒 + buffer
@@ -623,8 +618,8 @@ async function createGrammar(req, res) {
   try {
     const { examples = [], ...lessonData } = req.body;
     const lesson = await GrammarLesson.create({ id: uuidv4(), ...lessonData }, { transaction: t });
-    for (const ex of examples) {
-      await GrammarExample.create({ id: uuidv4(), grammar_lesson_id: lesson.id, ...ex }, { transaction: t });
+    if (examples.length) {
+      await GrammarExample.bulkCreate(examples.map(ex => ({ id: uuidv4(), grammar_lesson_id: lesson.id, ...ex })), { transaction: t });
     }
     await t.commit();
     await bumpVersion('grammar_version');
@@ -645,8 +640,8 @@ async function updateGrammar(req, res) {
     await lesson.update(lessonData, { transaction: t });
     if (Array.isArray(examples)) {
       await GrammarExample.destroy({ where: { grammar_lesson_id: lesson.id }, transaction: t });
-      for (const ex of examples) {
-        await GrammarExample.create({ id: uuidv4(), grammar_lesson_id: lesson.id, ...ex }, { transaction: t });
+      if (examples.length) {
+        await GrammarExample.bulkCreate(examples.map(ex => ({ id: uuidv4(), grammar_lesson_id: lesson.id, ...ex })), { transaction: t });
       }
     }
     await t.commit();
@@ -660,14 +655,17 @@ async function updateGrammar(req, res) {
 }
 
 async function deleteGrammar(req, res) {
+  const t = await sequelize.transaction();
   try {
-    const lesson = await GrammarLesson.findByPk(req.params.id);
-    if (!lesson) return res.status(404).json({ error: 'Not found' });
-    await GrammarExample.destroy({ where: { grammar_lesson_id: lesson.id } });
-    await lesson.destroy();
+    const lesson = await GrammarLesson.findByPk(req.params.id, { transaction: t });
+    if (!lesson) { await t.rollback(); return res.status(404).json({ error: 'Not found' }); }
+    await GrammarExample.destroy({ where: { grammar_lesson_id: lesson.id }, transaction: t });
+    await lesson.destroy({ transaction: t });
+    await t.commit();
     await bumpVersion('grammar_version');
     res.json({ ok: true });
   } catch (err) {
+    await t.rollback();
     res.status(500).json({ error: err.message });
   }
 }
@@ -729,25 +727,8 @@ async function generateGrammarExamplesKokoroAudio(req, res) {
     const texts = examplesNeedingAudio.map(e => e.sentence);
     
     // 读取管理员配置的Kokoro参数
-    let defaultVoice = 'a';
-    let defaultEmotion = 'neutral';
-    let defaultEngine = 'edge-tts';
-    let defaultSpeed = 1.0;
-    try {
-      const kv = await sequelize.models.AppConfig?.findOne({
-        where: { key: 'kokoro_tts_settings' }
-      });
-      if (kv && kv.value) {
-        const kokoroConfig = JSON.parse(kv.value);
-        defaultVoice = kokoroConfig.default_voice || 'a';
-        defaultEmotion = kokoroConfig.default_emotion || 'neutral';
-        defaultEngine = kokoroConfig.default_engine || 'edge-tts';
-        defaultSpeed = kokoroConfig.default_speed || 1.0;
-        console.log(`[Grammar Audio] 使用管理员配置: voice=${defaultVoice}, emotion=${defaultEmotion}, engine=${defaultEngine}, speed=${defaultSpeed}`);
-      }
-    } catch (configErr) {
-      console.warn(`[Grammar Audio] 读取Kokoro配置失败，使用默认值: ${configErr.message}`);
-    }
+    const { voice: defaultVoice, emotion: defaultEmotion, engine: defaultEngine, speed: defaultSpeed } = await getKokoroConfig();
+    console.log(`[Grammar Audio] 使用配置: voice=${defaultVoice}, emotion=${defaultEmotion}, engine=${defaultEngine}, speed=${defaultSpeed}`);
     
     try {
       // 计算合理的超时: 文本数量 * 5秒 + buffer
@@ -1022,23 +1003,7 @@ async function generateGrammarExampleAudio(req, res) {
     }
     
     // 2. 获取管理员配置的 Kokoro 参数
-    let defaultVoice = 'a';
-    let defaultEmotion = 'neutral';
-    let defaultEngine = 'edge-tts';
-    let defaultSpeed = 1.0;
-    
-    try {
-      const kv = await sequelize.models.AppConfig?.findOne({
-        where: { key: 'kokoro_tts_settings' }
-      });
-      if (kv && kv.value) {
-        const kokoroConfig = JSON.parse(kv.value);
-        defaultVoice = kokoroConfig.default_voice || 'a';
-        defaultEmotion = kokoroConfig.default_emotion || 'neutral';
-        defaultEngine = kokoroConfig.default_engine || 'edge-tts';
-        defaultSpeed = kokoroConfig.default_speed || 1.0;
-      }
-    } catch (_) {}
+    const { voice: defaultVoice, emotion: defaultEmotion, engine: defaultEngine, speed: defaultSpeed } = await getKokoroConfig();
     
     // 3. 调用 Kokoro TTS 服务生成音频
     const KOKORO_SERVICE_URL = process.env.KOKORO_SERVICE_URL || 'http://127.0.0.1:8010';
@@ -1257,6 +1222,23 @@ async function updateUserMembership(req, res) {
     if (membership_expire !== undefined) updates.membership_expire = membership_expire || null;
     await user.update(updates);
     res.json({ ok: true, id: user.id, username: user.username, membership_plan: user.membership_plan, membership_expire: user.membership_expire });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
+// ─── 高级管理员重置用户密码 ─────────────────────────────────────────────────
+async function resetUserPassword(req, res) {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ error: '用户不存在' });
+    const { new_password } = req.body;
+    if (!new_password || new_password.length < 6) {
+      return res.status(400).json({ error: '密码长度至少6位' });
+    }
+    // password_hash 的 beforeUpdate hook 会自动 bcrypt hash
+    await user.update({ password_hash: new_password });
+    res.json({ ok: true, message: '密码已重置' });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -1882,9 +1864,9 @@ async function saveFeatureTiers(req, res) {
 
 const DEFAULT_MEMBERSHIP = {
   plans: [
-    { id: 'free',     name: '免费版',   price: 0,   period: 'forever', description: '基础学习功能，适合入门用户',   features: ['词汇浏览 (每天50词)', '文法课程', '每日限制50道练习题'], enabled: true  },
-    { id: 'monthly',  name: '月度会员', price: 18,  period: 'month',   description: '完整功能解锁，按月计费，随时取消', features: ['无限练习题', 'SRS 间隔复习', '听力课程', '离线下载'], enabled: true  },
-    { id: 'yearly',   name: '年度会员', price: 128, period: 'year',    description: '全功能 + 年度优惠，比月付省41%',  features: ['无限练习题', 'SRS 间隔复习', '听力课程', '离线下载'], enabled: true  },
+    { id: 'free',     name: '免费版',   price: 0,   period: 'forever', description: '基础学习功能，适合入门用户',   features: ['词汇学习', '文法学习', '听力学习', 'NHK新闻'], enabled: true  },
+    { id: 'monthly',  name: '月度会员', price: 18,  period: 'month',   description: '完整功能解锁，按月计费，随时取消', features: ['AI发音练习', '错题集', '学习计划', 'AI翻译'], enabled: true  },
+    { id: 'yearly',   name: '年度会员', price: 128, period: 'year',    description: '全功能 + 年度优惠，比月付省22%',  features: ['无限练习题', 'SRS 间隔复习', '听力课程', '离线下载'], enabled: true  },
     { id: 'lifetime', name: '终身会员', price: 398, period: 'forever', description: '一次购买永久使用，含未来所有新功能', features: ['全功能永久解锁', '未来新功能免费', '专属徽章'], enabled: false },
   ],
   trial: {
@@ -1900,6 +1882,10 @@ const DEFAULT_MEMBERSHIP = {
     wechat_appid: '',
     wechat_mchid: '',
     wechat_notify_url: '',
+    stripe_enabled: false,
+    stripe_secret_key: '',
+    stripe_webhook_secret: '',
+    stripe_currency: 'cny',
   },
   notice: '',
 };
@@ -2723,7 +2709,7 @@ module.exports = {
   importVocab, importVocabFile,
   listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar, generateGrammarExamplesKokoroAudio, importGrammarApkg, generateGrammarExampleAudio,
   listTracks, createTrack, updateTrack, deleteTrack,
-  listUsers, updateUser, updateUserMembership,
+  listUsers, updateUser, updateUserMembership, resetUserPassword,
   getContentVersion, publishContent,
   getTrafficStats, getUserStats, getBehaviorStats, getFeatureUsage,
   getMembershipConfig, saveMembershipConfig,

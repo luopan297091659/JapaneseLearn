@@ -10,7 +10,7 @@ const {
   importVocab, importVocabFile,
   listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar, generateGrammarExamplesKokoroAudio, importGrammarApkg, generateGrammarExampleAudio,
   listTracks, createTrack, updateTrack, deleteTrack,
-  listUsers, updateUser, updateUserMembership,
+  listUsers, updateUser, updateUserMembership, resetUserPassword,
   getContentVersion, publishContent,
   getTrafficStats, getUserStats, getBehaviorStats, getFeatureUsage,
   listKana, batchGenerateKanaAudio, getKanaList, getKanaById, createKanaItem, updateKanaItem, deleteKanaItem, bulkDeleteKanaItems,  // ✅ 五十音CRUD
@@ -126,6 +126,7 @@ router.delete('/tracks/:id', permissionCheck('tracks'), asyncHandler(deleteTrack
 router.get('/users',       permissionCheck('users'), asyncHandler(listUsers));
 router.put('/users/:id',   permissionCheck('users'), asyncHandler(updateUser));
 router.put('/users/:id/membership', permissionCheck('users'), asyncHandler(updateUserMembership));
+router.put('/users/:id/password', superAdminAuth, asyncHandler(resetUserPassword));
 
 // 内容版本
 router.get('/content-version',         asyncHandler(getContentVersion));

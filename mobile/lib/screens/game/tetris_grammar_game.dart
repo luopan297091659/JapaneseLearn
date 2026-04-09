@@ -304,6 +304,67 @@ const _kQs = <_Q>[
 ];
 const _qTypeLabel = {'p': '助词填空', 'v': '动词活用', 'w': '词义选择'};
 
+/// 助词的规范解释（用于其他选项的解析）
+const _kParticleExplain = <String, String>{
+  'は': '话题标记/对比',
+  'が': '主语标记/强调',
+  'を': '宾语标记（动作对象）',
+  'に': '目标/时间/存在位置',
+  'へ': '方向标记',
+  'で': '场所/手段/原因',
+  'と': '共同/引用/完全列举/必然条件',
+  'の': '所属/修饰',
+  'から': '起点/原因',
+  'まで': '终点',
+  'より': '比较基准',
+  'や': '不完全列举',
+  'も': '"也"/全否定',
+  'だけ': '"仅仅、只"',
+  'しか': '（+否定）"只有…"',
+  'ばかり': '"净是、老是"',
+  'ほど': '程度',
+  'くらい': '大约/轻视程度',
+  'ぐらい': '大约',
+  'こそ': '强调',
+  'さえ': '"连…都"',
+  'でさえ': '"连…都"',
+  'でも': '举例提议/任何',
+  'とか': '口语不完全列举',
+  'だの': '不满语气的列举',
+  'なり': '"…或…之类"',
+  'て': '动作连接',
+  'ので': '客观原因',
+  'のに': '不满/遗憾',
+  'けど': '转折（口语）',
+  'けれど': '转折（较正式）',
+  'し': '列举理由',
+  'ながら': '同时进行',
+  'ば': '假定条件',
+  'たら': '条件',
+  'ても': '即使…也',
+  'つつ': '虽然…却',
+  'か': '疑问',
+  'よ': '告知/强调',
+  'ね': '确认/同意',
+  'な': '感叹/禁止',
+  'ぞ': '决心/强调',
+  'ぜ': '呼吁/振奋',
+  'さ': '轻描淡写',
+  'わ': '柔和语气',
+  'かな': '自问',
+  'かしら': '自问（柔和）',
+  'とも': '"当然"的强调',
+};
+
+/// 获取选项解析文本
+String _optionExplain(String option, String type) {
+  if (type == 'p') {
+    final info = _kParticleExplain[option];
+    return info != null ? '「$option」$info' : '「$option」';
+  }
+  return option;
+}
+
 // ── 关卡配置 ──
 int _lvCols(int lv)  => lv == 1 ? 2 : lv <= 3 ? 3 : lv <= 6 ? 4 : lv <= 10 ? 5 : 6;
 int _lvRows(int lv)  => lv == 1 ? 3 : lv <= 3 ? 4 : lv <= 7 ? 5 : lv <= 12 ? 6 : 7;
@@ -526,7 +587,7 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
     int landRow = -1;
     for (int r = _gRows - 1; r >= 0; r--) { if (_board[r][_dropCol] == null) { landRow = r; break; } }
     if (landRow < 0) { _running = false; Future.delayed(const Duration(milliseconds: 300), _levelFail); return; }
-    _allLog.add({'s': _curQ!.s, 'ans': ans, 'correct': _curQ!.a, 'ok': ok, 'e': _curQ!.e});
+    _allLog.add({'s': _curQ!.s, 'ans': ans, 'correct': _curQ!.a, 'ok': ok, 'e': _curQ!.e, 't': _curQ!.t, 'o': _curQ!.o});
     setState(() {
       _feedbackIdx = _selected; _feedbackOk = ok;
       _board[landRow][_dropCol]    = ok ? 'correct' : 'wrong';
@@ -544,6 +605,9 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
         _wrong++; _combo = 0; _fever = false;
         _dropMs = min((_baseMs * 1.1).round(), _dropMs + 100);
         _wrongLog.add({'s': _curQ!.s, 'wrong': ans, 'correct': _curQ!.a, 'e': _curQ!.e});
+        // 即时显示正确答案解析
+        final wrongExplain = _curQ!.t == 'p' ? _optionExplain(ans, 'p') : ans;
+        _showSnack('正确：${_curQ!.a}　${_curQ!.e}\n你选：$wrongExplain');
         _saveWrongAnswer(
           source: 'game',
           question: _curQ!.s,
@@ -715,6 +779,18 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
                         Text('正确答案：${w['correct']}', style: const TextStyle(color: Color(0xFF16a34a), fontSize: 12)),
                       ],
                       Text('${w['e']}', style: const TextStyle(color: Colors.black45, fontSize: 11)),
+                      // 其他选项解析
+                      if (w['t'] == 'p' && w['o'] != null)
+                        ...(() {
+                          final options = (w['o'] as List).cast<String>();
+                          final others = options.where((o) => o != w['correct']).toList();
+                          if (others.isEmpty) return <Widget>[];
+                          return <Widget>[
+                            const SizedBox(height: 2),
+                            Text('其他选项：${others.map((o) => _optionExplain(o, 'p')).join('；')}',
+                              style: const TextStyle(color: Colors.black38, fontSize: 10)),
+                          ];
+                        })(),
                     ],
                   ),
                 );
