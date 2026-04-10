@@ -21,6 +21,9 @@ workflows:
     instance_type: mac_mini_m2
     working_directory: mobile
 
+    integrations:
+      app_store_connect: japanese-kotabi
+
     environment:
       flutter: stable
       ios_signing:
