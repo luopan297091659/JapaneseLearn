@@ -27,7 +27,7 @@ workflows:
     environment:
       flutter: stable
       ios_signing:
-        distribution_type: development
+        distribution_type: app_store
         bundle_identifier: com.kotabi.app
       xcode: latest
       cocoapods: default
