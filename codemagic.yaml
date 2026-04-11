@@ -21,8 +21,8 @@ workflows:
     instance_type: mac_mini_m2
     working_directory: mobile
 
-    integrations:
-      app_store_connect: ios-build-key
+    # integrations:
+    #   app_store_connect: ios-build-key
       # app_store_connect: ios_develop
 
     environment:
