@@ -1,6 +1,6 @@
-name: japanese_learn
+name: Kotabi
 description: 言旅 Kotabi — Japanese Learning App
-version: 1.1.5
+version: 1.1.6
 publish_to: none
 
 environment:
