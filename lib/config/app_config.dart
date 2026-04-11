@@ -1,7 +1,8 @@
 class AppConfig {
   static const String _env = String.fromEnvironment('ENV', defaultValue: 'test');
 
-  static const String _testHost = 'https://139.196.44.6:8002';
+  // static const String _testHost = 'https://139.196.44.6:8002';
+  static const String _testHost = 'https://www.kotabi.top';
   static const String _prodHost = 'https://www.kotabi.top';
   static String get _host => _env == 'prod' ? _prodHost : _testHost;
 
