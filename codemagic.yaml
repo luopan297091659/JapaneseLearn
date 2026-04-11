@@ -11,8 +11,8 @@ workflows:
       - name: Get Flutter packages
         script: flutter pub get
       - name: Build APK
-        # script: flutter build apk --release
-        script: flutter build ipa --release --build-name=1.1.0 --export-options-plist=/Users/builder/export_options.plist
+        script: flutter build apk --release
+        # script: flutter build ipa --release --build-name=1.1.0 --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - mobile/build/app/outputs/**/*.apk
 
@@ -49,7 +49,7 @@ workflows:
 
       - name: Build iOS IPA
         script: |
-          flutter build ipa --release
+          flutter build ipa --release --build-name=1.1.0 --export-options-plist=/Users/builder/export_options.plist
 
     artifacts:
       - build/ios/ipa/*.ipa
