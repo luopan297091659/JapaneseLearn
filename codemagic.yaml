@@ -22,7 +22,7 @@ workflows:
     instance_type: mac_mini_m2
 
     integrations:
-      app_store_connect: ios-build-key
+      app_store_connect: app-publish
       # app_store_connect: kotabi_test
 
     environment:
