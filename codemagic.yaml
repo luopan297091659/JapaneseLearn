@@ -22,7 +22,7 @@ workflows:
     working_directory: mobile
 
     integrations:
-      app_store_connect: japanese-kotabi
+      app_store_connect: ios-build-key
       # app_store_connect: ios_develop
 
     environment:
