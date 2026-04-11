@@ -22,7 +22,7 @@ workflows:
     working_directory: mobile
 
     integrations:
-      app_store_connect: ios-build
+      app_store_connect: ios-build-key
       # app_store_connect: kotabi_test
 
     environment:
