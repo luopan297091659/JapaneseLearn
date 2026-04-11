@@ -22,8 +22,8 @@ workflows:
     instance_type: mac_mini_m2
 
     integrations:
-      app_store_connect: app-publish
-      # app_store_connect: kotabi_test
+      # app_store_connect: app-publish
+      app_store_connect: kotabi_test
 
     environment:
       flutter: stable
