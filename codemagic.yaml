@@ -26,9 +26,6 @@ workflows:
 
     environment:
       flutter: stable
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.kotabi.app
       xcode: latest
       cocoapods: default
     scripts:
@@ -38,8 +35,13 @@ workflows:
         script: |
           cd ios
           pod install
+      - name: Fetch signing files
+        script: |
+          app-store-connect fetch-signing-files com.kotabi.app --type IOS_APP_STORE --create
       - name: Set up code signing
         script: |
+          keychain initialize
+          app-store-connect certificates list --type IOS_DISTRIBUTION --save
           xcode-project use-profiles
 
       - name: Build iOS IPA
