@@ -31,7 +31,7 @@ workflows:
       cocoapods: default
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.kotabi.app
+        bundle_identifier: com.kotabi.app.ZG8Q8FJDX4
     scripts:
       - name: Get Flutter packages
         script: flutter pub get
