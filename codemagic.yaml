@@ -23,7 +23,7 @@ workflows:
 
     integrations:
       # app_store_connect: japanese-kotabi
-      app_store_connect: ios-build-key
+      app_store_connect: ios_develop
 
     environment:
       flutter: stable
