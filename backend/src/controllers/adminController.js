@@ -2703,6 +2703,128 @@ async function generateSingleAudio(req, res) {
   }
 }
 
+// ─── 订单管理 ───────────────────────────────────────────────────────────────
+const { MembershipOrder } = require('../models/index');
+const { isActiveMember } = require('../middlewares/membership');
+
+async function listOrders(req, res) {
+  const { status, channel, page = 1, limit = 20 } = req.query;
+  const where = {};
+  if (status) where.status = status;
+  if (channel) where.channel = channel;
+  const offset = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
+  const { rows, count } = await MembershipOrder.findAndCountAll({
+    where,
+    order: [['createdAt', 'DESC']],
+    limit: parseInt(limit),
+    offset,
+  });
+  // 附加用户信息
+  const userIds = [...new Set(rows.map(r => r.user_id))];
+  const users = await User.findAll({ where: { id: userIds }, attributes: ['id', 'username', 'email'] });
+  const userMap = {};
+  users.forEach(u => { userMap[u.id] = { username: u.username, email: u.email }; });
+  res.json({
+    orders: rows.map(r => ({
+      ...r.toJSON(),
+      user: userMap[r.user_id] || null,
+    })),
+    total: count,
+    page: parseInt(page),
+    limit: parseInt(limit),
+  });
+}
+
+async function reviewOrder(req, res) {
+  const { id } = req.params;
+  const { action, admin_note } = req.body; // action: 'approve' | 'reject'
+  if (!['approve', 'reject'].includes(action)) {
+    return res.status(400).json({ error: '操作必须为 approve 或 reject' });
+  }
+
+  const order = await MembershipOrder.findByPk(id);
+  if (!order) return res.status(404).json({ error: '订单不存在' });
+  if (order.status !== 'pending') {
+    return res.status(400).json({ error: `订单状态为 ${order.status}，无法审核` });
+  }
+
+  if (action === 'reject') {
+    await order.update({
+      status: 'rejected',
+      admin_note: admin_note || null,
+      reviewed_by: req.user.id,
+      reviewed_at: new Date(),
+    });
+    return res.json({ ok: true, message: '已拒绝', order: order.toJSON() });
+  }
+
+  // approve — 激活会员
+  const config = readMembershipConfig();
+  const plan = (config.plans || []).find(p => p.id === order.plan_id);
+  const period = plan?.period || 'month';
+
+  const user = await User.findByPk(order.user_id);
+  if (!user) return res.status(404).json({ error: '用户不存在' });
+
+  // 计算到期时间（支持叠加）
+  const now = new Date();
+  let expire;
+  switch (period) {
+    case 'month':   expire = new Date(now.setMonth(now.getMonth() + 1)); break;
+    case 'year':    expire = new Date(now.setFullYear(now.getFullYear() + 1)); break;
+    case 'forever': expire = new Date('2099-12-31'); break;
+    default:        expire = new Date(now.setMonth(now.getMonth() + 1));
+  }
+  if (user.membership_expire && new Date(user.membership_expire) > new Date()) {
+    const currentExpire = new Date(user.membership_expire);
+    const extension = expire.getTime() - Date.now();
+    expire.setTime(currentExpire.getTime() + extension);
+  }
+
+  await user.update({ membership_plan: order.plan_id, membership_expire: expire });
+  await order.update({
+    status: 'paid',
+    paid_at: new Date(),
+    expire_at: expire,
+    admin_note: admin_note || null,
+    reviewed_by: req.user.id,
+    reviewed_at: new Date(),
+  });
+
+  res.json({ ok: true, message: '已通过，会员已激活', order: order.toJSON() });
+}
+
+// ── 收款二维码上传 ──────────────────────────────────────────────────────────
+async function uploadQrCode(req, res) {
+  if (!req.file) return res.status(400).json({ error: '请上传二维码图片' });
+  const { type } = req.body; // 'alipay' | 'wechat'
+  if (!['alipay', 'wechat'].includes(type)) {
+    return res.status(400).json({ error: 'type 必须为 alipay 或 wechat' });
+  }
+  const ext = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' }[req.file.mimetype] || '.jpg';
+  const filename = `qr_${type}_${Date.now()}${ext}`;
+  const qrDir = path.join(__dirname, '../../uploads/qrcodes');
+  if (!fs.existsSync(qrDir)) fs.mkdirSync(qrDir, { recursive: true });
+  fs.writeFileSync(path.join(qrDir, filename), req.file.buffer);
+  const qrUrl = `/uploads/qrcodes/${filename}`;
+
+  // 更新到 membership.json
+  const config = readMembershipConfig();
+  if (!config.payment) config.payment = {};
+  if (type === 'alipay') {
+    config.payment.alipay_qr_url = qrUrl;
+    config.payment.alipay_enabled = true;
+  } else {
+    config.payment.wechat_qr_url = qrUrl;
+    config.payment.wechat_enabled = true;
+  }
+  const dir = path.dirname(PLANS_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(PLANS_FILE, JSON.stringify(config, null, 2), 'utf8');
+
+  res.json({ ok: true, qr_url: qrUrl, type });
+}
+
 module.exports = {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, generateVocabExamplesKokoroAudio, deduplicateVocab, fixVocabReadings,
@@ -2728,4 +2850,5 @@ module.exports = {
   listReports, getReport, updateReport, deleteReport,
   getStudyPlanStats,
   generateSingleAudio,
+  listOrders, reviewOrder, uploadQrCode,
 };

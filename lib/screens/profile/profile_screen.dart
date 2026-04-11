@@ -29,7 +29,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindingObserver {
   UserModel? _user;
   ProgressSummaryModel? _progress;
   bool _loading = true;
@@ -41,7 +41,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Uint8List? _avatarBytes;
 
   @override
-  void initState() { super.initState(); _load(); _checkPermissions(); _loadSlowSpeed(); _loadAppVersion(); }
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _load(); _checkPermissions(); _loadSlowSpeed(); _loadAppVersion();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkPermissions();
+    }
+  }
 
   Future<void> _loadAppVersion() async {
     try {

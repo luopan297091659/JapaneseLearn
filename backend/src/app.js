@@ -42,6 +42,7 @@ const kokoroAudioManagementRoutes = require('./routes/kokoroAudioManagement');
 const kanaRoutes = require('./routes/kana');
 const stripeRoutes = require('./routes/stripe');
 const { router: stripeRouter, stripeWebhook } = stripeRoutes;
+const paymentRoutes = require('./routes/payment');
 
 const app = express();
 
@@ -167,6 +168,7 @@ app.use('/api/v1/tts', kokoroTtsRoutes);
 app.use('/api/v1/kokoro-audio', kokoroAudioManagementRoutes);
 app.use('/api/v1/kana', kanaRoutes);
 app.use('/api/v1/stripe', stripeRouter);
+app.use('/api/v1/payment', paymentRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -230,8 +232,9 @@ async function start() {
     logger.info('Database connection established.');
     // 生产环境只做 "CREATE TABLE IF NOT EXISTS"，不执行任何 ALTER
     // 如需新增字段请手动执行 SQL migration
-    // 确保 Forum 模型已注册到 sequelize
+    // 确保所有模型已注册到 sequelize，再执行 sync
     require('./models/Forum');
+    require('./models/index');
     try {
       await sequelize.sync({ alter: { drop: false } }); // 自动添加新列，但不删除现有列/数据
     } catch (syncErr) {

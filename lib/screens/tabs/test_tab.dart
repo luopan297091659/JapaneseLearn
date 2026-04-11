@@ -322,6 +322,7 @@ class _TestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -330,19 +331,19 @@ class _TestCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: blocked ? 0.04 : 0.08),
+            color: color.withValues(alpha: blocked ? (isDark ? 0.12 : 0.04) : (isDark ? 0.22 : 0.08)),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: blocked ? 0.1 : 0.2)),
+            border: Border.all(color: color.withValues(alpha: blocked ? (isDark ? 0.25 : 0.1) : (isDark ? 0.45 : 0.2))),
           ),
           child: Row(children: [
           Container(
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: blocked ? 0.08 : 0.18),
+              color: color.withValues(alpha: blocked ? (isDark ? 0.18 : 0.08) : (isDark ? 0.35 : 0.18)),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, color: blocked ? color.withValues(alpha: 0.4) : color, size: 28),
+            child: Icon(icon, color: blocked ? color.withValues(alpha: isDark ? 0.6 : 0.4) : color, size: 28),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -350,11 +351,11 @@ class _TestCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16,
-                  color: blocked ? color.withValues(alpha: 0.4) : color)),
+                  color: blocked ? color.withValues(alpha: isDark ? 0.6 : 0.4) : color)),
                 const SizedBox(height: 4),
                 Text(blocked ? '会员专属功能' : subtitle,
                   style: TextStyle(fontSize: 13,
-                    color: blocked ? Colors.grey : color.withValues(alpha: 0.7))),
+                    color: blocked ? Colors.grey : color.withValues(alpha: isDark ? 0.85 : 0.7))),
               ],
             ),
           ),

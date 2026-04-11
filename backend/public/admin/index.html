@@ -254,6 +254,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item" onclick="nav('stat-behavior')" id="nav-stat-behavior"><span class="icon">🧠</span><span class="nav-label">行为分析</span></div>
   <div class="sidebar-section">运营</div>
   <div class="nav-item" onclick="nav('membership')" id="nav-membership"><span class="icon">👑</span><span class="nav-label">会员配置</span></div>
+  <div class="nav-item" onclick="nav('orders')" id="nav-orders"><span class="icon">💰</span><span class="nav-label">订单审核</span></div>
   <div class="nav-item" onclick="nav('import')" id="nav-import"><span class="icon">📥</span><span class="nav-label">内容导入</span></div>
   <div class="sidebar-section">系统</div>
   <div class="nav-item" onclick="nav('feature-tiers')" id="nav-feature-tiers"><span class="icon">🎯</span><span class="nav-label">功能分级</span></div>
@@ -687,7 +688,7 @@ const PAGE_TITLES = {
   tracks:'听力管理', channels:'频道管理', users:'用户管理', reports:'问题反馈',
   'stat-users':'用户统计', 'stat-traffic':'流量监控',
   'stat-behavior':'行为分析',
-  membership:'会员配置', import:'内容导入', sync:'全局同步', 'feature-tiers':'功能分级',
+  membership:'会员配置', orders:'订单审核', import:'内容导入', sync:'全局同步', 'feature-tiers':'功能分级',
   app:'App管理', 'feature-toggles':'功能开关', 'ai-settings':'AI设置', 'kokoro-settings':'Kokoro TTS设置',
   'admin-mgmt':'权限管理'
 };
@@ -696,7 +697,7 @@ const PAGE_ICONS = {
   tracks:'🎧', channels:'📺', users:'👥', reports:'🐛',
   'stat-users':'📈', 'stat-traffic':'🌐',
   'stat-behavior':'🧠',
-  membership:'👑', import:'📥', sync:'🔄', 'feature-tiers':'🎯',
+  membership:'👑', orders:'💰', import:'📥', sync:'🔄', 'feature-tiers':'🎯',
   app:'📱', 'feature-toggles':'🔀', 'ai-settings':'🤖', 'kokoro-settings':'🎤',
   'admin-mgmt':'🔐'
 };
@@ -705,7 +706,7 @@ const PAGE_DESCS = {
   tracks:'管理听力素材', channels:'管理YouTube/B站频道', users:'查看管理用户',
   'stat-users':'用户数据分析', 'stat-traffic':'API流量监控',
   'stat-behavior':'用户行为数据分析',
-  membership:'会员套餐管理', import:'Anki/CSV导入', sync:'内容版本发布', 'feature-tiers':'会员功能分级配置',
+  membership:'会员套餐管理', orders:'审核用户付款订单', import:'Anki/CSV导入', sync:'内容版本发布', 'feature-tiers':'会员功能分级配置',
   app:'App上传下载', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量', 'kokoro-settings':'Kokoro TTS 合成参数配置',
   'admin-mgmt':'管理员权限配置'
 };
@@ -736,7 +737,7 @@ const PAGE_FNS = {
   tracks: renderTracks, channels: renderChannels, users: renderUsers,
   'stat-users': renderStatUsers, 'stat-traffic': renderStatTraffic,
   'stat-behavior': renderStatBehavior,
-  membership: renderMembership, import: renderImport, sync: renderSync,
+  membership: renderMembership, orders: renderOrders, import: renderImport, sync: renderSync,
   app: renderAppManage, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings, 'kokoro-settings': renderKokoroSettings,
   'admin-mgmt': renderAdminMgmt, reports: renderReports,
 };
@@ -2944,6 +2945,35 @@ function _buildMembershipUI() {
       <div class="form-row"><label>货币代码</label><input id="pay-stripe-currency" value="${esc(payment.stripe_currency||'cny')}" placeholder="cny / usd / jpy" style="width:120px" /></div>
       <p style="font-size:11px;color:#999;margin-top:6px">Webhook 端点：${esc((payment.stripe_webhook_url||'')||location.origin+'/api/v1/stripe/webhook')}</p>
     </div>
+    <hr style="margin:20px 0;border:none;border-top:1px solid #eee">
+    <div>
+      <div style="font-weight:600;margin-bottom:12px;color:#555">🖼️ 收款二维码（安卓用户扫码付款）</div>
+      <p style="font-size:12px;color:#999;margin-bottom:12px">上传支付宝/微信收款码，用户在App中看到二维码 → 扫码转账 → 上传截图 → 管理员在「订单审核」页面手动开通。</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+        <div>
+          <label style="font-size:13px;color:#555;font-weight:600;display:block;margin-bottom:8px">支付宝收款码</label>
+          <div id="qr-alipay-preview" style="margin-bottom:8px">${payment.alipay_qr_url ? '<img src="'+esc(payment.alipay_qr_url)+'" style="max-width:180px;border-radius:8px;border:1px solid #e5e7eb" />' : '<span style="color:#aaa;font-size:12px">未上传</span>'}</div>
+          <input type="file" id="qr-alipay-file" accept="image/*" style="font-size:12px" />
+          <button class="btn btn-primary btn-sm" style="margin-top:6px" onclick="uploadQrCode('alipay')">上传支付宝码</button>
+        </div>
+        <div>
+          <label style="font-size:13px;color:#555;font-weight:600;display:block;margin-bottom:8px">微信收款码</label>
+          <div id="qr-wechat-preview" style="margin-bottom:8px">${payment.wechat_qr_url ? '<img src="'+esc(payment.wechat_qr_url)+'" style="max-width:180px;border-radius:8px;border:1px solid #e5e7eb" />' : '<span style="color:#aaa;font-size:12px">未上传</span>'}</div>
+          <input type="file" id="qr-wechat-file" accept="image/*" style="font-size:12px" />
+          <button class="btn btn-primary btn-sm" style="margin-top:6px" onclick="uploadQrCode('wechat')">上传微信码</button>
+        </div>
+      </div>
+    </div>
+    <hr style="margin:20px 0;border:none;border-top:1px solid #eee">
+    <div>
+      <div style="font-weight:600;margin-bottom:12px;color:#555">🍎 Apple IAP</div>
+      <div class="form-row" style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <input type="checkbox" id="pay-apple-enabled" style="width:auto" ${payment.apple_iap_enabled?'checked':''} />
+        <label style="margin:0;font-size:13px">启用 Apple IAP</label>
+      </div>
+      <div class="form-row"><label>Shared Secret</label><input id="pay-apple-secret" type="password" value="${esc(payment.apple_shared_secret||'')}" placeholder="App Store Connect 共享密钥" /></div>
+      <p style="font-size:11px;color:#999;margin-top:6px">产品ID在套餐配置的 apple_product_id 字段中设置。</p>
+    </div>
   </div>
 
   <div style="display:flex;justify-content:flex-end;margin-top:4px">
@@ -3063,10 +3093,124 @@ async function saveAllMembership() {
     stripe_secret_key:    document.getElementById('pay-stripe-sk').value.trim(),
     stripe_webhook_secret:document.getElementById('pay-stripe-whsec').value.trim(),
     stripe_currency:      document.getElementById('pay-stripe-currency').value.trim() || 'cny',
+    apple_iap_enabled:    document.getElementById('pay-apple-enabled')?.checked || false,
+    apple_shared_secret:  document.getElementById('pay-apple-secret')?.value.trim() || '',
+    alipay_qr_url: _memCfg.payment?.alipay_qr_url || '',
+    wechat_qr_url: _memCfg.payment?.wechat_qr_url || '',
   };
   try {
     await api('POST', '/admin/membership', { plans: _memCfg.plans, payment: _memCfg.payment, notice: _memCfg.notice, trial: _memCfg.trial });
     toast('保存成功 ✅');
+  } catch(e) { toast(e.message, true); }
+}
+
+/* ─────────────────────────── ORDERS（订单审核）────────────────────────────── */
+let _ordersPage = 1;
+let _ordersFilter = { status: '', channel: '' };
+async function renderOrders() {
+  document.getElementById('content').innerHTML = '<p style="color:#aaa;padding:40px;text-align:center">加载中…</p>';
+  await loadOrdersList();
+}
+async function loadOrdersList() {
+  try {
+    const qs = new URLSearchParams({ page: _ordersPage, limit: 15 });
+    if (_ordersFilter.status) qs.set('status', _ordersFilter.status);
+    if (_ordersFilter.channel) qs.set('channel', _ordersFilter.channel);
+    const res = await api('GET', `/admin/orders?${qs}`);
+    const { orders = [], total = 0, page = 1, limit = 15 } = res;
+    const totalPages = Math.ceil(total / limit);
+    const statusBadge = s => {
+      const m = { pending:'badge-yellow', paid:'badge-green', rejected:'badge-red', expired:'badge-red', refunded:'badge-blue' };
+      const l = { pending:'待审核', paid:'已通过', rejected:'已拒绝', expired:'已过期', refunded:'已退款' };
+      return `<span class="badge ${m[s]||''}">${l[s]||s}</span>`;
+    };
+    const channelLabel = c => ({ apple_iap:'Apple IAP', stripe:'Stripe', qrcode_alipay:'支付宝二维码', qrcode_wechat:'微信二维码' }[c] || c);
+    const rows = orders.map(o => `<tr>
+      <td style="font-size:11px;color:#999">${esc(o.id?.substring(0,8))}…</td>
+      <td><b>${esc(o.user?.username||'')}</b><br/><small style="color:#999">${esc(o.user?.email||'')}</small></td>
+      <td>${esc(o.plan_id)}</td>
+      <td style="font-weight:700">¥${o.amount}</td>
+      <td>${channelLabel(o.channel)}</td>
+      <td>${statusBadge(o.status)}</td>
+      <td>${o.proof_image_url ? `<a href="${esc(o.proof_image_url)}" target="_blank" style="color:#2563eb">查看截图</a>` : '—'}</td>
+      <td style="font-size:12px;color:#888">${new Date(o.createdAt).toLocaleString('zh-CN')}</td>
+      <td>${o.status === 'pending' ? `
+        <button class="btn btn-success btn-sm" onclick="approveOrder('${o.id}')">通过</button>
+        <button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="rejectOrder('${o.id}')">拒绝</button>
+      ` : (o.admin_note ? `<small style="color:#999">${esc(o.admin_note)}</small>` : '—')}</td>
+    </tr>`).join('');
+    document.getElementById('content').innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <h3>💰 订单审核</h3>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select onchange="_ordersFilter.status=this.value;_ordersPage=1;loadOrdersList()" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:7px;font-size:13px">
+            <option value="">全部状态</option>
+            <option value="pending" ${_ordersFilter.status==='pending'?'selected':''}>待审核</option>
+            <option value="paid" ${_ordersFilter.status==='paid'?'selected':''}>已通过</option>
+            <option value="rejected" ${_ordersFilter.status==='rejected'?'selected':''}>已拒绝</option>
+          </select>
+          <select onchange="_ordersFilter.channel=this.value;_ordersPage=1;loadOrdersList()" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:7px;font-size:13px">
+            <option value="">全部渠道</option>
+            <option value="qrcode_alipay" ${_ordersFilter.channel==='qrcode_alipay'?'selected':''}>支付宝二维码</option>
+            <option value="qrcode_wechat" ${_ordersFilter.channel==='qrcode_wechat'?'selected':''}>微信二维码</option>
+            <option value="apple_iap" ${_ordersFilter.channel==='apple_iap'?'selected':''}>Apple IAP</option>
+            <option value="stripe" ${_ordersFilter.channel==='stripe'?'selected':''}>Stripe</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="loadOrdersList()">刷新</button>
+        </div>
+      </div>
+      <p style="font-size:12px;color:#999;margin-bottom:12px">共 ${total} 条记录，第 ${page}/${totalPages||1} 页</p>
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>ID</th><th>用户</th><th>套餐</th><th>金额</th><th>渠道</th><th>状态</th><th>凭证</th><th>时间</th><th>操作</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="9" style="text-align:center;color:#aaa">暂无订单</td></tr>'}</tbody>
+      </table>
+      </div>
+      ${totalPages > 1 ? `<div style="display:flex;justify-content:center;gap:8px;margin-top:16px">
+        <button class="btn btn-ghost btn-sm" ${page<=1?'disabled':''} onclick="_ordersPage=${page-1};loadOrdersList()">上一页</button>
+        <span style="line-height:32px;font-size:13px">${page} / ${totalPages}</span>
+        <button class="btn btn-ghost btn-sm" ${page>=totalPages?'disabled':''} onclick="_ordersPage=${page+1};loadOrdersList()">下一页</button>
+      </div>` : ''}
+    </div>`;
+  } catch(e) { toast(e.message, true); }
+}
+async function approveOrder(id) {
+  const note = prompt('审核备注（可选）：');
+  try {
+    await api('PUT', `/admin/orders/${id}/review`, { action: 'approve', admin_note: note || '' });
+    toast('订单已通过，会员已激活 ✅');
+    await loadOrdersList();
+  } catch(e) { toast(e.message, true); }
+}
+async function rejectOrder(id) {
+  const note = prompt('拒绝原因：');
+  if (note === null) return;
+  try {
+    await api('PUT', `/admin/orders/${id}/review`, { action: 'reject', admin_note: note || '审核不通过' });
+    toast('订单已拒绝');
+    await loadOrdersList();
+  } catch(e) { toast(e.message, true); }
+}
+async function uploadQrCode(type) {
+  const fileInput = document.getElementById(`qr-${type}-file`);
+  if (!fileInput || !fileInput.files.length) { toast('请先选择图片', true); return; }
+  const fd = new FormData();
+  fd.append('qrcode', fileInput.files[0]);
+  fd.append('type', type);
+  try {
+    const res = await fetch(`${API}/admin/qrcode/upload`, {
+      method: 'POST', body: fd,
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '上传失败');
+    toast(`${type === 'alipay' ? '支付宝' : '微信'}二维码已上传 ✅`);
+    if (!_memCfg.payment) _memCfg.payment = {};
+    _memCfg.payment[`${type}_qr_url`] = data.qr_url;
+    _memCfg.payment[`${type === 'alipay' ? 'alipay' : 'wechat'}_enabled`] = true;
+    const preview = document.getElementById(`qr-${type}-preview`);
+    if (preview) preview.innerHTML = `<img src="${esc(data.qr_url)}" style="max-width:180px;border-radius:8px;border:1px solid #e5e7eb" />`;
   } catch(e) { toast(e.message, true); }
 }
 

@@ -1,0 +1,66 @@
+{
+  "plans": [
+    {
+      "id": "free",
+      "name": "免费版",
+      "price": 0,
+      "period": "forever",
+      "description": "基础学习功能，适合入门用户",
+      "features": ["词汇学习", "文法学习", "听力学习", "NHK新闻"],
+      "enabled": true
+    },
+    {
+      "id": "monthly",
+      "name": "月度会员",
+      "price": 18,
+      "period": "month",
+      "description": "完整功能解锁，按月计费，随时取消",
+      "features": ["AI发音练习", "错题集", "学习计划", "AI翻译"],
+      "apple_product_id": "kotabi.vip.monthly",
+      "enabled": true
+    },
+    {
+      "id": "yearly",
+      "name": "年度会员",
+      "price": 128,
+      "period": "year",
+      "description": "全功能 + 年度优惠，比月付省22%",
+      "features": ["无限练习题", "SRS 间隔复习", "听力课程", "离线下载"],
+      "apple_product_id": "kotabi.vip.yearly",
+      "enabled": true
+    },
+    {
+      "id": "lifetime",
+      "name": "终身会员",
+      "price": 398,
+      "period": "forever",
+      "description": "一次购买永久使用，含未来所有新功能",
+      "features": ["全功能永久解锁", "未来新功能免费", "专属徽章"],
+      "apple_product_id": "kotabi.vip.lifetime",
+      "enabled": true
+    }
+  ],
+  "trial": {
+    "enabled": true,
+    "days": 3,
+    "description": "免费体验全部会员功能"
+  },
+  "payment": {
+    "alipay_enabled": false,
+    "alipay_appid": "",
+    "alipay_notify_url": "",
+    "alipay_qr_url": "",
+    "wechat_enabled": false,
+    "wechat_appid": "",
+    "wechat_mchid": "",
+    "wechat_notify_url": "",
+    "wechat_qr_url": "",
+    "stripe_enabled": false,
+    "stripe_secret_key": "",
+    "stripe_webhook_secret": "",
+    "stripe_currency": "cny",
+    "apple_iap_enabled": true,
+    "apple_shared_secret": ""
+  },
+  "notice": ""
+}

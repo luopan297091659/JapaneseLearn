@@ -24,6 +24,7 @@ const {
   listReports, getReport, updateReport, deleteReport,
   getStudyPlanStats,
   generateSingleAudio,
+  listOrders, reviewOrder, uploadQrCode,
 } = require('../controllers/adminController');
 const {
   adminListChannels, adminCreateChannel, adminUpdateChannel, adminDeleteChannel, adminRefreshChannel,
@@ -55,6 +56,15 @@ const appUpload = multer({
 });
 
 // apkg 文件上传（Anki 导出包）
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) return cb(null, true);
+    cb(new Error('仅支持图片格式'));
+  },
+});
+
 const apkgUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 200 * 1024 * 1024 },
@@ -135,6 +145,11 @@ router.post('/content-version/publish', permissionCheck('sync'), asyncHandler(pu
 // 会员套餐配置（仅高级管理员）
 router.get('/membership',  permissionCheck('membership'), asyncHandler(getMembershipConfig));
 router.post('/membership', superAdminAuth, asyncHandler(saveMembershipConfig));
+
+// 订单管理
+router.get('/orders', permissionCheck('membership'), asyncHandler(listOrders));
+router.put('/orders/:id/review', permissionCheck('membership'), asyncHandler(reviewOrder));
+router.post('/qrcode/upload', superAdminAuth, imageUpload.single('qrcode'), asyncHandler(uploadQrCode));
 
 // 功能开关配置（仅高级管理员）
 router.get('/feature-toggles',  superAdminAuth, asyncHandler(getFeatureToggles));

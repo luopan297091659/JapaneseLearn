@@ -396,6 +396,40 @@ const Kana = sequelize.define('Kana', {
   ],
 });
 
+// ────────── MembershipOrder (支付订单) ──────────
+const MembershipOrder = sequelize.define('MembershipOrder', {
+  id:              { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  user_id:         { type: DataTypes.UUID, allowNull: false },
+  plan_id:         { type: DataTypes.STRING(50), allowNull: false, comment: 'monthly / yearly / lifetime' },
+  amount:          { type: DataTypes.FLOAT, allowNull: false, comment: '订单金额' },
+  currency:        { type: DataTypes.STRING(10), defaultValue: 'cny' },
+  channel:         { type: DataTypes.STRING(30), allowNull: false, comment: 'apple_iap / stripe / qrcode_alipay / qrcode_wechat' },
+  status:          { type: DataTypes.ENUM('pending', 'paid', 'rejected', 'expired', 'refunded'), defaultValue: 'pending' },
+  // Apple IAP 字段
+  apple_transaction_id:  { type: DataTypes.STRING(200), allowNull: true },
+  apple_receipt:         { type: DataTypes.TEXT('medium'), allowNull: true },
+  // Stripe 字段
+  stripe_session_id:     { type: DataTypes.STRING(200), allowNull: true },
+  // 二维码付款截图
+  proof_image_url:       { type: DataTypes.STRING(500), allowNull: true, comment: '用户上传的付款截图' },
+  // 审核
+  admin_note:      { type: DataTypes.TEXT, allowNull: true },
+  reviewed_by:     { type: DataTypes.UUID, allowNull: true },
+  reviewed_at:     { type: DataTypes.DATE, allowNull: true },
+  // 通用
+  paid_at:         { type: DataTypes.DATE, allowNull: true },
+  expire_at:       { type: DataTypes.DATE, allowNull: true, comment: '此次购买对应的到期时间' },
+}, {
+  tableName: 'membership_orders',
+  indexes: [
+    { fields: ['user_id'] },
+    { fields: ['status'] },
+    { fields: ['channel'] },
+    { fields: ['apple_transaction_id'] },
+    { fields: ['stripe_session_id'] },
+  ],
+});
+
 const AppRelease = require('./AppRelease');
 
 module.exports = {
@@ -420,6 +454,7 @@ module.exports = {
   GameScore,
   GameConfig,
   MembershipPlan,
+  MembershipOrder,
   DictEntry,
   DictTransCache,
   ListeningChannel,

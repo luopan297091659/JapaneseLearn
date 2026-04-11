@@ -396,6 +396,57 @@ class ApiService {
     });
   }
 
+  // ── 支付相关 API ─────────────────────────────────────────────────────────
+
+  /// 获取可用套餐（含平台支付渠道信息）
+  Future<Map<String, dynamic>> getPaymentPlans() async {
+    final res = await _dio.get('/payment/plans');
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  /// Apple IAP 收据验证
+  Future<Map<String, dynamic>> verifyApplePurchase({
+    required String receiptData,
+    required String planId,
+    String transactionId = '',
+  }) async {
+    _cache.remove('me');
+    final res = await _dio.post('/payment/apple/verify', data: {
+      'receipt_data': receiptData,
+      'plan_id': planId,
+      'transaction_id': transactionId,
+    });
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  /// 获取二维码收款配置
+  Future<Map<String, dynamic>> getQrCodeConfig() async {
+    final res = await _dio.get('/payment/qrcode/config');
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  /// 提交二维码付款截图
+  Future<Map<String, dynamic>> submitPaymentProof({
+    required String planId,
+    required String channel,
+    required Uint8List imageBytes,
+    String fileName = 'proof.jpg',
+  }) async {
+    final formData = FormData.fromMap({
+      'proof': MultipartFile.fromBytes(imageBytes, filename: fileName),
+      'plan_id': planId,
+      'channel': channel,
+    });
+    final res = await _dio.post('/payment/qrcode/submit', data: formData);
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  /// 查询用户订单
+  Future<List<dynamic>> getMyOrders() async {
+    final res = await _dio.get('/payment/orders');
+    return res.data['orders'] as List? ?? [];
+  }
+
   // logout 时清缓存
   Future<void> logout() async {
     _cache.clear();
