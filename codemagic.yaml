@@ -22,8 +22,8 @@ workflows:
     working_directory: mobile
 
     integrations:
-      app_store_connect: develop_key
-      # app_store_connect: ios_develop
+      # app_store_connect: develop_key
+      app_store_connect: kotabi_test
 
     environment:
       flutter: stable
