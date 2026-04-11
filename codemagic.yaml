@@ -32,7 +32,7 @@ workflows:
       ios_signing:
         distribution_type: app_store
         # bundle_identifier: com.kotabi.app
-        bundle_identifier: ZG8Q8FJDX4.com.kotabi.app
+        bundle_identifier: com.kotabi.app
     scripts:
       - name: Get Flutter packages
         script: flutter pub get
