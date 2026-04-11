@@ -19,7 +19,6 @@ workflows:
     name: iOS Build
     max_build_duration: 120
     instance_type: mac_mini_m2
-    working_directory: mobile
 
     integrations:
       app_store_connect: ios-build-key
@@ -34,6 +33,9 @@ workflows:
         # bundle_identifier: com.kotabi.app
         bundle_identifier: com.kotabi.app
     scripts:
+      - name: Debug: List files
+        script: ls -al
+                pwd
       - name: Get Flutter packages
         script: flutter pub get
       - name: Install CocoaPods dependencies
