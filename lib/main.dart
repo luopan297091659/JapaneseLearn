@@ -137,7 +137,15 @@ class AppTheme {
     colorScheme: ColorScheme.fromSeed(
       seedColor: const Color(0xFFE63946),
       brightness: Brightness.dark,
+    ).copyWith(
+      surface: const Color(0xFF1C1B1F),
+      surfaceContainerLowest: const Color(0xFF1C1B1F),
+      surfaceContainerLow: const Color(0xFF211F23),
+      surfaceContainer: const Color(0xFF262428),
+      surfaceContainerHigh: const Color(0xFF2B292D),
+      surfaceContainerHighest: const Color(0xFF312F33),
     ),
+    scaffoldBackgroundColor: const Color(0xFF1C1B1F),
     fontFamily: 'NotoSansJP',
     appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
     cardTheme: CardThemeData(
@@ -195,7 +203,14 @@ class AppTheme {
       primary: const Color(0xFF42A5F5),
       secondary: const Color(0xFFB39DDB),
       tertiary: const Color(0xFF4DD0E1),
+      surface: const Color(0xFF151B2E),
+      surfaceContainerLowest: const Color(0xFF151B2E),
+      surfaceContainerLow: const Color(0xFF1A2035),
+      surfaceContainer: const Color(0xFF1E253C),
+      surfaceContainerHigh: const Color(0xFF242B42),
+      surfaceContainerHighest: const Color(0xFF2A3148),
     ),
+    scaffoldBackgroundColor: const Color(0xFF151B2E),
     fontFamily: 'NotoSansJP',
     appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
     cardTheme: CardThemeData(

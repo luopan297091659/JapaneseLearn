@@ -64,7 +64,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
     try {
       final info = await PackageInfo.fromPlatform();
       if (!mounted) return;
-      setState(() => _appVersion = '${info.version}+${info.buildNumber}');
+      setState(() => _appVersion = info.version);
     } catch (_) {}
   }
 

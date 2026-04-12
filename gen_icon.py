@@ -115,7 +115,6 @@ def main():
     draw_sun(draw)
     draw_waves(draw)
     draw_kanji(draw, cjk, latin)
-    draw_border(draw)
 
     mask = Image.new("L", (SIZE, SIZE), 0)
     md   = ImageDraw.Draw(mask)
