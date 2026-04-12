@@ -11,6 +11,8 @@ workflows:
     environment:
       flutter: stable
       java: 17
+      vars:
+        GIT_LFS_SKIP_SMUDGE: "1"
     scripts:
       - name: Bump version
         script: |
@@ -48,6 +50,8 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
+      vars:
+        GIT_LFS_SKIP_SMUDGE: "1"
       ios_signing:
         distribution_type: app_store
         # bundle_identifier: com.kotabi.app
