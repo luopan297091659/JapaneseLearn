@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -38,6 +39,8 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
   int _total = 0;
   static const _pageSize = 20;
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchCtrl = TextEditingController();
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -52,9 +55,19 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String _) {
+    _debounce?.cancel();
+    _debounce = Timer(
+      const Duration(milliseconds: 420),
+      () => _load(),
+    );
   }
 
   void _onScroll() {
@@ -85,7 +98,13 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
   Future<void> _load() async {
     setState(() { _loading = true; _page = 1; _lessons.clear(); _hasMore = true; });
     try {
-      final res = await apiService.getGrammarLessons(level: _selectedLevel, page: 1, limit: _pageSize);
+      final q = _searchCtrl.text.trim();
+      final res = await apiService.getGrammarLessons(
+        level: q.isNotEmpty ? null : _selectedLevel,
+        query: q.isEmpty ? null : q,
+        page: 1,
+        limit: _pageSize,
+      );
       _total = res['total'] as int? ?? 0;
       final data = res['data'] as List<GrammarLessonModel>;
       if (!mounted) return;
@@ -104,7 +123,13 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
     setState(() => _loadingMore = true);
     _page++;
     try {
-      final res = await apiService.getGrammarLessons(level: _selectedLevel, page: _page, limit: _pageSize);
+      final q = _searchCtrl.text.trim();
+      final res = await apiService.getGrammarLessons(
+        level: q.isNotEmpty ? null : _selectedLevel,
+        query: q.isEmpty ? null : q,
+        page: _page,
+        limit: _pageSize,
+      );
       final data = res['data'] as List<GrammarLessonModel>;
       if (!mounted) return;
       setState(() {
@@ -181,10 +206,28 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
         ),
         actions: [],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(50),
+          preferredSize: const Size.fromHeight(100),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: SingleChildScrollView(
+            child: Column(children: [
+              TextField(
+                controller: _searchCtrl,
+                decoration: InputDecoration(
+                  hintText: '搜索语法、句型或释义…',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _searchCtrl.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () { _searchCtrl.clear(); _load(); },
+                        )
+                      : null,
+                  isDense: true,
+                ),
+                onChanged: _onSearchChanged,
+                onSubmitted: (_) { _debounce?.cancel(); _load(); },
+              ),
+              const SizedBox(height: 8),
+              SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(children: levels.map((l) {
                 final color = _grammarLevelColors[l] ?? cs.primary;
@@ -204,11 +247,12 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
                         : null,
                     onSelected: inPlanMode
                         ? null
-                        : (_) { setState(() => _selectedLevel = l); _saveLevel(l); _load(); },
+                        : (_) { setState(() => _selectedLevel = l); _saveLevel(l); _searchCtrl.clear(); _load(); },
                   ),
                 );
               }).toList()),
             ),
+            ]),
           ),
         ),
       ),

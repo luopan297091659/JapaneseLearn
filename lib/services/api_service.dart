@@ -604,13 +604,14 @@ class ApiService {
   }
 
   // ─── Grammar ─────────────────────────────────────────────────────────────
-  Future<Map<String, dynamic>> getGrammarLessons({String? level, int page = 1, int limit = 20}) async {
-    final key = 'grammar:${level}:$page:$limit';
+  Future<Map<String, dynamic>> getGrammarLessons({String? level, String? query, int page = 1, int limit = 20}) async {
+    final key = 'grammar:${level}:${query}:$page:$limit';
     final cached = _cache.get(key);
     if (cached != null) return cached as Map<String, dynamic>;
     try {
       final res = await _dio.get('/grammar', queryParameters: {
         if (level != null) 'level': level,
+        if (query != null && query.isNotEmpty) 'query': query,
         'page': page,
         'limit': limit,
       });

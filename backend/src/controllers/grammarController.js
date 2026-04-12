@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const { GrammarLesson, GrammarExample } = require('../models');
 
 // 级别总数缓存（grammar_lessons 不常变，缓存5分钟）
@@ -15,15 +16,24 @@ async function getLevelCount(level) {
 }
 
 async function list(req, res) {
-  const { level, page = 1, limit = 20 } = req.query;
+  const { level, page = 1, limit = 20, query } = req.query;
   const where = {};
   if (level) where.jlpt_level = level;
+  if (query && query.trim()) {
+    const q = `%${query.trim()}%`;
+    where[Op.or] = [
+      { title: { [Op.like]: q } },
+      { title_zh: { [Op.like]: q } },
+      { pattern: { [Op.like]: q } },
+      { explanation_zh: { [Op.like]: q } },
+    ];
+  }
   const pg = parseInt(page);
   const lim = Math.min(parseInt(limit), 100);
   const offset = (pg - 1) * lim;
   try {
-    // 用缓存的 count 代替 findAndCountAll 的双查询
-    const total = level ? await getLevelCount(level) : await GrammarLesson.count({ where });
+    // 搜索模式不用缓存 count
+    const total = (!query && level) ? await getLevelCount(level) : await GrammarLesson.count({ where });
     const rows = await GrammarLesson.findAll({
       where, limit: lim, offset,
       attributes: ['id', 'title', 'title_zh', 'jlpt_level', 'pattern', 'explanation_zh', 'order_index'],
