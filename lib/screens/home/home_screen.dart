@@ -557,11 +557,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       context: context,
       builder: (ctx) {
         var displayMonth = DateTime(now.year, now.month);
+        bool localCheckedIn = _checkedInToday;
+        int localStreak = streakDays;
+        final localCheckedDates = Set<DateTime>.from(checkedDates);
+
         return StatefulBuilder(
           builder: (ctx, setDialog) {
             final firstDay = DateTime(displayMonth.year, displayMonth.month, 1);
             final daysInMonth = DateTime(displayMonth.year, displayMonth.month + 1, 0).day;
-            final weekdayOffset = (firstDay.weekday % 7); // Mon=1..Sun=7 → 0-based
+            final weekdayOffset = (firstDay.weekday % 7);
             final isCurrentMonth = displayMonth.year == now.year && displayMonth.month == now.month;
             final monthLabel = '${displayMonth.year}年${displayMonth.month}月';
             final cs = Theme.of(context).colorScheme;
@@ -569,20 +573,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-              contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               title: Column(
                 children: [
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     const Icon(Icons.local_fire_department_rounded, color: Colors.orange, size: 22),
                     const SizedBox(width: 6),
                     Text(
-                      '连续签到 $streakDays 天',
+                      '连续签到 $localStreak 天',
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                     ),
                   ]),
                   const SizedBox(height: 12),
-                  // Month navigation
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -608,7 +610,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Weekday headers
                     Row(
                       children: ['一', '二', '三', '四', '五', '六', '日']
                           .map((d) => Expanded(
@@ -619,7 +620,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           .toList(),
                     ),
                     const SizedBox(height: 4),
-                    // Day grid
                     GridView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -634,59 +634,91 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         final day = index - weekdayOffset + 1;
                         final date = DateTime(displayMonth.year, displayMonth.month, day);
                         final isToday = date == today;
-                        final isChecked = checkedDates.contains(date);
+                        final isChecked = localCheckedDates.contains(date);
                         final isFuture = date.isAfter(today);
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: isChecked
-                                ? cs.primary.withValues(alpha: 0.15)
-                                : isToday
-                                    ? cs.primaryContainer.withValues(alpha: 0.3)
-                                    : null,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: isChecked
-                                ? const Icon(Icons.check_circle_rounded, size: 20, color: Color(0xFF4ADE80))
-                                : Text(
-                                    '$day',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
-                                      color: isFuture ? cs.outline.withValues(alpha: 0.3) : cs.onSurface,
-                                    ),
-                                  ),
+                        final canCheckin = isToday && !localCheckedIn;
+
+                        return GestureDetector(
+                          onTap: canCheckin
+                              ? () async {
+                                  if (_checkingIn) return;
+                                  setState(() => _checkingIn = true);
+                                  try {
+                                    final res = await apiService.checkin();
+                                    final newStreak = res['streak_days'] as int? ?? 0;
+                                    if (mounted) {
+                                      setState(() {
+                                        _checkedInToday = true;
+                                        _checkingIn = false;
+                                      });
+                                      setDialog(() {
+                                        localCheckedIn = true;
+                                        localStreak = newStreak;
+                                        localCheckedDates.add(today);
+                                      });
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('签到成功！连续 $newStreak 天 🔥 +5XP'),
+                                          behavior: SnackBarBehavior.floating,
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                      _loadDailyGoals();
+                                      _loadUser();
+                                    }
+                                  } catch (_) {
+                                    if (mounted) {
+                                      setState(() => _checkingIn = false);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('签到失败，请检查网络'), behavior: SnackBarBehavior.floating),
+                                      );
+                                    }
+                                  }
+                                }
+                              : null,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isChecked
+                                  ? cs.primary.withValues(alpha: 0.15)
+                                  : canCheckin
+                                      ? cs.primary.withValues(alpha: 0.08)
+                                      : null,
+                              shape: BoxShape.circle,
+                              border: canCheckin ? Border.all(color: cs.primary, width: 1.5) : null,
+                            ),
+                            child: Center(
+                              child: isChecked
+                                  ? Icon(Icons.check_circle_rounded, size: 20, color: cs.primary)
+                                  : canCheckin
+                                      ? Text(
+                                          '签',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w800,
+                                            color: cs.primary,
+                                          ),
+                                        )
+                                      : Text(
+                                          '$day',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
+                                            color: isFuture ? cs.outline.withValues(alpha: 0.3) : cs.onSurface,
+                                          ),
+                                        ),
+                            ),
                           ),
                         );
                       },
                     ),
+                    if (!localCheckedIn)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text('点击今日日期即可签到', style: TextStyle(fontSize: 12, color: cs.outline)),
+                      ),
                   ],
                 ),
               ),
-              actions: [
-                if (!_checkedInToday)
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _checkingIn
-                          ? null
-                          : () {
-                              Navigator.pop(ctx);
-                              _doCheckin();
-                            },
-                      icon: const Icon(Icons.edit_calendar_rounded, size: 18),
-                      label: const Text('签到今日'),
-                    ),
-                  )
-                else
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('今日已签到 ✓'),
-                    ),
-                  ),
-              ],
             );
           },
         );
@@ -925,8 +957,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   Row(children: [
                     _StatBadge(icon: Icons.star, color: Colors.amber, label: _user?.level ?? 'N5'),
                     const SizedBox(width: 8),
-                    _StatBadge(icon: Icons.local_fire_department, color: Colors.orange, label: '$streakDays天'),
-                    const SizedBox(width: 8),
                     _StatBadge(icon: Icons.diamond_rounded, color: Colors.amberAccent, label: '${totalXp}XP'),
                     const SizedBox(width: 8),
                     _StatBadge(icon: Icons.trending_up_rounded, color: Colors.greenAccent, label: '+$todayXp'),
@@ -936,22 +966,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: _checkedInToday
-                              ? const Color(0xFF4ADE80).withValues(alpha: 0.25)
-                              : Colors.white.withValues(alpha: 0.18),
+                          color: Colors.white.withValues(alpha: _checkedInToday ? 0.25 : 0.18),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
                           Icon(
                             _checkedInToday ? Icons.check_circle_rounded : Icons.edit_calendar_rounded,
                             size: 13,
-                            color: _checkedInToday ? const Color(0xFF4ADE80) : Colors.white,
+                            color: Colors.white,
                           ),
                           const SizedBox(width: 3),
                           Text(
-                            _checkedInToday ? '已签到' : '签到',
-                            style: TextStyle(
-                              color: _checkedInToday ? const Color(0xFF4ADE80) : Colors.white,
+                            _checkedInToday ? '已签到' : '未签到',
+                            style: const TextStyle(
+                              color: Colors.white,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),

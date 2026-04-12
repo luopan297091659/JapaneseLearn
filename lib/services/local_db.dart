@@ -15,11 +15,12 @@ class LocalDb {
   Database? _db;
 
   static const _dbName    = 'japanese_learn_local.db';
-  static const _dbVersion = 5;
+  static const _dbVersion = 6;
 
   static const tableVocab = 'local_vocabulary';
   static const tableCachedVocab = 'cached_vocabulary';
   static const tableCachedGrammar = 'cached_grammar';
+  static const tableTranslateHistory = 'translate_history';
 
   // ─── 初始化 ─────────────────────────────────────────────────────────────
   Future<Database> get db async {
@@ -67,6 +68,9 @@ class LocalDb {
 
     // ─── 离线缓存表 ─────────────────────────────────────────────────────
     await _createCacheTables(db);
+
+    // ─── 翻译历史表 ─────────────────────────────────────────────────────
+    await _createTranslateHistoryTable(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -85,6 +89,9 @@ class LocalDb {
     }
     if (oldVersion < 5) {
       await _createCacheTables(db);
+    }
+    if (oldVersion < 6) {
+      await _createTranslateHistoryTable(db);
     }
   }
 
@@ -649,6 +656,79 @@ class LocalDb {
       usageNotes:    r['usage_notes'] as String?,
       examples:      examples,
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── 翻译/解析 历史 ──────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> _createTranslateHistoryTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $tableTranslateHistory (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        type        TEXT    NOT NULL,
+        input_text  TEXT    NOT NULL,
+        result_text TEXT    NOT NULL,
+        created_at  INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_th_type ON $tableTranslateHistory (type)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_th_time ON $tableTranslateHistory (created_at DESC)');
+  }
+
+  /// 保存翻译/解析历史，type 为 'translate' 或 'analyze'
+  Future<void> insertTranslateHistory({
+    required String type,
+    required String inputText,
+    required String resultText,
+  }) async {
+    final database = await db;
+    await database.insert(tableTranslateHistory, {
+      'type': type,
+      'input_text': inputText,
+      'result_text': resultText,
+      'created_at': DateTime.now().millisecondsSinceEpoch,
+    });
+    // 保留最新 200 条，删除旧记录
+    await database.rawDelete('''
+      DELETE FROM $tableTranslateHistory
+      WHERE id NOT IN (
+        SELECT id FROM $tableTranslateHistory ORDER BY created_at DESC LIMIT 200
+      )
+    ''');
+  }
+
+  /// 查询翻译历史
+  Future<List<Map<String, dynamic>>> getTranslateHistory({
+    String? type,
+    int limit = 50,
+  }) async {
+    final database = await db;
+    final where = type != null ? 'type = ?' : null;
+    final args = type != null ? [type] : null;
+    return database.query(
+      tableTranslateHistory,
+      where: where,
+      whereArgs: args,
+      orderBy: 'created_at DESC',
+      limit: limit,
+    );
+  }
+
+  /// 删除单条翻译历史
+  Future<void> deleteTranslateHistory(int id) async {
+    final database = await db;
+    await database.delete(tableTranslateHistory, where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// 清空翻译历史
+  Future<void> clearTranslateHistory({String? type}) async {
+    final database = await db;
+    if (type != null) {
+      await database.delete(tableTranslateHistory, where: 'type = ?', whereArgs: [type]);
+    } else {
+      await database.delete(tableTranslateHistory);
+    }
   }
 
   // ─── 关闭 ────────────────────────────────────────────────────────────────

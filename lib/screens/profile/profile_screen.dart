@@ -972,15 +972,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     child: Column(
                       children: [
-                        // TTS 语音测试
-                        ListTile(
-                          leading: const Icon(Icons.record_voice_over_rounded),
-                          title: const Text('TTS 语音测试'),
-                          subtitle: const Text('检测语音引擎是否可用'),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: _testTts,
-                        ),
-                        const Divider(height: 1, indent: 56),
                         // Language switcher
                         ListTile(
                           leading: const Icon(Icons.language_rounded),
@@ -1083,6 +1074,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                           title: Text(s.changePassword),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: _changePassword,
+                        ),
+                        const Divider(height: 1, indent: 56),
+                        // TTS 语音测试
+                        ListTile(
+                          leading: const Icon(Icons.record_voice_over_rounded),
+                          title: const Text('TTS 语音测试'),
+                          subtitle: const Text('检测语音引擎是否可用'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: _testTts,
                         ),
                         const Divider(height: 1, indent: 56),
                         ListTile(

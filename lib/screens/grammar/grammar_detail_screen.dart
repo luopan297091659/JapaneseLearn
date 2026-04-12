@@ -99,6 +99,8 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
           if (mounted) setState(() { _playingExampleIdx = -1; _exampleLoading = false; });
         },
       );
+      // 音频已开始播放，取消 loading 状态，保留 playing 状态
+      if (mounted) setState(() => _exampleLoading = false);
     } catch (e) {
       debugPrint('Grammar audio error: $e');
       if (mounted) setState(() { _playingExampleIdx = -1; _exampleLoading = false; });

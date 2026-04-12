@@ -78,7 +78,7 @@ workflows:
 
       - name: Build iOS IPA
         script: |
-          flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist | tee build_log_ios.txt
+          flutter build ipa --release --dart-define=ENV=prod --export-options-plist=/Users/builder/export_options.plist | tee build_log_ios.txt
 
     artifacts:
       - build/ios/ipa/*.ipa

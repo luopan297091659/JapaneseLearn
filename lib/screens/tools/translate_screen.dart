@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../services/api_service.dart';
+import '../../services/local_db.dart';
 import '../../utils/tts_helper.dart';
 import '../../widgets/membership_gate.dart';
 
@@ -65,6 +67,12 @@ class _TranslateScreenState extends State<TranslateScreen> with SingleTickerProv
     try {
       final result = await apiService.aiTranslate(text);
       setState(() => _translation = result);
+      // 保存翻译历史
+      LocalDb().insertTranslateHistory(
+        type: 'translate',
+        inputText: text,
+        resultText: result,
+      );
     } catch (e) {
       if (mounted) {
         String msg = '翻译失败';
@@ -90,6 +98,12 @@ class _TranslateScreenState extends State<TranslateScreen> with SingleTickerProv
     try {
       final tokens = await apiService.aiAnalyze(text);
       setState(() => _tokens = tokens);
+      // 保存解析历史
+      LocalDb().insertTranslateHistory(
+        type: 'analyze',
+        inputText: text,
+        resultText: jsonEncode(tokens),
+      );
     } catch (e) {
       if (mounted) {
         String msg = '分析失败';
@@ -138,6 +152,120 @@ class _TranslateScreenState extends State<TranslateScreen> with SingleTickerProv
     }
   }
 
+  void _loadFromHistory(Map<String, dynamic> record) {
+    final type = record['type'] as String;
+    final input = record['input_text'] as String;
+    final result = record['result_text'] as String;
+    _inputCtrl.text = input;
+    if (type == 'translate') {
+      _tabCtrl.index = 0;
+      setState(() {
+        _translation = result;
+        _tokens = [];
+        _wordDetail = null;
+        _selectedTokenIdx = -1;
+      });
+    } else {
+      _tabCtrl.index = 1;
+      try {
+        final decoded = jsonDecode(result) as List;
+        setState(() {
+          _tokens = decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _translation = '';
+          _wordDetail = null;
+          _selectedTokenIdx = -1;
+        });
+      } catch (_) {}
+    }
+  }
+
+  void _showHistory() async {
+    final records = await LocalDb().getTranslateHistory(limit: 100);
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          maxChildSize: 0.9,
+          minChildSize: 0.3,
+          expand: false,
+          builder: (_, scrollCtrl) => Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+                child: Row(
+                  children: [
+                    const Text('历史记录', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    if (records.isNotEmpty)
+                      TextButton(
+                        onPressed: () async {
+                          await LocalDb().clearTranslateHistory();
+                          if (ctx.mounted) Navigator.pop(ctx);
+                        },
+                        child: const Text('清空', style: TextStyle(fontSize: 13)),
+                      ),
+                  ],
+                ),
+              ),
+              const Divider(),
+              if (records.isEmpty)
+                const Expanded(child: Center(child: Text('暂无历史记录')))
+              else
+                Expanded(
+                  child: ListView.separated(
+                    controller: scrollCtrl,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemCount: records.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (_, i) {
+                      final r = records[i];
+                      final isTranslate = r['type'] == 'translate';
+                      final time = DateTime.fromMillisecondsSinceEpoch(r['created_at'] as int);
+                      final timeStr = '${time.month}/${time.day} ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          isTranslate ? Icons.translate : Icons.auto_fix_high,
+                          color: isTranslate ? cs.primary : cs.tertiary,
+                          size: 20,
+                        ),
+                        title: Text(
+                          r['input_text'] as String,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                        subtitle: Text(timeStr, style: TextStyle(fontSize: 11, color: cs.outline)),
+                        trailing: IconButton(
+                          icon: Icon(Icons.delete_outline, size: 18, color: cs.outline),
+                          onPressed: () async {
+                            await LocalDb().deleteTranslateHistory(r['id'] as int);
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            _showHistory();
+                          },
+                        ),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _loadFromHistory(r);
+                        },
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _speak(String text) async {
     if (text.isEmpty) return;
     await TtsHelper.playJapaneseSmart(
@@ -160,6 +288,13 @@ class _TranslateScreenState extends State<TranslateScreen> with SingleTickerProv
     return Scaffold(
       appBar: AppBar(
         title: const Text('翻译 / 解析'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history_rounded),
+            tooltip: '历史记录',
+            onPressed: _showHistory,
+          ),
+        ],
         bottom: TabBar(
           controller: _tabCtrl,
           tabs: const [

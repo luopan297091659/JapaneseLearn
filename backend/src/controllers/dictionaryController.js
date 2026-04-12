@@ -77,6 +77,7 @@ function isKana(str) {
 /**
  * 从 dict_entries 表搜索
  * 支持: 日文汉字 / 假名 / 英文 / 中文
+ * 排序: 精确匹配 > 前缀匹配 > 模糊匹配，同级按 priority DESC
  */
 async function searchLocal(query, limit = 30) {
   const q = query.trim();
@@ -84,40 +85,69 @@ async function searchLocal(query, limit = 30) {
 
   try {
     let where;
+    // 用 CASE WHEN 计算相关性分数：精确匹配=100, 前缀匹配=50, 模糊匹配=10
+    let relevanceExpr;
 
     if (isChinese(q)) {
-      // 中文释义搜索
       where = {
         [Op.or]: [
           { meaning_zh: { [Op.like]: `%${q}%` } },
-          { kanji: q },                    // 也可能是日文汉字
+          { kanji: q },
         ],
       };
+      relevanceExpr = sequelize.literal(
+        `(CASE WHEN kanji = ${sequelize.escape(q)} THEN 100 ` +
+        `WHEN meaning_zh LIKE ${sequelize.escape(q + '%')} THEN 50 ` +
+        `ELSE 10 END)`
+      );
     } else if (isKana(q)) {
-      // 假名 → reading 精确/前缀
       where = {
         [Op.or]: [
           { reading: q },
           { reading: { [Op.like]: `${q}%` } },
         ],
       };
+      relevanceExpr = sequelize.literal(
+        `(CASE WHEN reading = ${sequelize.escape(q)} THEN 100 ` +
+        `WHEN reading LIKE ${sequelize.escape(q + '%')} THEN 50 ` +
+        `ELSE 10 END)`
+      );
     } else if (/^[a-zA-Z\s]+$/.test(q)) {
-      // 英文搜索
       where = { meaning_en: { [Op.like]: `%${q}%` } };
+      relevanceExpr = sequelize.literal(
+        `(CASE WHEN meaning_en LIKE ${sequelize.escape(q)} THEN 100 ` +
+        `WHEN meaning_en LIKE ${sequelize.escape(q + '%')} THEN 50 ` +
+        `ELSE 10 END)`
+      );
     } else {
-      // 日文汉字 / 混合
+      // 日文汉字 / 混合: 增加 reading 前缀匹配
       where = {
         [Op.or]: [
           { kanji: q },
           { kanji: { [Op.like]: `${q}%` } },
           { reading: q },
+          { reading: { [Op.like]: `${q}%` } },
+          { meaning_zh: { [Op.like]: `%${q}%` } },
         ],
       };
+      relevanceExpr = sequelize.literal(
+        `(CASE WHEN kanji = ${sequelize.escape(q)} THEN 100 ` +
+        `WHEN reading = ${sequelize.escape(q)} THEN 90 ` +
+        `WHEN kanji LIKE ${sequelize.escape(q + '%')} THEN 50 ` +
+        `WHEN reading LIKE ${sequelize.escape(q + '%')} THEN 40 ` +
+        `ELSE 10 END)`
+      );
     }
 
     const rows = await DictEntry.findAll({
       where,
-      order: [['priority', 'DESC']],
+      attributes: {
+        include: [[relevanceExpr, '_relevance']],
+      },
+      order: [
+        [sequelize.literal('_relevance'), 'DESC'],
+        ['priority', 'DESC'],
+      ],
       limit,
     });
 
@@ -248,7 +278,7 @@ async function search(req, res) {
     let source = 'local';
 
     // 2. 如果本地结果不足，用 Jisho 补充
-    if (results.length < 5) {
+    if (results.length < 3) {
       try {
         const keyword = encodeURIComponent(q.trim());
         const jishoData = await fetchJisho(

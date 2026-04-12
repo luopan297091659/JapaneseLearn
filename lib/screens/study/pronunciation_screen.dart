@@ -229,9 +229,13 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
       return;
     }
 
-    if (!_speechAvailable) {
-      await _initSpeech();
-    }
+    // 确保 TTS 完全停止，释放 iOS 音频会话
+    await _tts.stop();
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    // 每次录音前重新初始化 STT，避免 iOS 音频会话冲突
+    _speechAvailable = false;
+    await _initSpeech();
     if (!_speechAvailable) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -268,7 +272,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
             ? DateTime.now().difference(_listenStartTime!).inMilliseconds
             : 0;
         if ((status == 'done' || status == 'notListening') &&
-            elapsed > 2000 &&
+            elapsed > 3000 &&
             _listening &&
             !_attemptFinalized) {
           _finalizeAttempt();

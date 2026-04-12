@@ -315,6 +315,8 @@ const DictEntry = sequelize.define('DictEntry', {
     { fields: ['kanji'] },
     { fields: ['reading'] },
     { fields: ['ent_seq'] },
+    { fields: ['priority'] },
+    { fields: ['meaning_zh'], type: 'FULLTEXT' },
   ],
 });
 
