@@ -107,8 +107,9 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
           : embedUrl;
     } else if (platform == 'youtube') {
       final videoId = video['videoId'] as String? ?? '';
+      // Use watch page instead of embed to avoid error 153 (embedding disabled)
       playerUrl = videoId.isNotEmpty
-          ? 'https://www.youtube.com/embed/$videoId?autoplay=1'
+          ? 'https://m.youtube.com/watch?v=$videoId'
           : embedUrl;
     } else {
       playerUrl = embedUrl;

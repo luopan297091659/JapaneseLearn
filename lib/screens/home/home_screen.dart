@@ -519,8 +519,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             duration: const Duration(seconds: 2),
           ),
         );
-        // Refresh goals to reflect new XP
         _loadDailyGoals();
+        _loadUser();
       }
     } catch (_) {
       if (mounted) {
@@ -530,6 +530,168 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         );
       }
     }
+  }
+
+  void _showCheckinCalendar() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final streakDays = _user?.streakDays ?? 0;
+    final lastStudy = _user?.lastStudyDate;
+
+    // Build set of checked-in dates based on streak
+    final checkedDates = <DateTime>{};
+    if (_checkedInToday || lastStudy == today.toIso8601String().split('T').first) {
+      for (int i = 0; i < streakDays; i++) {
+        checkedDates.add(today.subtract(Duration(days: i)));
+      }
+    } else if (lastStudy != null) {
+      final last = DateTime.tryParse(lastStudy);
+      if (last != null) {
+        for (int i = 0; i < streakDays; i++) {
+          checkedDates.add(DateTime(last.year, last.month, last.day).subtract(Duration(days: i)));
+        }
+      }
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        var displayMonth = DateTime(now.year, now.month);
+        return StatefulBuilder(
+          builder: (ctx, setDialog) {
+            final firstDay = DateTime(displayMonth.year, displayMonth.month, 1);
+            final daysInMonth = DateTime(displayMonth.year, displayMonth.month + 1, 0).day;
+            final weekdayOffset = (firstDay.weekday % 7); // Mon=1..Sun=7 → 0-based
+            final isCurrentMonth = displayMonth.year == now.year && displayMonth.month == now.month;
+            final monthLabel = '${displayMonth.year}年${displayMonth.month}月';
+            final cs = Theme.of(context).colorScheme;
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              title: Column(
+                children: [
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    const Icon(Icons.local_fire_department_rounded, color: Colors.orange, size: 22),
+                    const SizedBox(width: 6),
+                    Text(
+                      '连续签到 $streakDays 天',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    ),
+                  ]),
+                  const SizedBox(height: 12),
+                  // Month navigation
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left_rounded),
+                        onPressed: () => setDialog(() {
+                          displayMonth = DateTime(displayMonth.year, displayMonth.month - 1);
+                        }),
+                      ),
+                      Text(monthLabel, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right_rounded),
+                        onPressed: isCurrentMonth ? null : () => setDialog(() {
+                          displayMonth = DateTime(displayMonth.year, displayMonth.month + 1);
+                        }),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 300,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Weekday headers
+                    Row(
+                      children: ['一', '二', '三', '四', '五', '六', '日']
+                          .map((d) => Expanded(
+                                child: Center(
+                                  child: Text(d, style: TextStyle(fontSize: 12, color: cs.outline, fontWeight: FontWeight.w600)),
+                                ),
+                              ))
+                          .toList(),
+                    ),
+                    const SizedBox(height: 4),
+                    // Day grid
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 7,
+                        mainAxisSpacing: 2,
+                        crossAxisSpacing: 2,
+                      ),
+                      itemCount: weekdayOffset + daysInMonth,
+                      itemBuilder: (_, index) {
+                        if (index < weekdayOffset) return const SizedBox.shrink();
+                        final day = index - weekdayOffset + 1;
+                        final date = DateTime(displayMonth.year, displayMonth.month, day);
+                        final isToday = date == today;
+                        final isChecked = checkedDates.contains(date);
+                        final isFuture = date.isAfter(today);
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: isChecked
+                                ? cs.primary.withValues(alpha: 0.15)
+                                : isToday
+                                    ? cs.primaryContainer.withValues(alpha: 0.3)
+                                    : null,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: isChecked
+                                ? const Icon(Icons.check_circle_rounded, size: 20, color: Color(0xFF4ADE80))
+                                : Text(
+                                    '$day',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
+                                      color: isFuture ? cs.outline.withValues(alpha: 0.3) : cs.onSurface,
+                                    ),
+                                  ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                if (!_checkedInToday)
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _checkingIn
+                          ? null
+                          : () {
+                              Navigator.pop(ctx);
+                              _doCheckin();
+                            },
+                      icon: const Icon(Icons.edit_calendar_rounded, size: 18),
+                      label: const Text('签到今日'),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('今日已签到 ✓'),
+                    ),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -665,33 +827,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             letterSpacing: 1.2,
           )),
       actions: [
-        // 签到按钮
-        GestureDetector(
-          onTap: _doCheckin,
-          child: Container(
-            margin: const EdgeInsets.only(right: 4),
-            padding: const EdgeInsets.all(6),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  _checkedInToday ? Icons.check_circle_rounded : Icons.calendar_today_rounded,
-                  color: _checkedInToday ? const Color(0xFF4ADE80) : Colors.white,
-                  size: 24,
-                ),
-                Text(
-                  _checkedInToday ? '已签到' : '签到',
-                  style: TextStyle(
-                    color: _checkedInToday ? const Color(0xFF4ADE80) : Colors.white70,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
         GestureDetector(
           onTap: () => context.push('/profile'),
           child: Container(
@@ -795,6 +930,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     _StatBadge(icon: Icons.diamond_rounded, color: Colors.amberAccent, label: '${totalXp}XP'),
                     const SizedBox(width: 8),
                     _StatBadge(icon: Icons.trending_up_rounded, color: Colors.greenAccent, label: '+$todayXp'),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: _showCheckinCalendar,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _checkedInToday
+                              ? const Color(0xFF4ADE80).withValues(alpha: 0.25)
+                              : Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(
+                            _checkedInToday ? Icons.check_circle_rounded : Icons.edit_calendar_rounded,
+                            size: 13,
+                            color: _checkedInToday ? const Color(0xFF4ADE80) : Colors.white,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            _checkedInToday ? '已签到' : '签到',
+                            style: TextStyle(
+                              color: _checkedInToday ? const Color(0xFF4ADE80) : Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ]),
+                      ),
+                    ),
                   ]),
                 ],
               ),
