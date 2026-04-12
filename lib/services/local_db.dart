@@ -15,12 +15,13 @@ class LocalDb {
   Database? _db;
 
   static const _dbName    = 'japanese_learn_local.db';
-  static const _dbVersion = 6;
+  static const _dbVersion = 7;
 
   static const tableVocab = 'local_vocabulary';
   static const tableCachedVocab = 'cached_vocabulary';
   static const tableCachedGrammar = 'cached_grammar';
   static const tableTranslateHistory = 'translate_history';
+  static const tableDictHistory = 'dict_search_history';
 
   // ─── 初始化 ─────────────────────────────────────────────────────────────
   Future<Database> get db async {
@@ -71,6 +72,9 @@ class LocalDb {
 
     // ─── 翻译历史表 ─────────────────────────────────────────────────────
     await _createTranslateHistoryTable(db);
+
+    // ─── 辞书搜索历史表 ─────────────────────────────────────────────────
+    await _createDictHistoryTable(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -92,6 +96,9 @@ class LocalDb {
     }
     if (oldVersion < 6) {
       await _createTranslateHistoryTable(db);
+    }
+    if (oldVersion < 7) {
+      await _createDictHistoryTable(db);
     }
   }
 
@@ -729,6 +736,84 @@ class LocalDb {
     } else {
       await database.delete(tableTranslateHistory);
     }
+  }
+
+  // ─── 辞书搜索历史 ──────────────────────────────────────────────────────────
+
+  Future<void> _createDictHistoryTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $tableDictHistory (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        word        TEXT    NOT NULL,
+        reading     TEXT    NOT NULL DEFAULT '',
+        pos         TEXT    NOT NULL DEFAULT '',
+        meaning     TEXT    NOT NULL DEFAULT '',
+        jlpt        TEXT    NOT NULL DEFAULT '',
+        created_at  INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_dh_word ON $tableDictHistory (word)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_dh_time ON $tableDictHistory (created_at DESC)');
+  }
+
+  Future<void> insertDictHistory({
+    required String word,
+    String reading = '',
+    String pos = '',
+    String meaning = '',
+    String jlpt = '',
+  }) async {
+    final database = await db;
+    // 去重：如果已存在同一单词，更新时间
+    final existing = await database.query(
+      tableDictHistory,
+      where: 'word = ?',
+      whereArgs: [word],
+      limit: 1,
+    );
+    if (existing.isNotEmpty) {
+      await database.update(
+        tableDictHistory,
+        {'reading': reading, 'pos': pos, 'meaning': meaning, 'jlpt': jlpt, 'created_at': DateTime.now().millisecondsSinceEpoch},
+        where: 'id = ?',
+        whereArgs: [existing.first['id']],
+      );
+    } else {
+      await database.insert(tableDictHistory, {
+        'word': word,
+        'reading': reading,
+        'pos': pos,
+        'meaning': meaning,
+        'jlpt': jlpt,
+        'created_at': DateTime.now().millisecondsSinceEpoch,
+      });
+    }
+    // 保留最近 100 条
+    await database.rawDelete('''
+      DELETE FROM $tableDictHistory
+      WHERE id NOT IN (
+        SELECT id FROM $tableDictHistory ORDER BY created_at DESC LIMIT 100
+      )
+    ''');
+  }
+
+  Future<List<Map<String, dynamic>>> getDictHistory({int limit = 30}) async {
+    final database = await db;
+    return database.query(
+      tableDictHistory,
+      orderBy: 'created_at DESC',
+      limit: limit,
+    );
+  }
+
+  Future<void> deleteDictHistory(int id) async {
+    final database = await db;
+    await database.delete(tableDictHistory, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> clearDictHistory() async {
+    final database = await db;
+    await database.delete(tableDictHistory);
   }
 
   // ─── 关闭 ────────────────────────────────────────────────────────────────

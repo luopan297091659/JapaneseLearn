@@ -32,8 +32,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   // 释义语言：'zh'=中文 / 'en'=英文
   String _lang = 'zh';
 
-  // Recent search history (in-memory)
-  final List<String> _history = [];
+  // Recent search history (from local DB, with details)
+  List<Map<String, dynamic>> _historyRecords = [];
 
   final FlutterTts _tts = FlutterTts();
   String? _playingId;
@@ -44,10 +44,18 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     _scrollCtrl.addListener(_onScroll);
     _loadLangPref();
     _initTts();
+    _loadHistory();
     if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
       _searchCtrl.text = widget.initialQuery!;
       WidgetsBinding.instance.addPostFrameCallback((_) => _search());
     }
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final records = await localDb.getDictHistory(limit: 30);
+      if (mounted) setState(() => _historyRecords = records);
+    } catch (_) {}
   }
 
   Future<void> _initTts() async {
@@ -111,12 +119,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     }
     setState(() { _loading = true; _error = null; if (reset) { _results = []; _vocabResults = []; } });
 
-    // Add to history
-    if (!_history.contains(q)) {
-      _history.insert(0, q);
-      if (_history.length > 20) _history.removeLast();
-    }
-
     // 先返回本地缓存词库结果，减少首屏等待
     if (reset) {
       try {
@@ -163,6 +165,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 
       if (reset) {
         apiService.logActivity(activityType: 'dictionary', durationSeconds: 0);
+        // 保存搜索历史（取第一个结果的详细信息）
+        _saveDictHistory(q);
       }
     } catch (e) {
       setState(() {
@@ -176,6 +180,31 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   Future<void> _loadMore() async {
     _page++;
     await _search(reset: false);
+  }
+
+  void _saveDictHistory(String query) {
+    // 从搜索结果中取第一个匹配项的详细信息
+    String word = query, reading = '', pos = '', meaning = '', jlpt = '';
+    if (_results.isNotEmpty) {
+      final first = _results.first;
+      word = first.displayWord;
+      reading = first.displayReading;
+      if (first.meanings.isNotEmpty) {
+        final m = first.meanings.first;
+        pos = m.partsOfSpeech.isNotEmpty ? m.partsOfSpeech.first : '';
+        final defs = m.chineseDefinitions.isNotEmpty ? m.chineseDefinitions : m.englishDefinitions;
+        meaning = defs.join('；');
+      }
+      jlpt = first.jlpt.isNotEmpty ? first.jlpt.first.toUpperCase().replaceAll('JLPT-', '') : '';
+    } else if (_vocabResults.isNotEmpty) {
+      final first = _vocabResults.first;
+      word = first.word;
+      reading = first.reading;
+      pos = first.partOfSpeech;
+      meaning = first.meaningZh;
+      jlpt = first.jlptLevel;
+    }
+    localDb.insertDictHistory(word: word, reading: reading, pos: pos, meaning: meaning, jlpt: jlpt).then((_) => _loadHistory());
   }
 
   void _searchWord(String word) {
@@ -254,23 +283,27 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     if (!_hasSearched && !_loading) {
       return ListView(padding: const EdgeInsets.all(16), children: [
         _QuickSearchBar(onSearch: _searchWord),
-        if (_history.isNotEmpty) ...[
+        if (_historyRecords.isNotEmpty) ...[
           const SizedBox(height: 16),
           Row(children: [
             const Text('最近搜索', style: TextStyle(fontWeight: FontWeight.bold)),
             const Spacer(),
             TextButton(
-              onPressed: () => setState(() => _history.clear()),
+              onPressed: () async {
+                await localDb.clearDictHistory();
+                _loadHistory();
+              },
               child: const Text('清空'),
             ),
           ]),
-          Wrap(
-            spacing: 8, runSpacing: 4,
-            children: _history.map((h) => ActionChip(
-              label: Text(h),
-              onPressed: () => _searchWord(h),
-            )).toList(),
-          ),
+          ...(_historyRecords.map((r) => _DictHistoryTile(
+            record: r,
+            onTap: () => _searchWord(r['word'] as String),
+            onDelete: () async {
+              await localDb.deleteDictHistory(r['id'] as int);
+              _loadHistory();
+            },
+          ))),
         ],
         const SizedBox(height: 24),
         const _SearchTipsCard(),
@@ -802,6 +835,88 @@ class _Badge extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+    );
+  }
+}
+
+// ─── Dict History Tile ────────────────────────────────────────────────────
+class _DictHistoryTile extends StatelessWidget {
+  final Map<String, dynamic> record;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+  const _DictHistoryTile({required this.record, required this.onTap, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final word = record['word'] as String? ?? '';
+    final reading = record['reading'] as String? ?? '';
+    final pos = record['pos'] as String? ?? '';
+    final meaning = record['meaning'] as String? ?? '';
+    final jlpt = record['jlpt'] as String? ?? '';
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 4),
+      color: cs.surfaceContainerLow,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Text(word, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      if (reading.isNotEmpty && reading != word) ...[
+                        const SizedBox(width: 6),
+                        Text(reading, style: TextStyle(fontSize: 13, color: cs.primary)),
+                      ],
+                      if (jlpt.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        _Badge(jlpt, cs.primary),
+                      ],
+                    ]),
+                    if (pos.isNotEmpty || meaning.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Row(children: [
+                          if (pos.isNotEmpty) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: cs.primaryContainer,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: Text(pos, style: TextStyle(fontSize: 10, color: cs.primary)),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          Expanded(
+                            child: Text(
+                              meaning,
+                              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ]),
+                      ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: onDelete,
+                child: Icon(Icons.close, size: 16, color: cs.outline),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -333,7 +333,18 @@ async function search(req, res) {
       }));
     }
 
-    res.json({ total: results.length, data: results, source });
+    // 4. 去重：按 word|reading 去掉重复条目
+    const deduped = [];
+    const seenKeys = new Set();
+    for (const entry of results) {
+      const key = `${entry.word}|${entry.reading}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        deduped.push(entry);
+      }
+    }
+
+    res.json({ total: deduped.length, data: deduped, source });
   } catch (err) {
     logger.error('Dictionary search error:', err.message);
     res.status(503).json({ error: 'Dictionary service unavailable', detail: err.message });
