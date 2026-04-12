@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { SrsCard, Vocabulary, GrammarLesson } = require('../models');
+const { SrsCard, Vocabulary, GrammarLesson, UserVocabulary } = require('../models');
 const { sm2 } = require('../utils/srs');
 
 // Get cards due today for user
@@ -26,12 +26,32 @@ async function getDueCards(req, res) {
     const vocabMap = new Map(vocabs.map(v => [v.id, v]));
     const grammarMap = new Map(grammars.map(g => [g.id, g]));
 
-    const enriched = cards.map(card => {
+    // Find vocabulary IDs that are missing from the system vocabulary table
+    const missingVocabIds = vocabIds.filter(id => !vocabMap.has(id));
+    if (missingVocabIds.length > 0) {
+      // Try UserVocabulary (Anki imports)
+      const userVocabs = await UserVocabulary.findAll({ where: { id: missingVocabIds } });
+      for (const uv of userVocabs) vocabMap.set(uv.id, uv);
+    }
+
+    // Filter out orphaned cards (content no longer exists) and auto-clean them
+    const orphanedIds = [];
+    const enriched = [];
+    for (const card of cards) {
       const content = card.card_type === 'vocabulary'
         ? vocabMap.get(card.ref_id) || null
         : grammarMap.get(card.ref_id) || null;
-      return { ...card.toJSON(), content };
-    });
+      if (content) {
+        enriched.push({ ...card.toJSON(), content });
+      } else {
+        orphanedIds.push(card.id);
+      }
+    }
+
+    // Clean up orphaned SRS cards in background
+    if (orphanedIds.length > 0) {
+      SrsCard.destroy({ where: { id: orphanedIds } }).catch(() => {});
+    }
 
     res.json({ due_count: enriched.length, cards: enriched });
   } catch (err) {

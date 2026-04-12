@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const asyncHandler = require('../utils/asyncHandler');
 const { authenticate } = require('../middlewares/auth');
-const { logActivity, getSummary, getDailyGoals, getStudyPlanProgress } = require('../controllers/progressController');
+const { logActivity, getSummary, getDailyGoals, getStudyPlanProgress, checkin } = require('../controllers/progressController');
 const {
 	getTodayTask,
 	startTodayTask,
@@ -12,6 +12,7 @@ const {
 } = require('../controllers/studyPlanController');
 
 router.post('/log', authenticate, asyncHandler(logActivity));
+router.post('/checkin', authenticate, asyncHandler(checkin));
 router.get('/summary', authenticate, asyncHandler(getSummary));
 router.get('/daily-goals', authenticate, asyncHandler(getDailyGoals));
 router.get('/study-plan-progress', authenticate, asyncHandler(getStudyPlanProgress));

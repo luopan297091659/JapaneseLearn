@@ -87,35 +87,8 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
     try {
       final res = await apiService.getDueCards(limit: 200);
       final cards = res['cards'] as List<SrsCardModel>;
-      // Fetch missing content for cards without it
-      final enriched = <SrsCardModel>[];
-      for (final card in cards) {
-        if (card.content != null) {
-          enriched.add(card);
-          continue;
-        }
-        try {
-          dynamic content;
-          if (card.cardType == 'vocabulary') {
-            content = await apiService.getVocabularyById(card.refId);
-          } else if (card.cardType == 'grammar') {
-            content = await apiService.getGrammarLesson(card.refId);
-          }
-          enriched.add(SrsCardModel(
-            id: card.id,
-            cardType: card.cardType,
-            refId: card.refId,
-            repetitions: card.repetitions,
-            easeFactor: card.easeFactor,
-            intervalDays: card.intervalDays,
-            dueDate: card.dueDate,
-            isGraduated: card.isGraduated,
-            content: content,
-          ));
-        } catch (_) {
-          enriched.add(card);
-        }
-      }
+      // Backend now filters orphaned cards; just use cards with content
+      final enriched = cards.where((c) => c.content != null).toList();
       setState(() { _cards = enriched; _loading = false; });
       // 后台预缓存所有词汇卡音频
       final audioUrls = enriched

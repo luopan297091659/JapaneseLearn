@@ -313,4 +313,48 @@ async function getStudyPlanProgress(req, res) {
   }
 }
 
-module.exports = { logActivity, getSummary, getDailyGoals, getStudyPlanProgress };
+// ── 签到 ──────────────────────────────────────────────────────────────────
+
+async function checkin(req, res) {
+  try {
+    const user = req.user;
+    const today = new Date().toISOString().split('T')[0];
+
+    if (user.last_study_date === today) {
+      // Already checked in today
+      return res.json({
+        already: true,
+        streak_days: user.streak_days,
+        last_study_date: user.last_study_date,
+      });
+    }
+
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const streakDays = user.last_study_date === yesterday ? user.streak_days + 1 : 1;
+    await user.update({
+      last_study_date: today,
+      streak_days: streakDays,
+    });
+
+    // Give 5 XP for check-in
+    await UserProgress.create({
+      user_id: user.id,
+      activity_type: 'checkin',
+      duration_seconds: 0,
+      score: null,
+      xp_earned: 5,
+      studied_at: today,
+    });
+
+    res.json({
+      already: false,
+      streak_days: streakDays,
+      last_study_date: today,
+      xp_earned: 5,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+module.exports = { logActivity, getSummary, getDailyGoals, getStudyPlanProgress, checkin };

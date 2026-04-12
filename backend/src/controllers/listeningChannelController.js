@@ -117,6 +117,48 @@ function fetchBilibiliUserInfo(mid) {
   });
 }
 
+// ── YouTube @handle → UC channel ID 解析 ──────────────────────────────────
+function resolveYouTubeHandle(handle) {
+  // Remove leading @ if present
+  const cleanHandle = handle.startsWith('@') ? handle.slice(1) : handle;
+  return new Promise((resolve) => {
+    const url = `https://www.youtube.com/@${encodeURIComponent(cleanHandle)}`;
+    https.get(url, {
+      timeout: 15000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    }, resp => {
+      // Follow redirects
+      if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
+        const redirectUrl = resp.headers.location;
+        const channelMatch = redirectUrl.match(/\/channel\/(UC[\w-]+)/);
+        if (channelMatch) {
+          resolve(channelMatch[1]);
+          return;
+        }
+      }
+      let data = '';
+      resp.on('data', c => data += c);
+      resp.on('end', () => {
+        // Try to extract channel ID from page HTML
+        const patterns = [
+          /"channelId"\s*:\s*"(UC[\w-]+)"/,
+          /"externalId"\s*:\s*"(UC[\w-]+)"/,
+          /channel_id=(UC[\w-]+)/,
+          /\/channel\/(UC[\w-]+)/,
+        ];
+        for (const pattern of patterns) {
+          const m = data.match(pattern);
+          if (m) { resolve(m[1]); return; }
+        }
+        resolve(null);
+      });
+    }).on('error', () => resolve(null));
+  });
+}
+
 // ── URL 解析：提取 channelId / mid ──────────────────────────────────────────
 function parseChannelUrl(url) {
   let m;
@@ -153,8 +195,18 @@ async function refreshChannelCache(channel) {
   try {
     let result;
     if (channel.platform === 'youtube') {
-      // YouTube：服务器如在中国可能无法访问，跳过不报错
-      if (!channel.channel_id || channel.channel_id.startsWith('@')) return;
+      // YouTube：尝试解析 @handle → UC channel ID
+      if (channel.channel_id?.startsWith('@')) {
+        const resolved = await resolveYouTubeHandle(channel.channel_id);
+        if (resolved) {
+          await channel.update({ channel_id: resolved });
+          logger.info(`YouTube handle ${channel.channel_id} → ${resolved}`);
+        } else {
+          logger.warn(`无法解析 YouTube handle: ${channel.channel_id}（服务器可能无法访问 YouTube）`);
+          return;
+        }
+      }
+      if (!channel.channel_id) return;
       result = await fetchYouTubeVideos(channel.channel_id);
     } else {
       if (!channel.channel_id) return;
@@ -338,9 +390,14 @@ async function adminCreateChannel(req, res) {
   const parsed = parseChannelUrl(channel_url);
   if (!parsed) return res.status(400).json({ error: '无法识别的频道链接，请输入 YouTube 或 Bilibili 频道 URL' });
 
-  // YouTube @handle 直接存储 handle（服务器在中国无法访问 YouTube 解析）
+  // YouTube @handle 尝试解析为 UC channel ID
   let channelId = parsed.channelId || (parsed.handle ? `@${parsed.handle}` : null);
   if (!channelId) return res.status(400).json({ error: '无法提取频道 ID' });
+
+  if (parsed.platform === 'youtube' && channelId.startsWith('@')) {
+    const resolved = await resolveYouTubeHandle(channelId);
+    if (resolved) channelId = resolved;
+  }
 
   try {
     const ch = await ListeningChannel.create({
@@ -412,8 +469,17 @@ async function createUserChannel(req, res) {
     return res.status(400).json({ error: '无法识别的频道链接，请输入 YouTube 或 Bilibili 频道 URL' });
   }
 
-  const channelId = parsed.channelId || (parsed.handle ? `@${parsed.handle}` : null);
+  let channelId = parsed.channelId || (parsed.handle ? `@${parsed.handle}` : null);
   if (!channelId) return res.status(400).json({ error: '无法提取频道 ID' });
+
+  // Try to resolve YouTube @handle → UC channel ID upfront
+  if (parsed.platform === 'youtube' && channelId.startsWith('@')) {
+    const resolved = await resolveYouTubeHandle(channelId);
+    if (resolved) {
+      channelId = resolved;
+    }
+    // If resolution fails, still save with @handle — will retry on cache refresh
+  }
 
   const duplicated = await ListeningChannel.findOne({
     where: {

@@ -21,14 +21,14 @@ import '../../widgets/mode_background.dart';
 const _featureTierMap = <String, String>{
   'pronunciation': 'pronunciation',
   'translate':     'ai_features',
-  'anki':          'anki_import',
+  'grammar-quiz':  'quiz_meaning_daily',
+  'flashcard':     'flashcard_levels',
   'grammar':       'grammar_lessons',
   'srs':           'srs_daily',
   'dictionary':    'dictionary_daily',
   'news':          'news_limit',
   'quiz':          'quiz_meaning_daily',
   'game':          'game_levels',
-  'flashcard':     'flashcard_levels',
   'localvocab':    'anki_quiz',
   'listening':     'listening_daily',
   'listening-exercise': 'listening_exercise_daily',
@@ -54,8 +54,9 @@ const _allFeatures = <String, ({IconData icon, String label, String sub, String 
   'game':          (icon: Icons.sports_esports_rounded, label: '闯关游戏',   sub: '趣味闯关', path: '/game',           color: Color(0xFFE91E63)),
   'todofuken':     (icon: Icons.map_rounded,            label: '都道府県',   sub: '地理测验', path: '/todofuken-quiz', color: Color(0xFFE65100)),
   'wrong-answers': (icon: Icons.assignment_late_rounded, label: '错题集',    sub: '错题复习', path: '/wrong-answers', color: Color(0xFFE53935)),
-  'anki':          (icon: Icons.upload_file_rounded,    label: 'Anki导入',  sub: '导入词库', path: '/anki-import',    color: Color(0xFF795548)),
   'localvocab':    (icon: Icons.folder_copy_rounded,    label: 'Anki词库',  sub: '本地浏览', path: '/local-vocab',    color: Color(0xFF00897B)),
+  'grammar-quiz':  (icon: Icons.menu_book_rounded,      label: '文法测验',  sub: '语法检验', path: '/grammar-quiz',   color: Color(0xFF1565C0)),
+  'flashcard':     (icon: Icons.style_rounded,          label: '单词卡片',  sub: '翻转记忆', path: '/flashcard',      color: Color(0xFFAD1457)),
   'listening-exercise': (icon: Icons.hearing_rounded,   label: '听力测验',  sub: '听力检测', path: '/listening-exercise', color: Color(0xFF7B1FA2)),
   'immersion':     (icon: Icons.ondemand_video_rounded, label: '磨耳朵',    sub: '沉浸式听力', path: '/immersion',   color: Color(0xFF00695C)),
   'kana-writing-test': (icon: Icons.draw_rounded,       label: '假名书写',  sub: '手写测试', path: '/kana-writing-test', color: Color(0xFFC62828)),
@@ -98,6 +99,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   // 常用功能自定义列表（最多6个）
   List<String> _favFeatureIds = List.from(_defaultFeatureIds);
+
+  // 签到状态
+  bool _checkedInToday = false;
+  bool _checkingIn = false;
 
   // 可用功能（经服务端开关过滤后）
   Map<String, ({IconData icon, String label, String sub, String path, Color color})> _enabledFeatures = Map.from(_allFeatures);
@@ -166,7 +171,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       final user = await apiService.getMe(force: true);
       if (mounted) {
-        setState(() { _user = user; _userLoading = false; });
+        final today = DateTime.now().toIso8601String().split('T').first;
+        final lastStudy = user.lastStudyDate;
+        setState(() {
+          _user = user;
+          _userLoading = false;
+          _checkedInToday = lastStudy == today;
+        });
         membershipService.updateCache(isMember: user.isMember, avatarUrl: user.avatarUrl);
         // Check if trial just expired
         if (user.trialActivated && !user.isMember && user.membershipPlan == 'trial') {
@@ -488,6 +499,39 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return 'こんばんは 🌙';
   }
 
+  Future<void> _doCheckin() async {
+    if (_checkingIn || _checkedInToday) return;
+    setState(() => _checkingIn = true);
+    try {
+      final res = await apiService.checkin();
+      final streak = res['streak_days'] as int? ?? 0;
+      if (mounted) {
+        setState(() {
+          _checkedInToday = true;
+          _checkingIn = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['already'] == true
+                ? '今日已签到 · 连续 $streak 天'
+                : '签到成功！连续 $streak 天 🔥 +5XP'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        // Refresh goals to reflect new XP
+        _loadDailyGoals();
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _checkingIn = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('签到失败，请检查网络'), behavior: SnackBarBehavior.floating),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -621,6 +665,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             letterSpacing: 1.2,
           )),
       actions: [
+        // 签到按钮
+        GestureDetector(
+          onTap: _doCheckin,
+          child: Container(
+            margin: const EdgeInsets.only(right: 4),
+            padding: const EdgeInsets.all(6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  _checkedInToday ? Icons.check_circle_rounded : Icons.calendar_today_rounded,
+                  color: _checkedInToday ? const Color(0xFF4ADE80) : Colors.white,
+                  size: 24,
+                ),
+                Text(
+                  _checkedInToday ? '已签到' : '签到',
+                  style: TextStyle(
+                    color: _checkedInToday ? const Color(0xFF4ADE80) : Colors.white70,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
         GestureDetector(
           onTap: () => context.push('/profile'),
           child: Container(

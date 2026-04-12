@@ -1035,6 +1035,12 @@ class ApiService {
     });
   }
 
+  Future<Map<String, dynamic>> checkin() async {
+    final res = await _dio.post('/progress/checkin');
+    _cache.invalidate('progress:');
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
   Future<ProgressSummaryModel> getProgressSummary() async {
     final res = await _dio.get('/progress/summary');
     return ProgressSummaryModel.fromJson(res.data);
