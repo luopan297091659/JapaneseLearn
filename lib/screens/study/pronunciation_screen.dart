@@ -201,7 +201,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
     // iOS: 恢复音频会话到 playback，确保后续TTS正常
     if (Platform.isIOS) {
       AudioSession.instance.then((session) {
-        session.configure(const AudioSessionConfiguration(
+        session.configure(AudioSessionConfiguration(
           avAudioSessionCategory: AVAudioSessionCategory.playback,
           avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.duckOthers,
         ));
@@ -250,12 +250,11 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
     if (Platform.isIOS) {
       try {
         final session = await AudioSession.instance;
-        await session.configure(const AudioSessionConfiguration(
+        await session.configure(AudioSessionConfiguration(
           avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
-          avAudioSessionCategoryOptions: {
-            AVAudioSessionCategoryOptions.defaultToSpeaker,
-            AVAudioSessionCategoryOptions.allowBluetooth,
-          },
+          avAudioSessionCategoryOptions:
+              AVAudioSessionCategoryOptions.defaultToSpeaker |
+              AVAudioSessionCategoryOptions.allowBluetooth,
           avAudioSessionMode: AVAudioSessionMode.measurement,
         ));
         await Future.delayed(const Duration(milliseconds: 200));
