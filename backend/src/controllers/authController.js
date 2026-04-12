@@ -102,4 +102,103 @@ async function getMe(req, res) {
   res.json({ user: userJson });
 }
 
-module.exports = { register, login, refreshToken, getMe, registerValidation };
+// ── Password Reset ─────────────────────────────────────────────────────
+const PasswordResetCode = require('../models/PasswordResetCode');
+const { sendResetCode } = require('../services/emailService');
+
+async function forgotPassword(req, res) {
+  const { email } = req.body;
+  if (!email) throw new HttpError(400, '请输入邮箱');
+  const user = await User.findOne({ where: { email } });
+  if (!user) throw new HttpError(404, '该邮箱尚未注册');
+
+  // 限频：同一邮箱 60 秒内只能发一次
+  const recent = await PasswordResetCode.findOne({
+    where: { email, used: false, expires_at: { [require('sequelize').Op.gt]: new Date(Date.now() - 60 * 1000) } },
+    order: [['createdAt', 'DESC']],
+  });
+  if (recent) throw new HttpError(429, '请求过于频繁，请稍后再试');
+
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  await PasswordResetCode.create({ email, code, expires_at: new Date(Date.now() + 10 * 60 * 1000) });
+  await sendResetCode(email, code);
+  res.json({ message: '验证码已发送至邮箱' });
+}
+
+async function verifyResetCode(req, res) {
+  const { email, code } = req.body;
+  if (!email || !code) throw new HttpError(400, '参数不完整');
+  const record = await PasswordResetCode.findOne({
+    where: { email, code, used: false, expires_at: { [require('sequelize').Op.gt]: new Date() } },
+    order: [['createdAt', 'DESC']],
+  });
+  if (!record) throw new HttpError(400, '验证码无效或已过期');
+  res.json({ valid: true });
+}
+
+async function resetPassword(req, res) {
+  const { email, code, newPassword } = req.body;
+  if (!email || !code || !newPassword) throw new HttpError(400, '参数不完整');
+  if (newPassword.length < 8) throw new HttpError(400, '密码长度至少 8 位');
+
+  const record = await PasswordResetCode.findOne({
+    where: { email, code, used: false, expires_at: { [require('sequelize').Op.gt]: new Date() } },
+    order: [['createdAt', 'DESC']],
+  });
+  if (!record) throw new HttpError(400, '验证码无效或已过期');
+
+  const user = await User.findOne({ where: { email } });
+  if (!user) throw new HttpError(404, '用户不存在');
+
+  await user.update({ password_hash: newPassword });
+  await record.update({ used: true });
+  // 标记该邮箱所有未使用验证码为已用
+  await PasswordResetCode.update({ used: true }, { where: { email, used: false } });
+  res.json({ message: '密码重置成功' });
+}
+
+// ── Login with Code ─────────────────────────────────────────────────────
+const { sendLoginCode: _sendLoginCode } = require('../services/emailService');
+
+async function sendCodeForLogin(req, res) {
+  const { email } = req.body;
+  if (!email) throw new HttpError(400, '请输入邮箱');
+  const user = await User.findOne({ where: { email } });
+  if (!user) throw new HttpError(404, '该邮箱尚未注册');
+
+  const { Op } = require('sequelize');
+  const recent = await PasswordResetCode.findOne({
+    where: { email, used: false, expires_at: { [Op.gt]: new Date(Date.now() - 60 * 1000) } },
+    order: [['created_at', 'DESC']],
+  });
+  if (recent) throw new HttpError(429, '请求过于频繁，请稍后再试');
+
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  await PasswordResetCode.create({ email, code, expires_at: new Date(Date.now() + 10 * 60 * 1000) });
+  await _sendLoginCode(email, code);
+  res.json({ message: '验证码已发送至邮箱' });
+}
+
+async function loginWithCode(req, res) {
+  const { email, code } = req.body;
+  if (!email || !code) throw new HttpError(400, '参数不完整');
+  const { Op } = require('sequelize');
+  const record = await PasswordResetCode.findOne({
+    where: { email, code, used: false, expires_at: { [Op.gt]: new Date() } },
+    order: [['created_at', 'DESC']],
+  });
+  if (!record) throw new HttpError(400, '验证码无效或已过期');
+
+  const user = await User.findOne({ where: { email } });
+  if (!user) throw new HttpError(404, '用户不存在');
+
+  await record.update({ used: true });
+  const platform = req.body.platform === 'app' ? 'app' : 'web';
+  const loginToken = crypto.randomUUID();
+  await user.update({ [`${platform}_login_token`]: loginToken });
+  const accessToken = signAccessToken({ id: user.id, email: user.email, loginToken, platform });
+  const refreshToken = signRefreshToken({ id: user.id, loginToken, platform });
+  res.json({ user, accessToken, refreshToken });
+}
+
+module.exports = { register, login, refreshToken, getMe, registerValidation, forgotPassword, verifyResetCode, resetPassword, sendCodeForLogin, loginWithCode };

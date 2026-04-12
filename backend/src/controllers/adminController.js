@@ -2825,6 +2825,79 @@ async function uploadQrCode(req, res) {
   res.json({ ok: true, qr_url: qrUrl, type });
 }
 
+// ─── 邮件（SMTP）配置 ──────────────────────────────────────────────────────
+const DEFAULT_EMAIL_SETTINGS = {
+  smtp_host: 'smtp.aliyun.com',
+  smtp_port: 465,
+  smtp_user: '',
+  smtp_pass: '',
+  daily_limit: 200,
+};
+
+async function getEmailSettings(req, res) {
+  try {
+    const AppConfigModel = sequelize.models.AppConfig;
+    const kv = await AppConfigModel?.findOne({ where: { key: 'email_settings' } });
+    const settings = kv ? JSON.parse(kv.value) : { ...DEFAULT_EMAIL_SETTINGS };
+    // 不返回密码明文，前端只显示掩码
+    const masked = { ...settings, smtp_pass: settings.smtp_pass ? '••••••••' : '' };
+    // 查询今日已发送数量
+    const PasswordResetCode = require('../models/PasswordResetCode');
+    const { Op } = require('sequelize');
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const sentToday = await PasswordResetCode.count({ where: { createdAt: { [Op.gte]: todayStart } } });
+    res.json({ email_settings: masked, sent_today: sentToday });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+}
+
+async function saveEmailSettings(req, res) {
+  try {
+    const { smtp_host, smtp_port, smtp_user, smtp_pass, daily_limit } = req.body;
+    const AppConfigModel = sequelize.models.AppConfig;
+    // 读取现有配置
+    const existing = await AppConfigModel?.findOne({ where: { key: 'email_settings' } });
+    const current = existing ? JSON.parse(existing.value) : { ...DEFAULT_EMAIL_SETTINGS };
+    const settings = {
+      smtp_host: smtp_host || current.smtp_host,
+      smtp_port: parseInt(smtp_port, 10) || current.smtp_port,
+      smtp_user: smtp_user || current.smtp_user,
+      // 如果前端传来掩码或空值，保留原密码
+      smtp_pass: (smtp_pass && smtp_pass !== '••••••••') ? smtp_pass : current.smtp_pass,
+      daily_limit: parseInt(daily_limit, 10) || current.daily_limit,
+    };
+    await AppConfigModel.upsert({ key: 'email_settings', value: JSON.stringify(settings) });
+    res.json({ ok: true, message: '邮件配置已保存' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+}
+
+async function testEmailSettings(req, res) {
+  try {
+    const { to } = req.body;
+    if (!to) return res.status(400).json({ error: '请输入测试邮箱地址' });
+    const nodemailer = require('nodemailer');
+    const AppConfigModel = sequelize.models.AppConfig;
+    const kv = await AppConfigModel?.findOne({ where: { key: 'email_settings' } });
+    const cfg = kv ? JSON.parse(kv.value) : { ...DEFAULT_EMAIL_SETTINGS };
+    if (!cfg.smtp_user || !cfg.smtp_pass) return res.status(400).json({ error: '请先配置 SMTP 账号和密码' });
+    const transporter = nodemailer.createTransport({
+      host: cfg.smtp_host, port: cfg.smtp_port, secure: true,
+      auth: { user: cfg.smtp_user, pass: cfg.smtp_pass },
+    });
+    await transporter.sendMail({
+      from: `"言旅 Kotabi" <${cfg.smtp_user}>`, to,
+      subject: '【言旅 Kotabi】邮件配置测试',
+      html: '<div style="font-family:sans-serif;color:#333;"><h2 style="color:#8B4513;">邮件配置测试成功 ✅</h2><p>如果您收到此邮件，说明 SMTP 配置正确。</p></div>',
+    });
+    res.json({ ok: true, message: '测试邮件已发送' });
+  } catch (e) {
+    res.status(500).json({ error: '发送失败: ' + e.message });
+  }
+}
+
 module.exports = {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, generateVocabExamplesKokoroAudio, deduplicateVocab, fixVocabReadings,
@@ -2851,4 +2924,5 @@ module.exports = {
   getStudyPlanStats,
   generateSingleAudio,
   listOrders, reviewOrder, uploadQrCode,
+  getEmailSettings, saveEmailSettings, testEmailSettings,
 };

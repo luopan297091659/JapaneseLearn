@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 // Screens
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
+import '../screens/auth/forgot_password_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/vocabulary/vocabulary_list_screen.dart';
 import '../screens/vocabulary/vocabulary_detail_screen.dart';
@@ -61,7 +62,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
       final isAuth = token != null;
       final isOnAuthPage =
-          state.matchedLocation == '/login' || state.matchedLocation == '/register';
+          state.matchedLocation == '/login' || state.matchedLocation == '/register' || state.matchedLocation == '/forgot-password';
 
       if (!isAuth && !isOnAuthPage) return '/login';
       if (isAuth && isOnAuthPage) return '/home';
@@ -70,6 +71,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+      GoRoute(path: '/forgot-password', builder: (_, __) => const ForgotPasswordScreen()),
       ShellRoute(
         builder: (context, state, child) => MainShell(
           location: state.uri.path,

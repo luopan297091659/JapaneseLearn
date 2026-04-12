@@ -25,6 +25,7 @@ const {
   getStudyPlanStats,
   generateSingleAudio,
   listOrders, reviewOrder, uploadQrCode,
+  getEmailSettings, saveEmailSettings, testEmailSettings,
 } = require('../controllers/adminController');
 const {
   adminListChannels, adminCreateChannel, adminUpdateChannel, adminDeleteChannel, adminRefreshChannel,
@@ -194,6 +195,11 @@ router.get('/study-plan/stats', permissionCheck('stats'), asyncHandler(getStudyP
 // Kokoro TTS 配置管理
 router.get('/settings/kokoro',  adminAuth, asyncHandler(getKokoroSettings));
 router.post('/settings/kokoro', permissionCheck('settings'), asyncHandler(saveKokoroSettings));
+
+// 邮件 SMTP 配置管理
+router.get('/settings/email',       superAdminAuth, asyncHandler(getEmailSettings));
+router.post('/settings/email',      superAdminAuth, asyncHandler(saveEmailSettings));
+router.post('/settings/email/test', superAdminAuth, asyncHandler(testEmailSettings));
 
 // 五十音管理 - 具体路由必须在参数化路由之前
 router.post('/kana/batch-audio',         permissionCheck('vocabulary'), asyncHandler(batchGenerateKanaAudio));

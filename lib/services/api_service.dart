@@ -315,6 +315,28 @@ class ApiService {
     return res.data;
   }
 
+  Future<void> forgotPassword(String email) async {
+    await _dio.post('/auth/forgot-password', data: {'email': email});
+  }
+
+  Future<void> verifyResetCode(String email, String code) async {
+    await _dio.post('/auth/verify-reset-code', data: {'email': email, 'code': code});
+  }
+
+  Future<void> resetPassword({required String email, required String code, required String newPassword}) async {
+    await _dio.post('/auth/reset-password', data: {'email': email, 'code': code, 'newPassword': newPassword});
+  }
+
+  Future<void> sendLoginCode(String email) async {
+    await _dio.post('/auth/send-login-code', data: {'email': email});
+  }
+
+  Future<Map<String, dynamic>> loginWithCode({required String email, required String code}) async {
+    final res = await _dio.post('/auth/login-with-code', data: {'email': email, 'code': code, 'platform': 'app'});
+    await _saveTokens(res.data);
+    return res.data;
+  }
+
   Future<void> _saveTokens(Map<String, dynamic> data) async {
     if (data['accessToken'] != null) {
       await _storage.write(key: 'access_token', value: data['accessToken']);

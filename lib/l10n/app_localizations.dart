@@ -46,6 +46,13 @@ class S {
   String get usernameMinLength   => isZh ? '用户名至少3个字符' : 'Username must be at least 3 characters';
   String get passwordMinLength   => isZh ? '密码（至少8位）' : 'Password (min 8 chars)';
   String get passwordMinLengthError => isZh ? '密码至少8个字符' : 'Password must be at least 8 characters';
+  String get forgotPassword      => isZh ? '忘记密码？' : 'Forgot password?';
+  String get resetPassword       => isZh ? '重置密码' : 'Reset Password';
+  String get sendCode            => isZh ? '发送验证码' : 'Send Code';
+  String get verificationCode    => isZh ? '验证码' : 'Verification Code';
+  String get newPassword         => isZh ? '新密码' : 'New Password';
+  String get codeSent            => isZh ? '验证码已发送至邮箱' : 'Code sent to your email';
+  String get resetSuccess        => isZh ? '密码重置成功，请重新登录' : 'Password reset successfully, please login again';
   String get jlptLevel           => isZh ? '当前日语水平' : 'Current JLPT Level';
   String get n5label             => isZh ? '初级入门' : 'Beginner';
   String get n4label             => isZh ? '初级' : 'Elementary';

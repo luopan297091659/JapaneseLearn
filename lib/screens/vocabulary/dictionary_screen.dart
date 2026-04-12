@@ -282,9 +282,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     // Initial state: show history + quick search tips
     if (!_hasSearched && !_loading) {
       return ListView(padding: const EdgeInsets.all(16), children: [
-        _QuickSearchBar(onSearch: _searchWord),
         if (_historyRecords.isNotEmpty) ...[
-          const SizedBox(height: 16),
           Row(children: [
             const Text('最近搜索', style: TextStyle(fontWeight: FontWeight.bold)),
             const Spacer(),
@@ -305,8 +303,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
             },
           ))),
         ],
-        const SizedBox(height: 24),
-        const _SearchTipsCard(),
       ]);
     }
 

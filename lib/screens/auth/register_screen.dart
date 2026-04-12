@@ -9,6 +9,11 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
+const _emailSuffixes = [
+  '@qq.com', '@163.com','@gmail.com', '@outlook.com',
+  '@126.com', '@yahoo.com', '@hotmail.com', '@icloud.com',
+];
+
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameCtrl = TextEditingController();
@@ -18,6 +23,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _loading = false;
   bool _obscure = true;
   String? _error;
+
+  void _appendSuffix(String suffix) {
+    final text = _emailCtrl.text;
+    final at = text.indexOf('@');
+    final prefix = at >= 0 ? text.substring(0, at) : text;
+    _emailCtrl.text = '$prefix$suffix';
+    _emailCtrl.selection = TextSelection.collapsed(offset: _emailCtrl.text.length);
+  }
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
@@ -67,7 +80,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(labelText: s.email, prefixIcon: const Icon(Icons.email_outlined)),
+                  decoration: InputDecoration(
+                    labelText: s.email,
+                    prefixIcon: const Icon(Icons.email_outlined),
+                    suffixIcon: PopupMenuButton<String>(
+                      icon: const Icon(Icons.alternate_email),
+                      tooltip: '选择邮箱后缀',
+                      onSelected: _appendSuffix,
+                      itemBuilder: (_) => _emailSuffixes.map((s) =>
+                        PopupMenuItem(value: s, child: Text(s))).toList(),
+                    ),
+                  ),
                   validator: (v) => v!.isEmpty ? s.pleaseEnterEmail : null,
                 ),
                 const SizedBox(height: 16),

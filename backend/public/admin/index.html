@@ -263,6 +263,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item" onclick="nav('app')" id="nav-app"><span class="icon">📱</span><span class="nav-label">App管理</span></div>
   <div class="nav-item" onclick="nav('ai-settings')" id="nav-ai-settings"><span class="icon">🤖</span><span class="nav-label">AI设置</span></div>
   <div class="nav-item" onclick="nav('kokoro-settings')" id="nav-kokoro-settings"><span class="icon">🎤</span><span class="nav-label">Kokoro TTS</span></div>
+  <div class="nav-item" onclick="nav('email-settings')" id="nav-email-settings"><span class="icon">✉️</span><span class="nav-label">邮件配置</span></div>
   <div class="nav-item" onclick="nav('admin-mgmt')" id="nav-admin-mgmt"><span class="icon">🔐</span><span class="nav-label">权限管理</span></div>
   <div class="sidebar-footer"><div class="sidebar-footer-txt">言旅 Kotabi v1.0</div></div>
 </div>
@@ -660,7 +661,7 @@ function showApp(){
   nav('dashboard');
 }
 function applySidebarPermissions(){
-  const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-ai-settings','nav-kokoro-settings','nav-admin-mgmt'];
+  const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-ai-settings','nav-kokoro-settings','nav-email-settings','nav-admin-mgmt'];
   const permNavMap = {
     'nav-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-kana': 'vocabulary', 'nav-tracks': 'tracks',
     'nav-channels': 'tracks', 'nav-users': 'users', 'nav-reports': 'reports',
@@ -690,6 +691,7 @@ const PAGE_TITLES = {
   'stat-behavior':'行为分析',
   membership:'会员配置', orders:'订单审核', import:'内容导入', sync:'全局同步', 'feature-tiers':'功能分级',
   app:'App管理', 'feature-toggles':'功能开关', 'ai-settings':'AI设置', 'kokoro-settings':'Kokoro TTS设置',
+  'email-settings':'邮件配置',
   'admin-mgmt':'权限管理'
 };
 const PAGE_ICONS = {
@@ -699,7 +701,7 @@ const PAGE_ICONS = {
   'stat-behavior':'🧠',
   membership:'👑', orders:'💰', import:'📥', sync:'🔄', 'feature-tiers':'🎯',
   app:'📱', 'feature-toggles':'🔀', 'ai-settings':'🤖', 'kokoro-settings':'🎤',
-  'admin-mgmt':'🔐'
+  'email-settings':'✉️', 'admin-mgmt':'🔐'
 };
 const PAGE_DESCS = {
   vocab:'管理词汇条目', grammar:'管理文法条目', kana:'管理五十音数据', reports:'查看用户反馈的问题',
@@ -708,6 +710,7 @@ const PAGE_DESCS = {
   'stat-behavior':'用户行为数据分析',
   membership:'会员套餐管理', orders:'审核用户付款订单', import:'Anki/CSV导入', sync:'内容版本发布', 'feature-tiers':'会员功能分级配置',
   app:'App上传下载', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量', 'kokoro-settings':'Kokoro TTS 合成参数配置',
+  'email-settings':'SMTP 邮件发送配置',
   'admin-mgmt':'管理员权限配置'
 };
 
@@ -739,6 +742,7 @@ const PAGE_FNS = {
   'stat-behavior': renderStatBehavior,
   membership: renderMembership, orders: renderOrders, import: renderImport, sync: renderSync,
   app: renderAppManage, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings, 'kokoro-settings': renderKokoroSettings,
+  'email-settings': renderEmailSettings,
   'admin-mgmt': renderAdminMgmt, reports: renderReports,
 };
 /* ─────────────────────────── 功能分级（会员权益）───────────────────────────── */
@@ -4187,6 +4191,80 @@ async function deleteReport(id){
     const btn=event.target; btn.disabled=true; btn.textContent='删除中…';
     await api('DELETE',`/admin/reports/${id}`); toast('已删除'); loadReports();
   }catch(e){ toast(e.message,true) }
+}
+
+/* ───────────────────────────── EMAIL SETTINGS ──────────────────────────── */
+let _emailSettings = {};
+async function renderEmailSettings() {
+  document.getElementById('content').innerHTML = '<p style="color:#aaa;padding:40px;text-align:center">加载中…</p>';
+  try {
+    const res = await api('GET', '/admin/settings/email');
+    _emailSettings = res.email_settings || {};
+    const sentToday = res.sent_today || 0;
+    const s = _emailSettings;
+    document.getElementById('content').innerHTML = `
+      <div style="max-width:700px">
+        <div class="panel">
+          <div class="panel-header">
+            <h3>✉️ 邮件 SMTP 配置</h3>
+            <span style="font-size:12px;color:var(--text-muted)">配置密码重置等邮件发送服务</span>
+          </div>
+          <div class="form-row" style="margin-bottom:16px">
+            <label>SMTP 服务器</label>
+            <input type="text" id="smtp-host" value="${esc(s.smtp_host||'smtp.aliyun.com')}" placeholder="smtp.aliyun.com" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;">
+          </div>
+          <div class="form-row" style="margin-bottom:16px">
+            <label>端口</label>
+            <input type="number" id="smtp-port" value="${s.smtp_port||465}" style="width:120px;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;">
+            <span style="font-size:12px;color:var(--text-muted);margin-left:8px">SSL 通常为 465，TLS 通常为 587</span>
+          </div>
+          <div class="form-row" style="margin-bottom:16px">
+            <label>发件邮箱</label>
+            <input type="email" id="smtp-user" value="${esc(s.smtp_user||'')}" placeholder="your@aliyun.com" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;">
+          </div>
+          <div class="form-row" style="margin-bottom:16px">
+            <label>邮箱密码 / 授权码</label>
+            <input type="password" id="smtp-pass" value="${esc(s.smtp_pass||'')}" placeholder="输入密码或授权码" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;">
+          </div>
+          <div class="form-row" style="margin-bottom:16px">
+            <label>每日发送上限</label>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <input type="number" id="daily-limit" value="${s.daily_limit||200}" min="1" max="10000" style="width:120px;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;">
+              <span style="font-size:13px;color:var(--text-muted)">今日已发送 <strong style="color:${sentToday>=(s.daily_limit||200)?'#e74c3c':'#059669'}">${sentToday}</strong> / ${s.daily_limit||200} 封</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:24px;">
+            <button class="btn btn-primary" onclick="saveEmailSettingsUI()">💾 保存配置</button>
+            <button class="btn" onclick="testEmailSettingsUI()" style="background:#f0f0f0;">📧 发送测试邮件</button>
+          </div>
+        </div>
+      </div>`;
+  } catch(e) {
+    document.getElementById('content').innerHTML = '<div class="panel"><p style="color:#e74c3c">加载失败: '+esc(e.message)+'</p></div>';
+  }
+}
+
+async function saveEmailSettingsUI() {
+  try {
+    await api('POST', '/admin/settings/email', {
+      smtp_host: document.getElementById('smtp-host').value.trim(),
+      smtp_port: document.getElementById('smtp-port').value,
+      smtp_user: document.getElementById('smtp-user').value.trim(),
+      smtp_pass: document.getElementById('smtp-pass').value,
+      daily_limit: document.getElementById('daily-limit').value,
+    });
+    toast('邮件配置已保存');
+    renderEmailSettings();
+  } catch(e) { toast(e.message, true); }
+}
+
+async function testEmailSettingsUI() {
+  const to = prompt('输入接收测试邮件的地址：');
+  if (!to) return;
+  try {
+    const res = await api('POST', '/admin/settings/email/test', { to });
+    toast(res.message || '测试邮件已发送');
+  } catch(e) { toast(e.message, true); }
 }
 
 /* ───────────────────────────── ADMIN MGMT ──────────────────────────────── */

@@ -332,7 +332,8 @@ footer {
     <h2 id="authTitle">登录账号</h2>
     <p class="subtitle" id="authSubtitle">登录后查看会员状态</p>
     <div class="tabs">
-      <button class="tab active" id="tabLogin" onclick="switchTab('login')">登录</button>
+      <button class="tab active" id="tabLogin" onclick="switchTab('login')">密码登录</button>
+      <button class="tab" id="tabCodeLogin" onclick="switchTab('codeLogin')">验证码登录</button>
       <button class="tab" id="tabRegister" onclick="switchTab('register')">注册</button>
     </div>
     <form id="authForm" onsubmit="handleAuth(event)">
@@ -342,15 +343,61 @@ footer {
       </div>
       <div class="form-group">
         <label>邮箱</label>
-        <input type="email" id="authEmail" placeholder="your@email.com" required autocomplete="email">
+        <div style="display:flex;gap:6px;">
+          <input type="email" id="authEmail" placeholder="your@email.com" required autocomplete="email" style="flex:1;">
+          <select id="emailSuffix" onchange="appendEmailSuffix(this.value)" style="width:auto;min-width:120px;padding:8px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;">
+            <option value="">后缀</option>
+            <option>@gmail.com</option>
+            <option>@outlook.com</option>
+            <option>@qq.com</option>
+            <option>@163.com</option>
+            <option>@126.com</option>
+            <option>@yahoo.com</option>
+            <option>@hotmail.com</option>
+            <option>@icloud.com</option>
+          </select>
+        </div>
       </div>
-      <div class="form-group">
+      <div class="form-group" id="passwordGroup">
         <label>密码</label>
-        <input type="password" id="authPassword" placeholder="至少 8 位" required minlength="8" autocomplete="current-password">
+        <input type="password" id="authPassword" placeholder="至少 8 位" minlength="8" autocomplete="current-password">
+      </div>
+      <div class="form-group" id="loginCodeGroup" style="display:none;">
+        <label>验证码</label>
+        <div style="display:flex;gap:6px;">
+          <input type="text" id="loginCode" placeholder="6 位验证码" maxlength="6" style="flex:1;">
+          <button type="button" id="sendLoginCodeBtn" onclick="sendLoginCodeWeb()" style="white-space:nowrap;padding:8px 16px;border:1px solid #8B4513;border-radius:8px;background:#fff;color:#8B4513;cursor:pointer;font-size:13px;">发送验证码</button>
+        </div>
       </div>
       <div class="form-error" id="authError"></div>
+      <div id="forgotLink" style="text-align:right;margin:-4px 0 8px;"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:#8B4513;">忘记密码？</a></div>
       <button type="submit" class="modal-btn" id="authSubmitBtn">登录</button>
     </form>
+    <!-- Forgot Password Form -->
+    <div id="forgotForm" style="display:none;">
+      <div class="form-group">
+        <label>邮箱</label>
+        <div style="display:flex;gap:6px;">
+          <input type="email" id="resetEmail" placeholder="your@email.com" required style="flex:1;">
+          <select onchange="appendResetSuffix(this.value)" style="width:auto;min-width:120px;padding:8px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;">
+            <option value="">后缀</option>
+            <option>@qq.com</option><option>@163.com</option><option>@gmail.com</option><option>@outlook.com</option>
+            <option>@126.com</option><option>@yahoo.com</option><option>@hotmail.com</option><option>@icloud.com</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" id="resetCodeGroup" style="display:none;">
+        <label>验证码</label>
+        <input type="text" id="resetCode" placeholder="6 位验证码" maxlength="6">
+      </div>
+      <div class="form-group" id="resetPwdGroup" style="display:none;">
+        <label>新密码</label>
+        <input type="password" id="resetNewPwd" placeholder="至少 8 位" minlength="8">
+      </div>
+      <div class="form-error" id="resetError"></div>
+      <button class="modal-btn" id="resetBtn" onclick="handleForgotPassword()">发送验证码</button>
+      <div style="text-align:center;margin-top:8px;"><a href="#" onclick="backToLogin();return false;" style="font-size:13px;color:#8B4513;">返回登录</a></div>
+    </div>
   </div>
 </div>
 
@@ -480,29 +527,131 @@ function closeAuthModal() { document.getElementById('authModal').classList.remov
 function switchTab(mode) {
   authMode = mode;
   document.getElementById('tabLogin').classList.toggle('active', mode === 'login');
+  document.getElementById('tabCodeLogin').classList.toggle('active', mode === 'codeLogin');
   document.getElementById('tabRegister').classList.toggle('active', mode === 'register');
   document.getElementById('usernameGroup').style.display = mode === 'register' ? '' : 'none';
-  document.getElementById('authSubmitBtn').textContent = mode === 'login' ? '登录' : '注册';
-  document.getElementById('authTitle').textContent = mode === 'login' ? '登录账号' : '注册账号';
+  document.getElementById('passwordGroup').style.display = mode === 'codeLogin' ? 'none' : '';
+  document.getElementById('loginCodeGroup').style.display = mode === 'codeLogin' ? '' : 'none';
+  document.getElementById('forgotLink').style.display = mode === 'codeLogin' ? 'none' : '';
+  document.getElementById('authSubmitBtn').textContent = mode === 'register' ? '注册' : '登录';
+  document.getElementById('authTitle').textContent = mode === 'register' ? '注册账号' : '登录账号';
   document.getElementById('authError').classList.remove('show');
+}
+
+function appendEmailSuffix(suffix) {
+  if (!suffix) return;
+  const input = document.getElementById('authEmail');
+  const at = input.value.indexOf('@');
+  const prefix = at >= 0 ? input.value.substring(0, at) : input.value;
+  input.value = prefix + suffix;
+  input.focus();
+}
+function appendResetSuffix(suffix) {
+  if (!suffix) return;
+  const input = document.getElementById('resetEmail');
+  const at = input.value.indexOf('@');
+  const prefix = at >= 0 ? input.value.substring(0, at) : input.value;
+  input.value = prefix + suffix;
+  input.focus();
+}
+
+let forgotStep = 0;
+function showForgotPassword() {
+  document.getElementById('authForm').style.display = 'none';
+  document.getElementById('forgotLink').style.display = 'none';
+  document.getElementById('forgotForm').style.display = '';
+  document.getElementById('authTitle').textContent = '重置密码';
+  document.getElementById('authSubtitle').textContent = '输入邮箱发送验证码';
+  forgotStep = 0;
+}
+function backToLogin() {
+  document.getElementById('authForm').style.display = '';
+  document.getElementById('forgotLink').style.display = '';
+  document.getElementById('forgotForm').style.display = 'none';
+  document.getElementById('resetCodeGroup').style.display = 'none';
+  document.getElementById('resetPwdGroup').style.display = 'none';
+  document.getElementById('resetError').classList.remove('show');
+  switchTab('login');
+}
+async function handleForgotPassword() {
+  const btn = document.getElementById('resetBtn');
+  const errEl = document.getElementById('resetError');
+  errEl.classList.remove('show');
+  btn.disabled = true;
+  try {
+    if (forgotStep === 0) {
+      const email = document.getElementById('resetEmail').value.trim();
+      if (!email) throw new Error('请输入邮箱');
+      btn.textContent = '发送中...';
+      const r = await fetch('/api/v1/auth/forgot-password', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || '发送失败'); }
+      forgotStep = 1;
+      document.getElementById('resetCodeGroup').style.display = '';
+      document.getElementById('resetPwdGroup').style.display = '';
+      document.getElementById('authSubtitle').textContent = '验证码已发送至邮箱';
+      btn.textContent = '重置密码';
+    } else {
+      const email = document.getElementById('resetEmail').value.trim();
+      const code = document.getElementById('resetCode').value.trim();
+      const newPassword = document.getElementById('resetNewPwd').value;
+      if (!code || !newPassword) throw new Error('请填写验证码和新密码');
+      if (newPassword.length < 8) throw new Error('密码至少 8 位');
+      btn.textContent = '重置中...';
+      const r = await fetch('/api/v1/auth/reset-password', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, code, newPassword }) });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || '重置失败'); }
+      showToast('密码重置成功，请重新登录');
+      backToLogin();
+    }
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    if (forgotStep === 0) btn.textContent = '发送验证码';
+  }
+}
+
+let _loginCodeCountdown = 0;
+async function sendLoginCodeWeb() {
+  const email = document.getElementById('authEmail').value.trim();
+  if (!email) { showToast('请输入邮箱', 'error'); return; }
+  const btn = document.getElementById('sendLoginCodeBtn');
+  btn.disabled = true; btn.textContent = '发送中...';
+  try {
+    const r = await fetch(API + '/auth/send-login-code', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
+    if (!r.ok) { const d = await r.json(); throw new Error(d.error || '发送失败'); }
+    showToast('验证码已发送', 'success');
+    _loginCodeCountdown = 60;
+    const iv = setInterval(() => {
+      _loginCodeCountdown--;
+      btn.textContent = _loginCodeCountdown + 's';
+      if (_loginCodeCountdown <= 0) { clearInterval(iv); btn.disabled = false; btn.textContent = '重新发送'; }
+    }, 1000);
+  } catch (e) { showToast(e.message, 'error'); btn.disabled = false; btn.textContent = '发送验证码'; }
 }
 
 async function handleAuth(e) {
   e.preventDefault();
+  document.getElementById('emailSuffix').value = '';
   const btn = document.getElementById('authSubmitBtn');
   const errEl = document.getElementById('authError');
   errEl.classList.remove('show');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-sm"></span>' + (authMode === 'login' ? '登录中...' : '注册中...');
+  btn.innerHTML = '<span class="spinner-sm"></span>' + (authMode === 'register' ? '注册中...' : '登录中...');
   try {
     const email = document.getElementById('authEmail').value.trim();
-    const password = document.getElementById('authPassword').value;
     let data;
     if (authMode === 'register') {
       const username = document.getElementById('regUsername').value.trim();
+      const password = document.getElementById('authPassword').value;
       if (!username || username.length < 3) throw new Error('用户名至少 3 个字符');
       data = await apiCall('POST', '/auth/register', { username, email, password, platform: 'web' });
+    } else if (authMode === 'codeLogin') {
+      const code = document.getElementById('loginCode').value.trim();
+      if (!code) throw new Error('请输入验证码');
+      data = await apiCall('POST', '/auth/login-with-code', { email, code, platform: 'web' });
     } else {
+      const password = document.getElementById('authPassword').value;
       data = await apiCall('POST', '/auth/login', { email, password, platform: 'web' });
     }
     accessToken = data.accessToken;
@@ -512,13 +661,13 @@ async function handleAuth(e) {
     currentUser = data.user;
     closeAuthModal();
     updateUI();
-    showToast(authMode === 'login' ? '登录成功' : '注册成功', 'success');
+    showToast(authMode === 'register' ? '注册成功' : '登录成功', 'success');
   } catch (err) {
     errEl.textContent = err.message;
     errEl.classList.add('show');
   } finally {
     btn.disabled = false;
-    btn.textContent = authMode === 'login' ? '登录' : '注册';
+    btn.textContent = authMode === 'register' ? '注册' : '登录';
   }
 }
 

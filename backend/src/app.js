@@ -234,6 +234,7 @@ async function start() {
     // 如需新增字段请手动执行 SQL migration
     // 确保所有模型已注册到 sequelize，再执行 sync
     require('./models/Forum');
+    require('./models/PasswordResetCode');
     require('./models/index');
     try {
       await sequelize.sync({ alter: { drop: false } }); // 自动添加新列，但不删除现有列/数据

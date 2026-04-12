@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dio/dio.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/api_service.dart';
 
@@ -9,22 +10,78 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
+const _emailSuffixes = [
+  '@qq.com', '@163.com','@gmail.com', '@outlook.com', 
+  '@126.com', '@yahoo.com', '@hotmail.com', '@icloud.com',
+];
+
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  final _codeCtrl = TextEditingController();
   bool _loading = false;
   bool _obscure = true;
   String? _error;
+  bool _useCode = false; // false=密码登录, true=验证码登录
+  bool _codeSent = false;
+  int _countdown = 0;
+
+  void _appendSuffix(String suffix) {
+    final text = _emailCtrl.text;
+    final at = text.indexOf('@');
+    final prefix = at >= 0 ? text.substring(0, at) : text;
+    _emailCtrl.text = '$prefix$suffix';
+    _emailCtrl.selection = TextSelection.collapsed(offset: _emailCtrl.text.length);
+  }
+
+  String _extractError(dynamic e) {
+    if (e is DioException && e.response?.data is Map) {
+      return (e.response!.data as Map)['error']?.toString() ?? '操作失败';
+    }
+    return '操作失败';
+  }
+
+  Future<void> _sendCode() async {
+    final email = _emailCtrl.text.trim();
+    if (email.isEmpty) {
+      setState(() => _error = S.of(context).pleaseEnterEmail);
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+    try {
+      await apiService.sendLoginCode(email);
+      if (!mounted) return;
+      setState(() { _codeSent = true; _countdown = 60; });
+      _startCountdown();
+    } catch (e) {
+      if (mounted) setState(() => _error = _extractError(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _startCountdown() {
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return false;
+      setState(() => _countdown--);
+      return _countdown > 0;
+    });
+  }
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() { _loading = true; _error = null; });
     try {
-      await apiService.login(email: _emailCtrl.text.trim(), password: _passwordCtrl.text);
+      if (_useCode) {
+        await apiService.loginWithCode(email: _emailCtrl.text.trim(), code: _codeCtrl.text.trim());
+      } else {
+        await apiService.login(email: _emailCtrl.text.trim(), password: _passwordCtrl.text);
+      }
       if (mounted) context.go('/home');
     } catch (e) {
-      if (mounted) setState(() => _error = S.of(context).loginError);
+      if (mounted) setState(() => _error = _useCode ? _extractError(e) : S.of(context).loginError);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -46,7 +103,7 @@ class _LoginScreenState extends State<LoginScreen> {
               cs.surfaceContainerLowest,
               cs.surfaceContainerLowest,
             ],
-            stops: const [0.0, 0.3, 0.3, 1.0],
+            stops: const [0.0, 0.38, 0.38, 1.0],
           ),
         ),
         child: SafeArea(
@@ -56,7 +113,6 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 40),
-                // Logo — 使用 app 图标
                 Center(
                   child: Container(
                     width: 88, height: 88,
@@ -87,7 +143,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: Colors.white.withValues(alpha: 0.8),
                     )),
                 const SizedBox(height: 36),
-                // 表单卡片
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -103,6 +158,32 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   child: Column(
                     children: [
+                      // 登录方式切换
+                      Row(children: [
+                        Expanded(child: GestureDetector(
+                          onTap: () => setState(() { _useCode = false; _error = null; }),
+                          child: Column(children: [
+                            Text('密码登录', style: TextStyle(
+                              fontSize: 15, fontWeight: _useCode ? FontWeight.normal : FontWeight.bold,
+                              color: _useCode ? cs.outline : cs.primary,
+                            )),
+                            const SizedBox(height: 4),
+                            Container(height: 2, color: _useCode ? Colors.transparent : cs.primary),
+                          ]),
+                        )),
+                        Expanded(child: GestureDetector(
+                          onTap: () => setState(() { _useCode = true; _error = null; }),
+                          child: Column(children: [
+                            Text('验证码登录', style: TextStyle(
+                              fontSize: 15, fontWeight: _useCode ? FontWeight.bold : FontWeight.normal,
+                              color: _useCode ? cs.primary : cs.outline,
+                            )),
+                            const SizedBox(height: 4),
+                            Container(height: 2, color: _useCode ? cs.primary : Colors.transparent),
+                          ]),
+                        )),
+                      ]),
+                      const SizedBox(height: 20),
                       Form(
                         key: _formKey,
                         child: Column(
@@ -116,26 +197,56 @@ class _LoginScreenState extends State<LoginScreen> {
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                 filled: true,
                                 fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                                suffixIcon: PopupMenuButton<String>(
+                                  icon: Icon(Icons.alternate_email, color: cs.primary),
+                                  tooltip: '选择邮箱后缀',
+                                  onSelected: _appendSuffix,
+                                  itemBuilder: (_) => _emailSuffixes.map((s) =>
+                                    PopupMenuItem(value: s, child: Text(s))).toList(),
+                                ),
                               ),
                               validator: (v) => v!.isEmpty ? s.pleaseEnterEmail : null,
                             ),
                             const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _passwordCtrl,
-                              obscureText: _obscure,
-                              decoration: InputDecoration(
-                                labelText: s.password,
-                                prefixIcon: Icon(Icons.lock_outline, color: cs.primary),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                filled: true,
-                                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-                                suffixIcon: IconButton(
-                                  icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
-                                  onPressed: () => setState(() => _obscure = !_obscure),
+                            if (!_useCode)
+                              TextFormField(
+                                controller: _passwordCtrl,
+                                obscureText: _obscure,
+                                decoration: InputDecoration(
+                                  labelText: s.password,
+                                  prefixIcon: Icon(Icons.lock_outline, color: cs.primary),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  filled: true,
+                                  fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+                                    onPressed: () => setState(() => _obscure = !_obscure),
+                                  ),
                                 ),
+                                validator: (v) => v!.isEmpty ? s.pleaseEnterPassword : null,
                               ),
-                              validator: (v) => v!.isEmpty ? s.pleaseEnterPassword : null,
-                            ),
+                            if (_useCode)
+                              TextFormField(
+                                controller: _codeCtrl,
+                                keyboardType: TextInputType.number,
+                                maxLength: 6,
+                                decoration: InputDecoration(
+                                  labelText: '验证码',
+                                  counterText: '',
+                                  prefixIcon: Icon(Icons.pin_outlined, color: cs.primary),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  filled: true,
+                                  fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                                  suffixIcon: TextButton(
+                                    onPressed: (_loading || _countdown > 0) ? null : _sendCode,
+                                    child: Text(
+                                      _countdown > 0 ? '${_countdown}s' : (_codeSent ? '重新发送' : '发送验证码'),
+                                      style: TextStyle(fontSize: 13, color: (_loading || _countdown > 0) ? cs.outline : cs.primary),
+                                    ),
+                                  ),
+                                ),
+                                validator: (v) => v!.isEmpty ? '请输入验证码' : null,
+                              ),
                           ],
                         ),
                       ),
@@ -143,7 +254,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 12),
                         Text(_error!, style: TextStyle(color: cs.error, fontSize: 13), textAlign: TextAlign.center),
                       ],
-                      const SizedBox(height: 24),
+                      if (!_useCode)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => context.go('/forgot-password'),
+                            child: Text(s.forgotPassword, style: TextStyle(fontSize: 13, color: cs.primary)),
+                          ),
+                        ),
+                      if (_useCode) const SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       SizedBox(
                         width: double.infinity,
                         height: 48,
