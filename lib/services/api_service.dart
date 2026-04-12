@@ -683,6 +683,19 @@ class ApiService {
     _cache.invalidate('progress:');
   }
 
+  Future<int> resetSrsCards() async {
+    final res = await _dio.delete('/srs/reset');
+    _cache.invalidate('srs:');
+    _cache.invalidate('progress:');
+    return res.data['deleted'] as int;
+  }
+
+  Future<void> removeSrsCard(String cardId) async {
+    await _dio.delete('/srs/card/$cardId');
+    _cache.invalidate('srs:');
+    _cache.invalidate('progress:');
+  }
+
   // ─── Reports ──────────────────────────────────────────────────────────────
   Future<void> submitReport({
     required String refType,

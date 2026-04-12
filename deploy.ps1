@@ -1,4 +1,4 @@
-﻿# deploy.ps1 — 自动部署 Japanese Learn 后端（Rocky Linux）
+﻿# deploy.ps1 — 自动部署 言旅 Kotabi 后端（Rocky Linux）
 # 使用 PuTTY plink/pscp，自动信任主机密钥、自动输入密码
 # 用法: .\deploy.ps1 -Env test   # 部署到测试环境
 #       .\deploy.ps1 -Env prod   # 部署到生产环境（默认）
@@ -39,7 +39,7 @@ $ServerHost = $Config.ServerHost
 $HostKey    = $Config.HostKey
 
 $LocalBackend = Join-Path $PSScriptRoot "backend"
-Write-Host "=== 部署 Japanese Learn [$Env] 到 ${User}@${ServerHost} ===" -ForegroundColor Cyan
+Write-Host "=== 部署 言旅 Kotabi [$Env] 到 ${User}@${ServerHost} ===" -ForegroundColor Cyan
 
 # 检测/安装 plink
 if (-not (Get-Command plink -EA SilentlyContinue)) {

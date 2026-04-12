@@ -122,4 +122,25 @@ async function getCardByRef(req, res) {
   }
 }
 
-module.exports = { getDueCards, submitReview, addCard, getStats, getCardByRef };
+// Reset all SRS cards for current user
+async function resetCards(req, res) {
+  try {
+    const count = await SrsCard.destroy({ where: { user_id: req.user.id } });
+    res.json({ deleted: count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// Remove a single SRS card
+async function removeCard(req, res) {
+  try {
+    const count = await SrsCard.destroy({ where: { id: req.params.id, user_id: req.user.id } });
+    if (!count) return res.status(404).json({ error: 'Card not found' });
+    res.json({ deleted: 1 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+module.exports = { getDueCards, submitReview, addCard, getStats, getCardByRef, resetCards, removeCard };

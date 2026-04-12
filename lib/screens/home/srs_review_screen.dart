@@ -192,6 +192,40 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
     );
   }
 
+  Future<void> _confirmResetSrs() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('清除所有SRS记录'),
+        content: const Text('将删除你的所有间隔复习卡片和进度，此操作不可撤销。\n\n确定要清除吗？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('清除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      final count = await apiService.resetSrsCards();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已清除 $count 条SRS记录'), behavior: SnackBarBehavior.floating),
+        );
+        setState(() { _cards = []; _loading = false; _loadError = false; });
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('清除失败，请检查网络'), behavior: SnackBarBehavior.floating),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -205,6 +239,13 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
             tooltip: '返回',
             onPressed: () => context.go(_backTarget),
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.delete_sweep_rounded),
+              tooltip: '清除SRS记录',
+              onPressed: _confirmResetSrs,
+            ),
+          ],
         ),
         body: Center(
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -262,6 +303,14 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
           tooltip: '返回',
           onPressed: () => context.go(_backTarget),
         ),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (v) { if (v == 'reset') _confirmResetSrs(); },
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'reset', child: Text('清除所有SRS记录')),
+            ],
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),
           child: LinearProgressIndicator(value: (_current + 1) / _cards.length),

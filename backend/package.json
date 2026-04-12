@@ -1,7 +1,7 @@
 {
-  "name": "japanese-learn-backend",
+  "name": "kotabi-backend",
   "version": "1.1.8",
-  "description": "Japanese Learning App Backend API",
+  "description": "Kotabi — Japanese Learning App Backend API",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
