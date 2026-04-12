@@ -18,6 +18,7 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
   int _current = 0;
   bool _showAnswer = false;
   bool _loading = true;
+  bool _loadError = false;
   int _reviewed = 0;
   int _correct = 0;
   final _startTime = DateTime.now();
@@ -98,16 +99,7 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
           .cast<String>();
       TtsHelper.precacheAudioUrls(audioUrls);
     } catch (_) {
-      setState(() => _loading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('加载复习卡片失败，请检查网络'),
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(bottom: 80, left: 16, right: 16),
-          ),
-        );
-      }
+      setState(() { _loading = false; _loadError = true; });
     }
   }
 
@@ -204,6 +196,36 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_loadError) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('间隔复习'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_rounded),
+            tooltip: '返回',
+            onPressed: () => context.go(_backTarget),
+          ),
+        ),
+        body: Center(
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.cloud_off_rounded, color: cs.error, size: 64),
+            const SizedBox(height: 16),
+            const Text('加载复习卡片失败', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text('请检查网络连接后重试', style: TextStyle(color: cs.outline)),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () {
+                setState(() { _loading = true; _loadError = false; });
+                _loadCards();
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('重试'),
+            ),
+          ]),
+        ),
+      );
+    }
     if (_cards.isEmpty) {
       return Scaffold(
         appBar: AppBar(

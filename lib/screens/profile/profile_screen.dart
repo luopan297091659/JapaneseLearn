@@ -21,6 +21,7 @@ import '../../l10n/app_localizations.dart';
 import '../../providers/locale_provider.dart';
 import '../../providers/app_appearance_provider.dart';
 import '../../utils/tts_helper.dart';
+import '../../services/plan_reminder_service.dart';
 import '../membership/membership_comparison_page.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -39,12 +40,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
   String _appVersion = '';
   bool _checkingUpdate = false;
   Uint8List? _avatarBytes;
+  int _reminderHour = 20;
+  int _reminderMinute = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _load(); _checkPermissions(); _loadSlowSpeed(); _loadAppVersion();
+    _load(); _checkPermissions(); _loadSlowSpeed(); _loadAppVersion(); _loadReminderTime();
   }
 
   @override
@@ -283,17 +286,50 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
     }
   }
 
-  // ── 学习提醒开关 ───────────────────────────────────────────────
+  // ── 学习提醒 ─────────────────────────────────────────────────
+  Future<void> _loadReminderTime() async {
+    final t = await PlanReminderService.instance.getReminderTime();
+    if (mounted) setState(() { _reminderHour = t.hour; _reminderMinute = t.minute; });
+  }
+
   Future<void> _toggleNotification(bool value) async {
-    setState(() => _notifOverride = value); // 乐观更新
+    setState(() => _notifOverride = value);
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('notification_enabled', value);
       await apiService.updateProfile(notificationEnabled: value);
+      if (value) {
+        await PlanReminderService.instance.scheduleDailyReminder(
+          planName: '学习计划',
+          hour: _reminderHour,
+          minute: _reminderMinute,
+        );
+      } else {
+        await PlanReminderService.instance.cancelDailyReminder();
+      }
     } catch (e) {
-      setState(() => _notifOverride = !value); // 回滚
+      setState(() => _notifOverride = !value);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('设置失败：$e'), behavior: SnackBarBehavior.floating));
+    }
+  }
+
+  Future<void> _pickReminderTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: _reminderHour, minute: _reminderMinute),
+      helpText: '选择每日提醒时间',
+    );
+    if (picked == null || !mounted) return;
+    setState(() { _reminderHour = picked.hour; _reminderMinute = picked.minute; });
+    await PlanReminderService.instance.saveReminderTime(hour: picked.hour, minute: picked.minute);
+    final enabled = _notifOverride ?? (_user?.notificationEnabled ?? true);
+    if (enabled) {
+      await PlanReminderService.instance.scheduleDailyReminder(
+        planName: '学习计划',
+        hour: picked.hour,
+        minute: picked.minute,
+      );
     }
   }
 
@@ -1038,10 +1074,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                         ListTile(
                           leading: const Icon(Icons.notifications_outlined),
                           title: Text(s.notifications),
+                          subtitle: (_notifOverride ?? (_user?.notificationEnabled ?? true))
+                              ? Text('每天 ${_reminderHour.toString().padLeft(2, '0')}:${_reminderMinute.toString().padLeft(2, '0')} 提醒',
+                                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary))
+                              : null,
                           trailing: Switch(
                             value: _notifOverride ?? (_user?.notificationEnabled ?? true),
                             onChanged: _toggleNotification,
                           ),
+                          onTap: (_notifOverride ?? (_user?.notificationEnabled ?? true)) ? _pickReminderTime : null,
                         ),
                         const Divider(height: 1, indent: 56),
                         ListTile(
