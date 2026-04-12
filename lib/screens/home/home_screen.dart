@@ -106,7 +106,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _checkingIn = false;
 
   // 可用功能（经服务端开关过滤后）
-  Map<String, ({IconData icon, String label, String sub, String path, Color color})> _enabledFeatures = Map.from(_allFeatures);
+  Map<String, ({IconData icon, String label, String sub, String path, Color color})> _enabledFeatures = Map.fromEntries(
+    _allFeatures.entries.where((e) => !Platform.isIOS || e.key != 'immersion'),
+  );
 
   @override
   void initState() {
