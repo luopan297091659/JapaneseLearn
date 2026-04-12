@@ -55,5 +55,11 @@
 	<string>用于从相册选择图片（例如上传头像）。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>用于将学习相关内容保存到相册。</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

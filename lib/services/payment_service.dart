@@ -115,13 +115,14 @@ class PaymentService {
     return 'monthly';
   }
 
-  // ── 二维码截图提交 (Android) ────────────────────────────────────────────
+  // ── 二维码截图提交 (仅 Android) ──────────────────────────────────────────
   Future<Map<String, dynamic>> submitQrProof({
     required String planId,
     required String channel, // 'qrcode_alipay' | 'qrcode_wechat'
     required Uint8List imageBytes,
     String fileName = 'proof.jpg',
   }) async {
+    if (Platform.isIOS) throw UnsupportedError('QR payment is not available on iOS');
     return apiService.submitPaymentProof(
       planId: planId,
       channel: channel,
@@ -130,8 +131,9 @@ class PaymentService {
     );
   }
 
-  // ── 获取二维码配置 ──────────────────────────────────────────────────────
+  // ── 获取二维码配置 (仅 Android) ────────────────────────────────────────
   Future<Map<String, dynamic>> getQrConfig() async {
+    if (Platform.isIOS) throw UnsupportedError('QR payment is not available on iOS');
     return apiService.getQrCodeConfig();
   }
 }

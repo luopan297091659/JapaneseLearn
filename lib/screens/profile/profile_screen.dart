@@ -398,7 +398,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('稍后再说')),
             FilledButton(
               onPressed: () async {
-                final uri = Uri.parse(downloadUrl);
+                final uri = Platform.isIOS
+                    ? Uri.parse('https://apps.apple.com/app/id{YOUR_APP_ID}') // TODO: 替换为真实 App Store ID
+                    : Uri.parse(downloadUrl);
                 await launchUrl(uri, mode: LaunchMode.externalApplication);
                 if (ctx.mounted) Navigator.pop(ctx);
               },
@@ -615,7 +617,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SelectableText(diag.toString(), style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
-                if (!speakSuccess) ...[
+                if (!speakSuccess && Platform.isAndroid) ...[
                   const Divider(height: 24),
                   const Text('修复步骤：', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 8),
@@ -659,6 +661,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                       },
                     )),
                   ]),
+                ],
+                if (!speakSuccess && Platform.isIOS) ...[
+                  const Divider(height: 24),
+                  const Text('提示：', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 8),
+                  const Text('请前往 设置 → 辅助功能 → 朗读内容 → 声音，下载日语语音包。', style: TextStyle(fontSize: 13)),
                 ],
               ],
             ),
