@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -334,6 +335,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _enabledFeatures = Map.fromEntries(
         _allFeatures.entries.where((e) => toggles[e.key] ?? true),
       );
+      // iOS 隐藏磨耳朵（内嵌第三方视频有审核风险）
+      if (Platform.isIOS) {
+        _enabledFeatures.remove('immersion');
+      }
       // 移除被关闭的收藏功能
       _favFeatureIds = _favFeatureIds.where((id) => _enabledFeatures.containsKey(id)).toList();
     });
