@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
@@ -93,9 +94,9 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
                 // Comparison table
                 _buildComparisonTable(cs),
                 const SizedBox(height: 24),
-                // Membership plans
-                _buildPlansSection(cs),
-                const SizedBox(height: 32),
+                // Membership plans (iOS 隐藏价格卡片，避免审核问题)
+                if (!Platform.isIOS) _buildPlansSection(cs),
+                if (!Platform.isIOS) const SizedBox(height: 32),
               ],
             ),
     );
