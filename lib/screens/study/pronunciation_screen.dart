@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:audio_session/audio_session.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../utils/japanese_text_utils.dart';
@@ -195,6 +197,17 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
     _resultDebounce?.cancel();
     _safetyTimeout?.cancel();
     _speech.stop();
+
+    // iOS: 恢复音频会话到 playback，确保后续TTS正常
+    if (Platform.isIOS) {
+      AudioSession.instance.then((session) {
+        session.configure(const AudioSessionConfiguration(
+          avAudioSessionCategory: AVAudioSessionCategory.playback,
+          avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.duckOthers,
+        ));
+      }).catchError((_) {});
+    }
+
     if (_lastRecognized.trim().isNotEmpty) {
       _processResult(_lastRecognized);
     } else {
@@ -232,6 +245,24 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
     // 确保 TTS 完全停止，释放 iOS 音频会话
     await _tts.stop();
     await Future.delayed(const Duration(milliseconds: 300));
+
+    // iOS: 显式切换音频会话到 playAndRecord，确保麦克风可用
+    if (Platform.isIOS) {
+      try {
+        final session = await AudioSession.instance;
+        await session.configure(const AudioSessionConfiguration(
+          avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+          avAudioSessionCategoryOptions: {
+            AVAudioSessionCategoryOptions.defaultToSpeaker,
+            AVAudioSessionCategoryOptions.allowBluetooth,
+          },
+          avAudioSessionMode: AVAudioSessionMode.measurement,
+        ));
+        await Future.delayed(const Duration(milliseconds: 200));
+      } catch (e) {
+        debugPrint('iOS AudioSession switch error: $e');
+      }
+    }
 
     // 每次录音前重新初始化 STT，避免 iOS 音频会话冲突
     _speechAvailable = false;
