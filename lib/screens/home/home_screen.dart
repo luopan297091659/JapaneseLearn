@@ -973,12 +973,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: _checkedInToday ? 0.25 : 0.18),
+                          color: _checkedInToday
+                              ? const Color(0xFF4CAF50).withValues(alpha: 0.5)
+                              : const Color(0xFFFF6B6B).withValues(alpha: 0.55),
                           borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: _checkedInToday
+                                ? const Color(0xFF81C784).withValues(alpha: 0.6)
+                                : const Color(0xFFFF8A80).withValues(alpha: 0.6),
+                            width: 1,
+                          ),
                         ),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
                           Icon(
-                            _checkedInToday ? Icons.check_circle_rounded : Icons.edit_calendar_rounded,
+                            _checkedInToday ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
                             size: 13,
                             color: Colors.white,
                           ),
@@ -1382,6 +1390,38 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
     }
   }
 
+  bool _playingExample = false;
+
+  Future<void> _playExampleAudio() async {
+    if (_playingExample) return;
+    final w = widget.word;
+    final text = w.exampleSentence;
+    if (text == null || text.isEmpty) return;
+    setState(() => _playingExample = true);
+    if (w.exampleAudioUrl != null && w.exampleAudioUrl!.isNotEmpty) {
+      _player ??= AudioPlayer();
+      try {
+        await _player!.stop();
+        if (w.exampleAudioUrl!.startsWith('/uploads/')) {
+          final fullUrl = AppConfig.serverRoot + w.exampleAudioUrl!;
+          final localPath = await apiService.downloadToTempFile(fullUrl);
+          await _player!.setFilePath(localPath);
+        } else {
+          await _player!.setUrl(w.exampleAudioUrl!);
+        }
+        await _player!.play();
+      } catch (_) {}
+      if (mounted) setState(() => _playingExample = false);
+    } else {
+      _tts ??= FlutterTts();
+      await TtsHelper.configureForJapanese(_tts!);
+      _tts!.setCompletionHandler(() {
+        if (mounted) setState(() => _playingExample = false);
+      });
+      await TtsHelper.speakJapanese(_tts!, text);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final word = widget.word;
@@ -1517,6 +1557,21 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
                               Icon(Icons.format_quote_rounded, size: 18, color: cs.primary),
                               const SizedBox(width: 6),
                               Text('例文', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: cs.onSurfaceVariant)),
+                              const Spacer(),
+                              GestureDetector(
+                                onTap: _playExampleAudio,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: cs.primary.withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    _playingExample ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+                                    size: 18, color: cs.primary,
+                                  ),
+                                ),
+                              ),
                             ]),
                             const SizedBox(height: 8),
                             if (word.exampleReading != null && hasFurigana(word.exampleReading!))

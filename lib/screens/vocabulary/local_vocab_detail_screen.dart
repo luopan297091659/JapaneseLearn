@@ -747,7 +747,7 @@ class _WordSlowButton extends StatelessWidget {
           color: Colors.orange.withValues(alpha: 0.1),
         ),
         child: const Center(
-          child: Text('🐌', style: TextStyle(fontSize: 14)),
+          child: Text('🐌', style: TextStyle(fontSize: 14, height: 1.0)),
         ),
       ),
     );

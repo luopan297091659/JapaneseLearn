@@ -133,26 +133,40 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 
     try {
       if (reset) {
-        final dictFuture = apiService.searchDictionary(q, page: _page, lang: _lang);
+        // 先获取系统词库结果
         final vocabFuture = apiService
             .getVocabulary(query: q, page: 1, limit: 8)
             .catchError((_) => <String, dynamic>{'data': <VocabularyModel>[]});
-        final responses = await Future.wait<dynamic>([dictFuture, vocabFuture]);
-        final dictResult = responses[0] as DictionarySearchResult;
-        final vocabRes = responses[1] as Map<String, dynamic>;
+        final vocabRes = await vocabFuture as Map<String, dynamic>;
         final remoteVocab = (vocabRes['data'] as List<dynamic>? ?? const [])
             .whereType<VocabularyModel>()
             .toList();
 
-        setState(() {
-          _results = dictResult.data;
-          if (remoteVocab.isNotEmpty) {
+        // 判断是否有精确匹配（单词完全一致）
+        final hasExactMatch = remoteVocab.any((v) => v.word == q || v.reading == q);
+
+        if (hasExactMatch && remoteVocab.isNotEmpty) {
+          // 系统词库精确匹配到，跳过辞书搜索
+          setState(() {
             _vocabResults = remoteVocab;
-          }
-          _hasMore = dictResult.data.length >= 20;
-          _loading = false;
-          _hasSearched = true;
-        });
+            _results = [];
+            _hasMore = false;
+            _loading = false;
+            _hasSearched = true;
+          });
+        } else {
+          // 未精确匹配，继续搜索辞书
+          final dictResult = await apiService.searchDictionary(q, page: _page, lang: _lang);
+          setState(() {
+            _results = dictResult.data;
+            if (remoteVocab.isNotEmpty) {
+              _vocabResults = remoteVocab;
+            }
+            _hasMore = dictResult.data.length >= 20;
+            _loading = false;
+            _hasSearched = true;
+          });
+        }
       } else {
         final result = await apiService.searchDictionary(q, page: _page, lang: _lang);
         setState(() {

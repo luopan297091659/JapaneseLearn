@@ -298,7 +298,7 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
                                             shape: BoxShape.circle,
                                             color: Colors.orange.withValues(alpha: 0.1),
                                           ),
-                                          child: const Center(child: Text('🐌', style: TextStyle(fontSize: 14))),
+                                          child: const Center(child: Text('🐌', style: TextStyle(fontSize: 14, height: 1.0))),
                                         ),
                                       ),
                                     ],

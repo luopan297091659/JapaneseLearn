@@ -691,7 +691,7 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
           shape: BoxShape.circle,
           color: Colors.orange.withValues(alpha: 0.1),
         ),
-        child: Center(child: Text('🐌', style: TextStyle(fontSize: size * 0.55))),
+        child: Center(child: Text('🐌', style: TextStyle(fontSize: size * 0.55, height: 1.0))),
       ),
     );
   }
