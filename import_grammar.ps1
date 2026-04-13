@@ -69,7 +69,7 @@ Write-Host $output -ForegroundColor Gray
 Write-Host "[4/4] 验证导入结果..." -ForegroundColor Yellow
 
 $verifyCmd = @"
-echo "=== 文法课程统计 ==="
+echo "=== 语法课程统计 ==="
 mysql -u$DbUser $DbName -e "SELECT COUNT(*) as '总课程数' FROM grammar_lessons;"
 echo ""
 echo "=== 按JLPT级别统计 ==="
@@ -87,7 +87,7 @@ Write-Host $stats -ForegroundColor Gray
 
 Write-Host ""
 Write-Host "[✓] 导入完成！" -ForegroundColor Green
-Write-Host "现在可以测试文法功能了:" -ForegroundColor Cyan
-Write-Host "  - 应用中: 查看文法 → 选择文法条目" -ForegroundColor Gray
+Write-Host "现在可以测试语法功能了:" -ForegroundColor Cyan
+Write-Host "  - 应用中: 查看语法 → 选择语法条目" -ForegroundColor Gray
 Write-Host "  - API: GET http://$ServerHost/api/grammar" -ForegroundColor Gray
 Write-Host "  - 测验: GET http://$ServerHost/api/quiz?quiz_type=grammar&level=N1" -ForegroundColor Gray

@@ -182,12 +182,12 @@ class _TestTabState extends State<TestTab> {
           const SizedBox(height: 12),
           _TestCard(
             icon: Icons.menu_book_rounded,
-            title: '文法测验',
-            subtitle: '检验水平 · 随机出题巩固文法',
+            title: '语法测验',
+            subtitle: '检验水平 · 随机出题巩固语法',
             color: const Color(0xFF7B1FA2),
             blocked: _isBlocked('grammar_quiz_daily'),
             onTap: () {
-              if (_isBlocked('grammar_quiz_daily')) { _showMemberDialog('文法测验'); return; }
+              if (_isBlocked('grammar_quiz_daily')) { _showMemberDialog('语法测验'); return; }
               context.push('/grammar-quiz');
             },
           ),

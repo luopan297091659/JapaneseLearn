@@ -1,6 +1,6 @@
 /**
  * Admin Controller
- * 仪表板统计、词库管理、文法管理、听力管理、用户管理、内容版本同步
+ * 仪表板统计、词库管理、语法管理、听力管理、用户管理、内容版本同步
  */
 const { Op, fn, col, literal } = require('sequelize');
 const { sequelize } = require('../config/database');
@@ -555,7 +555,7 @@ async function importVocabFile(req, res) {
   }
 }
 
-// ─── 文法管理 ─────────────────────────────────────────────────────────────────
+// ─── 语法管理 ─────────────────────────────────────────────────────────────────
 async function listGrammar(req, res) {
   const { level, q, page = 1, limit = 30 } = req.query;
   const lim = Math.min(parseInt(limit) || 30, 200);
@@ -683,13 +683,13 @@ async function bulkDeleteGrammar(req, res) {
   }
 }
 
-/** 批量生成文法例句Kokoro音频 */
+/** 批量生成语法例句Kokoro音频 */
 async function generateGrammarExamplesKokoroAudio(req, res) {
   try {
     const audioLocalizationService = require('../services/audioLocalizationService');
     const { grammar_ids } = req.body;
     
-    // 获取所有待处理的文法
+    // 获取所有待处理的语法
     const grammars = await GrammarLesson.findAll({
       where: grammar_ids ? { id: { [Op.in]: grammar_ids } } : {},
       include: [{ model: GrammarExample, as: 'examples' }],
@@ -697,7 +697,7 @@ async function generateGrammarExamplesKokoroAudio(req, res) {
     });
     
     if (grammars.length === 0) {
-      return res.status(400).json({ error: '未找到文法数据' });
+      return res.status(400).json({ error: '未找到语法数据' });
     }
     
     // 收集所有需要音频的例句
@@ -831,7 +831,7 @@ async function generateGrammarExamplesKokoroAudio(req, res) {
   }
 }
 
-// ─── Anki Apkg 导入文法 ──────────────────────────────────────────────────────
+// ─── Anki Apkg 导入语法 ──────────────────────────────────────────────────────
 const AdmZip = require('adm-zip');
 const { getSqlJs, detectMapping } = require('../services/ankiService');
 
@@ -895,7 +895,7 @@ async function importGrammarApkg(req, res) {
 
         if (!pattern) continue;
 
-        // 4. 创建或获取文法课程
+        // 4. 创建或获取语法课程
         const [lesson] = await GrammarLesson.findOrCreate({
           where: { pattern },
           defaults: {
@@ -970,7 +970,7 @@ async function importGrammarApkg(req, res) {
       }
     }
 
-    // 8. 递增文法版本
+    // 8. 递增语法版本
     await bumpVersion('grammar_version');
 
     res.json({
@@ -988,7 +988,7 @@ async function importGrammarApkg(req, res) {
   }
 }
 
-// ─── Kokoro 生成文法例句音频 ────────────────────────────────────────────────
+// ─── Kokoro 生成语法例句音频 ────────────────────────────────────────────────
 async function generateGrammarExampleAudio(req, res) {
   const { lessonId, exId } = req.params;
   
@@ -1247,7 +1247,7 @@ async function resetUserPassword(req, res) {
 // ─── 管理员权限管理 ──────────────────────────────────────────────────────────
 const ADMIN_PERMISSIONS = [
   { key: 'vocabulary', name: '词汇管理', icon: '📚' },
-  { key: 'grammar', name: '文法管理', icon: '📖' },
+  { key: 'grammar', name: '语法管理', icon: '📖' },
   { key: 'tracks', name: '听力管理', icon: '🎧' },
   { key: 'users', name: '用户管理', icon: '👥' },
   { key: 'reports', name: '问题反馈', icon: '🐛' },
@@ -1742,7 +1742,7 @@ const DEFAULT_FEATURE_TOGGLES = {
     { id: 'translate',     name: '翻译解析', icon: '🌐', web: true,  mobile: true  },
     { id: 'localvocab',    name: 'Anki词库', icon: '📂', web: false, mobile: true  },
     { id: 'wrong-answers', name: '错题集',   icon: '📋', web: false, mobile: true  },
-    { id: 'grammar-quiz',  name: '文法测验', icon: '📖', web: true,  mobile: true  },
+    { id: 'grammar-quiz',  name: '语法测验', icon: '📖', web: true,  mobile: true  },
     { id: 'immersion',     name: '磨耳朵',   icon: '📺', web: false, mobile: true  },
     { id: 'kana-writing-test', name: '假名书写', icon: '✍️', web: false, mobile: true  },
     { id: 'study-plan',    name: '学习计划', icon: '📅', web: true,  mobile: true  },
@@ -1800,11 +1800,11 @@ const DEFAULT_FEATURE_TIERS = {
   tiers: [
     { id: 'grammar_lessons', name: '语法课程', icon: '📝', type: 'limit', free_limit: 5, free_label: '前5课免费', member_label: '全部' },
     { id: 'srs_daily', name: 'SRS复习', icon: '🗂️', type: 'daily_limit', free_limit: 30, free_label: '每日限30张', member_label: '无限制' },
-    { id: 'listening_daily', name: '听力学习', icon: '🎧', type: 'daily_limit', free_limit: 3, free_label: '每日3个', member_label: '无限制' },
+    { id: 'listening_daily', name: '听力训练', icon: '🎧', type: 'daily_limit', free_limit: 3, free_label: '每日3个', member_label: '无限制' },
     { id: 'listening_exercise_daily', name: '听力测验', icon: '📝', type: 'daily_limit', free_limit: 10, free_label: '每日10题', member_label: '无限制' },
     { id: 'immersion_daily', name: '磨耳朵', icon: '👂', type: 'daily_limit', free_limit: 3, free_label: '每日3个', member_label: '无限制' },
     { id: 'ai_features', name: 'AI功能(翻译/解析)', icon: '🤖', type: 'blocked', free_label: '不可用', member_label: '可用' },
-    { id: 'pronunciation', name: '发音练习', icon: '🎤', type: 'blocked', free_label: '不可用', member_label: '可用' },
+    { id: 'pronunciation', name: '发音训练', icon: '🎤', type: 'blocked', free_label: '不可用', member_label: '可用' },
     { id: 'anki_import', name: 'Anki导入', icon: '📥', type: 'blocked', free_label: '不可用', member_label: '可用' },
     { id: 'game_levels', name: '游戏模式', icon: '🎮', type: 'limit', free_limit: 5, free_label: '前5关', member_label: '全部' },
     { id: 'quiz_meaning_daily', name: '词汇测验(意思题)', icon: '✏️', type: 'daily_limit', free_limit: 10, free_label: '每日10题', member_label: '无限制' },
@@ -1815,7 +1815,7 @@ const DEFAULT_FEATURE_TIERS = {
     { id: 'flashcard_levels', name: '闪卡复习', icon: '🃏', type: 'enum', free_values: ['N5'], member_values: ['N5','N4','N3','N2','N1'], free_label: 'N5', member_label: '全等级' },
     { id: 'anki_quiz', name: 'Anki本地卡组测验', icon: '📋', type: 'blocked', free_label: '不可用', member_label: '可用' },
     { id: 'wrong_answers', name: '错题集', icon: '📝', type: 'blocked', free_label: '不可用', member_label: '可用' },
-    { id: 'grammar_quiz_daily', name: '文法测验', icon: '📖', type: 'daily_limit', free_limit: 10, free_label: '每日10题', member_label: '无限制' },
+    { id: 'grammar_quiz_daily', name: '语法测验', icon: '📖', type: 'daily_limit', free_limit: 10, free_label: '每日10题', member_label: '无限制' },
     { id: 'dictionary_daily', name: '词典查询', icon: '🔍', type: 'daily_limit', free_limit: 20, free_label: '每日限20次', member_label: '无限制' },
     { id: 'news_limit', name: 'NHK新闻', icon: '📰', type: 'limit', free_limit: 5, free_label: '最新5篇', member_label: '全部' },
     { id: 'study_plan_daily', name: '学习计划', icon: '📅', type: 'daily_limit', free_limit: 10, free_label: '每日10张', member_label: '无限制' },
@@ -1864,8 +1864,8 @@ async function saveFeatureTiers(req, res) {
 
 const DEFAULT_MEMBERSHIP = {
   plans: [
-    { id: 'free',     name: '免费版',   price: 0,   period: 'forever', description: '基础学习功能，适合入门用户',   features: ['词汇学习', '文法学习', '听力学习', 'NHK新闻'], enabled: true  },
-    { id: 'monthly',  name: '月度会员', price: 18,  period: 'month',   description: '完整功能解锁，按月计费，随时取消', features: ['AI发音练习', '错题集', '学习计划', 'AI翻译'], enabled: true  },
+    { id: 'free',     name: '免费版',   price: 0,   period: 'forever', description: '基础学习功能，适合入门用户',   features: ['词汇学习', '语法学习', '听力训练', 'NHK新闻'], enabled: true  },
+    { id: 'monthly',  name: '月度会员', price: 18,  period: 'month',   description: '完整功能解锁，按月计费，随时取消', features: ['发音训练', '错题集', '学习计划', 'AI翻译'], enabled: true  },
     { id: 'yearly',   name: '年度会员', price: 128, period: 'year',    description: '全功能 + 年度优惠，比月付省22%',  features: ['无限练习题', 'SRS 间隔复习', '听力课程', '离线下载'], enabled: true  },
     { id: 'lifetime', name: '终身会员', price: 398, period: 'forever', description: '一次购买永久使用，含未来所有新功能', features: ['全功能永久解锁', '未来新功能免费', '专属徽章'], enabled: false },
   ],

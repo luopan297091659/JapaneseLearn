@@ -46,7 +46,7 @@
 5. 词汇 → 💡例句管理 → 某行的🎤
    ✅ 同样流程，该行URL填充
 
-6. 文法 → 📚例句管理 → 🎤  
+6. 语法 → 📚例句管理 → 🎤  
    ✅ 同样流程
 ```
 
@@ -57,7 +57,7 @@
 - backend/public/admin/index.html L1408-1720
   - initializeRecording() 麦克风初始化
   - recordExampleAudio() 词汇例句录音
-  - recordGrammarExampleAudio() 文法录音
+  - recordGrammarExampleAudio() 语法录音
   - recordVocabAudio() 单词录音
   - stopRecording() 停止上传
   - cancelRecording() 取消
@@ -125,7 +125,7 @@ cd D:\PROJECT\JapaneseLearn
 | 1 | 编辑旧词汇显示例句 | 数据丢失 | initializeExampleRows向后兼容 | ✅ |
 | 2 | 单词录音 | 无功能 | recordVocabAudio成功部署 | ✅ |
 | 3 | 例句录音 | 无功能 | recordExampleAudio成功部署 | ✅ |
-| 4 | 文法录音 | 无功能 | recordGrammarExampleAudio成功部署 | ✅ |
+| 4 | 语法录音 | 无功能 | recordGrammarExampleAudio成功部署 | ✅ |
 | 5 | 配置保留 | 每次重置 | deploy.ps1新增备份/恢复 | ✅ |
 | 6 | 麦克风权限 | 无提示 | initializeRecording添加权限弹窗 | ✅ |
 | 7 | 录音UI | 无反馈 | stopRecording显示上传成功 | ✅ |

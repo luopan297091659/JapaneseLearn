@@ -43,9 +43,9 @@ const _featureTierMap = <String, String>{
 const _allFeatures = <String, ({IconData icon, String label, String sub, String path, Color color})>{
   'gojuon':        (icon: Icons.grid_view_rounded,      label: '五十音',     sub: '基础入门', path: '/gojuon',          color: Color(0xFFE91E63)),
   'vocabulary':    (icon: Icons.menu_book_rounded,      label: '单词学习',   sub: '词汇积累', path: '/vocabulary',      color: Color(0xFF4CAF50)),
-  'grammar':       (icon: Icons.school_rounded,         label: '文法学习',   sub: '规则掌握', path: '/grammar',         color: Color(0xFF2196F3)),
+  'grammar':       (icon: Icons.school_rounded,         label: '（）',   sub: '规则掌握', path: '/grammar',         color: Color(0xFF2196F3)),
   'listening':     (icon: Icons.headphones_rounded,     label: '听力练习',   sub: '提升听力', path: '/listening',       color: Color(0xFF9C27B0)),
-  'pronunciation': (icon: Icons.mic_rounded,            label: '发音练习',   sub: 'AI智能纠正', path: '/pronunciation',  color: Color(0xFF00BCD4)),
+  'pronunciation': (icon: Icons.mic_rounded,            label: '发音训练',   sub: 'AI智能纠正', path: '/pronunciation',  color: Color(0xFF00BCD4)),
   'srs':           (icon: Icons.layers_rounded,         label: 'SRS复习',    sub: '间隔记忆', path: '/srs-review',     color: Color(0xFFFF9800)),
   'study-plan':    (icon: Icons.calendar_month_rounded, label: '学习计划',   sub: '每日学习', path: '/study-plan',     color: Color(0xFF5C6BC0)),
   'dictionary':    (icon: Icons.manage_search_rounded,  label: '辞书检索',   sub: '词典查询', path: '/dictionary',     color: Color(0xFF607D8B)),
@@ -56,7 +56,7 @@ const _allFeatures = <String, ({IconData icon, String label, String sub, String 
   'todofuken':     (icon: Icons.map_rounded,            label: '都道府県',   sub: '地理测验', path: '/todofuken-quiz', color: Color(0xFFE65100)),
   'wrong-answers': (icon: Icons.assignment_late_rounded, label: '错题集',    sub: '错题复习', path: '/wrong-answers', color: Color(0xFFE53935)),
   'localvocab':    (icon: Icons.folder_copy_rounded,    label: 'Anki词库',  sub: '本地浏览', path: '/local-vocab',    color: Color(0xFF00897B)),
-  'grammar-quiz':  (icon: Icons.menu_book_rounded,      label: '文法测验',  sub: '语法检验', path: '/grammar-quiz',   color: Color(0xFF1565C0)),
+  'grammar-quiz':  (icon: Icons.menu_book_rounded,      label: '语法测验',  sub: '语法检验', path: '/grammar-quiz',   color: Color(0xFF1565C0)),
   'flashcard':     (icon: Icons.style_rounded,          label: '单词卡片',  sub: '翻转记忆', path: '/flashcard',      color: Color(0xFFAD1457)),
   'listening-exercise': (icon: Icons.hearing_rounded,   label: '听力测验',  sub: '听力检测', path: '/listening-exercise', color: Color(0xFF7B1FA2)),
   'immersion':     (icon: Icons.ondemand_video_rounded, label: '磨耳朵',    sub: '沉浸式听力', path: '/immersion',   color: Color(0xFF00695C)),
@@ -1825,7 +1825,7 @@ class _QuizBreakdownCard extends StatelessWidget {
 
   static const _labels = {
     'vocabulary': '单词测验',
-    'grammar': '文法测验',
+    'grammar': '语法测验',
     'listening': '听力测验',
     'mixed': '综合测验',
   };

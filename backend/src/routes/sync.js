@@ -1,5 +1,5 @@
 /**
- * Sync Routes — 客户端用于检测内容版本，决定是否需要刷新词库/文法
+ * Sync Routes — 客户端用于检测内容版本，决定是否需要刷新词库/语法
  * GET /api/v1/sync/version  — 无需认证，返回当前内容版本号
  * GET /api/v1/sync/features — 无需认证，返回功能开关状态
  * GET /api/v1/sync/tiers    — 无需认证，返回功能分级配置

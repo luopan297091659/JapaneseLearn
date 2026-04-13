@@ -116,7 +116,7 @@ router.post('/audio/upload', permissionCheck('vocabulary'), audioUpload.single('
   res.json({ filename: req.file.filename, url: audioUrl, size: req.file.size });
 });
 
-// 文法管理
+// 语法管理
 router.get('/grammar',        permissionCheck('grammar'), asyncHandler(listGrammar));
 router.get('/grammar/:id',    permissionCheck('grammar'), asyncHandler(getGrammar));
 router.post('/grammar',       permissionCheck('grammar'), asyncHandler(createGrammar));

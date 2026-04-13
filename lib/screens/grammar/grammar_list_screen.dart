@@ -198,7 +198,7 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
     };
     return Scaffold(
       appBar: AppBar(
-        title: Text(inPlanMode ? '学习计划 · 语法' : '文法課程'),
+        title: Text(inPlanMode ? '学习计划 · 语法' : '语法課程'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
           tooltip: '返回',

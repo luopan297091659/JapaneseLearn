@@ -69,7 +69,7 @@ audioLocalizationService 下载文件
 #### ⚙️ [adminController.js](backend/src/controllers/adminController.js) 修改
 **修改函数**:
 1. `generateVocabExamplesKokoroAudio` - 词汇音频一键生成
-2. `generateGrammarExamplesKokoroAudio` - 文法音频一键生成
+2. `generateGrammarExamplesKokoroAudio` - 语法音频一键生成
 
 **改进**:
 ```javascript

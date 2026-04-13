@@ -32,7 +32,7 @@
 | 文件 | 功能 | 关键代码 |
 |-----|------|--------|
 | `screens/vocabulary/vocabulary_detail_screen.dart` | 词汇详情屏幕（最复杂的 TTS 实现） | L36-90: `_initTts()` - 引擎初始化；L94-130: `_speak()` - 播放逻辑 |
-| `screens/study/pronunciation_screen.dart` | 发音练习（TTS + STT） | L32-42: TTS 初始化；L79-112: STT 处理；L154-167: 相似度计算 |
+| `screens/study/pronunciation_screen.dart` | 发音训练（TTS + STT） | L32-42: TTS 初始化；L79-112: STT 处理；L154-167: 相似度计算 |
 | `screens/study/gojuon_screen.dart` | 五十音表 (TTS 学习) | L62-67: TTS 初始化 |
 | `screens/grammar/grammar_detail_screen.dart` | 语法详情（带 TTS 和音频播放） | L38-43: TTS 初始化 |
 | `screens/tools/todofuken_quiz_screen.dart` | 都道府县测验 (TTS) | L96-98: TTS 初始化 |
@@ -72,7 +72,7 @@
 #### Web 前端
 | 文件 | 行数 | 功能 |
 |-----|------|------|
-| `public/app/index.html` | ~2400 | Web 应用主界面 | L2400: `playAudio()` 函数；L1921: `speakJa()` Web TTS；L1985-2030: 发音练习 JS 逻辑 |
+| `public/app/index.html` | ~2400 | Web 应用主界面 | L2400: `playAudio()` 函数；L1921: `speakJa()` Web TTS；L1985-2030: 发音训练 JS 逻辑 |
 | `public/admin/index.html` | ~2000 | 管理后台 | L1390-1560: Anki 导入界面 |
 
 ---
@@ -297,7 +297,7 @@ Future<void> _speak() async {
 }
 ```
 
-### 4. 语音识别 (STT) - 发音练习
+### 4. 语音识别 (STT) - 发音训练
 
 #### 使用工具
 - 包: `speech_to_text` (用于识别)
@@ -1160,7 +1160,7 @@ Future<bool> _doTtsInit() async {
 2. **远程音频播放** - 通过服务器静态文件服务
 3. **本地音频缓存** - 临时目录缓存，减少重复下载
 4. **TTS 语音合成** - Flutter 端集成，支持日语
-5. **STT 语音识别** - 发音练习功能
+5. **STT 语音识别** - 发音训练功能
 
 ### 主要风险
 - 🔴 **网络超时无重试机制**

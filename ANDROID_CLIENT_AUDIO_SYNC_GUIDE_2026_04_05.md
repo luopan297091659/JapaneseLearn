@@ -239,10 +239,10 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
     _loadGrammarData();
   }
   
-  /// 加载文法数据并同步音频
+  /// 加载语法数据并同步音频
   void _loadGrammarData() async {
     try {
-      // 1. 从服务器获取文法数据
+      // 1. 从服务器获取语法数据
       final grammarData = await apiService.getGrammar(widget.grammarId);
       
       // 2. 检查例句中是否有音频

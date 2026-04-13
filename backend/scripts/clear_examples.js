@@ -27,7 +27,7 @@ async function main() {
 
   if (geBefore[0].total > 0) {
     const [geResult] = await conn.query(`DELETE FROM grammar_examples`);
-    console.log(`已删除 ${geResult.affectedRows} 条文法例句`);
+    console.log(`已删除 ${geResult.affectedRows} 条语法例句`);
   }
 
   // 验证

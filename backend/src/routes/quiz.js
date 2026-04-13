@@ -4,7 +4,7 @@ const { authenticate, optionalAuthenticate } = require('../middlewares/auth');
 const { checkMembership } = require('../middlewares/membership');
 const { generateQuiz, submitQuiz, getHistory } = require('../controllers/quizController');
 
-// 文法测验用 grammar_quiz_daily 限额，其他用 quiz_meaning_daily
+// 语法测验用 grammar_quiz_daily 限额，其他用 quiz_meaning_daily
 function quizDailyLimitMiddleware() {
   const grammarCheck = checkMembership('grammar_quiz_daily', { countActivityType: 'grammar_quiz' });
   const vocabCheck   = checkMembership('quiz_meaning_daily', { countActivityType: 'quiz' });
@@ -19,7 +19,7 @@ router.get('/generate', optionalAuthenticate,
   checkMembership('quiz_jlpt_levels', { valueField: 'level', valueSource: 'query' }),
   checkMembership('quiz_count_options', { valueField: 'count', valueSource: 'query' }),
   asyncHandler(generateQuiz));
-// 提交也需要区分文法/词汇限额
+// 提交也需要区分语法/词汇限额
 function quizSubmitLimitMiddleware() {
   const grammarCheck = checkMembership('grammar_quiz_daily', { countActivityType: 'grammar_quiz' });
   const vocabCheck   = checkMembership('quiz_meaning_daily', { countActivityType: 'quiz' });

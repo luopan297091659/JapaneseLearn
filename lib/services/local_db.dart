@@ -566,10 +566,10 @@ class LocalDb {
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ─── 离线缓存：系统文法 ─────────────────────────────────────────────────
+  // ─── 离线缓存：系统语法 ─────────────────────────────────────────────────
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// 批量缓存文法条目（upsert），examples 序列化为 JSON
+  /// 批量缓存语法条目（upsert），examples 序列化为 JSON
   Future<void> cacheGrammar(List<GrammarLessonModel> items, {int sortOffset = 0}) async {
     if (items.isEmpty) return;
     final database = await db;
@@ -599,7 +599,7 @@ class LocalDb {
     await batch.commit(noResult: true);
   }
 
-  /// 从本地缓存查询文法（分页）
+  /// 从本地缓存查询语法（分页）
   Future<Map<String, dynamic>> getCachedGrammar({
     required String level,
     int page = 1,
@@ -624,7 +624,7 @@ class LocalDb {
     return {'total': total, 'data': data};
   }
 
-  /// 查询某级别缓存文法数量
+  /// 查询某级别缓存语法数量
   Future<int> cachedGrammarCount(String level) async {
     final database = await db;
     final res = await database.rawQuery(
@@ -633,7 +633,7 @@ class LocalDb {
     return (res.first['cnt'] as int?) ?? 0;
   }
 
-  /// 清除某级别的缓存文法，不传 level 则清除全部
+  /// 清除某级别的缓存语法，不传 level 则清除全部
   Future<void> clearCachedGrammar({String? level}) async {
     final database = await db;
     if (level != null) {

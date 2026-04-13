@@ -127,11 +127,11 @@ LIMIT 5;
 
 ---
 
-### 测试2: 文法音频生成路径
+### 测试2: 语法音频生成路径
 
 ```bash
-# 一键生成所有文法例句音频
-# 管理员后台 → 文法管理 → "一键生成Kokoro音频"
+# 一键生成所有语法例句音频
+# 管理员后台 → 语法管理 → "一键生成Kokoro音频"
 
 # 验证: 文件应该在这里
 ls -la uploads/grammar/audio/
@@ -226,13 +226,13 @@ curl http://localhost:8002/api/v1/kokoro-audio/stats \
 3. 获取失败: 降级到本地TTS生成
 
 ### 实现位置
-- [ ] `lib/screens/grammar_detail_screen.dart` - 文法例句音频加载
+- [ ] `lib/screens/grammar_detail_screen.dart` - 语法例句音频加载
 - [ ] `lib/screens/gojuon_screen.dart` - 五十音音频加载
 - [ ] `lib/widgets/audio_player_widget.dart` - 通用音频播放器
 
 ### 代码示例
 ```dart
-// 文法例句音频加载
+// 语法例句音频加载
 Future<void> loadGrammarAudio(String exampleId) async {
   try {
     // 尝试从服务器获取
@@ -270,7 +270,7 @@ du -sh uploads/grammar/audio/
 
 echo "=== 音频文件计数 ==="
 echo "词汇音频: $(find uploads/audio/vocab/ -name 'kokoro_*.wav' | wc -l)"
-echo "文法音频: $(find uploads/grammar/audio/ -name 'kokoro_*.wav' | wc -l)"
+echo "语法音频: $(find uploads/grammar/audio/ -name 'kokoro_*.wav' | wc -l)"
 echo "五十音音频: $(find uploads/audio/kana/ -name 'kokoro_*.wav' | wc -l)"
 
 echo "=== 最近生成的音频 ==="
@@ -342,7 +342,7 @@ grep "startCleanupSchedule" backend/app.js
 - ✅ 数据库迁移执行成功
 - ✅ 后端服务正常启动
 - ✅ 词汇音频生成到 `/uploads/audio/vocab/`
-- ✅ 文法音频生成到 `/uploads/grammar/audio/`
+- ✅ 语法音频生成到 `/uploads/grammar/audio/`
 - ✅ 五十音音频生成到 `/uploads/audio/kana/`
 - ✅ 管理API能返回正确的统计数据
 - ✅ 清理服务定期运行

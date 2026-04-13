@@ -127,32 +127,32 @@ class _StudyTabState extends State<StudyTab> {
         const SizedBox(height: 12),
         _StudyCard(
           icon: Icons.school_rounded,
-          title: '文法学习',
-          subtitle: '规则掌握 · 系统学习日语文法',
+          title: '语法学习',
+          subtitle: '规则掌握 · 系统学习日语语法',
           color: const Color(0xFF2196F3),
           onTap: () => context.push('/grammar'),
         ),
         const SizedBox(height: 12),
         _StudyCard(
           icon: Icons.mic_rounded,
-          title: 'AI 发音练习',
+          title: '发音训练',
           subtitle: '智能纠正 · 对比原生发音',
           color: const Color(0xFF00BCD4),
           blocked: _isBlocked('pronunciation'),
           onTap: () {
-            if (_isBlocked('pronunciation')) { _showMemberDialog('AI 发音练习'); return; }
+            if (_isBlocked('pronunciation')) { _showMemberDialog('发音训练'); return; }
             context.push('/pronunciation');
           },
         ),
         const SizedBox(height: 12),
         _StudyCard(
           icon: Icons.headphones_rounded,
-          title: '听力学习',
+          title: '听力训练',
           subtitle: '听力提升 · 例句听写录音AI比对',
           color: const Color(0xFF9C27B0),
           blocked: _isBlocked('listening_daily'),
           onTap: () {
-            if (_isBlocked('listening_daily')) { _showMemberDialog('听力学习'); return; }
+            if (_isBlocked('listening_daily')) { _showMemberDialog('听力训练'); return; }
             context.push('/listening');
           },
         ),

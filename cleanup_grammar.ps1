@@ -11,7 +11,7 @@ param(
 )
 
 Write-Host "=== 清理语法数据 ===" -ForegroundColor Cyan
-Write-Host "!! 警告：此操作将删除所有文法数据 !!" -ForegroundColor Red
+Write-Host "!! 警告：此操作将删除所有语法数据 !!" -ForegroundColor Red
 Write-Host "!! 请确保已执行 backup_grammar.ps1 进行备份 !!" -ForegroundColor Red
 Write-Host ""
 
@@ -22,7 +22,7 @@ if ($confirm1 -ne "yes") {
     exit 1
 }
 
-$confirm2 = Read-Host "确认删除所有文法数据? (yes/no)"
+$confirm2 = Read-Host "确认删除所有语法数据? (yes/no)"
 if ($confirm2 -ne "yes") {
     Write-Host "已取消操作" -ForegroundColor Yellow
     exit 1
@@ -65,7 +65,7 @@ Write-Host $output -ForegroundColor Gray
 Write-Host "[3/3] 验证清理结果..." -ForegroundColor Yellow
 
 $verifyCmd = @"
-mysql -u$DbUser $DbName -e "SELECT COUNT(*) as '文法课程数' FROM grammar_lessons; SELECT COUNT(*) as '例句数' FROM grammar_examples;"
+mysql -u$DbUser $DbName -e "SELECT COUNT(*) as '语法课程数' FROM grammar_lessons; SELECT COUNT(*) as '例句数' FROM grammar_examples;"
 "@
 
 $verify = & plink -batch -hostkey $HostKey -pw $Passwd -P 22 "${User}@${ServerHost}" $verifyCmd
@@ -73,4 +73,4 @@ Write-Host $verify -ForegroundColor Gray
 
 Write-Host ""
 Write-Host "[✓] 清理完成！" -ForegroundColor Green
-Write-Host "现在可以导入新的文法数据了" -ForegroundColor Cyan
+Write-Host "现在可以导入新的语法数据了" -ForegroundColor Cyan

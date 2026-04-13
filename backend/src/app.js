@@ -139,6 +139,9 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../public/home/ind
 // Membership page
 app.use('/membership', express.static(path.join(__dirname, '../public/membership')));
 app.get('/membership', (req, res) => res.sendFile(path.join(__dirname, '../public/membership/index.html')));
+// Privacy policy
+app.use('/privacy', express.static(path.join(__dirname, '../public/privacy')));
+app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, '../public/privacy/index.html')));
 // Forum static files
 app.use('/forum', express.static(path.join(__dirname, '../public/forum')));
 app.get('/forum', (req, res) => res.sendFile(path.join(__dirname, '../public/forum/index.html')));

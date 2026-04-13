@@ -52,7 +52,7 @@ function detectMapping(fields) {
   const exPat = [/^(example|sentence|例文|例句|れいぶん|sample|usage|context)/i];
   const tagsPat = [/^tags?$/i];
   // grammar
-  const patternPat = [/^(pattern|文型|grammar|文法|structure|構造)/i];
+  const patternPat = [/^(pattern|文型|grammar|语法|structure|構造)/i];
   const explPat = [/^(explanation|explain|説明|解説|meaning|意味)/i];
   const explZhPat = [/^(explanation_zh|中文解释|chinese_exp|翻訳|translation)/i];
 

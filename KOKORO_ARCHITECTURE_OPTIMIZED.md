@@ -298,7 +298,7 @@ adb install -r build/app/outputs/flutter-apk/app-release.apk
 
 ### 5. 验证数据流
 
-在APP中打开文法例句 → 点击播放按钮 → 检查logcat：
+在APP中打开语法例句 → 点击播放按钮 → 检查logcat：
 
 ```
 [TTS] 第3层：尝试Kokoro后端合成 - URL: https://139.196.44.6:8002/api/v1/tts/kokoro-speak

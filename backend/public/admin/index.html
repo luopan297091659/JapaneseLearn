@@ -242,7 +242,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item active" onclick="nav('dashboard')" id="nav-dashboard"><span class="icon">📊</span><span class="nav-label">仪表板</span></div>
   <div class="sidebar-section">内容管理</div>
   <div class="nav-item" onclick="nav('vocab')"   id="nav-vocab"><span class="icon">📚</span><span class="nav-label">词汇管理</span></div>
-  <div class="nav-item" onclick="nav('grammar')" id="nav-grammar"><span class="icon">📖</span><span class="nav-label">文法管理</span></div>
+  <div class="nav-item" onclick="nav('grammar')" id="nav-grammar"><span class="icon">📖</span><span class="nav-label">语法管理</span></div>
   <div class="nav-item" onclick="nav('kana')"    id="nav-kana"><span class="icon">🔤</span><span class="nav-label">五十音管理</span></div>
   <div class="nav-item" onclick="nav('tracks')"  id="nav-tracks"><span class="icon">🎧</span><span class="nav-label">听力管理</span></div>
   <div class="nav-item" onclick="nav('channels')" id="nav-channels"><span class="icon">📺</span><span class="nav-label">频道管理</span></div>
@@ -459,7 +459,7 @@ tbody tr:hover td{background:#f8faff}
 <!-- GRAMMAR MODAL -->
 <div class="modal-overlay" id="modal-grammar">
   <div class="modal" style="width:780px;max-height:90vh;overflow-y:auto">
-    <h2 id="mg-title">添加文法</h2>
+    <h2 id="mg-title">添加语法</h2>
     <input type="hidden" id="mg-id" />
     
     <!-- 基本信息 -->
@@ -609,7 +609,7 @@ function monthStart(){ const d=new Date(); d.setDate(1); return d.toISOString().
 function yearStart() { return new Date().getFullYear()+'-01-01' }
 function qs(obj)    { return '?'+Object.entries(obj).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&') }
 const PALETTE = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#f97316','#84cc16','#3b82f6'];
-const ACT_NAME = {vocabulary:'📚 词汇学习',grammar:'📖 语法学习',srs_review:'🔄 SRS复习',quiz:'📝 单词测验',grammar_quiz:'📝 文法测验',flashcard:'🃏 闪卡',news:'📰 新闻阅读',listening:'🎧 听力练习',listening_exercise:'👂 听力测验',game:'🎮 助词方块',reading:'📖 阅读',pronunciation:'🎤 发音练习',gojuon:'🔤 五十音',dictionary:'🔍 辞书検索',translate:'🌐 翻译解析',todofuken:'🗾 都道府県',game_verbs:'🎮 动词方块',anki:'📦 Anki词库',wrong_answers:'❌ 错题集',kana_writing:'✍️ 五十音书写',immersion:'👂 磨耳朵',study_plan:'📅 学习计划'};
+const ACT_NAME = {vocabulary:'📚 词汇学习',grammar:'📖 语法学习',srs_review:'🔄 SRS复习',quiz:'📝 单词测验',grammar_quiz:'📝 语法测验',flashcard:'🃏 闪卡',news:'📰 新闻阅读',listening:'🎧 听力练习',listening_exercise:'👂 听力测验',game:'🎮 助词方块',reading:'📖 阅读',pronunciation:'🎤 发音训练',gojuon:'🔤 五十音',dictionary:'🔍 辞书検索',translate:'🌐 翻译解析',todofuken:'🗾 都道府県',game_verbs:'🎮 动词方块',anki:'📦 Anki词库',wrong_answers:'❌ 错题集',kana_writing:'✍️ 五十音书写',immersion:'👂 磨耳朵',study_plan:'📅 学习计划'};
 function actName(t){ return ACT_NAME[t]||t; }
 
 /* ───────────────────────────────── AUTH ──────────────────────────────────── */
@@ -685,7 +685,7 @@ function applySidebarPermissions(){
 
 /* ───────────────────────────────── NAV ───────────────────────────────────── */
 const PAGE_TITLES = {
-  dashboard:'仪表板', vocab:'词汇管理', grammar:'文法管理', kana:'五十音管理',
+  dashboard:'仪表板', vocab:'词汇管理', grammar:'语法管理', kana:'五十音管理',
   tracks:'听力管理', channels:'频道管理', users:'用户管理', reports:'问题反馈',
   'stat-users':'用户统计', 'stat-traffic':'流量监控',
   'stat-behavior':'行为分析',
@@ -704,7 +704,7 @@ const PAGE_ICONS = {
   'email-settings':'✉️', 'admin-mgmt':'🔐'
 };
 const PAGE_DESCS = {
-  vocab:'管理词汇条目', grammar:'管理文法条目', kana:'管理五十音数据', reports:'查看用户反馈的问题',
+  vocab:'管理词汇条目', grammar:'管理语法条目', kana:'管理五十音数据', reports:'查看用户反馈的问题',
   tracks:'管理听力素材', channels:'管理YouTube/B站频道', users:'查看管理用户',
   'stat-users':'用户数据分析', 'stat-traffic':'API流量监控',
   'stat-behavior':'用户行为数据分析',
@@ -1251,7 +1251,7 @@ async function renderDashboard(){
       </div>
       <div class="stat-card">
         <div class="stat-icon c-emerald">📖</div>
-        <div class="stat-body"><div class="stat-label">文法条目</div><div class="stat-value">${(d.grammarCount||0).toLocaleString()}</div><div class="stat-sub">语法点总数</div></div>
+        <div class="stat-body"><div class="stat-label">语法条目</div><div class="stat-value">${(d.grammarCount||0).toLocaleString()}</div><div class="stat-sub">语法点总数</div></div>
       </div>
       <div class="stat-card">
         <div class="stat-icon c-amber">🎧</div>
@@ -1949,7 +1949,7 @@ let gState = {page:1, limit:20, search:'', level:'', total:0};
 async function renderGrammar(){
   document.getElementById('content').innerHTML = `
   <div class="toolbar">
-    <input type="text" id="gr-search" placeholder="搜索文法标题/例句…" onkeydown="if(event.key==='Enter')grammarSearch()" />
+    <input type="text" id="gr-search" placeholder="搜索语法标题/例句…" onkeydown="if(event.key==='Enter')grammarSearch()" />
     <select id="gr-level" onchange="grammarFilterLevel()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;background:#fff">
       <option value="">全部级别</option>
       <option value="N5" ${gState.level==='N5'?'selected':''}>N5</option>
@@ -2005,7 +2005,7 @@ function updateGrDelBtn(){ document.getElementById('gr-del-btn').style.display=d
 function toggleAllGrammar(cb){ document.querySelectorAll('.gr-cb').forEach(c=>c.checked=cb.checked); updateGrDelBtn(); }
 async function bulkDeleteGrammar(){
   const ids=[...(document.querySelectorAll('.gr-cb:checked'))].map(c=>c.value);
-  if(!ids.length || !confirm(`确认删除 ${ids.length} 条文法？`)) return;
+  if(!ids.length || !confirm(`确认删除 ${ids.length} 条语法？`)) return;
   try{ await api('POST','/admin/grammar/bulk-delete',{ids}); toast('已批量删除'); loadGrammar(); }catch(e){ toast(e.message,true) }
 }
 
@@ -2068,12 +2068,12 @@ async function generateGrammarExampleAudioKokoro(rowId) {
   
   // 只允许为已保存的例句生成音频
   if (!grammarId) {
-    toast('请先保存文法课程', true);
+    toast('请先保存语法课程', true);
     return;
   }
   
   if (!exampleId) {
-    toast('请先保存包含此例句的文法课程', true);
+    toast('请先保存包含此例句的语法课程', true);
     return;
   }
   
@@ -2112,7 +2112,7 @@ function openGrammarModal(g=null){
   
   initializeGrammarExamples(g);
   
-  document.getElementById('mg-title').textContent=g?'编辑文法':'添加文法';
+  document.getElementById('mg-title').textContent=g?'编辑语法':'添加语法';
   openModal('modal-grammar');
 }
 
@@ -2156,13 +2156,13 @@ async function deleteGrammar(id){
 }
 
 async function generateGrammarKokoroAudio(){
-  // ✅ 收集勾选的文法ID
+  // ✅ 收集勾选的语法ID
   const selectedIds = Array.from(document.querySelectorAll('.gr-cb:checked')).map(cb => cb.value);
   const isSelective = selectedIds.length > 0;
   
   const confirmMsg = isSelective 
-    ? `确认为选中的${selectedIds.length}项文法生成Kokoro音频？此操作可能需要几分钟`
-    : '确认为所有文法例句生成Kokoro音频？此操作可能需要几分钟';
+    ? `确认为选中的${selectedIds.length}项语法生成Kokoro音频？此操作可能需要几分钟`
+    : '确认为所有语法例句生成Kokoro音频？此操作可能需要几分钟';
   
   if(!confirm(confirmMsg)) return;
   
@@ -3813,7 +3813,7 @@ function renderKokoroSettingsUI() {
               <span>👨 男深沉 (c)</span>
             </label>
           </div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">选择APP用户播放文法例句的默认人声</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">选择APP用户播放语法例句的默认人声</div>
         </div>
 
         <!-- 情感合成 -->
@@ -4089,7 +4089,7 @@ async function renderReports(){
     <select id="rp-type" onchange="rpFilter()" style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;margin-left:8px">
       <option value="">全部类型</option>
       <option value="vocabulary">词汇</option>
-      <option value="grammar">文法</option>
+      <option value="grammar">语法</option>
     </select>
     <input type="text" id="rp-search" placeholder="搜索用户/标题…" style="margin-left:8px" onkeydown="if(event.key==='Enter')rpFilter()" />
     <button class="btn btn-primary" onclick="rpFilter()" style="margin-left:8px">搜索</button>
@@ -4115,7 +4115,7 @@ async function loadReports(){
     const body = document.getElementById('rp-body'); if(!body) return;
     body.innerHTML = _rpData.map(r=>{
       const statusMap = {pending:'<span class="badge badge-orange">待处理</span>', resolved:'<span class="badge badge-green">已解决</span>', rejected:'<span class="badge badge-red">已驳回</span>'};
-      const typeMap = {vocabulary:'词汇', grammar:'文法'};
+      const typeMap = {vocabulary:'词汇', grammar:'语法'};
       const sid = esc(String(r.id));
       return `<tr>
         <td>${esc(r.username||'')}</td>
@@ -4145,7 +4145,7 @@ function openReportDetail(id){
     const r=d.data;
     if(!r){ overlay.querySelector('.modal').innerHTML='<p>未找到</p>'; return; }
     const statusMap={pending:'待处理',resolved:'已解决',rejected:'已驳回'};
-    const typeMap={vocabulary:'词汇',grammar:'文法'};
+    const typeMap={vocabulary:'词汇',grammar:'语法'};
     overlay.querySelector('.modal').innerHTML=`
       <h2>🐛 反馈详情 #${r.id}</h2>
       <div style="display:grid;grid-template-columns:100px 1fr;gap:8px 12px;font-size:13px;margin:16px 0">

@@ -179,7 +179,7 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
     }
   }
 
-  /// 后台预缓存队列前N个词汇/文法的音频
+  /// 后台预缓存队列前N个词汇/语法的音频
   void _precacheQueueAudio() {
     () async {
       for (final item in _queue.take(20)) {
@@ -965,7 +965,7 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
     return true;
   }
 
-  /// 基于当前文法例句的练习（回忆模式）
+  /// 基于当前语法例句的练习（回忆模式）
   void _showGrammarExercise(GrammarLessonModel grammar, int count) {
     final examples = grammar.examples.where(_isValidExample).take(count).toList();
     if (examples.isEmpty) {
@@ -983,7 +983,7 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
   }
 }
 
-/// 文法例句练习 BottomSheet
+/// 语法例句练习 BottomSheet
 class _GrammarExerciseSheet extends StatefulWidget {
   final GrammarLessonModel grammar;
   final List<GrammarExampleModel> examples;

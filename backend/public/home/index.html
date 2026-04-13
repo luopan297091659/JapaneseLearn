@@ -344,9 +344,9 @@ footer {
       <div class="form-group">
         <label>邮箱</label>
         <div style="display:flex;gap:6px;">
-          <input type="email" id="authEmail" placeholder="your@email.com" required autocomplete="email" style="flex:1;">
-          <select id="emailSuffix" onchange="appendEmailSuffix(this.value)" style="width:auto;min-width:120px;padding:8px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;">
-            <option value="">后缀</option>
+          <input type="text" id="authEmail" placeholder="请输入邮箱前缀" required autocomplete="email" style="flex:1;">
+          <select id="emailSuffix" style="width:auto;min-width:120px;padding:8px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;">
+            <option value="">邮箱选择</option>
             <option>@gmail.com</option>
             <option>@outlook.com</option>
             <option>@qq.com</option>
@@ -378,9 +378,9 @@ footer {
       <div class="form-group">
         <label>邮箱</label>
         <div style="display:flex;gap:6px;">
-          <input type="email" id="resetEmail" placeholder="your@email.com" required style="flex:1;">
-          <select onchange="appendResetSuffix(this.value)" style="width:auto;min-width:120px;padding:8px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;">
-            <option value="">后缀</option>
+          <input type="text" id="resetEmail" placeholder="请输入邮箱前缀" required style="flex:1;">
+          <select id="resetEmailSuffix" style="width:auto;min-width:120px;padding:8px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;">
+            <option value="">邮箱选择</option>
             <option>@qq.com</option><option>@163.com</option><option>@gmail.com</option><option>@outlook.com</option>
             <option>@126.com</option><option>@yahoo.com</option><option>@hotmail.com</option><option>@icloud.com</option>
           </select>
@@ -538,21 +538,19 @@ function switchTab(mode) {
   document.getElementById('authError').classList.remove('show');
 }
 
-function appendEmailSuffix(suffix) {
-  if (!suffix) return;
-  const input = document.getElementById('authEmail');
-  const at = input.value.indexOf('@');
-  const prefix = at >= 0 ? input.value.substring(0, at) : input.value;
-  input.value = prefix + suffix;
-  input.focus();
+function getAuthEmail() {
+  const prefix = document.getElementById('authEmail').value.trim();
+  const suffix = document.getElementById('emailSuffix').value;
+  if (!prefix) return '';
+  if (prefix.includes('@')) return prefix;
+  return suffix ? prefix + suffix : prefix;
 }
-function appendResetSuffix(suffix) {
-  if (!suffix) return;
-  const input = document.getElementById('resetEmail');
-  const at = input.value.indexOf('@');
-  const prefix = at >= 0 ? input.value.substring(0, at) : input.value;
-  input.value = prefix + suffix;
-  input.focus();
+function getResetEmail() {
+  const prefix = document.getElementById('resetEmail').value.trim();
+  const suffix = document.getElementById('resetEmailSuffix').value;
+  if (!prefix) return '';
+  if (prefix.includes('@')) return prefix;
+  return suffix ? prefix + suffix : prefix;
 }
 
 let forgotStep = 0;
@@ -580,7 +578,7 @@ async function handleForgotPassword() {
   btn.disabled = true;
   try {
     if (forgotStep === 0) {
-      const email = document.getElementById('resetEmail').value.trim();
+      const email = getResetEmail();
       if (!email) throw new Error('请输入邮箱');
       btn.textContent = '发送中...';
       const r = await fetch('/api/v1/auth/forgot-password', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
@@ -591,7 +589,7 @@ async function handleForgotPassword() {
       document.getElementById('authSubtitle').textContent = '验证码已发送至邮箱';
       btn.textContent = '重置密码';
     } else {
-      const email = document.getElementById('resetEmail').value.trim();
+      const email = getResetEmail();
       const code = document.getElementById('resetCode').value.trim();
       const newPassword = document.getElementById('resetNewPwd').value;
       if (!code || !newPassword) throw new Error('请填写验证码和新密码');
@@ -613,7 +611,7 @@ async function handleForgotPassword() {
 
 let _loginCodeCountdown = 0;
 async function sendLoginCodeWeb() {
-  const email = document.getElementById('authEmail').value.trim();
+  const email = getAuthEmail();
   if (!email) { showToast('请输入邮箱', 'error'); return; }
   const btn = document.getElementById('sendLoginCodeBtn');
   btn.disabled = true; btn.textContent = '发送中...';
@@ -632,14 +630,13 @@ async function sendLoginCodeWeb() {
 
 async function handleAuth(e) {
   e.preventDefault();
-  document.getElementById('emailSuffix').value = '';
   const btn = document.getElementById('authSubmitBtn');
   const errEl = document.getElementById('authError');
   errEl.classList.remove('show');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-sm"></span>' + (authMode === 'register' ? '注册中...' : '登录中...');
   try {
-    const email = document.getElementById('authEmail').value.trim();
+    const email = getAuthEmail();
     let data;
     if (authMode === 'register') {
       const username = document.getElementById('regUsername').value.trim();

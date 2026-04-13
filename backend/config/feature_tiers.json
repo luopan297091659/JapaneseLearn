@@ -20,7 +20,7 @@
     },
     {
       "id": "listening_daily",
-      "name": "听力学习",
+      "name": "听力训练",
       "icon": "🎧",
       "type": "daily_limit",
       "free_limit": 3,
@@ -55,7 +55,7 @@
     },
     {
       "id": "pronunciation",
-      "name": "发音练习",
+      "name": "发音训练",
       "icon": "🎤",
       "type": "blocked",
       "free_label": "不可用",
@@ -154,7 +154,7 @@
     },
     {
       "id": "grammar_quiz_daily",
-      "name": "文法测验",
+      "name": "语法测验",
       "icon": "📖",
       "type": "daily_limit",
       "free_limit": 10,

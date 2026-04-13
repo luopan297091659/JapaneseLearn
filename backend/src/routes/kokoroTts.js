@@ -120,7 +120,7 @@ router.get('/kokoro/audio/:filename', async (req, res) => {
 });
 
 // ─── 管理员端点：批量生成Kokoro音频 ─────────────────────────────────────
-// 用途：为文法例句、单词例句等批量生成音频
+// 用途：为语法例句、单词例句等批量生成音频
 // 请求体: { texts: ['文本1', '文本2', ...], voice: 'a', emotion: 'neutral', engine: 'edge-tts', speed: 1.0 }
 // 响应: { results: [{text, audio_url, success, error}, ...], failed: 0, success: 0, total: 0 }
 router.post('/batch-generate', authenticate, async (req, res) => {

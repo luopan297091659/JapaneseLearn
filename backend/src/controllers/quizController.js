@@ -5,7 +5,7 @@ async function generateQuiz(req, res) {
   const { level = 'N5', quiz_type = 'vocabulary', count = 10 } = req.query;
   const safeCount = Math.min(parseInt(count) || 10, 50);
   try {
-    // 文法测验走独立逻辑
+    // 语法测验走独立逻辑
     if (quiz_type === 'grammar') {
       const questions = await buildGrammarQuiz(level, safeCount);
       return res.json({ quiz_type, level, questions });
@@ -99,7 +99,7 @@ async function buildDynamicQuiz(level, quizType, count) {
 }
 
 /**
- * 从 grammar_examples 动态生成文法选词填空题
+ * 从 grammar_examples 动态生成语法选词填空题
  * 题目：给出日语例句，将语法关键词替换为 ______，让用户选出正确的语法词
  * 正确答案：从句子中挖出的语法关键词
  * 干扰项：同级别其他语法课的关键词

@@ -6,7 +6,7 @@
 
 ### 问题1：批量生成不支持"已勾选项"
 **现状**:
-- 前端有词汇/文法列表，每行都有checkbox用于选择
+- 前端有词汇/语法列表，每行都有checkbox用于选择
 - "一键生成Kokoro音频"按钮直接调用后端接口，不传递勾选项
 - 后端`generateVocabExamplesKokoroAudio()`和`generateGrammarExamplesKokoroAudio()`总是处理**所有**未生成音频的项目
 
@@ -60,7 +60,7 @@ Kana {
 
 ## 实施计划
 
-### Phase 1: 优化词汇和文法批量生成（支持勾选）
+### Phase 1: 优化词汇和语法批量生成（支持勾选）
 **时间**: 30分钟
 
 #### Step 1.1: 后端接口改造

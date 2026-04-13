@@ -171,7 +171,7 @@ router.post('/recording', authenticate, checkMembership('pronunciation'), upload
   res.json({ success: true, recording: record });
 }));
 
-// ── POST /listening-recording  上传听力学习录音（免费可用）──
+// ── POST /listening-recording  上传听力训练录音（免费可用）──
 router.post('/listening-recording', authenticate, upload.single('audio'), asyncHandler(async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: '未收到音频文件' });

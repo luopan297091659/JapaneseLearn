@@ -499,7 +499,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
       appBar: AppBar(
-        title: const Text('🎧 听力学习', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: const Text('🎧 听力训练', style: TextStyle(fontWeight: FontWeight.w800)),
         backgroundColor: cs.primary,
         foregroundColor: Colors.white,
         leading: IconButton(

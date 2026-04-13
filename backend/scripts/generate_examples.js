@@ -33,7 +33,7 @@ const VOCAB_TEMPLATES = {
     { ja: '{word}歩きます。', zh: '{meaning}走。' },
   ],
   particle: [
-    { ja: '「{word}」は文法で大切です。', zh: '「{word}」在语法中很重要。' },
+    { ja: '「{word}」は语法で大切です。', zh: '「{word}」在语法中很重要。' },
   ],
   conjunction: [
     { ja: '雨です。{word}、出かけません。', zh: '下雨了。{meaning}，不出门。' },

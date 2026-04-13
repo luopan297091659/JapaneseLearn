@@ -1,8 +1,8 @@
-# 词汇与文法管理优化 - 技术实现总结
+# 词汇与语法管理优化 - 技术实现总结
 
 ## 概览
 
-本次优化完整实现了管理员端词汇和文法管理的增强功能，包含从数据库模型到前端UI的全栈优化。
+本次优化完整实现了管理员端词汇和语法管理的增强功能，包含从数据库模型到前端UI的全栈优化。
 
 ---
 
@@ -187,7 +187,7 @@ router.post('/audio/upload',
 </div>
 ```
 
-### 3.2 文法编辑模态框结构
+### 3.2 语法编辑模态框结构
 
 **HTML标记:**
 ```html
@@ -234,16 +234,16 @@ async function saveVocab()
   // 收集所有字段数据，发送POST/PUT请求
 ```
 
-**文法相关:**
+**语法相关:**
 ```javascript
 function initializeGrammarExamples(g = null)
-  // 从文法对象初始化例句行
+  // 从语法对象初始化例句行
 
 function addGrammarExampleRow(sentence = '', meaning_zh = '', audioUrl = '')
-  // 添加新的文法例句行
+  // 添加新的语法例句行
 
 async function uploadGrammarExampleAudio(rowId)
-  // 为文法例句上传音频
+  // 为语法例句上传音频
 
 async function saveGrammar()
   // 收集所有字段，发送PUT请求

@@ -7,7 +7,7 @@
  * 4. 返回可用的本地路径
  * 
  * 路径规划（按功能模块分离）：
- * - 文法例句: /uploads/grammar/audio/  (现有)
+ * - 语法例句: /uploads/grammar/audio/  (现有)
  * - 单词和例句: /uploads/audio/vocab/   (新)
  * - 五十音音频: /uploads/audio/kana/    (新)
  */

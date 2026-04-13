@@ -11,7 +11,7 @@
 ```
 uploads/
 ├── grammar/
-│   └── audio/              ← 文法例句音频
+│   └── audio/              ← 语法例句音频
 │       ├── kokoro_abc123.wav
 │       ├── kokoro_def456.wav
 │       └── ...
@@ -32,7 +32,7 @@ uploads/
 
 | 功能模块 | 磁盘目录 | 数据库URL | 对应表 |
 |---------|--------|---------|-------|
-| **文法例句** | `/uploads/grammar/audio/` | `/uploads/grammar/audio/kokoro_xxx.wav` | grammar_examples |
+| **语法例句** | `/uploads/grammar/audio/` | `/uploads/grammar/audio/kokoro_xxx.wav` | grammar_examples |
 | **单词和例句** | `/uploads/audio/vocab/` | `/uploads/audio/vocab/kokoro_xxx.wav` | vocabulary, vocabulary_examples |
 | **五十音** | `/uploads/audio/kana/` | `/uploads/audio/kana/kokoro_xxx.wav` | kana_audio |
 
@@ -103,7 +103,7 @@ const localizationResults = await audioLocalizationService.batchDownloadAndLocal
 );
 ```
 
-**文法生成修改**:
+**语法生成修改**:
 ```javascript
 // 使用 'grammar' 类型
 const localizationResults = await audioLocalizationService.batchDownloadAndLocalize(
@@ -128,7 +128,7 @@ const localizationResults = await audioLocalizationService.batchDownloadAndLocal
 
 ### 查询每个模块的音频数量
 ```sql
--- 文法音频
+-- 语法音频
 SELECT COUNT(*) FROM grammar_examples 
 WHERE audio_url LIKE '/uploads/grammar/audio/%';
 
@@ -264,7 +264,7 @@ curl -X POST http://localhost:8002/api/v1/admin/generate-vocab-examples-kokoro \
 }
 ```
 
-### 一键生成文法音频
+### 一键生成语法音频
 ```bash
 curl -X POST http://localhost:8002/api/v1/admin/generate-grammar-examples-kokoro \
   -H "Authorization: Bearer ADMIN_TOKEN" \

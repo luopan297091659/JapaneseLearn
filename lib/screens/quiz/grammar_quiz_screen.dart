@@ -50,7 +50,7 @@ class _GrammarQuizScreenState extends State<GrammarQuizScreen> {
         count: _count,
       );
       if (qs.isEmpty) {
-        setState(() { _loading = false; _error = '当前级别暂无足够的文法题目，请换一个级别试试'; });
+        setState(() { _loading = false; _error = '当前级别暂无足够的语法题目，请换一个级别试试'; });
         return;
       }
       setState(() {
@@ -162,7 +162,7 @@ class _GrammarQuizScreenState extends State<GrammarQuizScreen> {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('文法测验'),
+        title: const Text('语法测验'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
           onPressed: () => context.pop(),
@@ -189,7 +189,7 @@ class _GrammarQuizScreenState extends State<GrammarQuizScreen> {
                     child: Column(children: [
                       const Text('📖', style: TextStyle(fontSize: 48)),
                       const SizedBox(height: 8),
-                      Text('文法选词填空', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: cs.onPrimaryContainer)),
+                      Text('语法选词填空', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: cs.onPrimaryContainer)),
                       const SizedBox(height: 4),
                       Text('阅读日语例句，判断使用了哪个语法点', style: TextStyle(fontSize: 13, color: cs.onPrimaryContainer.withValues(alpha: 0.7))),
                     ]),
@@ -268,7 +268,7 @@ class _GrammarQuizScreenState extends State<GrammarQuizScreen> {
   Widget _buildQuizScreen(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     if (_questions.isEmpty) {
-      return Scaffold(appBar: AppBar(title: const Text('文法测验')), body: const Center(child: Text('暂无题目')));
+      return Scaffold(appBar: AppBar(title: const Text('语法测验')), body: const Center(child: Text('暂无题目')));
     }
 
     final q = _questions[_current];
@@ -437,7 +437,7 @@ class _GrammarQuizScreenState extends State<GrammarQuizScreen> {
     String emoji = score >= 90 ? '🎉' : score >= 70 ? '😊' : score >= 50 ? '💪' : '📚';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('文法测验结果'), automaticallyImplyLeading: false),
+      appBar: AppBar(title: const Text('语法测验结果'), automaticallyImplyLeading: false),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -539,7 +539,7 @@ class _GrammarQuizScreenState extends State<GrammarQuizScreen> {
                   ]),
                 ],
 
-                // 文法解释
+                // 语法解释
                 if (q.explanation != null && q.explanation!.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Container(

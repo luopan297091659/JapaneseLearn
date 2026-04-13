@@ -142,7 +142,7 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
           tooltip: '返回',
           onPressed: () => context.canPop() ? context.pop() : context.go('/grammar'),
         ),
-        title: Text(_lesson?.pattern ?? '文法'),
+        title: Text(_lesson?.pattern ?? '语法'),
         actions: [
           if (_lesson != null)
             IconButton(

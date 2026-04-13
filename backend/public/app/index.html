@@ -80,6 +80,33 @@ ul { list-style: none; }
   transition: background .15s;
 }
 #topbar .user-btn:hover { background: var(--primary); color: #fff; }
+#topbar .settings-wrap { position: relative; }
+#topbar .settings-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+  background: var(--primary-light); color: var(--primary); font-size: 18px;
+  transition: all .15s; border: none;
+}
+#topbar .settings-btn:hover { background: var(--primary); color: #fff; }
+.settings-dropdown {
+  display: none; position: absolute; top: calc(100% + 8px); right: 0;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-md); padding: 16px; min-width: 260px; z-index: 200;
+}
+.settings-dropdown.show { display: block; }
+.settings-dropdown .sd-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+.settings-dropdown .sd-section { font-size: 11px; color: var(--text-hint); margin: 12px 0 6px; text-transform: uppercase; letter-spacing: .5px; }
+.settings-dropdown .sd-section:first-child { margin-top: 0; }
+.theme-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.theme-item {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer;
+}
+.theme-item .theme-dot {
+  width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid var(--border);
+  transition: all .15s; position: relative;
+}
+.theme-item .theme-dot.active { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(200, 74, 95, 0.25); }
+.theme-item .theme-label { font-size: 10px; color: var(--text-sub); white-space: nowrap; }
 
 /* 内容区 */
 #main { display: flex; margin-top: var(--nav-h); flex: 1; }
@@ -538,14 +565,23 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
     </div>
     <p class="subtitle">每天进步一点点</p>
     <div class="auth-tabs">
-      <div class="auth-tab active" id="tab-login">登录</div>
+      <div class="auth-tab active" id="tab-login">密码登录</div>
+      <div class="auth-tab" id="tab-code-login">验证码登录</div>
       <div class="auth-tab" id="tab-register">注册</div>
     </div>
-    <!-- 登录表单 -->
+    <!-- 密码登录表单 -->
     <div id="login-form">
       <div class="input-group">
         <label>邮箱</label>
-        <input class="input" id="login-email" type="email" placeholder="your@email.com" autocomplete="email">
+        <div style="display:flex;gap:6px">
+          <input class="input" id="login-email" type="text" placeholder="请输入邮箱前缀" autocomplete="email" style="flex:1">
+          <select class="input" id="login-email-suffix" style="width:auto;min-width:120px;cursor:pointer">
+            <option value="">邮箱选择</option>
+            <option>@gmail.com</option><option>@outlook.com</option><option>@qq.com</option>
+            <option>@163.com</option><option>@126.com</option><option>@yahoo.com</option>
+            <option>@hotmail.com</option><option>@icloud.com</option>
+          </select>
+        </div>
       </div>
       <div class="input-group">
         <label>密码</label>
@@ -553,6 +589,30 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
       </div>
       <div id="login-err" style="color:var(--danger);font-size:13px;margin-bottom:10px;display:none"></div>
       <button class="btn btn-primary" style="width:100%;justify-content:center" id="btn-login">登录</button>
+    </div>
+    <!-- 验证码登录表单 -->
+    <div id="code-login-form" style="display:none">
+      <div class="input-group">
+        <label>邮箱</label>
+        <div style="display:flex;gap:6px">
+          <input class="input" id="code-login-email" type="text" placeholder="请输入邮箱前缀" autocomplete="email" style="flex:1">
+          <select class="input" id="code-login-email-suffix" style="width:auto;min-width:120px;cursor:pointer">
+            <option value="">邮箱选择</option>
+            <option>@gmail.com</option><option>@outlook.com</option><option>@qq.com</option>
+            <option>@163.com</option><option>@126.com</option><option>@yahoo.com</option>
+            <option>@hotmail.com</option><option>@icloud.com</option>
+          </select>
+        </div>
+      </div>
+      <div class="input-group">
+        <label>验证码</label>
+        <div style="display:flex;gap:8px">
+          <input class="input" id="code-login-code" type="text" placeholder="6 位验证码" maxlength="6" style="flex:1">
+          <button class="btn btn-outline btn-sm" id="btn-send-code" style="white-space:nowrap;padding:9px 16px" onclick="sendLoginCode()">发送验证码</button>
+        </div>
+      </div>
+      <div id="code-login-err" style="color:var(--danger);font-size:13px;margin-bottom:10px;display:none"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" id="btn-code-login">登录</button>
     </div>
     <!-- 注册表单 -->
     <div id="register-form" style="display:none">
@@ -562,7 +622,15 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
       </div>
       <div class="input-group">
         <label>邮箱</label>
-        <input class="input" id="reg-email" type="email" placeholder="your@email.com">
+        <div style="display:flex;gap:6px">
+          <input class="input" id="reg-email" type="text" placeholder="请输入邮箱前缀" style="flex:1">
+          <select class="input" id="reg-email-suffix" style="width:auto;min-width:120px;cursor:pointer">
+            <option value="">邮箱选择</option>
+            <option>@gmail.com</option><option>@outlook.com</option><option>@qq.com</option>
+            <option>@163.com</option><option>@126.com</option><option>@yahoo.com</option>
+            <option>@hotmail.com</option><option>@icloud.com</option>
+          </select>
+        </div>
       </div>
       <div class="input-group">
         <label>密码</label>
@@ -605,7 +673,16 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
     <span id="topbar-member-badge" class="member-badge free" onclick="navigate('membership')" style="display:none">免费版</span>
     <div class="user-btn" onclick="navigate('profile')">
       <span id="topbar-username">...</span>
-      <span>⚙</span>
+    </div>
+    <div class="settings-wrap">
+      <button class="settings-btn" onclick="toggleSettingsDropdown(event)" title="设置">⚙</button>
+      <div class="settings-dropdown" id="settingsDropdown">
+        <div class="sd-title">主题设置</div>
+        <div class="sd-section">浅色</div>
+        <div class="theme-grid" id="lightThemes"></div>
+        <div class="sd-section">素色</div>
+        <div class="theme-grid" id="darkThemes"></div>
+      </div>
     </div>
   </div>
 
@@ -619,9 +696,9 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
       <div class="nav-section">学习</div>
       <div class="nav-item" data-page="gojuon" onclick="navigate('gojuon')"><span class="icon">🔤</span>五十音</div>
       <div class="nav-item" data-page="vocabulary" onclick="navigate('vocabulary')"><span class="icon">📖</span>单词</div>
-      <div class="nav-item" data-page="grammar" onclick="navigate('grammar')"><span class="icon">📝</span>文法</div>
+      <div class="nav-item" data-page="grammar" onclick="navigate('grammar')"><span class="icon">📝</span>语法</div>
       <div class="nav-item" data-page="listening-study" onclick="navigate('listening-study')"><span class="icon">🎧</span>听力练习</div>
-      <div class="nav-item" data-page="pronunciation" onclick="navigate('pronunciation')"><span class="icon">🎤</span>发音练习<span class="nav-lock" title="会员功能">🔒</span></div>
+      <div class="nav-item" data-page="pronunciation" onclick="navigate('pronunciation')"><span class="icon">🎤</span>发音训练<span class="nav-lock" title="会员功能">🔒</span></div>
       <div class="nav-item" data-page="flashcard" onclick="navigate('flashcard')"><span class="icon">🃏</span>闪卡练习</div>
       <div class="nav-item" data-page="srs" onclick="navigate('srs')"><span class="icon">🗂️</span>SRS 复习</div>
       <div class="nav-section">工具</div>
@@ -634,7 +711,7 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
       <div class="nav-item" data-page="kana-test" onclick="navigate('kana-test')"><span class="icon">✍️</span>五十音书写</div>
       <div class="nav-item" data-page="game" onclick="navigate('game')"><span class="icon">🎮</span>闯关游戏</div>
       <div class="nav-item" data-page="quiz" onclick="navigate('quiz')"><span class="icon">✏️</span>单词测验</div>
-      <div class="nav-item" data-page="grammar-quiz" onclick="navigate('grammar-quiz')"><span class="icon">📖</span>文法测验</div>
+      <div class="nav-item" data-page="grammar-quiz" onclick="navigate('grammar-quiz')"><span class="icon">📖</span>语法测验</div>
       <div class="nav-item" data-page="listening-exercise" onclick="navigate('listening-exercise')"><span class="icon">👂</span>听力测验</div>
       <div class="nav-item" data-page="todofuken" onclick="navigate('todofuken')"><span class="icon">🗾</span>都道府県</div>
       <div class="nav-item" data-page="wrong-answers" onclick="navigate('wrong-answers')"><span class="icon">📝</span>错题集<span class="nav-lock" title="会员功能">🔒</span></div>
@@ -769,7 +846,7 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
               <div style="font-size:24px">📖</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">背单词</div>
             </div>
             <div class="quick-action" onclick="navigate('grammar')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
-              <div style="font-size:24px">📝</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">学文法</div>
+              <div style="font-size:24px">📝</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">学语法</div>
             </div>
             <div class="quick-action" onclick="navigate('srs')" style="background:var(--bg2);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform .15s">
               <div style="font-size:24px">🗂️</div><div style="font-size:12px;margin-top:4px;color:var(--text-sub)">SRS复习</div>
@@ -820,10 +897,10 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
         <div id="vocab-pager" class="grammar-pager"></div>
       </div>
 
-      <!-- 文法页 -->
+      <!-- 语法页 -->
       <div class="page" id="page-grammar">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-          <h2 style="margin:0;font-size:22px">📝 文法課程</h2>
+          <h2 style="margin:0;font-size:22px">📝 语法課程</h2>
           <button class="btn btn-outline btn-sm" id="grammar-admin-btn" style="display:none" onclick="openGrammarAdminModal()">📥 导入</button>
         </div>
         <div class="chips" id="grammar-level-chips">
@@ -904,13 +981,13 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
         </div>
       </div>
 
-      <!-- 文法测验页 -->
+      <!-- 语法测验页 -->
       <div class="page" id="page-grammar-quiz">
-        <h2 style="margin-bottom:20px;font-size:22px">📖 文法测验</h2>
+        <h2 style="margin-bottom:20px;font-size:22px">📖 语法测验</h2>
         <div id="gq-container">
           <!-- 设置阶段 -->
           <div class="card" id="gq-setup">
-            <div class="card-title">文法选词填空</div>
+            <div class="card-title">语法选词填空</div>
             <p style="color:var(--text-sub);margin-bottom:16px;font-size:13px">阅读日语例句，判断使用了哪个语法点</p>
             <div class="input-group">
               <label>级别</label>
@@ -946,7 +1023,7 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
           <!-- 结果阶段（带题目详解） -->
           <div id="gq-result" style="display:none">
             <div class="card" style="text-align:center">
-              <div class="card-title" style="justify-content:center">📖 文法测验完成！</div>
+              <div class="card-title" style="justify-content:center">📖 语法测验完成！</div>
               <div class="result-ring" id="gq-ring" style="--pct:0turn">
                 <div class="inner" id="gq-pct">0%</div>
               </div>
@@ -1147,7 +1224,7 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
         </div>
       </div>
 
-      <!-- 发音练习页 -->
+      <!-- 发音训练页 -->
       <div class="page" id="page-pronunciation">
         <h2 style="margin-bottom:20px;font-size:22px">🎤 AI 発音練習</h2>
         <p style="color:var(--text-sub);margin-bottom:16px">选择词汇级别，听原生发音后录音，AI 对比评分</p>
@@ -1471,7 +1548,7 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
         <div class="chips" id="wa-type-chips" style="margin-bottom:16px">
           <div class="chip active" onclick="waFilterType('all')">全部</div>
           <div class="chip" onclick="waFilterType('quiz')">单词测验</div>
-          <div class="chip" onclick="waFilterType('grammar_quiz')">文法测验</div>
+          <div class="chip" onclick="waFilterType('grammar_quiz')">语法测验</div>
           <div class="chip" onclick="waFilterType('listening')">听力测验</div>
           <div class="chip" onclick="waFilterType('game')">闯关游戏</div>
         </div>
@@ -1517,8 +1594,8 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
         <div class="card" style="margin-top:16px">
           <div class="card-title">💡 会员权益说明</div>
           <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--text-sub);line-height:2">
-            <li>解锁全部 JLPT 级别（N5~N1）词汇与文法</li>
-            <li>AI 发音练习 & 翻译功能</li>
+            <li>解锁全部 JLPT 级别（N5~N1）词汇与语法</li>
+            <li>发音训练 & 翻译功能</li>
             <li>不限次数 SRS 复习、词典查询、听力练习</li>
             <li>闯关游戏全部关卡</li>
             <li>Anki 导入 & 扩展测验</li>
@@ -1810,13 +1887,23 @@ function showApp() {
 
 function switchAuthTab(tab) {
   document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-code-login').classList.toggle('active', tab === 'code-login');
   document.getElementById('tab-register').classList.toggle('active', tab === 'register');
   document.getElementById('login-form').style.display = tab === 'login' ? '' : 'none';
+  document.getElementById('code-login-form').style.display = tab === 'code-login' ? '' : 'none';
   document.getElementById('register-form').style.display = tab === 'register' ? '' : 'none';
 }
 
+function getAppEmail(inputId, suffixId) {
+  const prefix = document.getElementById(inputId).value.trim();
+  const suffix = document.getElementById(suffixId).value;
+  if (!prefix) return '';
+  if (prefix.includes('@')) return prefix;
+  return suffix ? prefix + suffix : prefix;
+}
+
 async function doLogin() {
-  const email = document.getElementById('login-email').value.trim();
+  const email = getAppEmail('login-email', 'login-email-suffix');
   const pwd   = document.getElementById('login-pwd').value;
   const errEl = document.getElementById('login-err');
   errEl.style.display = 'none';
@@ -1835,7 +1922,7 @@ async function doLogin() {
 
 async function doRegister() {
   const name  = document.getElementById('reg-name').value.trim();
-  const email = document.getElementById('reg-email').value.trim();
+  const email = getAppEmail('reg-email', 'reg-email-suffix');
   const pwd   = document.getElementById('reg-pwd').value;
   const level = document.getElementById('reg-level').value;
   const errEl = document.getElementById('reg-err');
@@ -1862,13 +1949,120 @@ async function doLogout() {
   toast('已退出登录');
 }
 
+// ── 验证码登录 ──
+let _codeCountdown = 0;
+async function sendLoginCode() {
+  const email = getAppEmail('code-login-email', 'code-login-email-suffix');
+  const errEl = document.getElementById('code-login-err');
+  errEl.style.display = 'none';
+  if (!email) { errEl.textContent = '请输入邮箱'; errEl.style.display = ''; return; }
+  const btn = document.getElementById('btn-send-code');
+  btn.disabled = true; btn.textContent = '发送中...';
+  try {
+    await POST('/auth/send-login-code', { email });
+    toast('验证码已发送');
+    _codeCountdown = 60;
+    const iv = setInterval(() => {
+      _codeCountdown--;
+      btn.textContent = _codeCountdown + 's';
+      if (_codeCountdown <= 0) { clearInterval(iv); btn.disabled = false; btn.textContent = '重新发送'; }
+    }, 1000);
+  } catch(e) {
+    errEl.textContent = e.message || '发送失败';
+    errEl.style.display = '';
+    btn.disabled = false; btn.textContent = '发送验证码';
+  }
+}
+
+async function doCodeLogin() {
+  const email = getAppEmail('code-login-email', 'code-login-email-suffix');
+  const code  = document.getElementById('code-login-code').value.trim();
+  const errEl = document.getElementById('code-login-err');
+  errEl.style.display = 'none';
+  if (!email || !code) { errEl.textContent = '请填写邮箱和验证码'; errEl.style.display = ''; return; }
+  try {
+    const res = await POST('/auth/login-with-code', { email, code, platform: 'web' });
+    setToken(res.accessToken, res.refreshToken);
+    showApp();
+    loadHome();
+    if (res.user) document.getElementById('topbar-username').textContent = res.user.username || email;
+  } catch(e) {
+    errEl.textContent = e.message || '登录失败';
+    errEl.style.display = '';
+  }
+}
+
+// ── 主题背景色 ──
+// ── 主题系统 ──
+const THEMES = [
+  { id:'default',   name:'默认', group:'light', surface:'#ffffff', surface2:'#f8f9fc', border:'#e5e7ef', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#f1f5f9', shadow:'0 2px 16px rgba(67,97,238,.08)', shadowMd:'0 4px 24px rgba(67,97,238,.13)' },
+  { id:'green',     name:'浅绿', group:'light', surface:'#f6faf6', surface2:'#edf7ee', border:'#d4e5d5', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#e8f5e9', shadow:'0 2px 16px rgba(76,175,80,.06)', shadowMd:'0 4px 24px rgba(76,175,80,.1)' },
+  { id:'blue',      name:'浅蓝', group:'light', surface:'#f5f9fe', surface2:'#edf4fc', border:'#d0dff0', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#e3f2fd', shadow:'0 2px 16px rgba(33,150,243,.06)', shadowMd:'0 4px 24px rgba(33,150,243,.1)' },
+  { id:'pink',      name:'浅粉', group:'light', surface:'#fef6f9', surface2:'#fcedf3', border:'#f0d4e0', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#fce4ec', shadow:'0 2px 16px rgba(233,30,99,.06)', shadowMd:'0 4px 24px rgba(233,30,99,.1)' },
+  { id:'orange',    name:'浅橙', group:'light', surface:'#fefaf4', surface2:'#fdf5e6', border:'#f0e0c8', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#fff3e0', shadow:'0 2px 16px rgba(255,152,0,.06)', shadowMd:'0 4px 24px rgba(255,152,0,.1)' },
+  { id:'purple',    name:'浅紫', group:'light', surface:'#f9f6fe', surface2:'#f3edfc', border:'#ddd0f0', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#ede7f6', shadow:'0 2px 16px rgba(156,39,176,.06)', shadowMd:'0 4px 24px rgba(156,39,176,.1)' },
+  { id:'gray',      name:'银灰', group:'dark', surface:'#f0f0f3', surface2:'#e8e8ec', border:'#d0d0d8', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#e2e2e8', shadow:'0 2px 16px rgba(0,0,0,.06)', shadowMd:'0 4px 24px rgba(0,0,0,.1)' },
+  { id:'steel',     name:'钢蓝', group:'dark', surface:'#e8ecf2', surface2:'#dce3ed', border:'#c0cede', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#d4dceb', shadow:'0 2px 16px rgba(70,90,130,.06)', shadowMd:'0 4px 24px rgba(70,90,130,.1)' },
+  { id:'sage',      name:'灰绿', group:'dark', surface:'#e8ede9', surface2:'#dce5dd', border:'#c0d0c2', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#d4e0d6', shadow:'0 2px 16px rgba(80,120,85,.06)', shadowMd:'0 4px 24px rgba(80,120,85,.1)' },
+  { id:'warm',      name:'暖米', group:'dark', surface:'#f2ebe4', surface2:'#ebe3da', border:'#d8cec2', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#e5dbd0', shadow:'0 2px 16px rgba(120,90,60,.06)', shadowMd:'0 4px 24px rgba(120,90,60,.1)' },
+];
+function applyTheme(themeId) {
+  const t = THEMES.find(x => x.id === themeId) || THEMES[0];
+  const r = document.documentElement.style;
+  r.setProperty('--surface', t.surface);
+  r.setProperty('--surface2', t.surface2);
+  r.setProperty('--border', t.border);
+  r.setProperty('--text', t.text);
+  r.setProperty('--text-sub', t.textSub);
+  r.setProperty('--text-hint', t.textHint);
+  r.setProperty('--bg2', t.bg2);
+  r.setProperty('--shadow', t.shadow);
+  r.setProperty('--shadow-md', t.shadowMd);
+  try { localStorage.setItem('kotabi_theme', themeId); } catch(e) {}
+  renderThemeDots(themeId);
+}
+function renderThemeDots(activeId) {
+  const lightC = document.getElementById('lightThemes');
+  const darkC = document.getElementById('darkThemes');
+  if (!lightC || !darkC) return;
+  lightC.innerHTML = ''; darkC.innerHTML = '';
+  THEMES.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'theme-item';
+    const isDark = t.group === 'dark';
+    el.innerHTML = '<div class="theme-dot ' + (t.id === activeId ? 'active' : '') + '" style="background:' + t.surface2 + '"></div><span class="theme-label">' + t.name + '</span>';
+    el.onclick = () => applyTheme(t.id);
+    (isDark ? darkC : lightC).appendChild(el);
+  });
+}
+function toggleSettingsDropdown(e) {
+  e.stopPropagation();
+  const dd = document.getElementById('settingsDropdown');
+  dd.classList.toggle('show');
+}
+document.addEventListener('click', function(e) {
+  const dd = document.getElementById('settingsDropdown');
+  if (dd && !dd.contains(e.target) && !e.target.closest('.settings-btn')) dd.classList.remove('show');
+});
+(function initTheme() {
+  try {
+    const saved = localStorage.getItem('kotabi_theme');
+    if (saved && THEMES.find(x => x.id === saved)) applyTheme(saved);
+    else renderThemeDots('default');
+  } catch(e) { renderThemeDots('default'); }
+})();
+
 // 登录按钮 & Enter 键登录
 document.getElementById('btn-login').addEventListener('click', () => doLogin());
 document.getElementById('login-pwd').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+// 验证码登录按钮 & Enter 键
+document.getElementById('btn-code-login').addEventListener('click', () => doCodeLogin());
+document.getElementById('code-login-code').addEventListener('keydown', e => { if (e.key === 'Enter') doCodeLogin(); });
 // 注册按钮
 document.getElementById('btn-register').addEventListener('click', () => doRegister());
 // 登录/注册 Tab 切换
 document.getElementById('tab-login').addEventListener('click', () => switchAuthTab('login'));
+document.getElementById('tab-code-login').addEventListener('click', () => switchAuthTab('code-login'));
 document.getElementById('tab-register').addEventListener('click', () => switchAuthTab('register'));
 
 // ══════════════════════════════════════════════════════════════════
@@ -1881,7 +2075,7 @@ const FREQUENT_KEY = 'kotabi_frequent_funcs';
 const FREQUENT_MAX = 6;
 const PAGE_META = {
   vocabulary:    { icon: '📖', name: '单词学习' },
-  grammar:       { icon: '📝', name: '文法课程' },
+  grammar:       { icon: '📝', name: '语法课程' },
   srs:           { icon: '🗂️', name: 'SRS 复习' },
   quiz:          { icon: '✏️', name: '随堂测验' },
   game:          { icon: '🎮', name: '闯关游戏' },
@@ -1890,7 +2084,7 @@ const PAGE_META = {
   'listening-study': { icon: '🎧', name: '听力练习' },
   news:          { icon: '📰', name: '日语新闻' },
   profile:       { icon: '👤', name: '我的' },
-  pronunciation: { icon: '🎤', name: '发音练习' },
+  pronunciation: { icon: '🎤', name: '发音训练' },
   flashcard:     { icon: '🃏', name: '闪卡练习' },
   gojuon:        { icon: '🔤', name: '五十音' },
   todofuken:     { icon: '🗾', name: '都道府県' },
@@ -2157,7 +2351,7 @@ async function loadHome() {
 
     // 测验细分显示
     const qb = td.quiz_breakdown || {};
-    const qbLabels = {vocabulary:'单词测验', grammar:'文法测验', listening:'听力测验', mixed:'综合测验'};
+    const qbLabels = {vocabulary:'单词测验', grammar:'语法测验', listening:'听力测验', mixed:'综合测验'};
     const qbEntries = Object.keys(qb).filter(k => qb[k] > 0);
     if (qbEntries.length > 0) {
       document.getElementById('quiz-breakdown-section').style.display = '';
@@ -2516,7 +2710,7 @@ async function loadGrammar() {
     grammarLoaded = true;
     const el = document.getElementById('grammar-list');
     if (lessons.length === 0) {
-      el.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>暂无文法内容</p></div>';
+      el.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>暂无语法内容</p></div>';
     } else {
       const startIdx = (grammarPage - 1) * grammarLimit;
       el.innerHTML = lessons.map((g, i) => `
@@ -2532,7 +2726,7 @@ async function loadGrammar() {
       `).join('');
     }
     renderGrammarPager();
-  } catch(e) { toast('文法加载失败: ' + e.message); }
+  } catch(e) { toast('语法加载失败: ' + e.message); }
   document.getElementById('grammar-loading').style.display = 'none';
 }
 
@@ -2569,7 +2763,7 @@ function grammarGoPage(p) {
 async function showGrammarDetail(id) {
   _stopAllAudio();
   const gIdx = grammarLessons.findIndex(g => String(g.id) === String(id));
-  openModal('文法詳細', '<div class="loading"><div class="spinner"></div></div>');
+  openModal('语法詳細', '<div class="loading"><div class="spinner"></div></div>');
   try {
     const g = await GET(`/grammar/${id}`);
     const exHtml = (g.examples || []).map((ex, idx) => `
@@ -2642,7 +2836,7 @@ function renderSrsCard() {
   const card = srsCards[srsCurrent];
   const content = card.content || {};
   const isGrammar = card.card_type !== 'vocabulary';
-  const word = isGrammar ? (content.pattern || content.title || '（文法）') : (content.word || '（已删除）');
+  const word = isGrammar ? (content.pattern || content.title || '（语法）') : (content.word || '（已删除）');
   const reading = isGrammar ? '' : (content.reading || '');
   const meaning = isGrammar ? (content.explanation_zh || content.explanation || '') : (content.meaning_zh || '');
   const example = isGrammar ? '' : (content.example_sentence || '');
@@ -2848,7 +3042,7 @@ async function showQuizResult() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  GRAMMAR QUIZ (文法测验)
+//  GRAMMAR QUIZ (语法测验)
 // ══════════════════════════════════════════════════════════════════
 let gqQuestions = [], gqCurrent = 0, gqCorrect = 0, gqAnswered = false;
 
@@ -2862,7 +3056,7 @@ async function startGrammarQuiz() {
     const res = await GET(`/quiz/generate?level=${level}&quiz_type=grammar&count=${count}`);
     gqQuestions = (res.questions || res || []).filter(q => q && (q.question || q.sentence));
     gqCurrent = 0; gqCorrect = 0;
-    if (gqQuestions.length === 0) throw new Error('当前级别暂无足够的文法题目');
+    if (gqQuestions.length === 0) throw new Error('当前级别暂无足够的语法题目');
     renderGrammarQ();
   } catch(e) {
     toast('加载题目失败: ' + e.message);
@@ -3023,7 +3217,7 @@ function waSyncWithServer() {
 function waFilterType(type) {
   waCurrentFilter = type;
   document.querySelectorAll('#page-wrong-answers .chip').forEach(c => {
-    var map = {'全部':'all','单词测验':'quiz','文法测验':'grammar_quiz','听力测验':'listening','闯关游戏':'game'};
+    var map = {'全部':'all','单词测验':'quiz','语法测验':'grammar_quiz','听力测验':'listening','闯关游戏':'game'};
     c.classList.toggle('active', map[c.textContent.trim()] === type);
   });
   waRenderList(type);
@@ -3065,7 +3259,7 @@ function waRenderList(type) {
     el.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>暂无错题记录</p></div>';
     return;
   }
-  var sourceLabels = {quiz:'单词测验', grammar_quiz:'文法测验', listening:'听力测验', game:'闯关游戏'};
+  var sourceLabels = {quiz:'单词测验', grammar_quiz:'语法测验', listening:'听力测验', game:'闯关游戏'};
   el.innerHTML = all.map(function(w, i) {
     var srcLabel = sourceLabels[w.source] || w.source;
     var extra = w.gameType ? (w.gameType === 'verbs' ? ' · 动词方块' : ' · 助词方块') : '';
@@ -3085,7 +3279,7 @@ function waRenderList(type) {
 }
 
 function waClearAll() {
-  var label = waCurrentFilter === 'all' ? '所有' : ({'quiz':'单词测验','grammar_quiz':'文法测验','listening':'听力测验','game':'闯关游戏'}[waCurrentFilter] || waCurrentFilter);
+  var label = waCurrentFilter === 'all' ? '所有' : ({'quiz':'单词测验','grammar_quiz':'语法测验','listening':'听力测验','game':'闯关游戏'}[waCurrentFilter] || waCurrentFilter);
   if (!confirm('确定要清空「' + label + '」的错题记录吗？')) return;
   if (waCurrentFilter === 'all') {
     localStorage.removeItem('wrongAnswers');
@@ -4695,9 +4889,9 @@ async function doChangePassword() {
 //  MEMBERSHIP
 // ══════════════════════════════════════════════════════════════════
 const FEATURE_NAMES = {
-  grammar_lessons: '文法课程', srs_daily: 'SRS 复习', listening_daily: '听力学习',
+  grammar_lessons: '语法课程', srs_daily: 'SRS 复习', listening_daily: '听力训练',
   listening_exercise_daily: '听力测验', immersion_daily: '磨耳朵',
-  ai_features: 'AI 功能', pronunciation: '发音练习', anki_import: 'Anki 导入',
+  ai_features: 'AI 功能', pronunciation: '发音训练', anki_import: 'Anki 导入',
   game_levels: '闯关游戏', quiz_meaning_daily: '词义测验', quiz_reading_daily: '读音测验',
   dictionary_daily: '词典查询', news_limit: '新闻阅读', anki_quiz: 'Anki 测验',
   quiz_jlpt_levels: 'JLPT 级别', quiz_count_options: '题目数量',
@@ -4783,13 +4977,13 @@ function renderMembershipPlans(isMember) {
       <div class="plan-name">🆓 免费版</div>
       <div class="plan-price">¥0</div>
       <ul class="plan-features">
-        <li class="limited">文法课程前 5 课</li>
+        <li class="limited">语法课程前 5 课</li>
         <li class="limited">SRS 每日 30 次</li>
         <li class="limited">词典每日 20 次</li>
         <li class="limited">测验每日 10 次</li>
         <li class="limited">闯关游戏前 5 关</li>
         <li class="limited">磨耳朵每日 3 次</li>
-        <li class="blocked">AI 发音练习</li>
+        <li class="blocked">发音训练</li>
         <li class="blocked">翻译解析</li>
         <li class="blocked">Anki 导入</li>
         <li class="blocked">错题集</li>
@@ -4800,13 +4994,13 @@ function renderMembershipPlans(isMember) {
       <div class="plan-name">👑 会员版</div>
       <div class="plan-price">畅享 <span class="unit">全部功能</span></div>
       <ul class="plan-features">
-        <li>全部 JLPT 级别文法</li>
+        <li>全部 JLPT 级别语法</li>
         <li>SRS 复习无限次</li>
         <li>词典查询无限次</li>
         <li>测验无限次 + 全级别</li>
         <li>闯关游戏全部关卡</li>
         <li>磨耳朵无限次</li>
-        <li>AI 发音练习</li>
+        <li>发音训练</li>
         <li>翻译解析</li>
         <li>Anki 导入 & 测验</li>
         <li>错题集</li>
@@ -4870,8 +5064,8 @@ function showUpgradeModal(tip) {
       <div class="upgrade-desc">升级会员即可解锁全部功能，畅享无限制的日语学习体验</div>
       <ul class="upgrade-benefits">
         <li>无限次 SRS 复习、词典查询</li>
-        <li>全部 JLPT 级别文法 & 测验</li>
-        <li>AI 发音练习、翻译解析</li>
+        <li>全部 JLPT 级别语法 & 测验</li>
+        <li>发音训练、翻译解析</li>
         <li>闯关游戏全部关卡</li>
         <li>Anki 导入、错题集</li>
       </ul>
@@ -6331,7 +6525,7 @@ function closeImmPlayer() {
   document.body.style.overflow = '';
 }
 
-// ──────── 文法管理 ────────
+// ──────── 语法管理 ────────
 function showGrammarAdminBtn() {
   try {
     const userStr = localStorage.getItem('user');
@@ -6450,7 +6644,7 @@ function renderSpOverview() {
         </div>
         <div>
           <div style="font-size:24px;font-weight:700;color:var(--success)">${done.grammar||0}<span style="font-size:14px;color:var(--text-sub)">/${t.grammar||0}</span></div>
-          <div style="font-size:12px;color:var(--text-sub)">📖 文法</div>
+          <div style="font-size:12px;color:var(--text-sub)">📖 语法</div>
         </div>
         <div>
           <div style="font-size:24px;font-weight:700;color:var(--warning)">${done.review||0}<span style="font-size:14px;color:var(--text-sub)">/${t.review||0}</span></div>
@@ -6520,7 +6714,7 @@ async function renderSpCard() {
       const gPattern = g.pattern || '';
       const gAudioBtn = `<div style="display:flex;gap:6px;justify-content:center;margin-top:8px"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();speakJa('${escHtml(gPattern).replace(/'/g,"\\'")}')">🔊 发音</button></div>`;
       content = `
-        <div style="font-size:12px;color:var(--text-sub);margin-bottom:8px">${item.source === 'review' || item.source === 'difficult' ? '🔄 复习' : '🆕 新文法'} · 文法</div>
+        <div style="font-size:12px;color:var(--text-sub);margin-bottom:8px">${item.source === 'review' || item.source === 'difficult' ? '🔄 复习' : '🆕 新语法'} · 语法</div>
         <div style="font-size:28px;font-weight:700;margin:16px 0">${escHtml(gPattern)}</div>
         ${gAudioBtn}
         <div id="sp-answer" style="display:none">

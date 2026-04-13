@@ -1,8 +1,8 @@
-# Apkg 文法导入功能说明
+# Apkg 语法导入功能说明
 
 ## 功能概述
 
-添加了管理员后端的 Apkg 文件导入功能，支持从 Anki 导出包（.apkg）中导入文法课程和例句，包括音频文件自动提取和保存。
+添加了管理员后端的 Apkg 文件导入功能，支持从 Anki 导出包（.apkg）中导入语法课程和例句，包括音频文件自动提取和保存。
 
 ## 后端 API
 
@@ -72,7 +72,7 @@ http://your-server:8002/admin/grammar-import.html
 
 3. **字段识别**
    - 自动检测各字段：
-     - `pattern`: 文法说明
+     - `pattern`: 语法说明
      - `explanation`: 英文解释
      - `explanation_zh`: 中文解释
      - `example`: 例句（可含 [sound:filename] 标签）
@@ -130,7 +130,7 @@ Anki 卡片应包含以下字段（自动识别）：
 
 | 字段名 | 内容示例 | 说明 |
 |--------|---------|------|
-| Pattern | 〜ている | 文法说明 |
+| Pattern | 〜ている | 语法说明 |
 | Explanation | Progressive aspect | 英文解释 |
 | ExplanationZh | 进行体 | 中文解释 |
 | Example | 私は本を読ん...です。[sound:example.mp3] | 例句 + 音频 |
@@ -139,17 +139,17 @@ Anki 卡片应包含以下字段（自动识别）：
 
 系统自动识别以下字段名变体：
 
-**Pattern**: pattern, 文型, grammar, 文法, structure, 構造
+**Pattern**: pattern, 文型, grammar, 语法, structure, 構造
 **Explanation**: explanation, explain, 説明, 解説, meaning, 意味
 **ExplanationZh**: explanation_zh, 中文解释, chinese_exp, 翻訳, translation
 **Example**: example, sentence, 例文, 例句, sample, usage, context
 
 ## 使用场景
 
-### 场景 1: 导入新的文法库
+### 场景 1: 导入新的语法库
 
 ```bash
-# 用户在 Anki 中创建文法卡片集，导出为 apkg
+# 用户在 Anki 中创建语法卡片集，导出为 apkg
 # 在管理后台上传 apkg 文件
 # 系统自动导入课程和例句
 ```
@@ -239,7 +239,7 @@ tail -f backend/logs/app.log
 导入完成后：
 1. 更新 `content_version.grammar_version`++
 2. 客户端检测到版本变化
-3. 自动同步新的文法课程
+3. 自动同步新的语法课程
 
 ## 相关配置
 
