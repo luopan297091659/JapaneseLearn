@@ -19,31 +19,42 @@ workflows:
     name: iOS Build
     max_build_duration: 120
     instance_type: mac_mini_m2
-    working_directory: mobile
+
+    integrations:
+      app_store_connect: ios-build-key
+      # app_store_connect: kotabi_test
+
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        # bundle_identifier: com.kotabi.app
+        bundle_identifier: com.kotabi.app
     scripts:
+      - name: Debug: List files
+        script: ls -al
+                pwd
       - name: Get Flutter packages
         script: flutter pub get
       - name: Install CocoaPods dependencies
         script: |
           cd ios
           pod install
-      - name: Build iOS (no codesign)
+      - name: Set up code signing
         script: |
-          flutter build ios --release --no-codesign --config-only
-          cd ios
-          xcodebuild -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination generic/platform=iOS \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            EXPANDED_CODE_SIGN_IDENTITY="" \
-            build
+          xcode-project use-profiles
+
+      - name: Build iOS IPA
+        script: |
+          flutter build ipa --release
+
     artifacts:
-      - mobile/build/ios/iphoneos/*.app
+      - build/ios/ipa/*.ipa
+      - build/ios/archive/*.xcarchive
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

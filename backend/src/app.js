@@ -37,6 +37,11 @@ const wrongAnswersRoutes = require('./routes/wrongAnswers');
 const pronunciationRoutes = require('./routes/pronunciation');
 const listeningChannelRoutes = require('./routes/listeningChannel');
 const reportRoutes = require('./routes/reports');
+const kokoroTtsRoutes = require('./routes/kokoroTts');
+const kokoroAudioManagementRoutes = require('./routes/kokoroAudioManagement');
+const kanaRoutes = require('./routes/kana');
+const stripeRoutes = require('./routes/stripe');
+const { router: stripeRouter, stripeWebhook } = stripeRoutes;
 
 const app = express();
 
@@ -58,6 +63,24 @@ app.use('/forum', (_req, res, next) => {
     'Content-Security-Policy',
     "default-src 'self'; script-src 'self' 'unsafe-inline'; script-src-attr 'unsafe-inline'; style-src 'self' https: 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https: data:; connect-src 'self'"
   );
+  next();
+});
+
+// 官网首页 CSP（根路径 / 和 /home）
+const homeCsp = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https: data:; connect-src 'self'";
+app.use('/home', (_req, res, next) => {
+  res.setHeader('Content-Security-Policy', homeCsp);
+  next();
+});
+app.get('/', (_req, res, next) => {
+  res.setHeader('Content-Security-Policy', homeCsp);
+  next();
+});
+
+// 会员页 CSP（需要连接 Stripe）
+const membershipCsp = "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https: data:; connect-src 'self' https://api.stripe.com; frame-src https://js.stripe.com https://hooks.stripe.com";
+app.use('/membership', (_req, res, next) => {
+  res.setHeader('Content-Security-Policy', membershipCsp);
   next();
 });
 
@@ -84,6 +107,9 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+// Stripe webhook needs raw body for signature verification — must come before express.json()
+app.post('/api/v1/stripe/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
+
 // Body parsing
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -106,6 +132,12 @@ app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '../public/adm
 // Web frontend static files
 app.use('/app', express.static(path.join(__dirname, '../public/app')));
 app.get('/app', (req, res) => res.sendFile(path.join(__dirname, '../public/app/index.html')));
+// Official website (homepage)
+app.use('/home', express.static(path.join(__dirname, '../public/home')));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../public/home/index.html')));
+// Membership page
+app.use('/membership', express.static(path.join(__dirname, '../public/membership')));
+app.get('/membership', (req, res) => res.sendFile(path.join(__dirname, '../public/membership/index.html')));
 // Forum static files
 app.use('/forum', express.static(path.join(__dirname, '../public/forum')));
 app.get('/forum', (req, res) => res.sendFile(path.join(__dirname, '../public/forum/index.html')));
@@ -131,6 +163,10 @@ app.use('/api/v1/wrong-answers', wrongAnswersRoutes);
 app.use('/api/v1/pronunciation', pronunciationRoutes);
 app.use('/api/v1/listening-channels', listeningChannelRoutes);
 app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/tts', kokoroTtsRoutes);
+app.use('/api/v1/kokoro-audio', kokoroAudioManagementRoutes);
+app.use('/api/v1/kana', kanaRoutes);
+app.use('/api/v1/stripe', stripeRouter);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -196,11 +232,30 @@ async function start() {
     // 如需新增字段请手动执行 SQL migration
     // 确保 Forum 模型已注册到 sequelize
     require('./models/Forum');
-    await sequelize.sync({ alter: { drop: false } }); // 自动添加新列，但不删除现有列/数据
+    try {
+      await sequelize.sync({ alter: { drop: false } }); // 自动添加新列，但不删除现有列/数据
+    } catch (syncErr) {
+      // 忽略已存在的唯一索引冲突（ER_DUP_ENTRY on ADD INDEX）
+      if (syncErr.original && syncErr.original.errno === 1062) {
+        logger.warn('Sync warning: duplicate index skipped - ' + syncErr.original.sqlMessage);
+      } else {
+        throw syncErr;
+      }
+    }
 
     // 初始化论坛默认分类
     const { seedCategories } = require('./controllers/forumController');
     await seedCategories();
+
+    // 初始化音频存储服务
+    const audioLocalizationService = require('./services/audioLocalizationService');
+    await audioLocalizationService.ensureAudioDirectories();
+    logger.info('Audio storage directories initialized.');
+
+    // 启动Kokoro音频定时清理任务
+    const audioCleanupService = require('./services/audioCleanupService');
+    audioCleanupService.startCleanupSchedule();
+    logger.info('Kokoro audio cleanup scheduler started.');
 
     const certPath = process.env.SSL_CERT_PATH || './certs/cert.pem';
     const keyPath  = process.env.SSL_KEY_PATH  || './certs/key.pem';

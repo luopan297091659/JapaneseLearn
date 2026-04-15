@@ -6,21 +6,24 @@ const { adminAuth, superAdminAuth, permissionCheck } = require('../middlewares/a
 const { audioUpload } = require('../services/audioService');
 const {
   getDashboard,
-  listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, deduplicateVocab, fixVocabReadings,
+  listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, generateVocabExamplesKokoroAudio, deduplicateVocab, fixVocabReadings,
   importVocab, importVocabFile,
-  listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar, importGrammarApkg,
+  listGrammar, getGrammar, createGrammar, updateGrammar, deleteGrammar, bulkDeleteGrammar, generateGrammarExamplesKokoroAudio, importGrammarApkg, generateGrammarExampleAudio,
   listTracks, createTrack, updateTrack, deleteTrack,
-  listUsers, updateUser, updateUserMembership,
+  listUsers, updateUser, updateUserMembership, resetUserPassword,
   getContentVersion, publishContent,
   getTrafficStats, getUserStats, getBehaviorStats, getFeatureUsage,
+  listKana, batchGenerateKanaAudio, getKanaList, getKanaById, createKanaItem, updateKanaItem, deleteKanaItem, bulkDeleteKanaItems,  // ✅ 五十音CRUD
   getMembershipConfig, saveMembershipConfig,
   getFeatureToggles, saveFeatureToggles,
   getFeatureTiers, saveFeatureTiers,
   uploadApp, listAppReleases, publishAppRelease, getLatestAppRelease, downloadApp, deleteAppRelease,
   getAiSettings, saveAiSettings, getAiUsage, resetAiUsage,
+  getKokoroSettings, saveKokoroSettings,
   listAdmins, updateAdminPermissions, getAdminInfo,
   listReports, getReport, updateReport, deleteReport,
   getStudyPlanStats,
+  generateSingleAudio,
 } = require('../controllers/adminController');
 const {
   adminListChannels, adminCreateChannel, adminUpdateChannel, adminDeleteChannel, adminRefreshChannel,
@@ -87,6 +90,7 @@ router.post('/vocabulary',             permissionCheck('vocabulary'), asyncHandl
 router.put('/vocabulary/:id',          permissionCheck('vocabulary'), asyncHandler(updateVocab));
 router.delete('/vocabulary/:id',       permissionCheck('vocabulary'), asyncHandler(deleteVocab));
 router.post('/vocabulary/bulk-delete', permissionCheck('vocabulary'), asyncHandler(bulkDeleteVocab));
+router.post('/vocabulary/generate-kokoro-audio', permissionCheck('vocabulary'), asyncHandler(generateVocabExamplesKokoroAudio));
 router.post('/vocabulary/deduplicate', permissionCheck('vocabulary'), asyncHandler(deduplicateVocab));
 router.post('/vocabulary/fix-readings', permissionCheck('vocabulary'), asyncHandler(fixVocabReadings));
 router.post('/vocabulary/import',      permissionCheck('vocabulary'), asyncHandler(importVocab));
@@ -108,7 +112,9 @@ router.post('/grammar',       permissionCheck('grammar'), asyncHandler(createGra
 router.put('/grammar/:id',    permissionCheck('grammar'), asyncHandler(updateGrammar));
 router.delete('/grammar/:id', permissionCheck('grammar'), asyncHandler(deleteGrammar));
 router.post('/grammar/bulk-delete', permissionCheck('grammar'), asyncHandler(bulkDeleteGrammar));
+router.post('/grammar/generate-kokoro-audio', permissionCheck('grammar'), asyncHandler(generateGrammarExamplesKokoroAudio));
 router.post('/grammar/import-apkg', permissionCheck('grammar'), apkgUpload.single('file'), asyncHandler(importGrammarApkg));
+router.post('/grammar/:lessonId/examples/:exId/generate-audio', permissionCheck('grammar'), asyncHandler(generateGrammarExampleAudio));
 
 // 听力管理
 router.get('/tracks',        permissionCheck('tracks'), asyncHandler(listTracks));
@@ -120,6 +126,7 @@ router.delete('/tracks/:id', permissionCheck('tracks'), asyncHandler(deleteTrack
 router.get('/users',       permissionCheck('users'), asyncHandler(listUsers));
 router.put('/users/:id',   permissionCheck('users'), asyncHandler(updateUser));
 router.put('/users/:id/membership', permissionCheck('users'), asyncHandler(updateUserMembership));
+router.put('/users/:id/password', superAdminAuth, asyncHandler(resetUserPassword));
 
 // 内容版本
 router.get('/content-version',         asyncHandler(getContentVersion));
@@ -168,5 +175,21 @@ router.delete('/reports/:id', permissionCheck('reports'), asyncHandler(deleteRep
 
 // 学习计划管理
 router.get('/study-plan/stats', permissionCheck('stats'), asyncHandler(getStudyPlanStats));
+
+// Kokoro TTS 配置管理
+router.get('/settings/kokoro',  adminAuth, asyncHandler(getKokoroSettings));
+router.post('/settings/kokoro', permissionCheck('settings'), asyncHandler(saveKokoroSettings));
+
+// 五十音管理 - 具体路由必须在参数化路由之前
+router.post('/kana/batch-audio',         permissionCheck('vocabulary'), asyncHandler(batchGenerateKanaAudio));
+
+// 通用单条TTS生成（持久化）
+router.post('/tts/generate-single',      permissionCheck('vocabulary'), asyncHandler(generateSingleAudio));
+router.post('/kana/bulk-delete',         permissionCheck('vocabulary'), asyncHandler(bulkDeleteKanaItems));
+router.get('/kana',                      permissionCheck('vocabulary'), asyncHandler(getKanaList));
+router.get('/kana/:id',                  permissionCheck('vocabulary'), asyncHandler(getKanaById));
+router.post('/kana',                     permissionCheck('vocabulary'), asyncHandler(createKanaItem));
+router.put('/kana/:id',                  permissionCheck('vocabulary'), asyncHandler(updateKanaItem));
+router.delete('/kana/:id',               permissionCheck('vocabulary'), asyncHandler(deleteKanaItem));
 
 module.exports = router;

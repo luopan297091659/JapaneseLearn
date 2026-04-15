@@ -1,8 +1,184 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:just_audio/just_audio.dart';
+import 'dart:io';
+import 'dart:convert';
+import '../config/app_config.dart';
+import 'audio_manager.dart';
+
+/// 创建支持自签名证书的 Dio 实例
+Dio _createTrustingDio() {
+  final dio = Dio();
+  (dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
+    final client = HttpClient();
+    client.badCertificateCallback = (cert, host, port) {
+      const knownHosts = ['139.196.44.6', 'localhost', '127.0.0.1'];
+      return knownHosts.contains(host);
+    };
+    return client;
+  };
+  return dio;
+}
 
 /// 全局 TTS 辅助工具，确保引擎正确初始化并提供诊断信息
+
 class TtsHelper {
+  /// 智能播放日语例句：优先本地音频→本地TTS→后端Kokoro
+  /// [audioUrl]：服务器已有音频文件URL（可为null）
+  /// [text]：要朗读的日语文本
+  /// [slow]：慢速播放
+  /// [onComplete]：播放完成回调
+  static Future<void> playJapaneseSmart({
+    String? audioUrl,
+    required String text,
+    FlutterTts? tts,
+    bool slow = false,
+    void Function()? onComplete,
+  }) async {
+    // 1. 优先本地/服务器音频
+    if (audioUrl != null && audioUrl.isNotEmpty) {
+      try {
+        final player = AudioPlayer();
+        await AudioManager.instance.requestPlay(player);
+        String? localPath;
+        if (audioUrl.startsWith('/uploads/')) {
+          // 相对路径，拼接服务器地址后下载到本地临时文件
+          final fullUrl = AppConfig.serverRoot + audioUrl;
+          final dir = await getTemporaryDirectory();
+          final fileName = audioUrl.split('/').last;
+          localPath = '${dir.path}/$fileName';
+          if (!File(localPath).existsSync()) {
+            final dio = _createTrustingDio();
+            final resp = await dio.get(
+              fullUrl,
+              options: Options(responseType: ResponseType.bytes),
+            );
+            await File(localPath).writeAsBytes(resp.data);
+          }
+        }
+        if (localPath != null && File(localPath).existsSync()) {
+          await player.setFilePath(localPath);
+        } else if (audioUrl.startsWith('http')) {
+          await player.setUrl(audioUrl);
+        } else {
+          await player.setUrl(AppConfig.serverRoot + audioUrl);
+        }
+        await player.setVolume(1.0);
+        await player.setSpeed(slow ? 0.5 : 1.0);
+        await player.play();
+        player.playerStateStream.listen((state) {
+          if (state.processingState == ProcessingState.completed) {
+            player.dispose();
+            if (onComplete != null) onComplete();
+          }
+        });
+        return;
+      } catch (e) {
+        debugPrint('音频播放失败，尝试TTS: $e');
+      }
+    }
+
+    // 2. 本地TTS（有可用引擎）
+    final ttsInst = tts ?? FlutterTts();
+    try {
+      await AudioManager.instance.requestTts(ttsInst);
+      await configureForJapanese(ttsInst);
+      await ttsInst.setVolume(1.0);
+      await ttsInst.setSpeechRate(slow ? 0.25 : 0.5);
+      ttsInst.setCompletionHandler(() {
+        if (onComplete != null) onComplete();
+      });
+      final result = await ttsInst.speak(text);
+      if (result == 1) return;
+    } catch (e) {
+      debugPrint('本地TTS失败，尝试Kokoro: $e');
+    }
+
+    // 3. 后端Kokoro TTS
+    try {
+      debugPrint('[TTS] 第3层：尝试Kokoro后端合成 - URL: ${AppConfig.kokoroTtsUrl}');
+      final dio = _createTrustingDio();
+      final requestData = {
+        'text': text,
+        'voice': 'a',  // 'a', 'b', 或 'c'
+        'emotion': 'neutral',
+        'speed': slow ? 0.7 : 1.0,
+      };
+      debugPrint('[TTS] 请求数据: ${jsonEncode(requestData)}');
+      
+      final resp = await dio.post(
+        AppConfig.kokoroTtsUrl,
+        data: jsonEncode(requestData),
+        options: Options(headers: {'Content-Type': 'application/json'}),
+      );
+      
+      debugPrint('[TTS] 收到响应: ${resp.statusCode}');
+      final kokoroAudioUrl = resp.data['audio_url'] as String?;
+      debugPrint('[TTS] 返回的audio_url: $kokoroAudioUrl');
+      if (kokoroAudioUrl != null && kokoroAudioUrl.isNotEmpty) {
+        // 后端返回相对路径（/api/v1/tts/kokoro/audio/xxx.wav），需要拼接基地址
+        // 这样APP永远通过8002来访问，不直接访问8010，满足安全架构要求
+        String fullUrl = kokoroAudioUrl;
+        if (!kokoroAudioUrl.startsWith('http')) {
+          // 从kokoroTtsUrl (https://139.196.44.6:8002/api/v1/tts/kokoro-speak)
+          // 提取基地址 (https://139.196.44.6:8002)
+          final baseUrl = AppConfig.kokoroTtsUrl.replaceAll(RegExp(r'/api/v1/tts/.*'), '');
+          fullUrl = baseUrl + kokoroAudioUrl;
+        }
+        debugPrint('[TTS] 最终播放URL (通过8002): $fullUrl');
+        final player = AudioPlayer();
+        debugPrint('[TTS] 开始播放...');
+        await player.setUrl(fullUrl);
+        await player.setVolume(1.0);
+        await player.setSpeed(slow ? 0.5 : 1.0);
+        await player.play();
+        player.playerStateStream.listen((state) {
+          if (state.processingState == ProcessingState.completed) {
+            player.dispose();
+            if (onComplete != null) onComplete();
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('[TTS] Kokoro TTS后端失败: $e');
+      if (onComplete != null) onComplete();
+    }
+  }
+
+  /// 预缓存单个音频文件到本地（不播放），已缓存则跳过
+  static Future<void> precacheAudioUrl(String audioUrl) async {
+    if (audioUrl.isEmpty) return;
+    try {
+      final dir = await getTemporaryDirectory();
+      final fileName = audioUrl.split('/').last;
+      final localPath = '${dir.path}/$fileName';
+      if (File(localPath).existsSync()) return;
+      String fullUrl = audioUrl;
+      if (audioUrl.startsWith('/uploads/')) {
+        fullUrl = AppConfig.serverRoot + audioUrl;
+      }
+      final dio = _createTrustingDio();
+      final resp = await dio.get(fullUrl, options: Options(responseType: ResponseType.bytes));
+      if ((resp.data as List<int>).isNotEmpty) {
+        await File(localPath).writeAsBytes(resp.data);
+      }
+    } catch (e) {
+      debugPrint('预缓存音频失败: $e');
+    }
+  }
+
+  /// 批量预缓存音频URL列表（后台逐个下载，不阻塞UI）
+  static void precacheAudioUrls(Iterable<String> urls) {
+    () async {
+      for (final url in urls) {
+        if (url.isNotEmpty) await precacheAudioUrl(url);
+      }
+    }();
+  }
+
   TtsHelper._();
   static final TtsHelper instance = TtsHelper._();
 
@@ -114,36 +290,33 @@ class TtsHelper {
 
       return true;
     } catch (e) {
-      debugPrint('TTS配置失败: $e');
+      debugPrint('configureForJapanese failed: $e');
       return false;
     }
   }
 
-  /// 显式查找并设置日语 voice，防止系统回退到中文
-  /// 可被外部调用: TtsHelper.setJapaneseVoice(tts)
+  /// 安全地设置日语 voice
   static Future<void> setJapaneseVoice(FlutterTts tts) async {
     try {
       await tts.setLanguage('ja-JP');
-    } catch (_) {}
-
-    // 尝试显式选择日语 voice（某些设备仅 setLanguage 不够，会回退到中文）
-    try {
-      final voices = await tts.getVoices;
-      if (voices is List && voices.isNotEmpty) {
-        final voiceList = voices.cast<Map<dynamic, dynamic>>();
-        // 查找 locale 为 ja-JP 或 ja_JP 的 voice
-        final jaVoice = voiceList.where((v) {
-          final locale = (v['locale'] ?? v['language'] ?? '').toString().toLowerCase();
-          return locale == 'ja-jp' || locale == 'ja_jp' || locale.startsWith('ja');
-        }).toList();
-        if (jaVoice.isNotEmpty) {
-          final selected = jaVoice.first;
-          await tts.setVoice({
-            'name': selected['name']?.toString() ?? '',
-            'locale': selected['locale']?.toString() ?? 'ja-JP',
-          });
-          debugPrint('TTS: 选择日语voice: ${selected['name']}');
+      // 尝试设置日本女性 voice（最常见）
+      try {
+        final voices = await tts.getVoices;
+        if (voices is List && voices.isNotEmpty) {
+          // Android: voice 格式 "google ja-jp-x-0 en-US" 这样的字符串
+          final jaVoices = voices
+              .where((v) => v.toString().toLowerCase().contains('ja'))
+              .toList();
+          if (jaVoices.isNotEmpty) {
+            await tts.setVoice({
+              'name': jaVoices.first,
+              // voice metadata: "lang-REGION"
+              'locale': 'ja-JP',
+            });
+          }
         }
+      } catch (_) {
+        // voice 设置失败也没关系，语言设定已经有了
       }
     } catch (e) {
       debugPrint('TTS: 设置voice失败(已忽略): $e');

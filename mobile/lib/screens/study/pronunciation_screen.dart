@@ -130,6 +130,11 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
         _scores.clear();
         _loading = false;
       });
+      // 后台预缓存所有单词音频
+      final audioUrls = _words
+          .where((w) => w.audioUrl != null && w.audioUrl!.isNotEmpty)
+          .map((w) => w.audioUrl!);
+      TtsHelper.precacheAudioUrls(audioUrls);
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
@@ -150,44 +155,23 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
 
   Future<void> _playAudio() async {
     if (_words.isEmpty) return;
-    try {
-      try { await TtsHelper.setJapaneseVoice(_tts); } catch (_) {}
-      await _tts.setVolume(1.0);
-      final result = await _tts.speak(_ttsText(_words[_index]));
-      if (result != 1 && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('语音引擎不可用，请检查系统TTS设置'), duration: Duration(seconds: 3)),
-        );
-      }
-    } catch (e) {
-      debugPrint('TTS speak error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('朗读出错：$e'), duration: const Duration(seconds: 3)),
-        );
-      }
-    }
+    final w = _words[_index];
+    await TtsHelper.playJapaneseSmart(
+      audioUrl: w.audioUrl,
+      text: _ttsText(w),
+      tts: _tts,
+    );
   }
 
   Future<void> _playAudioSlow() async {
     if (_words.isEmpty) return;
-    try {
-      try { await TtsHelper.setJapaneseVoice(_tts); } catch (_) {}
-      await _tts.setVolume(1.0);
-      final prefs = await SharedPreferences.getInstance();
-      final slowRate = prefs.getDouble('slow_speed') ?? 0.5;
-      await _tts.setSpeechRate(slowRate * 0.5);
-      final result = await _tts.speak(_ttsText(_words[_index]));
-      await _tts.setSpeechRate(0.5);
-      if (result != 1 && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('语音引擎不可用，请检查系统TTS设置'), duration: Duration(seconds: 3)),
-        );
-      }
-    } catch (e) {
-      await _tts.setSpeechRate(0.5);
-      debugPrint('TTS speak error: $e');
-    }
+    final w = _words[_index];
+    await TtsHelper.playJapaneseSmart(
+      audioUrl: w.audioUrl,
+      text: _ttsText(w),
+      tts: _tts,
+      slow: true,
+    );
   }
 
   String _lastRecognized = '';

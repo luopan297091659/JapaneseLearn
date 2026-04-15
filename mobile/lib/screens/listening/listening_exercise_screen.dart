@@ -80,6 +80,11 @@ class _ListeningExerciseScreenState extends State<ListeningExerciseScreen> {
         _showSentence = false;
         _startTime = DateTime.now();
       });
+      // 后台预缓存所有题目音频
+      final audioUrls = questions
+          .where((q) => q.audioUrl != null && q.audioUrl!.isNotEmpty)
+          .map((q) => q.audioUrl!);
+      TtsHelper.precacheAudioUrls(audioUrls);
       _playCurrentQuestion();
     } catch (e) {
       setState(() { _loading = false; _error = '获取题目失败: $e'; });
@@ -89,17 +94,20 @@ class _ListeningExerciseScreenState extends State<ListeningExerciseScreen> {
   void _playCurrentQuestion() {
     if (_current >= _questions.length) return;
     final q = _questions[_current];
-    // 优先使用服务端音频，否则用 TTS
+    // 优先使用服务端音频，否则用 TTS → Kokoro
     if (q.audioUrl != null && q.audioUrl!.isNotEmpty) {
       // 音频由 AudioPlayerWidget 处理
-    } else if (_ttsReady) {
-      _tts.speak(q.sentence);
+    } else {
+      TtsHelper.playJapaneseSmart(text: q.sentence, tts: _tts);
     }
   }
 
   void _speakSentence(String text, {double rate = 0.45}) async {
-    await _tts.setSpeechRate(rate);
-    await _tts.speak(text);
+    await TtsHelper.playJapaneseSmart(
+      text: text,
+      tts: _tts,
+      slow: rate < 0.4,
+    );
   }
 
   void _selectAnswer(String answer) {

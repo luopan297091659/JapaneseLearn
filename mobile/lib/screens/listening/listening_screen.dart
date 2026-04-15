@@ -125,12 +125,18 @@ class _ListeningScreenState extends State<ListeningScreen> {
             'meaning': q.correctAnswer,
             'type': q.type,
             'title': q.grammarTitle ?? q.word ?? '',
+            'audio_url': q.audioUrl ?? '',
           };
         }).toList();
         _index = 0;
         _scores.clear();
         _loading = false;
       });
+      // 后台预缓存所有例句音频
+      final audioUrls = _sentences
+          .map((s) => s['audio_url'] as String)
+          .where((u) => u.isNotEmpty);
+      TtsHelper.precacheAudioUrls(audioUrls);
     } catch (e) {
       if (mounted) setState(() => _loading = false);
     }
@@ -145,9 +151,13 @@ class _ListeningScreenState extends State<ListeningScreen> {
   Future<void> _play({double rate = 0.45}) async {
     if (_sentences.isEmpty) return;
     final s = _sentences[_index];
-    await _tts.setSpeechRate(rate);
-    await _tts.speak(s['sentence']);
-    await _tts.setSpeechRate(0.45);
+    final audioUrl = s['audio_url'] as String?;
+    await TtsHelper.playJapaneseSmart(
+      audioUrl: (audioUrl != null && audioUrl.isNotEmpty) ? audioUrl : null,
+      text: s['sentence'],
+      tts: _tts,
+      slow: rate < 0.4,
+    );
   }
 
 

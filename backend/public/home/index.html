@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>言旅 Kotabi — 你的日语学习伙伴</title>
+<link rel="icon" type="image/png" href="/app/favicon.png">
+<style>
+:root {
+  --primary: #4361ee;
+  --primary-dark: #2f4ac1;
+  --primary-light: #eef0fd;
+  --surface: #ffffff;
+  --surface2: #f8f9fc;
+  --border: #e5e7ef;
+  --text: #1a1c2e;
+  --text-sub: #6b7280;
+  --text-hint: #9ca3af;
+  --radius: 16px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 16px rgba(67,97,238,.08);
+  --shadow-md: 0 4px 24px rgba(67,97,238,.13);
+  --nav-h: 56px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { font-family: "Noto Sans CJK SC","PingFang SC","Microsoft YaHei",sans-serif; color: var(--text); background: var(--surface2); line-height: 1.6; }
+a { text-decoration: none; color: var(--primary); }
+a:hover { opacity: .85; }
+
+/* ── Nav ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h);
+  background: rgba(255,255,255,.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border); display: flex; align-items: center;
+  padding: 0 clamp(12px,4vw,48px); gap: 8px; z-index: 100;
+}
+nav .logo { font-size: 20px; font-weight: 800; color: var(--primary); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+nav .logo img { width: 32px; height: 32px; border-radius: 8px; overflow: hidden; display: block; }
+nav .logo sub { font-size: 11px; font-weight: 400; color: var(--text-sub); margin-left: 2px; vertical-align: baseline; }
+nav .spacer { flex: 1; }
+nav .nav-link {
+  font-size: 13px; font-weight: 600; color: var(--text-sub); padding: 5px 10px;
+  border-radius: var(--radius-sm); transition: all .15s; white-space: nowrap;
+}
+nav .nav-link:hover { color: var(--primary); background: var(--primary-light); }
+nav .nav-link.active { color: var(--primary); }
+.user-badge { font-size: 13px; font-weight: 600; color: var(--primary); padding: 5px 12px; border-radius: var(--radius-sm); background: var(--primary-light); cursor: pointer; display: none; align-items: center; gap: 4px; white-space: nowrap; }
+.user-badge.show { display: inline-flex; }
+.user-badge .vip-icon { font-size: 14px; margin-right: 2px; }
+.user-badge.is-member { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; }
+
+/* ── Auth Modal ── */
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,.5); z-index: 200; align-items: center; justify-content: center;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: var(--surface); border-radius: var(--radius); padding: 32px 28px;
+  width: 100%; max-width: 400px; margin: 16px; box-shadow: 0 8px 40px rgba(0,0,0,.2);
+}
+.modal h2 { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+.modal .subtitle { font-size: 13px; color: var(--text-sub); margin-bottom: 20px; }
+.modal .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+.modal .tab {
+  flex: 1; padding: 8px; text-align: center; font-size: 13px; font-weight: 600;
+  border: none; background: var(--surface2); color: var(--text-sub);
+  border-radius: var(--radius-sm); cursor: pointer; transition: all .15s;
+}
+.modal .tab.active { background: var(--primary); color: #fff; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: var(--text-sub); }
+.form-group input {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 14px; outline: none; transition: border .15s;
+}
+.form-group input:focus { border-color: var(--primary); }
+.form-error { font-size: 12px; color: #ef4444; margin-top: 16px; display: none; text-align: center; }
+.form-error.show { display: block; }
+.modal-btn {
+  width: 100%; padding: 11px; border: none; border-radius: var(--radius-sm);
+  background: var(--primary); color: #fff; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: all .15s; margin-top: 6px;
+}
+.modal-btn:hover { background: var(--primary-dark); }
+.modal-btn:disabled { opacity: .6; cursor: not-allowed; }
+.modal-close {
+  position: absolute; top: 10px; right: 14px; background: none; border: none;
+  font-size: 20px; color: var(--text-hint); cursor: pointer;
+}
+.spinner-sm { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: 4px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.toast {
+  position: fixed; top: 72px; left: 50%; transform: translateX(-50%);
+  padding: 10px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+  color: #fff; z-index: 300; opacity: 0; transition: opacity .3s;
+}
+.toast.show { opacity: 1; }
+.toast-success { background: #10b981; }
+.toast-error { background: #ef4444; }
+
+/* ── Hero ── */
+.hero {
+  margin-top: var(--nav-h); padding: 60px clamp(16px,6vw,80px) 50px;
+  text-align: center; position: relative; overflow: hidden;
+  background: linear-gradient(135deg, #0f0c29 0%, #1a1a4e 40%, #24243e 100%);
+  color: #fff; min-height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+#heroCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+.hero-content { position: relative; z-index: 2; }
+
+.hero h1 { font-size: clamp(24px,5vw,44px); font-weight: 900; margin-bottom: 12px; }
+.hero h1 span {
+  background: linear-gradient(90deg, #60a5fa, #a78bfa, #f472b6);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.hero p { font-size: clamp(14px,2vw,17px); color: rgba(255,255,255,.7); max-width: 580px; margin: 0 auto 28px; padding: 0 8px; }
+.hero-cta { display: inline-flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.hero-cta a {
+  padding: 10px 22px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600;
+  transition: all .2s; display: inline-flex; align-items: center; gap: 6px;
+}
+.cta-primary { background: var(--primary); color: #fff !important; }
+.cta-primary:hover { background: var(--primary-dark); transform: translateY(-2px); opacity: 1; }
+.cta-secondary { background: rgba(255,255,255,.12); color: #fff !important; border: 1px solid rgba(255,255,255,.2); }
+.cta-secondary:hover { background: rgba(255,255,255,.2); transform: translateY(-2px); opacity: 1; }
+
+/* ── Floating kana ── */
+.kana-float {
+  position: absolute; font-size: 48px; opacity: .06; color: #fff; pointer-events: none; z-index: 1;
+  animation: kanaFloat 20s ease-in-out infinite; font-family: "Noto Sans JP", serif;
+}
+@keyframes kanaFloat { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-20px) rotate(8deg)} }
+
+/* ── Section title ── */
+.section-title { text-align: center; margin-bottom: 28px; padding: 0 16px; }
+.section-title h2 { font-size: clamp(20px,3.5vw,26px); font-weight: 800; }
+.section-title p { font-size: 14px; color: var(--text-sub); margin-top: 4px; }
+
+/* ── Features ── */
+.features {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 16px; max-width: 960px; margin: -30px auto 0; padding: 0 clamp(12px,4vw,48px);
+  position: relative; z-index: 1;
+}
+@media (max-width: 768px) { .features { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .features { grid-template-columns: 1fr; gap: 12px; } }
+.feat-card {
+  background: var(--surface); border-radius: var(--radius); padding: 22px 18px;
+  box-shadow: var(--shadow); transition: transform .2s, box-shadow .2s;
+  opacity: 0; transform: translateY(30px); cursor: default;
+}
+.feat-card.visible { opacity: 1; transform: translateY(0); transition: opacity .5s ease, transform .5s ease; }
+.feat-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+.feat-card .icon { font-size: 28px; margin-bottom: 8px; }
+.feat-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.feat-card p { font-size: 12.5px; color: var(--text-sub); line-height: 1.5; }
+.feat-tag { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--primary-light); color: var(--primary); font-weight: 600; margin-bottom: 8px; }
+
+/* ── Download ── */
+.download { max-width: 800px; margin: 48px auto; padding: 0 clamp(12px,4vw,48px); text-align: center; }
+.dl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 520px) { .dl-grid { grid-template-columns: 1fr; } }
+.dl-card {
+  background: var(--surface); border-radius: var(--radius); padding: 28px 20px;
+  box-shadow: var(--shadow); display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
+.dl-card .platform { font-size: 15px; font-weight: 700; }
+.dl-card .platform .os-icon { font-size: 24px; vertical-align: middle; margin-right: 4px; }
+.dl-card .qr-box {
+  width: 160px; height: 160px; border: 2px solid var(--border); border-radius: 12px;
+  display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fff;
+}
+.dl-card .qr-box canvas { width: 140px!important; height: 140px!important; }
+.dl-card .qr-box .placeholder { color: var(--text-hint); font-size: 12px; text-align: center; padding: 10px; }
+.dl-card .version { font-size: 11px; color: var(--text-sub); }
+.dl-card .dl-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 9px 20px;
+  border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+  border: none; cursor: pointer; transition: all .15s;
+}
+.dl-btn-android { background: var(--primary); color: #fff; }
+.dl-btn-android:hover { background: var(--primary-dark); }
+.dl-btn-ios { background: #e5e7ef; color: var(--text-sub); cursor: default; }
+
+/* ── spinner ── */
+.qr-loading { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.qr-loading .spinner {
+  width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--primary);
+  border-radius: 50%; animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Footer ── */
+footer {
+  text-align: center; padding: 28px 16px; font-size: 12px; color: var(--text-hint);
+  border-top: 1px solid var(--border); margin-top: 48px;
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="logo" onclick="location.href='/'">
+    <img src="/home/app_icon.png" alt="言旅">
+    言旅<sub>Kotabi</sub>
+  </div>
+  <div class="spacer"></div>
+  <a class="nav-link active" href="/">首页</a>
+  <a class="nav-link" href="/membership">会员</a>
+  <a class="nav-link" href="/forum">社区</a>
+  <a class="nav-link" href="/app">浏览器版</a>
+  <span class="user-badge" id="userBadge" onclick="showUserMenu()"></span>
+  <a class="nav-link" id="loginBtn" href="javascript:void(0)" onclick="showAuthModal()">登录</a>
+</nav>
+
+<!-- Hero -->
+<section class="hero" id="hero">
+  <canvas id="heroCanvas"></canvas>
+  <span class="kana-float" style="top:12%;left:8%;animation-delay:0s;">あ</span>
+  <span class="kana-float" style="top:25%;right:12%;animation-delay:-4s;font-size:36px;">カ</span>
+  <span class="kana-float" style="bottom:20%;left:15%;animation-delay:-8s;font-size:56px;">日</span>
+  <span class="kana-float" style="top:60%;right:8%;animation-delay:-12s;font-size:42px;">語</span>
+  <span class="kana-float" style="top:8%;left:45%;animation-delay:-6s;font-size:40px;">旅</span>
+  <span class="kana-float" style="bottom:15%;right:25%;animation-delay:-16s;font-size:34px;">学</span>
+  <div class="hero-content">
+    <h1>轻松开启<span>日语学习</span>之旅</h1>
+    <p>假名、词汇、语法、听力、AI 对话、AnKi 词库、SRS 间隔复习、游戏闯关 — 一站式日语学习，从零到 N1。</p>
+    <div class="hero-cta">
+      <a class="cta-primary" href="#download">立即下载 ↓</a>
+      <a class="cta-secondary" href="/app">在线体验 →</a>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section style="padding-top:48px;">
+  <div class="section-title">
+    <h2>为什么选择言旅？</h2>
+    <p>9 大核心功能，覆盖日语学习全链路</p>
+  </div>
+  <div class="features">
+    <div class="feat-card">
+      <span class="feat-tag">入门必备</span>
+      <div class="icon">🎌</div>
+      <h3>五十音速成</h3>
+      <p>平假名 · 片假名 · 浊音 · 拗音全覆盖，配合读音朗读与书写练习，3 天拿下五十音。</p>
+    </div>
+    <div class="feat-card">
+      <span class="feat-tag">系统学习</span>
+      <div class="icon">📖</div>
+      <h3>N5–N1 词汇语法</h3>
+      <p>按 JLPT 等级精编，配套例句、释义与 AI 语音朗读，考前冲刺利器。</p>
+    </div>
+    <div class="feat-card">
+      <span class="feat-tag">定制计划</span>
+      <div class="icon">📅</div>
+      <h3>学习计划</h3>
+      <p>智能制定每日学习目标，自动追踪进度，养成打卡习惯，告别三天打鱼。</p>
+    </div>
+    <div class="feat-card">
+      <span class="feat-tag">高效记忆</span>
+      <div class="icon">🔄</div>
+      <h3>SRS 间隔复习</h3>
+      <p>基于遗忘曲线自动推送复习，越难的词越频繁，高效对抗遗忘。</p>
+    </div>
+    <div class="feat-card">
+      <span class="feat-tag">查漏补缺</span>
+      <div class="icon">📝</div>
+      <h3>错题集</h3>
+      <p>自动收集答错题目，专项攻克薄弱环节，让每次犯错都变成进步。</p>
+    </div>
+    <div class="feat-card">
+      <span class="feat-tag">沉浸听力</span>
+      <div class="icon">🎧</div>
+      <h3>磨耳朵</h3>
+      <p>精选日语播客 · 有声读物 · 多难度听力素材，碎片时间磨出日语耳朵。</p>
+    </div>
+    <div class="feat-card">
+      <span class="feat-tag">实时资讯</span>
+      <div class="icon">📰</div>
+      <h3>NHK 新闻</h3>
+      <p>每日更新 NHK 简明新闻，真实语料阅读 + 听力双重训练，中上级必练。</p>
+    </div>
+    <div class="feat-card">
+      <span class="feat-tag">即查即用</span>
+      <div class="icon">🔍</div>
+      <h3>辞书检索</h3>
+      <p>内置日中 · 日英词典，支持假名、汉字、罗马音多方式查词，生词一键收藏。</p>
+    </div>
+    <div class="feat-card">
+      <span class="feat-tag">趣味闯关</span>
+      <div class="icon">🎮</div>
+      <h3>游戏化学习</h3>
+      <p>方块闯关 + AI 私教，边玩边练助词、动词变形，让肌肉记忆替你记住语法。</p>
+    </div>
+  </div>
+</section>
+
+<!-- Download -->
+<section class="download" id="download">
+  <div class="section-title">
+    <h2>立即下载</h2>
+    <p>扫码下载或点击按钮，开始你的日语之旅</p>
+  </div>
+  <div class="dl-grid">
+    <div class="dl-card" id="androidCard">
+      <div class="platform"><span class="os-icon">🤖</span>Android</div>
+      <div class="qr-box" id="androidQrBox">
+        <div class="qr-loading"><div class="spinner"></div><span style="font-size:11px;color:var(--text-hint)">加载中</span></div>
+      </div>
+      <div class="version" id="androidVersion">检测中...</div>
+      <button class="dl-btn dl-btn-android" id="androidBtn" onclick="downloadAndroid()">下载 APK</button>
+    </div>
+    <div class="dl-card">
+      <div class="platform"><span class="os-icon">🍎</span>iOS</div>
+      <div class="qr-box"><div class="placeholder">🚧<br>即将上线<br>敬请期待</div></div>
+      <div class="version">待发布</div>
+      <button class="dl-btn dl-btn-ios" disabled>即将上线</button>
+    </div>
+  </div>
+</section>
+
+<footer>© 2026 言旅 Kotabi — 让日语学习成为一段美好旅程</footer>
+
+<!-- Auth Modal -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal" style="position:relative;">
+    <button class="modal-close" onclick="closeAuthModal()">✕</button>
+    <h2 id="authTitle">登录账号</h2>
+    <p class="subtitle" id="authSubtitle">登录后查看会员状态</p>
+    <div class="tabs">
+      <button class="tab active" id="tabLogin" onclick="switchTab('login')">登录</button>
+      <button class="tab" id="tabRegister" onclick="switchTab('register')">注册</button>
+    </div>
+    <form id="authForm" onsubmit="handleAuth(event)">
+      <div class="form-group" id="usernameGroup" style="display:none;">
+        <label>用户名</label>
+        <input type="text" id="regUsername" placeholder="3-50 个字符" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>邮箱</label>
+        <input type="email" id="authEmail" placeholder="your@email.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="authPassword" placeholder="至少 8 位" required minlength="8" autocomplete="current-password">
+      </div>
+      <div class="form-error" id="authError"></div>
+      <button type="submit" class="modal-btn" id="authSubmitBtn">登录</button>
+    </form>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="/home/qrcode.min.js"></script>
+<script>
+/* ── Particle background ── */
+(function() {
+  const canvas = document.getElementById('heroCanvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [], mouse = { x: -999, y: -999 };
+  const COUNT = 80, LINK = 120, MDIST = 150;
+  function resize() {
+    const h = document.getElementById('hero');
+    W = canvas.width = h.offsetWidth; H = canvas.height = h.offsetHeight;
+  }
+  function init() {
+    particles = [];
+    for (let i = 0; i < COUNT; i++)
+      particles.push({ x: Math.random()*W, y: Math.random()*H, vx:(Math.random()-.5)*.6, vy:(Math.random()-.5)*.6, r:Math.random()*2+1, c:['rgba(96,165,250,','rgba(167,139,250,','rgba(244,114,182,'][Math.floor(Math.random()*3)] });
+  }
+  function loop() {
+    ctx.clearRect(0,0,W,H);
+    for (const p of particles) {
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.x<0||p.x>W)p.vx*=-1; if(p.y<0||p.y>H)p.vy*=-1;
+      const dx=p.x-mouse.x, dy=p.y-mouse.y, d=Math.sqrt(dx*dx+dy*dy);
+      if(d<MDIST){const f=(MDIST-d)/MDIST*.02;p.vx+=dx*f;p.vy+=dy*f;}
+      const s=Math.sqrt(p.vx*p.vx+p.vy*p.vy);if(s>1.5){p.vx*=1.5/s;p.vy*=1.5/s;}
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle=p.c+'0.7)'; ctx.fill();
+    }
+    for(let i=0;i<particles.length;i++)for(let j=i+1;j<particles.length;j++){
+      const dx=particles[i].x-particles[j].x,dy=particles[i].y-particles[j].y,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<LINK){ctx.beginPath();ctx.moveTo(particles[i].x,particles[i].y);ctx.lineTo(particles[j].x,particles[j].y);ctx.strokeStyle='rgba(255,255,255,'+(.12*(1-d/LINK))+')';ctx.stroke();}
+    }
+    requestAnimationFrame(loop);
+  }
+  const hero=document.getElementById('hero');
+  hero.addEventListener('mousemove',e=>{const r=hero.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top;});
+  hero.addEventListener('mouseleave',()=>{mouse.x=-999;mouse.y=-999;});
+  window.addEventListener('resize',()=>{resize();init();});
+  resize(); init(); loop();
+})();
+
+/* ── Scroll reveal ── */
+(function(){
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach((e,i) => { if(e.isIntersecting){setTimeout(()=>e.target.classList.add('visible'),i*80);obs.unobserve(e.target);} });
+  }, {threshold:.15});
+  document.querySelectorAll('.feat-card').forEach(el=>obs.observe(el));
+})();
+
+/* ── Android QR ── */
+let androidDownloadUrl = '';
+async function loadAndroidRelease() {
+  try {
+    const res = await fetch('/api/v1/admin/app/latest?platform=android');
+    if (!res.ok) throw new Error('not found');
+    const { data } = await res.json();
+    const dlPath = data.download_url || ('/api/v1/admin/downloadApp/' + data.id);
+    androidDownloadUrl = dlPath;
+    const fullUrl = location.origin + dlPath;
+    document.getElementById('androidVersion').textContent = 'v' + data.version + (data.published_at ? ' · ' + new Date(data.published_at).toLocaleDateString('zh-CN') : '');
+    const box = document.getElementById('androidQrBox');
+    box.innerHTML = '<canvas id="androidQr"></canvas>';
+    QRCode.toCanvas(document.getElementById('androidQr'), fullUrl, { width:140, margin:1, color:{dark:'#1a1c2e',light:'#ffffff'} });
+  } catch {
+    document.getElementById('androidVersion').textContent = '暂无发布版本';
+    document.getElementById('androidBtn').disabled = true;
+    document.getElementById('androidBtn').textContent = '暂无版本';
+    document.getElementById('androidBtn').classList.replace('dl-btn-android','dl-btn-ios');
+    document.getElementById('androidQrBox').innerHTML = '<div class="placeholder">请在管理后台<br>上传并发布版本</div>';
+  }
+}
+function downloadAndroid() { if (androidDownloadUrl) window.open(androidDownloadUrl,'_blank'); }
+loadAndroidRelease();
+
+/* ── Auth & User Badge ── */
+const API = '/api/v1';
+let accessToken = localStorage.getItem('kotabi_token');
+let refreshTokenStr = localStorage.getItem('kotabi_refresh');
+let currentUser = null;
+
+async function apiCall(method, path, body) {
+  const headers = {};
+  if (accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+  headers['Content-Type'] = 'application/json';
+  const opts = { method, headers };
+  if (body && method !== 'GET') opts.body = JSON.stringify(body);
+  let res = await fetch(API + path, opts);
+  if (res.status === 401 && refreshTokenStr) {
+    const rr = await fetch(API + '/auth/refresh', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: refreshTokenStr })
+    });
+    if (rr.ok) {
+      const rd = await rr.json();
+      accessToken = rd.accessToken;
+      localStorage.setItem('kotabi_token', accessToken);
+      headers['Authorization'] = 'Bearer ' + accessToken;
+      res = await fetch(API + path, { method, headers, body: opts.body });
+    } else { logout(); throw new Error('SESSION_EXPIRED'); }
+  }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || data.message || 'Request failed');
+  return data;
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function logout() {
+  accessToken = null; refreshTokenStr = null; currentUser = null;
+  localStorage.removeItem('kotabi_token');
+  localStorage.removeItem('kotabi_refresh');
+  updateUI();
+}
+
+let authMode = 'login';
+function showAuthModal() {
+  document.getElementById('authModal').classList.add('show');
+  document.getElementById('authError').classList.remove('show');
+  switchTab('login');
+}
+function closeAuthModal() { document.getElementById('authModal').classList.remove('show'); }
+function switchTab(mode) {
+  authMode = mode;
+  document.getElementById('tabLogin').classList.toggle('active', mode === 'login');
+  document.getElementById('tabRegister').classList.toggle('active', mode === 'register');
+  document.getElementById('usernameGroup').style.display = mode === 'register' ? '' : 'none';
+  document.getElementById('authSubmitBtn').textContent = mode === 'login' ? '登录' : '注册';
+  document.getElementById('authTitle').textContent = mode === 'login' ? '登录账号' : '注册账号';
+  document.getElementById('authError').classList.remove('show');
+}
+
+async function handleAuth(e) {
+  e.preventDefault();
+  const btn = document.getElementById('authSubmitBtn');
+  const errEl = document.getElementById('authError');
+  errEl.classList.remove('show');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-sm"></span>' + (authMode === 'login' ? '登录中...' : '注册中...');
+  try {
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+    let data;
+    if (authMode === 'register') {
+      const username = document.getElementById('regUsername').value.trim();
+      if (!username || username.length < 3) throw new Error('用户名至少 3 个字符');
+      data = await apiCall('POST', '/auth/register', { username, email, password, platform: 'web' });
+    } else {
+      data = await apiCall('POST', '/auth/login', { email, password, platform: 'web' });
+    }
+    accessToken = data.accessToken;
+    refreshTokenStr = data.refreshToken;
+    localStorage.setItem('kotabi_token', accessToken);
+    localStorage.setItem('kotabi_refresh', refreshTokenStr);
+    currentUser = data.user;
+    closeAuthModal();
+    updateUI();
+    showToast(authMode === 'login' ? '登录成功' : '注册成功', 'success');
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = authMode === 'login' ? '登录' : '注册';
+  }
+}
+
+function showUserMenu() { if (confirm('确定退出登录？')) logout(); }
+
+async function loadUser() {
+  if (!accessToken) return;
+  try {
+    const data = await apiCall('GET', '/auth/me');
+    currentUser = data.user;
+    updateUI();
+  } catch { logout(); }
+}
+
+function updateUI() {
+  const loginBtn = document.getElementById('loginBtn');
+  const badge = document.getElementById('userBadge');
+  if (currentUser) {
+    loginBtn.style.display = 'none';
+    badge.classList.add('show');
+    if (currentUser.is_member) {
+      badge.classList.add('is-member');
+      badge.innerHTML = '<span class="vip-icon">👑</span>' + esc(currentUser.username || currentUser.email);
+    } else {
+      badge.classList.remove('is-member');
+      badge.textContent = currentUser.username || currentUser.email;
+    }
+  } else {
+    loginBtn.style.display = '';
+    badge.classList.remove('show');
+    badge.classList.remove('is-member');
+  }
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast toast-' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+(async function initAuth() {
+  if (accessToken) await loadUser();
+  updateUI();
+})();
+</script>
+</body>
+</html>

@@ -81,6 +81,7 @@ class VocabularyModel {
   final bool? isCommon;
   final int? frequencyRank;
   final String? difficulty;
+  final Map<String, dynamic>? verbForms;  // 动词变形: {base, te, ta, nai, masu, mashita}
 
   const VocabularyModel({
     required this.id,
@@ -101,6 +102,7 @@ class VocabularyModel {
     this.isCommon,
     this.frequencyRank,
     this.difficulty,
+    this.verbForms,
   });
 
   factory VocabularyModel.fromJson(Map<String, dynamic> json) => VocabularyModel(
@@ -122,6 +124,7 @@ class VocabularyModel {
         isCommon: json['is_common'] as bool?,
         frequencyRank: (json['frequency_rank'] as num?)?.toInt(),
         difficulty: json['difficulty'] as String?,
+        verbForms: json['verb_forms'] as Map<String, dynamic>?,
       );
 }
 

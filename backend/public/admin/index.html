@@ -38,7 +38,23 @@ button{cursor:pointer;font-family:inherit}
 #login-err{color:var(--danger);font-size:13px;text-align:center;margin-top:10px;min-height:20px}
 
 /* ─── Sidebar ────────────────────────────────────── */
-#sidebar{width:240px;min-width:240px;background:var(--sidebar-bg);color:var(--sidebar-text);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden}
+#sidebar{width:240px;min-width:240px;background:var(--sidebar-bg);color:var(--sidebar-text);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;transition:width .25s ease,min-width .25s ease}
+#sidebar.collapsed{width:60px;min-width:60px}
+#sidebar.collapsed .sidebar-logo-text,
+#sidebar.collapsed .sidebar-logo-sub,
+#sidebar.collapsed .sidebar-section,
+#sidebar.collapsed .sidebar-footer-txt,
+#sidebar.collapsed .nav-label{display:none}
+#sidebar.collapsed .sidebar-logo-inner{justify-content:center;flex-direction:column;gap:4px}
+#sidebar.collapsed .sidebar-logo-inner>div:not(.sidebar-logo-icon){display:none}
+#sidebar.collapsed .sidebar-logo-inner>span{display:none}
+#sidebar.collapsed .sidebar-logo{padding:16px 8px}
+#sidebar.collapsed .nav-item{justify-content:center;padding:9px 0;margin:1px 4px;gap:0}
+#sidebar.collapsed .nav-item .icon{margin:0;font-size:18px}
+#sidebar.collapsed .nav-item.active{border-left:none;padding-left:0;border-bottom:2px solid var(--primary-light)}
+#sidebar.collapsed .sidebar-footer{border-top:none;padding:8px}
+.sidebar-toggle{background:none;border:none;color:var(--sidebar-text);cursor:pointer;font-size:18px;padding:4px 8px;border-radius:6px;transition:all .15s;flex-shrink:0}
+.sidebar-toggle:hover{background:#1e293b;color:#e2e8f0}
 #sidebar::-webkit-scrollbar{width:4px}
 #sidebar::-webkit-scrollbar-track{background:transparent}
 #sidebar::-webkit-scrollbar-thumb{background:#334155;border-radius:4px}
@@ -218,31 +234,35 @@ tbody tr:hover td{background:#f8faff}
         <div class="sidebar-logo-text">日语学习</div>
         <div class="sidebar-logo-sub">Admin Console</div>
       </div>
+      <span style="flex:1"></span>
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="收起/展开">☰</button>
     </div>
   </div>
   <div class="sidebar-section">概览</div>
-  <div class="nav-item active" onclick="nav('dashboard')" id="nav-dashboard"><span class="icon">📊</span>仪表板</div>
+  <div class="nav-item active" onclick="nav('dashboard')" id="nav-dashboard"><span class="icon">📊</span><span class="nav-label">仪表板</span></div>
   <div class="sidebar-section">内容管理</div>
-  <div class="nav-item" onclick="nav('vocab')"   id="nav-vocab">  <span class="icon">📚</span>词汇管理</div>
-  <div class="nav-item" onclick="nav('grammar')" id="nav-grammar"><span class="icon">📖</span>文法管理</div>
-  <div class="nav-item" onclick="nav('tracks')"  id="nav-tracks"> <span class="icon">🎧</span>听力管理</div>
-  <div class="nav-item" onclick="nav('channels')" id="nav-channels"><span class="icon">📺</span>频道管理</div>
-  <div class="nav-item" onclick="nav('users')"   id="nav-users">  <span class="icon">👥</span>用户管理</div>
-  <div class="nav-item" onclick="nav('reports')" id="nav-reports"><span class="icon">🐛</span>问题反馈</div>
+  <div class="nav-item" onclick="nav('vocab')"   id="nav-vocab"><span class="icon">📚</span><span class="nav-label">词汇管理</span></div>
+  <div class="nav-item" onclick="nav('grammar')" id="nav-grammar"><span class="icon">📖</span><span class="nav-label">文法管理</span></div>
+  <div class="nav-item" onclick="nav('kana')"    id="nav-kana"><span class="icon">🔤</span><span class="nav-label">五十音管理</span></div>
+  <div class="nav-item" onclick="nav('tracks')"  id="nav-tracks"><span class="icon">🎧</span><span class="nav-label">听力管理</span></div>
+  <div class="nav-item" onclick="nav('channels')" id="nav-channels"><span class="icon">📺</span><span class="nav-label">频道管理</span></div>
+  <div class="nav-item" onclick="nav('users')"   id="nav-users"><span class="icon">👥</span><span class="nav-label">用户管理</span></div>
+  <div class="nav-item" onclick="nav('reports')" id="nav-reports"><span class="icon">🐛</span><span class="nav-label">问题反馈</span></div>
   <div class="sidebar-section">数据分析</div>
-  <div class="nav-item" onclick="nav('stat-users')"    id="nav-stat-users">   <span class="icon">📈</span>用户统计</div>
-  <div class="nav-item" onclick="nav('stat-traffic')"  id="nav-stat-traffic"> <span class="icon">🌐</span>流量监控</div>
-  <div class="nav-item" onclick="nav('stat-behavior')" id="nav-stat-behavior"><span class="icon">🧠</span>行为分析</div>
+  <div class="nav-item" onclick="nav('stat-users')"    id="nav-stat-users"><span class="icon">📈</span><span class="nav-label">用户统计</span></div>
+  <div class="nav-item" onclick="nav('stat-traffic')"  id="nav-stat-traffic"><span class="icon">🌐</span><span class="nav-label">流量监控</span></div>
+  <div class="nav-item" onclick="nav('stat-behavior')" id="nav-stat-behavior"><span class="icon">🧠</span><span class="nav-label">行为分析</span></div>
   <div class="sidebar-section">运营</div>
-  <div class="nav-item" onclick="nav('membership')" id="nav-membership"><span class="icon">👑</span>会员配置</div>
-  <div class="nav-item" onclick="nav('import')" id="nav-import"><span class="icon">📥</span>内容导入</div>
+  <div class="nav-item" onclick="nav('membership')" id="nav-membership"><span class="icon">👑</span><span class="nav-label">会员配置</span></div>
+  <div class="nav-item" onclick="nav('import')" id="nav-import"><span class="icon">📥</span><span class="nav-label">内容导入</span></div>
   <div class="sidebar-section">系统</div>
-  <div class="nav-item" onclick="nav('feature-tiers')" id="nav-feature-tiers"><span class="icon">🎯</span>功能分级</div>
-  <div class="nav-item" onclick="nav('feature-toggles')" id="nav-feature-toggles"><span class="icon">🔀</span>功能开关</div>
-  <div class="nav-item" onclick="nav('sync')" id="nav-sync"><span class="icon">🔄</span>全局同步</div>
-  <div class="nav-item" onclick="nav('app')" id="nav-app"><span class="icon">📱</span>App管理</div>
-  <div class="nav-item" onclick="nav('ai-settings')" id="nav-ai-settings"><span class="icon">🤖</span>AI设置</div>
-  <div class="nav-item" onclick="nav('admin-mgmt')" id="nav-admin-mgmt"><span class="icon">🔐</span>权限管理</div>
+  <div class="nav-item" onclick="nav('feature-tiers')" id="nav-feature-tiers"><span class="icon">🎯</span><span class="nav-label">功能分级</span></div>
+  <div class="nav-item" onclick="nav('feature-toggles')" id="nav-feature-toggles"><span class="icon">🔀</span><span class="nav-label">功能开关</span></div>
+  <div class="nav-item" onclick="nav('sync')" id="nav-sync"><span class="icon">🔄</span><span class="nav-label">全局同步</span></div>
+  <div class="nav-item" onclick="nav('app')" id="nav-app"><span class="icon">📱</span><span class="nav-label">App管理</span></div>
+  <div class="nav-item" onclick="nav('ai-settings')" id="nav-ai-settings"><span class="icon">🤖</span><span class="nav-label">AI设置</span></div>
+  <div class="nav-item" onclick="nav('kokoro-settings')" id="nav-kokoro-settings"><span class="icon">🎤</span><span class="nav-label">Kokoro TTS</span></div>
+  <div class="nav-item" onclick="nav('admin-mgmt')" id="nav-admin-mgmt"><span class="icon">🔐</span><span class="nav-label">权限管理</span></div>
   <div class="sidebar-footer"><div class="sidebar-footer-txt">言旅 · JapaneseLearn v1.0</div></div>
 </div>
 
@@ -322,6 +342,7 @@ tbody tr:hover td{background:#f8faff}
       <label style="display:block;margin-bottom:8px"><b>📻 单词音频</b></label>
       <div style="display:flex;gap:8px;align-items:flex-end">
         <input type="text" id="mv-audio-url" placeholder="音频URL（可为空）" style="flex:1;padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
+        <button class="btn btn-ghost btn-sm" onclick="generateVocabWordAudioKokoro()" title="用Kokoro生成" style="background:#8b5cf6;color:#fff">🎵 Kokoro</button>
         <button class="btn btn-ghost btn-sm" onclick="recordVocabAudio()">🎤 录音</button>
         <button class="btn btn-ghost btn-sm" onclick="uploadVocabAudio()">📤 上传</button>
         <button class="btn btn-ghost btn-sm" onclick="playAudio(document.getElementById('mv-audio-url').value)">🔊 试听</button>
@@ -350,6 +371,11 @@ tbody tr:hover td{background:#f8faff}
         <div class="form-row"><label>ない形</label><input id="mv-vf-nai" placeholder="e.g. 食べない" /></div>
         <div class="form-row"><label>ます形</label><input id="mv-vf-masu" placeholder="e.g. 食べます" /></div>
         <div class="form-row"><label>ました形</label><input id="mv-vf-mashita" placeholder="e.g. 食べました" /></div>
+        <div class="form-row"><label>可能形</label><input id="mv-vf-kano" placeholder="e.g. 食べられる" /></div>
+        <div class="form-row"><label>意向形</label><input id="mv-vf-ishou" placeholder="e.g. 食べよう" /></div>
+        <div class="form-row"><label>命令形</label><input id="mv-vf-meirei" placeholder="e.g. 食べろ" /></div>
+        <div class="form-row"><label>受身形</label><input id="mv-vf-ukemi" placeholder="e.g. 食べられる" /></div>
+        <div class="form-row"><label>使役形</label><input id="mv-vf-shieki" placeholder="e.g. 食べさせる" /></div>
       </div>
       <div style="font-size:12px;color:#999;margin-top:4px">可选项，自动保存为 JSON 格式</div>
     </div>
@@ -389,6 +415,41 @@ tbody tr:hover td{background:#f8faff}
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('modal-import')">取消</button>
       <button class="btn btn-primary" onclick="doImport()">导入</button>
+    </div>
+  </div>
+</div>
+
+<!-- KANA MODAL -->
+<div class="modal-overlay" id="modal-kana">
+  <div class="modal" style="width:550px">
+    <h2 id="mk-title">添加五十音</h2>
+    <input type="hidden" id="mk-id" />
+    <div class="form-row"><label>字符 *</label><input id="mk-character" placeholder="e.g. あ、きゃ" /></div>
+    <div class="form-row"><label>罗马音 *</label><input id="mk-romanization" placeholder="e.g. a、kya" /></div>
+    <div class="form-row"><label>平假名/片假名 *</label>
+      <select id="mk-kana-type">
+        <option value="hiragana">平假名</option>
+        <option value="katakana">片假名</option>
+      </select>
+    </div>
+    <div class="form-row"><label>音型 *</label>
+      <select id="mk-category">
+        <option value="五十音">基本五十音</option>
+        <option value="濁音">浊音</option>
+        <option value="半濁音">半浊音</option>
+        <option value="拗音">拗音</option>
+      </select>
+    </div>
+    <div class="form-row"><label>音频 URL</label>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <input id="mk-audio-url" placeholder="e.g. /uploads/audio/a.mp3" style="flex:1;padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
+        <button class="btn btn-ghost btn-sm" onclick="generateKanaAudioKokoro()" title="用Kokoro生成" style="background:#8b5cf6;color:#fff">🎵 Kokoro</button>
+        <button class="btn btn-ghost btn-sm" onclick="playAudio(document.getElementById('mk-audio-url').value)" title="试听">🔊 试听</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-kana')">取消</button>
+      <button class="btn btn-primary" onclick="saveKana()">保存</button>
     </div>
   </div>
 </div>
@@ -513,7 +574,7 @@ async function api(method, path, body=null, isForm=false){
     const err = new Error(msg + details);
     err.status = r.status;
     err.code = data.code || '';
-    if(r.status === 401 && data.code !== 'TOKEN_INVALID'){ doLogout(); }
+    if(r.status === 401 && data.code === 'TOKEN_INVALID'){ doLogout(); }
     if(r.status === 403) err.message = '权限不足: ' + msg;
     throw err;
   }
@@ -584,20 +645,26 @@ function hasPermission(perm){
   return (_adminInfo.permissions||[]).includes(perm);
 }
 function doLogout(){ TOKEN=''; localStorage.removeItem('admin_token'); location.reload(); }
+function toggleSidebar(){
+  const sb = document.getElementById('sidebar');
+  sb.classList.toggle('collapsed');
+  localStorage.setItem('sidebar_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
+}
 function showApp(){
   document.getElementById('login-page').style.display='none';
   document.getElementById('sidebar').style.display='flex';
   document.getElementById('main').style.display='flex';
+  if(localStorage.getItem('sidebar_collapsed')==='1') document.getElementById('sidebar').classList.add('collapsed');
   applySidebarPermissions();
   nav('dashboard');
 }
 function applySidebarPermissions(){
-  const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-ai-settings','nav-admin-mgmt'];
+  const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-ai-settings','nav-kokoro-settings','nav-admin-mgmt'];
   const permNavMap = {
-    'nav-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-tracks': 'tracks',
-    'nav-users': 'users', 'nav-reports': 'reports', 'nav-stat-users': 'stats', 'nav-stat-traffic': 'stats',
-    'nav-stat-feature': 'stats', 'nav-membership': 'membership', 'nav-sync': 'sync',
-    'nav-import': 'vocabulary',
+    'nav-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-kana': 'vocabulary', 'nav-tracks': 'tracks',
+    'nav-channels': 'tracks', 'nav-users': 'users', 'nav-reports': 'reports',
+    'nav-stat-users': 'stats', 'nav-stat-traffic': 'stats', 'nav-stat-behavior': 'stats',
+    'nav-membership': 'membership', 'nav-sync': 'sync', 'nav-import': 'vocabulary',
   };
   superOnlyNavs.forEach(id => {
     const el = document.getElementById(id);
@@ -616,30 +683,30 @@ function applySidebarPermissions(){
 
 /* ───────────────────────────────── NAV ───────────────────────────────────── */
 const PAGE_TITLES = {
-  dashboard:'仪表板', vocab:'词汇管理', grammar:'文法管理',
+  dashboard:'仪表板', vocab:'词汇管理', grammar:'文法管理', kana:'五十音管理',
   tracks:'听力管理', channels:'频道管理', users:'用户管理', reports:'问题反馈',
   'stat-users':'用户统计', 'stat-traffic':'流量监控',
   'stat-behavior':'行为分析',
   membership:'会员配置', import:'内容导入', sync:'全局同步', 'feature-tiers':'功能分级',
-  app:'App管理', 'feature-toggles':'功能开关', 'ai-settings':'AI设置',
+  app:'App管理', 'feature-toggles':'功能开关', 'ai-settings':'AI设置', 'kokoro-settings':'Kokoro TTS设置',
   'admin-mgmt':'权限管理'
 };
 const PAGE_ICONS = {
-  dashboard:'📊', vocab:'📚', grammar:'📖',
+  dashboard:'📊', vocab:'📚', grammar:'📖', kana:'🔤',
   tracks:'🎧', channels:'📺', users:'👥', reports:'🐛',
   'stat-users':'📈', 'stat-traffic':'🌐',
   'stat-behavior':'🧠',
   membership:'👑', import:'📥', sync:'🔄', 'feature-tiers':'🎯',
-  app:'📱', 'feature-toggles':'🔀', 'ai-settings':'🤖',
+  app:'📱', 'feature-toggles':'🔀', 'ai-settings':'🤖', 'kokoro-settings':'🎤',
   'admin-mgmt':'🔐'
 };
 const PAGE_DESCS = {
-  vocab:'管理词汇条目', grammar:'管理文法条目', reports:'查看用户反馈的问题',
+  vocab:'管理词汇条目', grammar:'管理文法条目', kana:'管理五十音数据', reports:'查看用户反馈的问题',
   tracks:'管理听力素材', channels:'管理YouTube/B站频道', users:'查看管理用户',
   'stat-users':'用户数据分析', 'stat-traffic':'API流量监控',
   'stat-behavior':'用户行为数据分析',
   membership:'会员套餐管理', import:'Anki/CSV导入', sync:'内容版本发布', 'feature-tiers':'会员功能分级配置',
-  app:'App上传下载', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量',
+  app:'App上传下载', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量', 'kokoro-settings':'Kokoro TTS 合成参数配置',
   'admin-mgmt':'管理员权限配置'
 };
 
@@ -665,12 +732,12 @@ function getFrequentNav(limit){
   try{ return JSON.parse(localStorage.getItem('admin_recent_nav')||'[]').sort((a,b)=>(b.count||1)-(a.count||1)).slice(0,limit); }catch(_){ return []; }
 }
 const PAGE_FNS = {
-  dashboard: renderDashboard, vocab: renderVocab, grammar: renderGrammar,
+  dashboard: renderDashboard, vocab: renderVocab, grammar: renderGrammar, kana: renderKana,
   tracks: renderTracks, channels: renderChannels, users: renderUsers,
   'stat-users': renderStatUsers, 'stat-traffic': renderStatTraffic,
   'stat-behavior': renderStatBehavior,
   membership: renderMembership, import: renderImport, sync: renderSync,
-  app: renderAppManage, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings,
+  app: renderAppManage, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings, 'kokoro-settings': renderKokoroSettings,
   'admin-mgmt': renderAdminMgmt, reports: renderReports,
 };
 /* ─────────────────────────── 功能分级（会员权益）───────────────────────────── */
@@ -1073,6 +1140,8 @@ async function deleteAppRelease(id) {
   try { await api('DELETE', `/admin/app/${id}`); toast('已删除'); loadAppList(); } catch(e) { toast(e.message, true); }
 }
 function nav(page){
+  // 清理编辑缓存，防止内存泄漏
+  for(const k in _editCache) delete _editCache[k];
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
   const ni = document.getElementById('nav-'+page);
   if(ni) ni.classList.add('active');
@@ -1097,9 +1166,16 @@ function renderPager(containerId, page, total, onPage, state){
   const sizeSelect = state ? `<select style="margin-left:12px;padding:2px 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#fff" onchange="pageSizeChange('${containerId}',this.value)">
     ${[20,50,100].map(n=>`<option value="${n}" ${state.limit===n?'selected':''}>${n}条/页</option>`).join('')}
   </select>` : '';
-  el.innerHTML = `<div class="pagination">${btns.join('')}<span class="page-info"> 共 ${total} 页${sizeSelect}</span></div>`;
+  let rangeInfo = '';
+  if(state && state.total !== undefined){
+    const start = state.total > 0 ? (page - 1) * state.limit + 1 : 0;
+    const pageCount = state._pageCount || 0;
+    const end = start > 0 ? start + pageCount - 1 : 0;
+    rangeInfo = state.total > 0 ? `<span style="margin-left:12px;font-size:12px;color:#64748b">第 ${start}-${end} 条 / 共 <b>${state.total}</b> 条</span>` : `<span style="margin-left:12px;font-size:12px;color:#aaa">共 0 条</span>`;
+  }
+  el.innerHTML = `<div class="pagination">${btns.join('')}<span class="page-info"> 共 ${total} 页${sizeSelect}</span>${rangeInfo}</div>`;
 }
-const _pagerMap = {'v-pager':{s:()=>vState,fn:()=>loadVocab()}, 'gr-pager':{s:()=>gState,fn:()=>loadGrammar()}, 'tr-pager':{s:()=>tState,fn:()=>loadTracks()}, 'us-pager':{s:()=>uState,fn:()=>loadUsers()}, 'rp-pager':{s:()=>rpState,fn:()=>loadReports()}};
+const _pagerMap = {'v-pager':{s:()=>vState,fn:()=>loadVocab()}, 'gr-pager':{s:()=>gState,fn:()=>loadGrammar()}, 'tr-pager':{s:()=>tState,fn:()=>loadTracks()}, 'us-pager':{s:()=>uState,fn:()=>loadUsers()}, 'rp-pager':{s:()=>rpState,fn:()=>loadReports()}, 'k-pager':{s:()=>kState,fn:()=>loadKana()}};
 function pageSizeChange(cid,v){ const m=_pagerMap[cid]; if(!m)return; const s=m.s(); s.limit=parseInt(v); s.page=1; m.fn(); }
 
 /* ───────────────────────────────── DASHBOARD ─────────────────────────────── */
@@ -1235,6 +1311,7 @@ async function renderVocab(){
     <button class="btn btn-primary" onclick="vocabSearch()">搜索</button>
     <button class="btn btn-ghost" onclick="openVocabModal()">＋ 添加</button>
     <button class="btn btn-ghost" onclick="openModal('modal-import')">📥 导入</button>
+    <button class="btn btn-ghost" onclick="generateVocabKokoroAudio()" style="background:#8b5cf6;color:#fff">🎤 一键生成Kokoro音频</button>
     <button class="btn btn-ghost" onclick="dedupVocab()">🧹 去重</button>
     <button class="btn btn-ghost" onclick="fixReadings()">🔧 修复读音</button>
     <button class="btn btn-danger btn-sm" id="v-del-btn" style="display:none" onclick="bulkDeleteVocab()">删除选中</button>
@@ -1253,8 +1330,10 @@ async function loadVocab(){
     const levelParam = vState.level ? `&level=${vState.level}` : '';
     const d = await api('GET',`/admin/vocabulary?page=${vState.page}&limit=${vState.limit}&q=${encodeURIComponent(vState.search)}${levelParam}`);
     vState.total = d.total||0;
+    const _vData = d.data||[];
+    vState._pageCount = _vData.length;
     const vtBody = document.getElementById('vt-body'); if(!vtBody) return;
-    vtBody.innerHTML = (d.data||[]).map(v=>{
+    vtBody.innerHTML = _vData.map(v=>{
       _editCache['v_'+v.id] = v;
       return `
       <tr>
@@ -1308,13 +1387,14 @@ function addExampleRow(jp='', reading='', zh='', audioUrl=''){
   const rowCount = container.children.length;
   const rowId = `ex-${Date.now()}-${rowCount}`;
   const html = `
-    <div class="example-row" id="${rowId}" style="display:grid;grid-template-columns:1fr 1fr 1fr 0.8fr 0.6fr 0.6fr 0.6fr 0.6fr;gap:8px;margin-bottom:8px;align-items:flex-end">
+    <div class="example-row" id="${rowId}" style="display:grid;grid-template-columns:1fr 1fr 1fr 0.8fr 0.5fr 0.5fr 0.5fr 0.5fr 0.5fr;gap:8px;margin-bottom:8px;align-items:flex-end">
       <input type="text" class="ex-jp" placeholder="日文例句" value="${esc(jp)}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
       <input type="text" class="ex-reading" placeholder="读音（假名）" value="${esc(reading)}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
       <input type="text" class="ex-zh" placeholder="中文释义" value="${esc(zh)}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
       <input type="text" class="ex-audio" placeholder="音频URL" value="${esc(audioUrl||'')}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
       <button class="btn btn-ghost btn-sm" onclick="uploadExampleAudio('${rowId}')" title="上传文件">📤</button>
       <button class="btn btn-ghost btn-sm" onclick="recordExampleAudio('${rowId}')" title="浏览器录音" id="record-btn-${rowId}">🎤</button>
+      <button class="btn btn-ghost btn-sm" onclick="generateVocabExampleAudioKokoro('${rowId}')" title="用Kokoro生成" style="background:#8b5cf6;color:#fff">🎵</button>
       <button class="btn btn-ghost btn-sm" onclick="playAudio(document.querySelector('#${rowId} .ex-audio').value)" title="试听">🔊</button>
       <button class="btn btn-ghost btn-sm" onclick="removeExampleRow('${rowId}')" title="删除">🗑️</button>
     </div>`;
@@ -1340,6 +1420,11 @@ function initializeVerbForms(v=null){
     document.getElementById('mv-vf-nai').value = v.verb_forms.nai || '';
     document.getElementById('mv-vf-masu').value = v.verb_forms.masu || '';
     document.getElementById('mv-vf-mashita').value = v.verb_forms.mashita || '';
+    document.getElementById('mv-vf-kano').value = v.verb_forms.kano || '';
+    document.getElementById('mv-vf-ishou').value = v.verb_forms.ishou || '';
+    document.getElementById('mv-vf-meirei').value = v.verb_forms.meirei || '';
+    document.getElementById('mv-vf-ukemi').value = v.verb_forms.ukemi || '';
+    document.getElementById('mv-vf-shieki').value = v.verb_forms.shieki || '';
   }
 }
 
@@ -1402,10 +1487,60 @@ document.getElementById('mv-audio-file')&&document.getElementById('mv-audio-file
   }catch(e){ toast(e.message, true); }
 });
 
+let _adminCurrentAudio = null;
+
 function playAudio(url){
   if(!url) { toast('没有音频', true); return; }
-  const audio = new Audio(url);
-  audio.play().catch(err => toast(err.message, true));
+  // 停止上一个正在播放的音频
+  if (_adminCurrentAudio) { _adminCurrentAudio.pause(); _adminCurrentAudio = null; }
+  // 处理相对路径：如果是相对路径，需要加上完整域名
+  let fullUrl = url;
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    fullUrl = window.location.origin + url;
+  }
+  _adminCurrentAudio = new Audio(fullUrl);
+  _adminCurrentAudio.play().catch(err => {
+    console.error('[PlayAudio] 播放失败:', err, 'URL:', fullUrl);
+    toast('播放失败: ' + err.message, true);
+  });
+}
+
+// === Kokoro单项音频生成（持久化到本地） ===
+async function _kokoroSpeak(text, btnEl, subdir = 'vocab') {
+  if (!text) { toast('请输入文本内容', true); return null; }
+  const orig = btnEl ? btnEl.textContent : '';
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳'; }
+  try {
+    const r = await api('POST', '/admin/tts/generate-single', { text, subdir });
+    if (r.audio_url) return r.audio_url;
+    toast('音频生成失败', true); return null;
+  } catch(e) { toast('Kokoro生成失败: ' + e.message, true); return null; }
+  finally { if (btnEl) { btnEl.disabled = false; btnEl.textContent = orig; } }
+}
+
+async function generateVocabWordAudioKokoro() {
+  const word = document.getElementById('mv-word').value.trim();
+  const reading = document.getElementById('mv-reading').value.trim();
+  const text = reading || word;
+  const btn = document.querySelector('#modal-vocab button[onclick*="generateVocabWordAudioKokoro"]');
+  const url = await _kokoroSpeak(text, btn, 'vocab');
+  if (url) { document.getElementById('mv-audio-url').value = url; toast('单词Kokoro音频生成成功'); }
+}
+
+async function generateVocabExampleAudioKokoro(rowId) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  const sentence = row.querySelector('.ex-jp').value.trim();
+  const btn = row.querySelector('button[onclick*="generateVocabExampleAudioKokoro"]');
+  const url = await _kokoroSpeak(sentence, btn, 'vocab');
+  if (url) { row.querySelector('.ex-audio').value = url; toast('例句Kokoro音频生成成功'); }
+}
+
+async function generateKanaAudioKokoro() {
+  const character = document.getElementById('mk-character').value.trim();
+  const btn = document.querySelector('#modal-kana button[onclick*="generateKanaAudioKokoro"]');
+  const url = await _kokoroSpeak(character, btn, 'kana');
+  if (url) { document.getElementById('mk-audio-url').value = url; toast('假名Kokoro音频生成成功'); }
 }
 
 // === 录音功能 ===
@@ -1455,18 +1590,45 @@ async function initializeRecording(rowId, type='example') {
         fd.append('audio', audioBlob, `recording-${Date.now()}.webm`);
         const r = await api('POST', '/admin/audio/upload', fd, true);
         
+        let targetInput = null;
         if (type === 'example' && rowId) {
-          document.querySelector(`#${rowId} .ex-audio`).value = r.url;
+          targetInput = document.querySelector(`#${rowId} .ex-audio`);
+          if (!targetInput) {
+            toast('无法找到音频输入框', true);
+            return;
+          }
+          targetInput.value = r.url;
           toast('录音上传成功');
         } else if (type === 'grammar' && rowId) {
-          document.querySelector(`#${rowId} .gex-audio`).value = r.url;
+          targetInput = document.querySelector(`#${rowId} .gex-audio`);
+          if (!targetInput) {
+            toast('无法找到音频输入框', true);
+            return;
+          }
+          targetInput.value = r.url;
           toast('录音上传成功');
         } else if (type === 'vocab') {
-          document.getElementById('mv-audio-url').value = r.url;
+          targetInput = document.getElementById('mv-audio-url');
+          if (!targetInput) {
+            toast('无法找到音频输入框', true);
+            return;
+          }
+          targetInput.value = r.url;
           toast('单词音频录音上传成功');
         }
+        
+        // 清理录音状态
+        RecordingState.audioChunks = [];
+        RecordingState.mediaRecorder = null;
+        RecordingState.stream = null;
+        RecordingState.currentRowId = null;
       } catch (e) {
-        toast('上传失败: ' + e.message, true);
+        console.error('录音上传失败:', e);
+        toast('上传失败: ' + (e.message || '服务器错误'), true);
+        RecordingState.audioChunks = [];
+        RecordingState.mediaRecorder = null;
+        RecordingState.stream?.getTracks().forEach(track => track.stop());
+        RecordingState.stream = null;
       }
     };
     
@@ -1680,6 +1842,11 @@ async function saveVocab(){
         nai: document.getElementById('mv-vf-nai').value.trim() || null,
         masu: document.getElementById('mv-vf-masu').value.trim() || null,
         mashita: document.getElementById('mv-vf-mashita').value.trim() || null,
+        kano: document.getElementById('mv-vf-kano').value.trim() || null,
+        ishou: document.getElementById('mv-vf-ishou').value.trim() || null,
+        meirei: document.getElementById('mv-vf-meirei').value.trim() || null,
+        ukemi: document.getElementById('mv-vf-ukemi').value.trim() || null,
+        shieki: document.getElementById('mv-vf-shieki').value.trim() || null,
       };
     }
   }
@@ -1708,6 +1875,44 @@ async function bulkDeleteVocab(){
   const ids=[...(document.querySelectorAll('.v-cb:checked'))].map(c=>c.value);
   if(!ids.length || !confirm(`确认删除 ${ids.length} 条词汇？`)) return;
   try{ await api('POST','/admin/vocabulary/bulk-delete',{ids}); toast('已批量删除'); loadVocab(); }catch(e){ toast(e.message,true) }
+}
+
+async function generateVocabKokoroAudio(){
+  // ✅ 收集勾选的词汇ID
+  const selectedIds = Array.from(document.querySelectorAll('.v-cb:checked')).map(cb => cb.value);
+  const isSelective = selectedIds.length > 0;
+  
+  const confirmMsg = isSelective 
+    ? `确认为选中的${selectedIds.length}项词汇生成Kokoro音频？此操作可能需要几分钟`
+    : '确认为所有单词及例句生成Kokoro音频？此操作可能需要几分钟';
+  
+  if(!confirm(confirmMsg)) return;
+  
+  const progressDiv = document.createElement('div');
+  progressDiv.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:10000`;
+  progressDiv.innerHTML = `
+    <div style="background:#fff;padding:30px;border-radius:12px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+      <div style="font-size:16px;margin-bottom:15px">🎤 正在生成音频</div>
+      <div style="font-size:12px;color:#999;margin-bottom:12px">${isSelective ? `目标: ${selectedIds.length}项词汇` : '目标: 全部词汇'}</div>
+      <div style="width:200px;height:6px;background:#e5e7eb;border-radius:3px;margin-bottom:15px">
+        <div id="progress-bar" style="height:100%;background:#8b5cf6;border-radius:3px;width:0%;transition:width .3s"></div>
+      </div>
+      <div id="progress-text" style="font-size:13px;color:#666">等待中...</div>
+    </div>`;
+  document.body.appendChild(progressDiv);
+  
+  try {
+    // ✅ 传递选中项ID列表（如果有的话）
+    const body = selectedIds.length > 0 ? { selectedIds } : {};
+    const resp = await api('POST', '/admin/vocabulary/generate-kokoro-audio', body);
+    localStorage.removeItem('_vocabCache');
+    toast(`✓ 成功生成${resp.generated}/${resp.total}个音频${resp.details?.skipped ? `，已跳过${resp.details.skipped}项` : ''}`, 'success');
+    loadVocab();
+  } catch(e) {
+    toast('生成失败: ' + e.message, true);
+  } finally {
+    progressDiv.remove();
+  }
 }
 async function doImport(){
   const active=['json','file','txt'].find(t=>document.getElementById(`imp-${t}`).classList.contains('active'));
@@ -1751,6 +1956,7 @@ async function renderGrammar(){
     <button class="btn btn-primary" onclick="grammarSearch()">搜索</button>
     <button class="btn btn-ghost" onclick="openGrammarModal()">＋ 添加</button>
     <button class="btn btn-ghost" onclick="window.location.href='/admin/grammar-import.html'">📥 导入</button>
+    <button class="btn btn-ghost" onclick="generateGrammarKokoroAudio()" style="background:#8b5cf6;color:#fff">🎤 一键生成Kokoro音频</button>
     <button class="btn btn-danger btn-sm" id="gr-del-btn" style="display:none" onclick="bulkDeleteGrammar()">删除选中</button>
   </div>
   <div class="panel" style="padding:0">
@@ -1767,8 +1973,10 @@ async function loadGrammar(){
     const levelParam = gState.level ? `&level=${gState.level}` : '';
     const d=await api('GET',`/admin/grammar?page=${gState.page}&limit=${gState.limit}&q=${encodeURIComponent(gState.search)}${levelParam}`);
     gState.total=d.total||0;
+    const _gData = d.data||[];
+    gState._pageCount = _gData.length;
     const grBody = document.getElementById('gr-body'); if(!grBody) return;
-    grBody.innerHTML=(d.data||[]).map(g=>{
+    grBody.innerHTML=_gData.map(g=>{
       _editCache['g_'+g.id] = g;
       return `
       <tr>
@@ -1801,7 +2009,7 @@ function initializeGrammarExamples(g=null){
   container.innerHTML = '';
   if(g?.examples && Array.isArray(g.examples)){
     g.examples.forEach((ex,i)=>{
-      addGrammarExampleRow(ex.sentence, ex.meaning_zh, ex.audio_url);
+      addGrammarExampleRow(ex.sentence, ex.meaning_zh, ex.audio_url, ex.id);
     });
   } else {
     // 至少添加一个空行
@@ -1809,17 +2017,18 @@ function initializeGrammarExamples(g=null){
   }
 }
 
-function addGrammarExampleRow(sentence='', meaning_zh='', audioUrl=''){
+function addGrammarExampleRow(sentence='', meaning_zh='', audioUrl='', exampleId=''){
   const container = document.getElementById('mg-examples-container');
   const rowCount = container.children.length;
   const rowId = `gex-${Date.now()}-${rowCount}`;
   const html = `
-    <div class="example-row" id="${rowId}" style="display:grid;grid-template-columns:1fr 1fr 0.8fr 0.6fr 0.6fr 0.6fr 0.6fr;gap:8px;margin-bottom:8px;align-items:flex-end">
+    <div class="example-row" id="${rowId}" data-example-id="${esc(exampleId||'')}" style="display:grid;grid-template-columns:1fr 1fr 0.8fr 0.5fr 0.5fr 0.5fr 0.5fr 0.5fr 0.5fr;gap:6px;margin-bottom:8px;align-items:flex-end">
       <input type="text" class="gex-jp" placeholder="日文例句" value="${esc(sentence)}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
       <input type="text" class="gex-zh" placeholder="中文释义" value="${esc(meaning_zh)}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
       <input type="text" class="gex-audio" placeholder="音频URL" value="${esc(audioUrl||'')}" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px" />
       <button class="btn btn-ghost btn-sm" onclick="uploadGrammarExampleAudio('${rowId}')" title="上传文件">📤</button>
       <button class="btn btn-ghost btn-sm" onclick="recordGrammarExampleAudio('${rowId}')" title="浏览器录音">🎤</button>
+      <button class="btn btn-ghost btn-sm" onclick="generateGrammarExampleAudioKokoro('${rowId}')" title="用Kokoro生成">🎵</button>
       <button class="btn btn-ghost btn-sm" onclick="playAudio(document.querySelector('#${rowId} .gex-audio').value)" title="试听">🔊</button>
       <button class="btn btn-ghost btn-sm" onclick="removeExampleRow('${rowId}')" title="删除">🗑️</button>
     </div>`;
@@ -1842,6 +2051,52 @@ function uploadGrammarExampleAudio(rowId){
     }catch(e){ toast(e.message, true); }
   };
   fileInput.click();
+}
+
+async function generateGrammarExampleAudioKokoro(rowId) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  
+  const exampleId = row.dataset.exampleId;
+  const grammarId = document.getElementById('mg-id').value;
+  const sentence = row.querySelector('.gex-jp').value.trim();
+  
+  // 只允许为已保存的例句生成音频
+  if (!grammarId) {
+    toast('请先保存文法课程', true);
+    return;
+  }
+  
+  if (!exampleId) {
+    toast('请先保存包含此例句的文法课程', true);
+    return;
+  }
+  
+  if (!sentence) {
+    toast('请输入例句内容', true);
+    return;
+  }
+  
+  // 禁用按钮并显示loading
+  const btn = row.querySelector('button[onclick*="generateGrammarExampleAudioKokoro"]');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳';
+  
+  try {
+    const result = await api('POST', `/admin/grammar/${grammarId}/examples/${exampleId}/generate-audio`);
+    if (result.ok && result.audio_url) {
+      row.querySelector('.gex-audio').value = result.audio_url;
+      toast('Kokoro音频生成成功');
+    } else {
+      toast('音频生成失败: ' + (result.error || '未知错误'), true);
+    }
+  } catch(e) {
+    toast('音频生成失败: ' + e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
 }
 
 function openGrammarModal(g=null){
@@ -1895,6 +2150,190 @@ async function deleteGrammar(id){
   try{ await api('DELETE',`/admin/grammar/${id}`); toast('已删除'); loadGrammar(); }catch(e){ toast(e.message,true) }
 }
 
+async function generateGrammarKokoroAudio(){
+  // ✅ 收集勾选的文法ID
+  const selectedIds = Array.from(document.querySelectorAll('.gr-cb:checked')).map(cb => cb.value);
+  const isSelective = selectedIds.length > 0;
+  
+  const confirmMsg = isSelective 
+    ? `确认为选中的${selectedIds.length}项文法生成Kokoro音频？此操作可能需要几分钟`
+    : '确认为所有文法例句生成Kokoro音频？此操作可能需要几分钟';
+  
+  if(!confirm(confirmMsg)) return;
+  
+  const progressDiv = document.createElement('div');
+  progressDiv.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:10000`;
+  progressDiv.innerHTML = `
+    <div style="background:#fff;padding:30px;border-radius:12px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+      <div style="font-size:16px;margin-bottom:15px">🎤 正在生成音频...</div>
+      <div style="width:200px;height:6px;background:#e5e7eb;border-radius:3px;margin-bottom:15px">
+        <div id="progress-bar" style="height:100%;background:#8b5cf6;border-radius:3px;width:0%;transition:width .3s"></div>
+      </div>
+      <div id="progress-text" style="font-size:13px;color:#666">等待中...</div>
+    </div>`;
+  document.body.appendChild(progressDiv);
+  
+  try {
+    // ✅ 传递选中项ID列表（如果有的话）
+    const body = selectedIds.length > 0 ? { grammar_ids: selectedIds } : {};
+    const resp = await api('POST', '/admin/grammar/generate-kokoro-audio', body);
+    localStorage.removeItem('_grammarCache');
+    toast(`✓ 成功生成${resp.generated}/${resp.total}个音频`, 'success');
+    loadGrammar();
+  } catch(e) {
+    toast('生成失败: ' + e.message, true);
+  } finally {
+    progressDiv.remove();
+  }
+}
+
+/* ───────────────────────────────── KANA ────────────────────────────────── */
+let kState = {page:1, limit:20, search:'', type:'', category:'', total:0};
+async function renderKana(){
+  document.getElementById('content').innerHTML = `
+  <div class="toolbar">
+    <input type="text" id="k-search" placeholder="搜索五十音…" onkeydown="if(event.key==='Enter')kanaSearch()" />
+    <select id="k-type-filter" onchange="kanaFilterType()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;background:#fff">
+      <option value="">全部范围</option>
+      <option value="hiragana">平假名</option>
+      <option value="katakana">片假名</option>
+    </select>
+    <select id="k-category-filter" onchange="kanaFilterCategory()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;background:#fff">
+      <option value="">全部音型</option>
+      <option value="五十音">基本五十音</option>
+      <option value="濁音">浊音</option>
+      <option value="半濁音">半浊音</option>
+      <option value="拗音">拗音</option>
+    </select>
+    <button class="btn btn-primary" onclick="kanaSearch()">搜索</button>
+    <button class="btn btn-ghost" onclick="openKanaModal()">＋ 添加</button>
+    <button class="btn btn-danger btn-sm" id="k-del-btn" style="display:none" onclick="bulkDeleteKana()">删除选中</button>
+    <button class="btn btn-success btn-sm" onclick="generateKanaAudio()">🎤 生成音频</button>
+  </div>
+  <div class="panel" style="padding:0">
+    <table><thead><tr>
+      <th><input type="checkbox" onchange="toggleAllKana(this)" /></th>
+      <th>字符</th><th>罗马音</th><th>平假名/片假名</th><th>音型</th><th>音频</th><th>操作</th></tr></thead>
+    <tbody id="k-body"></tbody></table>
+    <div style="padding:12px 16px" id="k-pager"></div>
+  </div>`;
+  await loadKana();
+}
+async function loadKana(){
+  try{
+    const typeParam = kState.type ? `&type=${kState.type}` : '';
+    const catParam = kState.category ? `&category=${encodeURIComponent(kState.category)}` : '';
+    const d=await api('GET',`/admin/kana?page=${kState.page}&limit=${kState.limit}&q=${encodeURIComponent(kState.search)}${typeParam}${catParam}`);
+    const data = d.data || [];
+    kState.total = d.total || data.length;
+    kState._pageCount = data.length;
+    const kBody = document.getElementById('k-body'); if(!kBody) return;
+    kBody.innerHTML = data.map(k=>{
+      const hasAudio = k.audio_url && k.audio_url.trim() !== '';
+      const typeText = k.type==='hiragana'? '平假名':'片假名';
+      const catMap = {'五十音':'基本', '濁音':'浊音', '半濁音':'半浊音', '拗音':'拗音'};
+      const catText = catMap[k.category] || k.category;
+      const catColor = {'五十音':'#0ea5e9', '濁音':'#ef4444', '半濁音':'#f59e0b', '拗音':'#8b5cf6'}[k.category] || '#6b7280';
+      return `<tr>
+        <td><input type="checkbox" class="k-cb" value="${k.id}" onchange="updateKDelBtn()" /></td>
+        <td style="font-size:18px;font-weight:bold">${esc(k.character)}</td>
+        <td>${esc(k.romanization||'—')}</td>
+        <td><span class="badge badge-blue">${typeText}</span></td>
+        <td><span class="badge" style="background:${catColor}">${catText}</span></td>
+        <td>${hasAudio?'<span style="color:#10b981;font-weight:600">✓ 有</span>':'<span style="color:#999">无</span>'}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="editKana('${esc(String(k.id))}')">编辑</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteKana('${esc(String(k.id))}')">删除</button>
+        </td>
+      </tr>`;
+    }).join('');
+    renderPager('k-pager', kState.page, Math.ceil(kState.total/kState.limit), p=>{ kState.page=p; loadKana(); }, kState);
+  }catch(e){ toast(e.message,true) }
+}
+function kanaSearch(){ kState.page=1; kState.search=document.getElementById('k-search').value; loadKana(); }
+function kanaFilterType(){ kState.page=1; kState.type=document.getElementById('k-type-filter').value; loadKana(); }
+function kanaFilterCategory(){ kState.page=1; kState.category=document.getElementById('k-category-filter').value; loadKana(); }
+function updateKDelBtn(){ document.getElementById('k-del-btn').style.display=document.querySelectorAll('.k-cb:checked').length>0?'':'none'; }
+function toggleAllKana(cb){ document.querySelectorAll('.k-cb').forEach(c=>c.checked=cb.checked); updateKDelBtn(); }
+async function bulkDeleteKana(){
+  const ids=[...(document.querySelectorAll('.k-cb:checked'))].map(c=>c.value);
+  if(!ids.length || !confirm(`确认删除 ${ids.length} 条五十音？`)) return;
+  try{ await api('POST','/admin/kana/bulk-delete',{ids}); toast('已批量删除'); loadKana(); }catch(e){ toast(e.message,true) }
+}
+function openKanaModal(){
+  document.getElementById('mk-id').value = '';
+  document.getElementById('mk-character').value = '';
+  document.getElementById('mk-romanization').value = '';
+  document.getElementById('mk-kana-type').value = 'hiragana';
+  document.getElementById('mk-category').value = '五十音';
+  document.getElementById('mk-audio-url').value = '';
+  document.getElementById('mk-title').textContent = '添加五十音';
+  document.getElementById('modal-kana').classList.add('open');
+}
+async function editKana(id){
+  try{
+    const k=await api('GET',`/admin/kana/${id}`);
+    document.getElementById('mk-id').value = k.id;
+    document.getElementById('mk-character').value = k.character;
+    document.getElementById('mk-romanization').value = k.romanization||'';
+    document.getElementById('mk-kana-type').value = k.type;
+    document.getElementById('mk-category').value = k.category;
+    document.getElementById('mk-audio-url').value = k.audio_url||'';
+    document.getElementById('mk-title').textContent = '编辑五十音';
+    document.getElementById('modal-kana').classList.add('open');
+  }catch(e){ toast(e.message,true) }
+}
+async function saveKana(){
+  const id=document.getElementById('mk-id').value;
+  const d={
+    character:document.getElementById('mk-character').value,
+    romanization:document.getElementById('mk-romanization').value,
+    type:document.getElementById('mk-kana-type').value,
+    category:document.getElementById('mk-category').value,
+    audio_url:document.getElementById('mk-audio-url').value
+  };
+  if(!d.character){toast('请输入字符',true); return;}
+  if(!d.romanization){toast('请输入罗马音',true); return;}
+  try{
+    const method = id ? 'PUT' : 'POST';
+    const path = id ? `/admin/kana/${id}` : '/admin/kana';
+    await api(method, path, d);
+    toast(id?'已更新':'已添加');
+    closeModal('modal-kana');
+    loadKana();
+  }catch(e){ toast(e.message,true) }
+}
+async function deleteKana(id){
+  if(!confirm('确认删除？')) return;
+  try{ await api('DELETE',`/admin/kana/${id}`); toast('已删除'); loadKana(); }catch(e){ toast(e.message,true) }
+}
+async function generateKanaAudio(){
+  const ids=[...(document.querySelectorAll('.k-cb:checked'))].map(c=>c.value);
+  const progressDiv = document.createElement('div');
+  progressDiv.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:10000`;
+  progressDiv.innerHTML = `
+    <div style="background:#fff;padding:30px;border-radius:12px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3)">
+      <div style="font-size:16px;margin-bottom:15px">🎤 正在生成音频...</div>
+      <div style="width:200px;height:6px;background:#e5e7eb;border-radius:3px;margin-bottom:15px">
+        <div id="progress-bar" style="height:100%;background:#8b5cf6;border-radius:3px;width:0%;transition:width .3s"></div>
+      </div>
+      <div id="progress-text" style="font-size:13px;color:#666">等待中...</div>
+    </div>`;
+  document.body.appendChild(progressDiv);
+  
+  try {
+    const body = ids.length > 0 ? { selectedIds: ids } : {};
+    const resp = await api('POST', '/admin/kana/batch-audio', body);
+    localStorage.removeItem('_kanaCache');
+    toast(`✓ 成功生成${resp.generated}/${resp.total}个音频`, 'success');
+    loadKana();
+  } catch(e) {
+    toast('生成失败: ' + e.message, true);
+  } finally {
+    progressDiv.remove();
+  }
+}
+
 /* ───────────────────────────────── TRACKS ────────────────────────────────── */
 let tState = {page:1, limit:20, search:'', total:0};
 async function renderTracks(){
@@ -1915,8 +2354,10 @@ async function loadTracks(){
   try{
     const d=await api('GET',`/admin/tracks?page=${tState.page}&limit=${tState.limit}&q=${encodeURIComponent(tState.search)}`);
     tState.total=d.total||0;
+    const _tData = d.data||[];
+    tState._pageCount = _tData.length;
     const trBody = document.getElementById('tr-body'); if(!trBody) return;
-    trBody.innerHTML=(d.data||[]).map(t=>{
+    trBody.innerHTML=_tData.map(t=>{
       _editCache['t_'+t.id] = t;
       return `
       <tr>
@@ -1983,8 +2424,10 @@ async function loadUsers(){
   try{
     const d=await api('GET',`/admin/users?page=${uState.page}&limit=${uState.limit}&q=${encodeURIComponent(uState.search)}`);
     uState.total=d.total||0;
+    const _uData = d.data||[];
+    uState._pageCount = _uData.length;
     const usBody = document.getElementById('us-body'); if(!usBody) return;
-    usBody.innerHTML=(d.data||[]).map(u=>{
+    usBody.innerHTML=_uData.map(u=>{
       const mp = u.membership_plan;
       const me = u.membership_expire;
       const isExpired = me && new Date(me) < new Date();
@@ -2020,6 +2463,7 @@ async function loadUsers(){
         <td>
           <button class="btn btn-ghost btn-sm" onclick="toggleRole('${sid}','${u.role==='admin'?'user':'admin'}')">${u.role==='admin'?'降为普通':'设为管理员'}</button>
           <button class="btn btn-ghost btn-sm" onclick="openMembershipModal('${sid}','${esc(u.username)}','${esc(mp||'')}','${esc(me||'')}')">会员</button>
+          ${_adminInfo.is_super_admin ? `<button class="btn btn-ghost btn-sm" onclick="openPasswordModal('${sid}','${esc(u.username)}')">密码</button>` : ''}
           <button class="btn btn-danger btn-sm" onclick="toggleActive('${sid}',${!u.is_active})">${u.is_active?'禁用':'启用'}</button>
         </td>
       </tr>`;
@@ -2091,6 +2535,46 @@ async function saveUserMembership(){
     toast('会员已更新 ✅');
     closeModal('modal-membership');
     loadUsers();
+  }catch(e){ toast(e.message,true); }
+}
+
+// ─── 高级管理员：重置用户密码 ───
+function openPasswordModal(userId, username){
+  const modalHtml = `
+    <div class="modal" style="width:420px">
+      <h2>修改密码 — ${esc(username)}</h2>
+      <input type="hidden" id="pw-uid" value="${userId}" />
+      <div class="form-row"><label>新密码（至少6位）</label>
+        <input type="password" id="pw-new" placeholder="输入新密码" autocomplete="new-password" />
+      </div>
+      <div class="form-row"><label>确认密码</label>
+        <input type="password" id="pw-confirm" placeholder="再次输入新密码" autocomplete="new-password" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('modal-password')">取消</button>
+        <button class="btn btn-primary" onclick="saveUserPassword()">保存</button>
+      </div>
+    </div>`;
+  let overlay = document.getElementById('modal-password');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'modal-password';
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = modalHtml;
+  overlay.classList.add('open');
+}
+async function saveUserPassword(){
+  const uid = document.getElementById('pw-uid').value;
+  const pw = document.getElementById('pw-new').value;
+  const pw2 = document.getElementById('pw-confirm').value;
+  if(!pw || pw.length < 6){ toast('密码至少6位',true); return; }
+  if(pw !== pw2){ toast('两次密码不一致',true); return; }
+  try{
+    await api('PUT',`/admin/users/${uid}/password`,{ new_password: pw });
+    toast('密码已重置 ✅');
+    closeModal('modal-password');
   }catch(e){ toast(e.message,true); }
 }
 
@@ -2448,6 +2932,18 @@ function _buildMembershipUI() {
         <div class="form-row"><label>回调地址</label><input id="pay-wx-notify" value="${esc(payment.wechat_notify_url||'')}" placeholder="https://api.yourdomain.com/pay/wechat/notify" /></div>
       </div>
     </div>
+    <hr style="margin:20px 0;border:none;border-top:1px solid #eee">
+    <div>
+      <div style="font-weight:600;margin-bottom:12px;color:#555">💳 Stripe（国际支付）</div>
+      <div class="form-row" style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <input type="checkbox" id="pay-stripe-enabled" style="width:auto" ${payment.stripe_enabled?'checked':''} />
+        <label style="margin:0;font-size:13px">启用 Stripe</label>
+      </div>
+      <div class="form-row"><label>Secret Key</label><input id="pay-stripe-sk" type="password" value="${esc(payment.stripe_secret_key||'')}" placeholder="sk_live_xxx 或 sk_test_xxx" /></div>
+      <div class="form-row"><label>Webhook Secret</label><input id="pay-stripe-whsec" type="password" value="${esc(payment.stripe_webhook_secret||'')}" placeholder="whsec_xxx" /></div>
+      <div class="form-row"><label>货币代码</label><input id="pay-stripe-currency" value="${esc(payment.stripe_currency||'cny')}" placeholder="cny / usd / jpy" style="width:120px" /></div>
+      <p style="font-size:11px;color:#999;margin-top:6px">Webhook 端点：${esc((payment.stripe_webhook_url||'')||location.origin+'/api/v1/stripe/webhook')}</p>
+    </div>
   </div>
 
   <div style="display:flex;justify-content:flex-end;margin-top:4px">
@@ -2563,6 +3059,10 @@ async function saveAllMembership() {
     wechat_appid:      document.getElementById('pay-wx-appid').value.trim(),
     wechat_mchid:      document.getElementById('pay-wx-mchid').value.trim(),
     wechat_notify_url: document.getElementById('pay-wx-notify').value.trim(),
+    stripe_enabled:       document.getElementById('pay-stripe-enabled').checked,
+    stripe_secret_key:    document.getElementById('pay-stripe-sk').value.trim(),
+    stripe_webhook_secret:document.getElementById('pay-stripe-whsec').value.trim(),
+    stripe_currency:      document.getElementById('pay-stripe-currency').value.trim() || 'cny',
   };
   try {
     await api('POST', '/admin/membership', { plans: _memCfg.plans, payment: _memCfg.payment, notice: _memCfg.notice, trial: _memCfg.trial });
@@ -3106,6 +3606,232 @@ async function resetAiUsageFn() {
   }
 }
 
+/* ─────────────────────────── KOKORO TTS 设置 ───────────────────────────────── */
+let _kokoroSettings = null;
+
+async function renderKokoroSettings() {
+  document.getElementById('content').innerHTML = '<p style="color:#aaa;padding:40px;text-align:center">加载中…</p>';
+  try {
+    const res = await api('GET', '/admin/settings/kokoro');
+    _kokoroSettings = res.kokoro_tts;
+    renderKokoroSettingsUI();
+  } catch(e) {
+    document.getElementById('content').innerHTML = `<div class="panel"><p style="color:#e74c3c">加载失败: ${esc(e.message)}</p></div>`;
+  }
+}
+
+function renderKokoroSettingsUI() {
+  const s = _kokoroSettings || {};
+  const enabled = s.enabled !== false ? 'checked' : '';
+
+  document.getElementById('content').innerHTML = `
+    <div style="max-width:700px">
+      <div class="panel">
+        <div class="panel-header">
+          <h3>🎤 Kokoro TTS 合成设置</h3>
+          <span style="font-size:12px;color:var(--text-muted)">配置文本转语音的默认参数</span>
+        </div>
+
+        <!-- 启用开关 -->
+        <div class="form-row" style="margin-bottom:20px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+            <span>启用 Kokoro TTS</span>
+            <div style="position:relative;display:inline-block;width:44px;height:24px">
+              <input type="checkbox" id="kokoro-enabled" ${enabled} style="opacity:0;width:0;height:0">
+              <span style="position:absolute;inset:0;background:${s.enabled!==false?'#6366f1':'#d1d5db'};border-radius:12px;transition:.3s;cursor:pointer"
+                    onclick="const cb=document.getElementById('kokoro-enabled');cb.checked=!cb.checked;this.style.background=cb.checked?'#6366f1':'#d1d5db';this.nextElementSibling.style.left=cb.checked?'22px':'2px'"></span>
+              <span style="position:absolute;top:2px;left:${s.enabled!==false?'22px':'2px'};width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s;box-shadow:0 1px 3px rgba(0,0,0,.2);pointer-events:none"></span>
+            </div>
+          </label>
+        </div>
+
+        <!-- 人声选择 -->
+        <div class="form-row" style="margin-bottom:16px">
+          <label>💬 默认人声</label>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="voice-a-label">
+              <input type="radio" name="default_voice" value="a" ${s.default_voice==='a'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateVoiceColorUI()" />
+              <span>👩 女优美 (a)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="voice-b-label">
+              <input type="radio" name="default_voice" value="b" ${s.default_voice==='b'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateVoiceColorUI()" />
+              <span>👩 女清晰 (b)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="voice-c-label">
+              <input type="radio" name="default_voice" value="c" ${s.default_voice==='c'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateVoiceColorUI()" />
+              <span>👨 男深沉 (c)</span>
+            </label>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">选择APP用户播放文法例句的默认人声</div>
+        </div>
+
+        <!-- 情感合成 -->
+        <div class="form-row" style="margin-bottom:16px">
+          <label>😊 情感合成 <span style="font-weight:300;font-size:11px;color:#f59e0b">（⚠️ Edge-TTS暂不支持，未来扩展）</span></label>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="emotion-neutral-label">
+              <input type="radio" name="default_emotion" value="neutral" ${s.default_emotion==='neutral'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateEmotionColorUI()" />
+              <span>😐 自然</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="emotion-happy-label">
+              <input type="radio" name="default_emotion" value="happy" ${s.default_emotion==='happy'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateEmotionColorUI()" />
+              <span>😊 高兴</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="emotion-sad-label">
+              <input type="radio" name="default_emotion" value="sad" ${s.default_emotion==='sad'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateEmotionColorUI()" />
+              <span>😢 伤心</span>
+            </label>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">情感选项将在未来的TTS引擎中支持（gTTS、Google TTS等）</div>
+        </div>
+
+        <!-- TTS引擎选择 -->
+        <div class="form-row" style="margin-bottom:16px">
+          <label>⚙️ TTS 合成引擎</label>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="engine-edge-label">
+              <input type="radio" name="default_engine" value="edge-tts" ${s.default_engine==='edge-tts'||(!s.default_engine)?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateEngineColorUI()" />
+              <span>🔵 Edge-TTS (Microsoft)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="engine-gtts-label">
+              <input type="radio" name="default_engine" value="gtts" ${s.default_engine==='gtts'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateEngineColorUI()" />
+              <span>🔴 gTTS (Google)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="engine-google-label">
+              <input type="radio" name="default_engine" value="google-tts" ${s.default_engine==='google-tts'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateEngineColorUI()" />
+              <span>🟠 Google TTS (云)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:10px;border:2px solid #e5e7eb;border-radius:8px;transition:all .2s"
+                   id="engine-white-label">
+              <input type="radio" name="default_engine" value="white-noise" ${s.default_engine==='white-noise'?'checked="checked"':''} style="cursor:pointer;width:16px;height:16px" onchange="updateEngineColorUI()" />
+              <span>⚪ 白噪声 (备选)</span>
+            </label>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+            <strong>推荐：</strong>Edge-TTS (中国服务器可用) → gTTS (备选) → Google TTS (需密钥) → 白噪声 (应急)</div>
+        </div>
+
+        <!-- 语速调节 -->
+        <div class="form-row" style="margin-bottom:16px">
+          <label id="kokoro-speed-label">⚡ 语速倍数（${s.default_speed || 1.0}x）</label>
+          <input id="kokoro-speed" type="range" min="0.5" max="2.0" step="0.1" value="${s.default_speed || 1.0}"
+                 style="width:100%;cursor:pointer" oninput="updateSpeedDisplay(this.value)" />
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:6px">
+            <span>0.5x (最慢)</span>
+            <span>1.0x (标准)</span>
+            <span>2.0x (最快)</span>
+          </div>
+        </div>
+
+        <!-- 服务地址 -->
+        <div class="form-row" style="margin-bottom:16px">
+          <label>🔗 Kokoro Service URL</label>
+          <input id="kokoro-service-url" type="text" value="${esc(s.service_url || 'http://127.0.0.1:8010')}"
+                 style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;width:100%" />
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Python Kokoro服务的地址（通常无需修改）</div>
+        </div>
+
+        <!-- 保存按钮 -->
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:24px">
+          <button class="btn btn-ghost" onclick="renderKokoroSettings()">取消</button>
+          <button class="btn" style="background:#6366f1;color:#fff" onclick="saveKokoroSettingsFn()">保存设置</button>
+        </div>
+      </div>
+    </div>`;
+
+  // 添加动态样式：选中时高亮
+  updateVoiceColorUI();
+  updateEmotionColorUI();
+  updateEngineColorUI();
+}
+
+function selectVoice(voice) {
+  const radios = document.querySelectorAll('input[name="default_voice"]');
+  radios.forEach(r => r.checked = r.value === voice);
+  updateVoiceColorUI();
+}
+
+function selectEmotion(emotion) {
+  const radios = document.querySelectorAll('input[name="default_emotion"]');
+  radios.forEach(r => r.checked = r.value === emotion);
+  updateEmotionColorUI();
+}
+
+function selectEngine(engine) {
+  const radios = document.querySelectorAll('input[name="default_engine"]');
+  radios.forEach(r => r.checked = r.value === engine);
+  updateEngineColorUI();
+}
+
+function updateVoiceColorUI() {
+  const selected = document.querySelector('input[name="default_voice"]:checked')?.value;
+  ['a', 'b', 'c'].forEach(v => {
+    const label = document.getElementById(`voice-${v}-label`);
+    if (label) {
+      label.style.borderColor = selected === v ? '#6366f1' : '#e5e7eb';
+      label.style.background = selected === v ? '#f0f4ff' : '#fff';
+      label.style.color = selected === v ? '#4f46e5' : '#1e293b';
+    }
+  });
+}
+
+function updateEmotionColorUI() {
+  const selected = document.querySelector('input[name="default_emotion"]:checked')?.value;
+  ['neutral', 'happy', 'sad'].forEach(e => {
+    const label = document.getElementById(`emotion-${e}-label`);
+    if (label) {
+      label.style.borderColor = selected === e ? '#6366f1' : '#e5e7eb';
+      label.style.background = selected === e ? '#f0f4ff' : '#fff';
+      label.style.color = selected === e ? '#4f46e5' : '#1e293b';
+    }
+  });
+}
+
+function updateEngineColorUI() {
+  const selected = document.querySelector('input[name="default_engine"]:checked')?.value;
+  ['edge', 'gtts', 'google', 'white'].forEach(id => {
+    const label = document.getElementById(`engine-${id}-label`);
+    let engineValue = id === 'edge' ? 'edge-tts' : (id === 'google' ? 'google-tts' : (id === 'white' ? 'white-noise' : id));
+    if (label) {
+      label.style.borderColor = selected === engineValue ? '#6366f1' : '#e5e7eb';
+      label.style.background = selected === engineValue ? '#f0f4ff' : '#fff';
+      label.style.color = selected === engineValue ? '#4f46e5' : '#1e293b';
+    }
+  });
+}
+
+function updateSpeedDisplay(value) {
+  const label = document.getElementById('kokoro-speed-label');
+  if(label) label.textContent = '⚡ 语速倍数（' + parseFloat(value).toFixed(1) + 'x）';
+}
+
+async function saveKokoroSettingsFn() {
+  const data = {
+    enabled: document.getElementById('kokoro-enabled').checked,
+    default_voice: document.querySelector('input[name="default_voice"]:checked')?.value || 'a',
+    default_emotion: document.querySelector('input[name="default_emotion"]:checked')?.value || 'neutral',
+    default_engine: document.querySelector('input[name="default_engine"]:checked')?.value || 'edge-tts',
+    default_speed: parseFloat(document.getElementById('kokoro-speed').value) || 1.0,
+    service_url: document.getElementById('kokoro-service-url').value.trim(),
+  };
+  try {
+    await api('POST', '/admin/settings/kokoro', data);
+    toast('Kokoro TTS 设置已保存 ✓', 'success');
+    renderKokoroSettings();
+  } catch(e) {
+    toast('保存失败: ' + e.message, 'error');
+  }
+}
+
 /* ─────────────────────────── ADMIN MANAGEMENT ────────────────────────────── */
 /* ───────────────────────────── CHANNELS (磨耳朵) ──────────────────────── */
 async function renderChannels(){
@@ -3236,8 +3962,10 @@ async function loadReports(){
     const rt = rpState.ref_type ? `&ref_type=${rpState.ref_type}` : '';
     const d = await api('GET',`/admin/reports?page=${rpState.page}&limit=${rpState.limit}${st}${rt}${q}`);
     rpState.total = d.total || 0;
+    const _rpData = d.data||[];
+    rpState._pageCount = _rpData.length;
     const body = document.getElementById('rp-body'); if(!body) return;
-    body.innerHTML = (d.data||[]).map(r=>{
+    body.innerHTML = _rpData.map(r=>{
       const statusMap = {pending:'<span class="badge badge-orange">待处理</span>', resolved:'<span class="badge badge-green">已解决</span>', rejected:'<span class="badge badge-red">已驳回</span>'};
       const typeMap = {vocabulary:'词汇', grammar:'文法'};
       const sid = esc(String(r.id));

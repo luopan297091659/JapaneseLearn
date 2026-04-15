@@ -3,6 +3,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/tts_helper.dart';
+import '../../utils/audio_manager.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
@@ -63,9 +64,14 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
   bool get _hasNext => widget.lessonIds != null && _currentIndex >= 0 && _currentIndex < widget.lessonIds!.length - 1;
 
   void _goToLesson(String id) {
+    AudioManager.instance.stopAll();
+    _tts.stop();
+    _examplePlayer?.stop();
     setState(() {
       _currentId = id;
       _loading = true;
+      _playingExampleIdx = -1;
+      _exampleLoading = false;
     });
     _load();
   }
@@ -81,60 +87,18 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
 
   /// 播放例句音频：有 audio_url 用 just_audio，否则回退到 TTS
   Future<void> _playExampleAudio(int idx, String text, String? audioUrl, {bool slow = false}) async {
-    // 设 loading
     if (mounted) setState(() { _playingExampleIdx = idx; _exampleLoading = true; });
-
     try {
-      // 停止上一次播放
-      await _examplePlayer?.stop();
-      await _tts.stop();
-
-      if (audioUrl != null && audioUrl.isNotEmpty) {
-        // ── 用 just_audio 播放音频文件 ─────────────────────
-        _examplePlayer ??= AudioPlayer();
-        final player = _examplePlayer!;
-
-        if (audioUrl.startsWith('/uploads/')) {
-          final fullUrl = AppConfig.serverRoot + audioUrl;
-          final localPath = await apiService.downloadToTempFile(fullUrl);
-          await player.setFilePath(localPath);
-        } else {
-          await player.setUrl(audioUrl);
-        }
-
-        if (slow) {
-          final prefs = await SharedPreferences.getInstance();
-          final slowSpeed = prefs.getDouble('slow_speed') ?? 0.5;
-          await player.setSpeed(slowSpeed);
-        } else {
-          await player.setSpeed(1.0);
-        }
-        await player.setVolume(1.0);
-        if (mounted) setState(() => _exampleLoading = false);
-        await player.play();
-        if (mounted) setState(() => _playingExampleIdx = -1);
-      } else {
-        // ── TTS 回退 ──────────────────────────────────────
-        if (!_ttsReady) {
+      await AudioManager.instance.requestTts(_tts);
+      await TtsHelper.playJapaneseSmart(
+        audioUrl: audioUrl,
+        text: text,
+        tts: _tts,
+        slow: slow,
+        onComplete: () {
           if (mounted) setState(() { _playingExampleIdx = -1; _exampleLoading = false; });
-          return;
-        }
-        await TtsHelper.setJapaneseVoice(_tts);
-        await _tts.setVolume(1.0);
-        if (slow) {
-          final prefs = await SharedPreferences.getInstance();
-          final slowRate = prefs.getDouble('slow_speed') ?? 0.5;
-          await _tts.setSpeechRate(slowRate * 0.5);
-        } else {
-          await _tts.setSpeechRate(0.5);
-        }
-        if (mounted) setState(() => _exampleLoading = false);
-        _tts.setCompletionHandler(() {
-          if (mounted) setState(() => _playingExampleIdx = -1);
-          _tts.setSpeechRate(0.5);
-        });
-        await _tts.speak(text);
-      }
+        },
+      );
     } catch (e) {
       debugPrint('Grammar audio error: $e');
       if (mounted) setState(() { _playingExampleIdx = -1; _exampleLoading = false; });
@@ -147,6 +111,7 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
     if (_lesson != null && dur > 2) {
       apiService.logActivity(activityType: 'grammar', refId: _currentId, durationSeconds: dur);
     }
+    AudioManager.instance.stopAll();
     _tts.stop();
     _examplePlayer?.stop();
     _examplePlayer?.dispose();
@@ -157,6 +122,11 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
     try {
       final lesson = await apiService.getGrammarLesson(_currentId);
       setState(() { _lesson = lesson; _loading = false; });
+      // 后台预缓存所有例句音频
+      final audioUrls = lesson.examples
+          .where((e) => e.audioUrl != null && e.audioUrl!.isNotEmpty)
+          .map((e) => e.audioUrl!);
+      TtsHelper.precacheAudioUrls(audioUrls);
     } catch (_) { setState(() => _loading = false); }
   }
 

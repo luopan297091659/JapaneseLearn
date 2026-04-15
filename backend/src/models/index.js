@@ -353,6 +353,49 @@ const ListeningChannel = sequelize.define('ListeningChannel', {
   tableName: 'listening_channels',
 });
 
+// ────────── App Config (配置存储) ──────────
+const AppConfig = sequelize.define('AppConfig', {
+  key: {
+    type: DataTypes.STRING(100),
+    primaryKey: true,
+    comment: '配置键名 e.g. kokoro_tts_settings'
+  },
+  value: {
+    type: DataTypes.TEXT('medium'),
+    allowNull: true,
+    comment: 'JSON 格式的配置值'
+  },
+  description: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    comment: '配置说明'
+  },
+}, {
+  tableName: 'app_config',
+  timestamps: true,
+  comment: '应用全局配置存储'
+});
+
+// ────────── 五十音表（含濁音、半濁音、拗音） ──────────
+const Kana = sequelize.define('Kana', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  type: { type: DataTypes.ENUM('hiragana', 'katakana'), allowNull: false, comment: '字符类型：平假名/片假名' },
+  character: { type: DataTypes.STRING(10), allowNull: false, comment: '字符本身（如「あ」「ア」「きゃ」）' },
+  romanization: { type: DataTypes.STRING(20), allowNull: false, comment: '罗马音（如「a」「kya」）' },
+  category: { type: DataTypes.STRING(20), allowNull: false, defaultValue: '五十音', comment: '分类：五十音、濁音、半濁音、拗音' },
+  audio_url: { type: DataTypes.STRING(500), allowNull: true, comment: '音频URL，为空表示未生成' },
+  order_index: { type: DataTypes.INTEGER, allowNull: false, comment: '顺序索引' },
+}, {
+  tableName: 'kana',
+  comment: '日语五十音表及所有变体（濁音、半濁音、拗音）',
+  indexes: [
+    { unique: true, fields: ['type', 'character'] },
+    { fields: ['type'] },
+    { fields: ['category'] },
+    { fields: ['audio_url'] },
+  ],
+});
+
 const AppRelease = require('./AppRelease');
 
 module.exports = {
@@ -373,10 +416,12 @@ module.exports = {
   ContentVersion,
   ApiLog,
   AppRelease,
+  AppConfig,
   GameScore,
   GameConfig,
   MembershipPlan,
   DictEntry,
   DictTransCache,
   ListeningChannel,
+  Kana,  // ✅ 添加五十音表
 };

@@ -134,12 +134,7 @@ class _TodofukenQuizScreenState extends State<TodofukenQuizScreen> {
       if (isCorrect) _correct++;
     });
     () async {
-      try {
-        try { await TtsHelper.setJapaneseVoice(_tts); } catch (_) {}
-        await _tts.speak(_current.hiragana);
-      } catch (e) {
-        debugPrint('TTS speak error: $e');
-      }
+      await TtsHelper.playJapaneseSmart(text: _current.hiragana, tts: _tts);
     }();
     Future.delayed(const Duration(milliseconds: 1200), () {
       if (!mounted) return;

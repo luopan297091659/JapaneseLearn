@@ -49,4 +49,19 @@ async function optionalAuthenticate(req, res, next) {
   next();
 }
 
-module.exports = { authenticate, optionalAuthenticate };
+/**
+ * 角色权限检查中间件
+ */
+function requireRole(role) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+    if (req.user.role !== role) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+    next();
+  };
+}
+
+module.exports = { authenticate, optionalAuthenticate, requireRole };

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/tts_helper.dart';
 import '../../widgets/kana_stroke_widget.dart';
 import '../../data/kana_data.dart';
+import '../../services/api_service.dart';
 import 'package:go_router/go_router.dart';
 
 class GojuonScreen extends StatefulWidget {
@@ -16,12 +17,14 @@ class _GojuonScreenState extends State<GojuonScreen> with SingleTickerProviderSt
   final FlutterTts _tts = FlutterTts();
   bool _showKata = false;
   late TabController _tabCtrl;
+  Map<String, String> _kanaAudioMap = {};
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this);
     _initTts();
+    _loadKanaAudioMap();
   }
 
   Future<void> _initTts() async {
@@ -29,47 +32,33 @@ class _GojuonScreenState extends State<GojuonScreen> with SingleTickerProviderSt
     await TtsHelper.configureForJapanese(_tts);
   }
 
+  Future<void> _loadKanaAudioMap() async {
+    try {
+      final map = await apiService.getKanaAudioMap();
+      if (mounted) setState(() => _kanaAudioMap = map);
+      // 后台预缓存所有假名音频文件
+      TtsHelper.precacheAudioUrls(map.values);
+    } catch (_) {}
+  }
+
   @override
   void dispose() { _tts.stop(); _tabCtrl.dispose(); super.dispose(); }
 
   Future<void> _speak(String text) async {
-    try {
-      try { await TtsHelper.setJapaneseVoice(_tts); } catch (_) {}
-      await _tts.setVolume(1.0);
-      final result = await _tts.speak(text);
-      if (result != 1 && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('语音引擎不可用，请检查系统TTS设置'), duration: Duration(seconds: 3)),
-        );
-      }
-    } catch (e) {
-      debugPrint('TTS speak error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('朗读出错：$e'), duration: const Duration(seconds: 3)),
-        );
-      }
-    }
+    await TtsHelper.playJapaneseSmart(
+      audioUrl: _kanaAudioMap[text],
+      text: text,
+      tts: _tts,
+    );
   }
 
   Future<void> _speakSlow(String text) async {
-    try {
-      try { await TtsHelper.setJapaneseVoice(_tts); } catch (_) {}
-      await _tts.setVolume(1.0);
-      final prefs = await SharedPreferences.getInstance();
-      final slowRate = prefs.getDouble('slow_speed') ?? 0.5;
-      await _tts.setSpeechRate(slowRate * 0.5);
-      final result = await _tts.speak(text);
-      await _tts.setSpeechRate(0.5);
-      if (result != 1 && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('语音引擎不可用，请检查系统TTS设置'), duration: Duration(seconds: 3)),
-        );
-      }
-    } catch (e) {
-      await _tts.setSpeechRate(0.5);
-      debugPrint('TTS speak slow error: $e');
-    }
+    await TtsHelper.playJapaneseSmart(
+      audioUrl: _kanaAudioMap[text],
+      text: text,
+      tts: _tts,
+      slow: true,
+    );
   }
 
   @override

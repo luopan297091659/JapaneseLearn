@@ -7,6 +7,7 @@ import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../utils/japanese_text_utils.dart';
 import '../../utils/tts_helper.dart';
+import '../../utils/audio_manager.dart';
 import '../../widgets/furigana_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/app_config.dart';
@@ -84,6 +85,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
         if (mounted) setState(() => _examplePlaying = false);
       }
       final tts = await _getOrInitTts();
+      await AudioManager.instance.requestTts(tts);
       await tts.stop();
       final rate = slow ? 0.25 : 0.45;
       await tts.setSpeechRate(rate);
@@ -139,6 +141,8 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
     });
 
     try {
+      // 停止全局其他音频
+      await AudioManager.instance.requestPlay(player);
       // 停止另一个播放器
       if (isExample) {
         await _wordPlayer?.stop();
@@ -196,6 +200,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
     if (_vocab != null && dur > 2) {
       apiService.logActivity(activityType: 'vocabulary', refId: _currentId, durationSeconds: dur);
     }
+    AudioManager.instance.stopAll();
     _wordPlayer?.stop();
     _wordPlayer?.dispose();
     _examplePlayer?.stop();
@@ -297,6 +302,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
 
   void _goToWord(String id) {
     // 停止所有音频播放
+    AudioManager.instance.stopAll();
     _wordPlayer?.stop();
     _examplePlayer?.stop();
     _tts?.stop();

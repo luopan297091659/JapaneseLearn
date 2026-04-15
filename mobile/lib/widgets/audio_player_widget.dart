@@ -4,6 +4,7 @@ import 'package:audio_session/audio_session.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../config/app_config.dart';
+import '../utils/audio_manager.dart';
 
 class AudioPlayerWidget extends StatefulWidget {
   final String? audioUrl;
@@ -97,6 +98,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
         _playerState.processingState == ProcessingState.completed) {
       setState(() { _loading = true; _hasError = false; _errorMessage = ''; });
       try {
+        await AudioManager.instance.requestPlay(_player);
         final url = widget.audioUrl!;
         // 服务端相对路径（/uploads/audio/...）→ 拼接为完整 URL
         if (url.startsWith('/uploads/')) {
