@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/membership_service.dart';
+import '../../services/guest_service.dart';
 import '../../config/app_config.dart';
 import '../../providers/app_appearance_provider.dart';
 import '../../widgets/mode_background.dart';
@@ -115,6 +116,7 @@ class _ToolsTabState extends State<ToolsTab> {
             color: const Color(0xFF6D28D9),
             blocked: _isBlocked('study_plan_daily'),
             onTap: () {
+              if (GuestService.guardRoute(context, '/study-plan')) return;
               if (_isBlocked('study_plan_daily')) { _showMemberDialog('学习计划'); return; }
               context.push('/study-plan');
             },
@@ -151,6 +153,7 @@ class _ToolsTabState extends State<ToolsTab> {
             color: const Color(0xFF00897B),
             blocked: _isBlocked('anki_quiz'),
             onTap: () {
+              if (GuestService.guardRoute(context, '/local-vocab')) return;
               if (_isBlocked('anki_quiz')) { _showMemberDialog('Anki 词库'); return; }
               context.push('/local-vocab');
             },
@@ -196,7 +199,10 @@ class _ToolsTabState extends State<ToolsTab> {
         elevation: 0,
         actions: [
           GestureDetector(
-            onTap: () => context.push('/profile'),
+            onTap: () {
+              if (GuestService.guardRoute(context, '/profile')) return;
+              context.push('/profile');
+            },
             child: Container(
               margin: const EdgeInsets.only(right: 12),
               child: Column(

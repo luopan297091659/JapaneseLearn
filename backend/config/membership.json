@@ -46,21 +46,25 @@
     "description": "免费体验全部会员功能"
   },
   "payment": {
-    "alipay_enabled": false,
+    "alipay_enabled": true,
     "alipay_appid": "",
     "alipay_notify_url": "",
-    "alipay_qr_url": "",
-    "wechat_enabled": false,
+    "alipay_qr_url": "https://placeholder.alipay.qr",
+    "wechat_enabled": true,
     "wechat_appid": "",
     "wechat_mchid": "",
     "wechat_notify_url": "",
-    "wechat_qr_url": "",
-    "stripe_enabled": false,
+    "wechat_qr_url": "https://placeholder.wechat.qr",
+    "stripe_enabled": true,
     "stripe_secret_key": "",
     "stripe_webhook_secret": "",
     "stripe_currency": "cny",
     "apple_iap_enabled": true,
     "apple_shared_secret": ""
+  },
+  "notification": {
+    "order_email_enabled": true,
+    "order_email_recipients": []
   },
   "notice": ""
 }

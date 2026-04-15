@@ -23,6 +23,7 @@ import '../../providers/app_appearance_provider.dart';
 import '../../utils/tts_helper.dart';
 import '../../services/plan_reminder_service.dart';
 import '../membership/membership_comparison_page.dart';
+import '../common/legal_webview_page.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -155,6 +156,66 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
   Future<void> _logout() async {
     await apiService.logout();
     if (mounted) context.go('/login');
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final passwordCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('账户删除'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('此操作将永久删除您的账户及所有数据，包括学习进度、SRS卡片、测验记录等，且不可恢复。'),
+            const SizedBox(height: 16),
+            const Text('请输入密码确认：'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: passwordCtrl,
+              obscureText: true,
+              decoration: const InputDecoration(
+                hintText: '输入密码',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('确认删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final password = passwordCtrl.text.trim();
+    if (password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入密码'), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+    try {
+      await apiService.deleteAccount(password);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('账户已删除')),
+        );
+        context.go('/login');
+      }
+    } catch (e) {
+      if (mounted) {
+        final msg = e.toString().contains('401') ? '密码不正确' : '删除失败，请重试';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+        );
+      }
+    }
   }
 
   String? _avatarAbsoluteUrl(String? raw) {
@@ -398,10 +459,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('稍后再说')),
             FilledButton(
               onPressed: () async {
-                final uri = Platform.isIOS
-                    ? Uri.parse('https://apps.apple.com/app/id{YOUR_APP_ID}') // TODO: 替换为真实 App Store ID
-                    : Uri.parse(downloadUrl);
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                Uri? uri;
+                if (Platform.isIOS) {
+                  // 优先使用服务端返回的下载地址（App Store链接）
+                  if (downloadUrl.contains('apps.apple.com') || downloadUrl.contains('itunes.apple.com')) {
+                    uri = Uri.parse(downloadUrl);
+                  }
+                } else {
+                  uri = Uri.parse(downloadUrl);
+                }
+                if (uri != null) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                } else {
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(content: Text('请在 App Store 中搜索「言旅」进行更新')),
+                    );
+                  }
+                }
                 if (ctx.mounted) Navigator.pop(ctx);
               },
               child: const Text('立即升级'),
@@ -412,7 +487,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('检查更新失败：$e'), behavior: SnackBarBehavior.floating),
+        const SnackBar(content: Text('检查更新失败，请检查网络后重试'), behavior: SnackBarBehavior.floating),
       );
     } finally {
       if (mounted) setState(() => _checkingUpdate = false);
@@ -1147,12 +1222,48 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                               : const Icon(Icons.chevron_right),
                           onTap: _checkingUpdate ? null : _checkAppUpdate,
                         ),
+                        const Divider(height: 1, indent: 56),
+                        ListTile(
+                          leading: Icon(Icons.delete_forever_rounded, color: Theme.of(context).colorScheme.error),
+                          title: Text('账户删除', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                          subtitle: const Text('永久删除账户及所有数据'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: _confirmDeleteAccount,
+                        ),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 24),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        _legalLink(context, '《用户协议》', '${AppConfig.serverRoot}/app/terms.html'),
+                        _legalLink(context, '《隐私政策》', '${AppConfig.serverRoot}/app/privacy.html'),
+                        _legalLink(context, '《退款政策》', '${AppConfig.serverRoot}/app/refund.html'),
+                        _legalLink(context, '《特定商取引法》', '${AppConfig.serverRoot}/app/tokusho.html'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _legalLink(BuildContext context, String label, String url) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => LegalWebViewPage(title: label.replaceAll('《', '').replaceAll('》', ''), url: url),
+      )),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary),
+      ),
     );
   }
 }

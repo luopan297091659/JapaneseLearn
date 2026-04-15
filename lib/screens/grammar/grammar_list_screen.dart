@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
+import '../../services/guest_service.dart';
 import '../../models/models.dart';
 
 // JLPT 级别色
@@ -37,7 +38,7 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
   bool _hasMore = true;
   int _page = 1;
   int _total = 0;
-  static const _pageSize = 20;
+  static const _pageSize = 200;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchCtrl = TextEditingController();
   Timer? _debounce;
@@ -110,7 +111,13 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
       if (!mounted) return;
       setState(() {
         _lessons.addAll(_sortCommonFirst(data));
-        _hasMore = _lessons.length < _total;
+        // 游客模式限刖10条
+        if (guestService.isGuest && _lessons.length > 10) {
+          _lessons.removeRange(10, _lessons.length);
+          _hasMore = false;
+        } else {
+          _hasMore = _lessons.length < _total;
+        }
         _loading = false;
       });
       // 预加载第2页
@@ -317,6 +324,9 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
                         }
                         final idx = i - 1;
                         if (idx >= _lessons.length) {
+                          if (guestService.isGuest && !_hasMore) {
+                            return _GuestLimitBanner();
+                          }
                           if (_loadingMore) {
                             return const Padding(padding: EdgeInsets.all(20), child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))));
                           }
@@ -369,6 +379,44 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─── 游客限制提示 ──────────────────────────────────────────────────────────────
+
+class _GuestLimitBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
+      ),
+      child: Column(children: [
+        Icon(Icons.lock_outline_rounded, color: cs.primary, size: 28),
+        const SizedBox(height: 8),
+        Text('游客仅可预览 10 条内容',
+          style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface)),
+        const SizedBox(height: 4),
+        Text('登录后可浏览全部内容并同步学习进度',
+          style: TextStyle(fontSize: 12, color: cs.outline)),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: () {
+              guestService.disableGuestMode();
+              GoRouter.of(context).go('/login');
+            },
+            child: const Text('登录 / 注册'),
+          ),
+        ),
+      ]),
     );
   }
 }

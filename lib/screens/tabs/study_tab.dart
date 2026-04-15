@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/membership_service.dart';
+import '../../services/guest_service.dart';
 import '../../config/app_config.dart';
 import '../../providers/app_appearance_provider.dart';
 import '../../widgets/mode_background.dart';
@@ -164,6 +165,7 @@ class _StudyTabState extends State<StudyTab> {
           color: const Color(0xFFFF9800),
           blocked: _isBlocked('srs_daily'),
           onTap: () {
+            if (GuestService.guardRoute(context, '/srs-review')) return;
             if (_isBlocked('srs_daily')) { _showMemberDialog('SRS 复习'); return; }
             context.push('/srs-review?from=study');
           },
@@ -184,7 +186,10 @@ class _StudyTabState extends State<StudyTab> {
         elevation: 0,
         actions: [
           GestureDetector(
-            onTap: () => context.push('/profile'),
+            onTap: () {
+              if (GuestService.guardRoute(context, '/profile')) return;
+              context.push('/profile');
+            },
             child: Container(
               margin: const EdgeInsets.only(right: 12),
               child: SizedBox(

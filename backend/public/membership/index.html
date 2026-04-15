@@ -199,7 +199,24 @@ footer { text-align: center; padding: 28px 16px; font-size: 12px; color: var(--t
 <section class="plans-section">
   <div class="plans-grid" id="plansGrid">
     <!-- Dynamically filled -->
+    <!-- Static fallback visible before JS loads -->
+    <noscript>
+      <div class="plan-card">
+        <div class="plan-name">月度会员</div>
+        <div class="plan-price">18 元<small> CNY/月</small></div>
+        <div class="plan-desc">按月订阅，灵活选择</div>
+      </div>
+      <div class="plan-card popular">
+        <div class="plan-name">年度会员</div>
+        <div class="plan-price">128 元<small> CNY/年</small></div>
+        <div class="plan-desc">年度订阅，最高性价比</div>
+      </div>
+    </noscript>
   </div>
+  <!-- 价格说明（可见于搜索引擎和审核） -->
+  <p style="text-align:center;font-size:13px;color:#9ca3af;margin-top:12px">
+    月度会员 ¥18 CNY/月 · 年度会员 ¥128 CNY/年 · 所有价格含税，以实际结算页面为准
+  </p>
 </section>
 
 <!-- Feature comparison -->
@@ -214,7 +231,7 @@ footer { text-align: center; padding: 28px 16px; font-size: 12px; color: var(--t
   </table>
 </section>
 
-<footer>© 2026 言旅 Kotabi — 让日语学习成为一段美好旅程</footer>
+<footer>© 2026 言旅 Kotabi — 让日语学习成为一段美好旅程<br><a href="/app/terms.html" style="color:#8B4513;text-decoration:none">用户协议</a> <span style="margin:0 4px;color:#9ca3af">·</span> <a href="/app/privacy.html" style="color:#8B4513;text-decoration:none">隐私政策</a> <span style="margin:0 4px;color:#9ca3af">·</span> <a href="/app/refund.html" style="color:#8B4513;text-decoration:none">退款政策</a> <span style="margin:0 4px;color:#9ca3af">·</span> <a href="/app/tokusho.html" style="color:#8B4513;text-decoration:none">特定商取引法</a></footer>
 
 <!-- Auth Modal -->
 <div class="modal-overlay" id="authModal">
@@ -237,7 +254,7 @@ footer { text-align: center; padding: 28px 16px; font-size: 12px; color: var(--t
         <div style="display:flex;gap:6px;">
           <input type="email" id="authEmail" placeholder="your@email.com" required autocomplete="email" style="flex:1;">
           <select id="emailSuffix" onchange="appendEmailSuffix(this.value)" style="width:auto;min-width:120px;padding:8px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;">
-            <option value="">邮箱选择</option>
+            <option value="">邮箱</option>
             <option>@qq.com</option>
             <option>@163.com</option>
             <option>@gmail.com</option>
@@ -263,6 +280,9 @@ footer { text-align: center; padding: 28px 16px; font-size: 12px; color: var(--t
       <div class="form-error" id="authError"></div>
       <div id="forgotLink" style="text-align:right;margin:-4px 0 8px;"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:#8B4513;">忘记密码？</a></div>
       <button type="submit" class="modal-btn" id="authSubmitBtn">登录</button>
+      <div style="text-align:center;margin-top:14px;font-size:12px;color:#9ca3af">
+        登录或注册即表示您同意 <a href="/app/terms.html" style="color:#8B4513;text-decoration:none">用户协议</a> 和 <a href="/app/privacy.html" style="color:#8B4513;text-decoration:none">隐私政策</a>
+      </div>
     </form>
     <!-- Forgot Password Form -->
     <div id="forgotForm" style="display:none;">
@@ -271,7 +291,7 @@ footer { text-align: center; padding: 28px 16px; font-size: 12px; color: var(--t
         <div style="display:flex;gap:6px;">
           <input type="email" id="resetEmail" placeholder="your@email.com" required style="flex:1;">
           <select onchange="appendResetSuffix(this.value)" style="width:auto;min-width:120px;padding:8px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;">
-            <option value="">邮箱选择</option>
+            <option value="">邮箱</option>
             <option>@qq.com</option><option>@163.com</option><option>@gmail.com</option><option>@outlook.com</option>
             <option>@126.com</option><option>@yahoo.com</option><option>@hotmail.com</option><option>@icloud.com</option>
           </select>
@@ -572,7 +592,6 @@ function handleBuy(planId) {
 }
 
 async function startCheckout(planId) {
-  // find the button and show loading
   const btns = document.querySelectorAll('.plan-btn-primary');
   btns.forEach(b => { b.disabled = true; b.classList.add('btn-loading'); });
   try {

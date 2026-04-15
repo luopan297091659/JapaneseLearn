@@ -1,8 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/api_service.dart';
+import '../../services/guest_service.dart';
+import '../../config/app_config.dart';
+import '../common/legal_webview_page.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -79,6 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         await apiService.login(email: _emailCtrl.text.trim(), password: _passwordCtrl.text);
       }
+      await guestService.disableGuestMode();
       if (mounted) context.go('/home');
     } catch (e) {
       if (mounted) setState(() => _error = _useCode ? _extractError(e) : S.of(context).loginError);
@@ -285,10 +290,47 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text(s.noAccount, style: TextStyle(color: cs.outline)),
                   TextButton(onPressed: () => context.go('/register'), child: Text(s.registerNow)),
                 ]),
+                if (Platform.isIOS) ...[
+                  const SizedBox(height: 8),
+                  Center(
+                    child: TextButton(
+                      onPressed: _loading ? null : () async {
+                        await guestService.enableGuestMode();
+                        if (mounted) context.go('/home');
+                      },
+                      child: Text('跳过登录，先看看',
+                        style: TextStyle(fontSize: 14, color: cs.outline),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: [
+                    _legalLink('《用户协议》', '${AppConfig.serverRoot}/app/terms.html'),
+                    _legalLink('《隐私政策》', '${AppConfig.serverRoot}/app/privacy.html'),
+                  ],
+                ),
+                const SizedBox(height: 16),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _legalLink(String label, String url) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => LegalWebViewPage(title: label.replaceAll('《', '').replaceAll('》', ''), url: url),
+      )),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary),
       ),
     );
   }

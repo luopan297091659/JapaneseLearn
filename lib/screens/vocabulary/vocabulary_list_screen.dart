@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
+import '../../services/guest_service.dart';
 import '../../models/models.dart';
 import '../../l10n/app_localizations.dart';
 import '../../utils/japanese_text_utils.dart';
@@ -34,7 +35,7 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
   bool _hasMore     = true;
   int  _total       = 0;
   int  _page        = 1;
-  static const _limit = 30;
+  static const _limit = 200;
 
   /// 当前级别的全部单词 ID（用于详情页上一个/下一个导航）
   List<String> _allWordIds = [];
@@ -121,7 +122,13 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
         final merged = reset ? newWords : [..._words, ...newWords];
         _words = _sortCommonFirst(merged);
         _total   = res['total'] as int;
-        _hasMore = _words.length < _total;
+        // 游客模式限刖10张卡片
+        if (guestService.isGuest && _words.length > 10) {
+          _words = _words.sublist(0, 10);
+          _hasMore = false;
+        } else {
+          _hasMore = _words.length < _total;
+        }
         _loading = false;
       });
     } catch (_) {
@@ -296,9 +303,13 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                         : ListView.separated(
                             controller: _scrollCtrl,
                             padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
-                            itemCount: _words.length + (_hasMore ? 1 : 0),
+                            itemCount: _words.length + (_hasMore ? 1 : 0) + (guestService.isGuest && !_hasMore && _words.isNotEmpty ? 1 : 0),
                             separatorBuilder: (_, __) => const SizedBox(height: 8),
                             itemBuilder: (_, i) {
+                              // 游客底部登录提示
+                              if (guestService.isGuest && !_hasMore && i == _words.length) {
+                                return _GuestLimitBanner();
+                              }
                               if (i == _words.length) {
                                 return _loadingMore
                                     ? const Padding(
@@ -314,6 +325,44 @@ class _VocabularyListScreenState extends State<VocabularyListScreen> {
                 ],
               ),
             ),
+    );
+  }
+}
+
+// ─── 游客限制提示 ──────────────────────────────────────────────────────────────
+
+class _GuestLimitBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
+      ),
+      child: Column(children: [
+        Icon(Icons.lock_outline_rounded, color: cs.primary, size: 28),
+        const SizedBox(height: 8),
+        Text('游客仅可预览 10 条内容',
+          style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSurface)),
+        const SizedBox(height: 4),
+        Text('登录后可浏览全部内容并同步学习进度',
+          style: TextStyle(fontSize: 12, color: cs.outline)),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: () {
+              guestService.disableGuestMode();
+              GoRouter.of(context).go('/login');
+            },
+            child: const Text('登录 / 注册'),
+          ),
+        ),
+      ]),
     );
   }
 }

@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import '../services/guest_service.dart';
 
 // Screens
 import '../screens/auth/login_screen.dart';
@@ -42,6 +45,8 @@ import '../screens/quiz/grammar_quiz_screen.dart';
 import '../screens/tools/wrong_answers_screen.dart';
 import '../screens/listening/immersion_screen.dart';
 import '../screens/membership/membership_comparison_page.dart';
+import '../screens/membership/qr_payment_page.dart';
+import '../screens/membership/stripe_checkout_page.dart';
 import '../models/models.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -61,8 +66,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         token = null;
       }
       final isAuth = token != null;
+      final isGuest = guestService.isGuest;
       final isOnAuthPage =
           state.matchedLocation == '/login' || state.matchedLocation == '/register' || state.matchedLocation == '/forgot-password';
+
+      // 游客模式：允许访问非账户功能，拦截需要登录的路径
+      if (!isAuth && isGuest) {
+        if (isOnAuthPage) return '/home';
+        if (GuestService.isAuthRequired(state.matchedLocation)) return '/home';
+        return null;
+      }
 
       if (!isAuth && !isOnAuthPage) return '/login';
       if (isAuth && isOnAuthPage) return '/home';
@@ -204,6 +217,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, state) => MembershipComparisonPage(
               isMember: (state.extra as bool?) ?? false,
             ),
+          ),
+          GoRoute(
+            path: '/qr-payment',
+            redirect: (_, __) => Platform.isIOS ? '/membership' : null,
+            builder: (_, state) => QrPaymentPage(
+              plan: (state.extra as Map<String, dynamic>?) ?? {},
+            ),
+          ),
+          GoRoute(
+            path: '/stripe-checkout',
+            redirect: (_, __) => Platform.isIOS ? '/membership' : null,
+            builder: (_, state) {
+              final extra = (state.extra as Map<String, dynamic>?) ?? {};
+              return StripeCheckoutPage(
+                planId: extra['planId'] as String? ?? '',
+                planName: extra['planName'] as String? ?? '',
+              );
+            },
           ),
         ],
       ),

@@ -225,6 +225,8 @@ async function getStudyQueue(req, res) {
     const task = await getOrCreateTodayTask(req.user);
     const today = todayStr();
     const level = JLPT_LEVELS.includes(req.query.level) ? req.query.level : (req.user.level || 'N5');
+    const clientDaily = parseInt(req.query.daily_target, 10) || 0;
+    const effectiveDaily = Math.max(clientDaily, task.target_vocab + task.target_grammar + task.target_review, 20);
 
     const [dueCards, difficultStates] = await Promise.all([
       SrsCard.findAll({
@@ -233,7 +235,7 @@ async function getStudyQueue(req, res) {
           due_date: { [Op.lte]: today },
         },
         order: [['due_date', 'ASC']],
-        limit: Math.max(task.target_review * 2, 20),
+        limit: Math.max(effectiveDaily * 2, 20),
       }),
       StudyPlanCardState.findAll({
         where: {
@@ -242,7 +244,7 @@ async function getStudyQueue(req, res) {
           [Op.or]: [{ next_due_at: null }, { next_due_at: { [Op.lte]: today } }],
         },
         order: [['updated_at', 'DESC']],
-        limit: 30,
+        limit: Math.max(effectiveDaily, 30),
       }),
     ]);
 
@@ -264,14 +266,14 @@ async function getStudyQueue(req, res) {
           jlpt_level: level,
           ...(knownVocabIds.length ? { id: { [Op.notIn]: knownVocabIds } } : {}),
         },
-        limit: Math.max(task.target_vocab * 3, 30),
+        limit: Math.max(effectiveDaily * 2, task.target_vocab * 3, 30),
       }),
       GrammarLesson.findAll({
         where: {
           jlpt_level: level,
           ...(knownGrammarIds.length ? { id: { [Op.notIn]: knownGrammarIds } } : {}),
         },
-        limit: Math.max(task.target_grammar * 3, 15),
+        limit: Math.max(effectiveDaily, task.target_grammar * 3, 15),
       }),
     ]);
 

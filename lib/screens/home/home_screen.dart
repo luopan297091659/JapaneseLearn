@@ -9,6 +9,7 @@ import 'package:just_audio/just_audio.dart';
 import '../../services/api_service.dart';
 import '../../services/sync_service.dart';
 import '../../services/membership_service.dart';
+import '../../services/guest_service.dart';
 import '../../models/models.dart';
 import '../../l10n/app_localizations.dart';
 import '../../utils/japanese_text_utils.dart';
@@ -117,23 +118,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _loadFavFeatures();
     _loadFeatureToggles();
     _loadAll(fromCache: true);
-    // 后台检测服务端内容版本是否有更新
-    Future.microtask(() async {
-      final updated = await syncService.checkContentVersion();
-      if (updated && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('✨ 词库/语法已更新，重新打开列表即可看到新内容'),
-            duration: const Duration(seconds: 4),
-            behavior: SnackBarBehavior.floating,
-            action: SnackBarAction(
-              label: '查看词汇',
-              onPressed: () => context.push('/vocabulary'),
-            ),
-          ),
-        );
-      }
-    });
+    // 后台静默同步服务端内容版本
+    Future.microtask(() => syncService.checkContentVersion());
   }
 
   /// [fromCache] true = 先用缓存立即渲染，后台同步刷新；false = 强制刷新
@@ -156,6 +142,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _loadAll({bool fromCache = false}) async {
     if (!fromCache) {
       setState(() => _refreshing = true);
+    }
+    if (guestService.isGuest) {
+      // 游客模式：跳过需要认证的 API 调用
+      setState(() {
+        _userLoading = false;
+        _srsLoading = false;
+        _goalsLoading = false;
+        _refreshing = false;
+      });
+      await _loadWordOfDay();
+      return;
     }
     // 先加载用户信息，获取 JLPT 等级后再加载今日一词
     // SRS 和每日目标不依赖用户等级，可与用户加载并行
@@ -766,8 +763,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   const SizedBox(height: 16),
-                  // ── 今日目标 ────────────────────────────────────────
-                  if (!_goalsLoading && adjustedGoals != null) ...[
+                  // ── 游客登录提示横幅 ──────────────────────────────
+                  if (guestService.isGuest) ...[
+                    _GuestBanner(onLogin: () {
+                      guestService.disableGuestMode();
+                      context.go('/login');
+                    }),
+                    const SizedBox(height: 16),
+                  ],
+                  // ── 今日目标（游客隐藏）───────────────────────────
+                  if (!guestService.isGuest && !_goalsLoading && adjustedGoals != null) ...[
                     _SectionTitle(title: '今日目标', icon: Icons.flag_rounded),
                     const SizedBox(height: 10),
                     _DailyGoalsCard(goals: adjustedGoals),
@@ -779,17 +784,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   _SearchBar(),
                   const SizedBox(height: 20),
                   // ── SRS 提醒（加载完才判断）──────────────────────
-                  if (!_srsLoading && (_srsStats?['due_today'] ?? 0) > 0) ...[
+                  if (!guestService.isGuest && !_srsLoading && (_srsStats?['due_today'] ?? 0) > 0) ...[
                     _SrsReviewBanner(dueCount: _srsStats!['due_today']),
                     const SizedBox(height: 20),
                   ],
                   // ── 进行中的学习计划 ──────────────────────────
-                  if (_activePlans.isNotEmpty) ...[
+                  if (!guestService.isGuest && _activePlans.isNotEmpty) ...[
                     _StudyPlanBanner(plans: _activePlans),
                     const SizedBox(height: 20),
                   ],
                   // ── 会员体验提示 ──────────────────────────────
-                  if (_user != null && !_user!.isMember && !_user!.trialActivated)
+                  if (!guestService.isGuest && _user != null && !_user!.isMember && !_user!.trialActivated)
                     _TrialPromptBanner(onTap: () => context.push('/membership', extra: false)),
                   // ── 今日一词 ────────────────────────────────────
                   _SectionTitle(title: '今日一词', icon: Icons.auto_awesome_rounded),
@@ -843,10 +848,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   // ── Sliver App Bar ─────────────────────────────────────────────────────────
   Widget _buildSliverHeader(ColorScheme cs, int totalXp, int streakDays, int todayXp) {
+    final isGuestMode = guestService.isGuest;
     final isMember = _user?.isMember ?? false;
     final isTrial = _user?.isTrial ?? false;
     final daysLeft = _user?.membershipDaysLeft;
-    final memberLabel = isTrial && daysLeft != null ? '体验${daysLeft}天' : isMember ? '会员' : '免费';
+    final memberLabel = isGuestMode ? '游客' : isTrial && daysLeft != null ? '体验${daysLeft}天' : isMember ? '会员' : '免费';
     final rawAvatar = _user?.avatarUrl;
     final avatarUrl = rawAvatar == null || rawAvatar.isEmpty
       ? null
@@ -867,7 +873,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           )),
       actions: [
         GestureDetector(
-          onTap: () => context.push('/profile'),
+          onTap: () {
+            if (isGuestMode) {
+              GuestService.guardRoute(context, '/profile');
+            } else {
+              context.push('/profile');
+            }
+          },
           child: Container(
             margin: const EdgeInsets.only(right: 12),
             child: SizedBox(
@@ -885,7 +897,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.4),
                     ),
                     child: ClipOval(
-                      child: avatarUrl != null
+                      child: (!isGuestMode && avatarUrl != null)
                           ? Image.network(
                               avatarUrl,
                               fit: BoxFit.cover,
@@ -896,18 +908,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                   const SizedBox(height: 2),
                   GestureDetector(
-                    onTap: () => context.push('/membership', extra: isMember),
+                    onTap: () {
+                      if (isGuestMode) {
+                        GuestService.guardRoute(context, '/membership');
+                      } else {
+                        context.push('/membership', extra: isMember);
+                      }
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                       decoration: BoxDecoration(
-                        color: isMember
-                            ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
-                            : Colors.white.withValues(alpha: 0.18),
+                        color: isGuestMode
+                            ? Colors.white.withValues(alpha: 0.18)
+                            : isMember
+                                ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                                : Colors.white.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
                         Icon(
-                          isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
+                          isGuestMode ? Icons.person_outline : isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
                           size: 10,
                           color: isMember ? const Color(0xFFFCD34D) : Colors.white70,
                         ),
@@ -948,9 +968,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 children: [
                   // 问候 + 用户名
                   Text(
-                    _user != null
-                        ? '${_greeting()}　${_user!.username}さん'
-                        : '${_greeting()}　学生',
+                    isGuestMode
+                        ? '${_greeting()}　ゲストさん'
+                        : _user != null
+                            ? '${_greeting()}　${_user!.username}さん'
+                            : '${_greeting()}　学生',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
@@ -961,48 +983,51 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                   const SizedBox(height: 8),
                   // 统计数据行（紧凑）
-                  Row(children: [
-                    _StatBadge(icon: Icons.star, color: Colors.amber, label: _user?.level ?? 'N5'),
-                    const SizedBox(width: 8),
-                    _StatBadge(icon: Icons.diamond_rounded, color: Colors.amberAccent, label: '${totalXp}XP'),
-                    const SizedBox(width: 8),
-                    _StatBadge(icon: Icons.trending_up_rounded, color: Colors.greenAccent, label: '+$todayXp'),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: _showCheckinCalendar,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: _checkedInToday
-                              ? const Color(0xFF4CAF50).withValues(alpha: 0.5)
-                              : const Color(0xFFFF6B6B).withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
+                  if (isGuestMode)
+                    _GuestLoginPrompt()
+                  else
+                    Row(children: [
+                      _StatBadge(icon: Icons.star, color: Colors.amber, label: _user?.level ?? 'N5'),
+                      const SizedBox(width: 8),
+                      _StatBadge(icon: Icons.diamond_rounded, color: Colors.amberAccent, label: '${totalXp}XP'),
+                      const SizedBox(width: 8),
+                      _StatBadge(icon: Icons.trending_up_rounded, color: Colors.greenAccent, label: '+$todayXp'),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _showCheckinCalendar,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
                             color: _checkedInToday
-                                ? const Color(0xFF81C784).withValues(alpha: 0.6)
-                                : const Color(0xFFFF8A80).withValues(alpha: 0.6),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(
-                            _checkedInToday ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                            size: 13,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            _checkedInToday ? '已签到' : '未签到',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
+                                ? const Color(0xFF4CAF50).withValues(alpha: 0.5)
+                                : const Color(0xFFFF6B6B).withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: _checkedInToday
+                                  ? const Color(0xFF81C784).withValues(alpha: 0.6)
+                                  : const Color(0xFFFF8A80).withValues(alpha: 0.6),
+                              width: 1,
                             ),
                           ),
-                        ]),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(
+                              _checkedInToday ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                              size: 13,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              _checkedInToday ? '已签到' : '未签到',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ]),
+                        ),
                       ),
-                    ),
-                  ]),
+                    ]),
                 ],
               ),
             ),
@@ -1084,6 +1109,74 @@ class _StatBadge extends StatelessWidget {
         Icon(icon, size: 13, color: color),
         const SizedBox(width: 4),
         Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+      ]),
+    );
+  }
+}
+
+// ─── Guest Mode Widgets ──────────────────────────────────────────────────────
+
+class _GuestLoginPrompt extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        guestService.disableGuestMode();
+        GoRouter.of(context).go('/login');
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.login_rounded, size: 14, color: Colors.white),
+          SizedBox(width: 4),
+          Text('登录解锁完整功能', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+        ]),
+      ),
+    );
+  }
+}
+
+class _GuestBanner extends StatelessWidget {
+  final VoidCallback onLogin;
+  const _GuestBanner({required this.onLogin});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF3B82F6), Color(0xFF6366F1)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(children: [
+        const Icon(Icons.waving_hand_rounded, color: Colors.white, size: 28),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+            Text('欢迎体验言旅',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+            Text('登录后可同步学习进度、使用SRS复习等更多功能',
+                style: TextStyle(color: Colors.white70, fontSize: 12)),
+          ]),
+        ),
+        GestureDetector(
+          onTap: onLogin,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text('登录',
+                style: TextStyle(color: Color(0xFF3B82F6), fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+        ),
       ]),
     );
   }
@@ -2076,6 +2169,8 @@ class _FeatureTile extends StatelessWidget {
     final blocked = tierId != null && !isMember && membershipService.isBlocked(tierId!, isMember: isMember);
     return InkWell(
       onTap: () {
+        // 游客模式：拦截需要登录的功能
+        if (GuestService.guardRoute(context, path)) return;
         if (blocked) {
           showDialog(
             context: context,

@@ -4,6 +4,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../utils/tts_helper.dart';
+import '../../widgets/whiteboard_widget.dart';
 
 class SrsReviewScreen extends StatefulWidget {
   final String from;
@@ -27,6 +28,8 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
   FlutterTts? _tts;
   bool _wordPlaying = false;
   bool _wordLoading = false;
+  bool _examplePlaying = false;
+  bool _exampleLoading = false;
 
   String get _backTarget {
     switch (widget.from) {
@@ -81,6 +84,27 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
       );
     } catch (e) {
       if (mounted) setState(() { _wordLoading = false; _wordPlaying = false; });
+    }
+  }
+
+  /// 朗读例句
+  Future<void> _speakExample(String text, {String? audioUrl}) async {
+    if (!mounted) return;
+    setState(() => _exampleLoading = true);
+    try {
+      final tts = await _getOrInitTts();
+      await tts.stop();
+      if (mounted) setState(() { _exampleLoading = false; _examplePlaying = true; });
+      await TtsHelper.playJapaneseSmart(
+        audioUrl: audioUrl,
+        text: text,
+        tts: tts,
+        onComplete: () {
+          if (mounted) setState(() => _examplePlaying = false);
+        },
+      );
+    } catch (e) {
+      if (mounted) setState(() { _exampleLoading = false; _examplePlaying = false; });
     }
   }
 
@@ -188,6 +212,54 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
           }, 
           child: const Text('返回')
         )],
+      ),
+    );
+  }
+
+  void _showWhiteboard(ColorScheme cs, {VocabularyModel? vocab, GrammarLessonModel? grammar}) {
+    final refChar = vocab?.word ?? grammar?.pattern;
+    final title = vocab?.word ?? grammar?.pattern ?? '';
+    final subtitle = vocab != null ? vocab.reading : (grammar?.titleZh ?? grammar?.title ?? '');
+    final meaning = vocab?.meaningZh ?? grammar?.explanationZh ?? grammar?.explanation ?? '';
+    showDialog(
+      context: context,
+      useSafeArea: false,
+      builder: (ctx) => Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          leading: IconButton(
+            icon: const Icon(Icons.close_rounded),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              if (subtitle.isNotEmpty)
+                Text(subtitle, style: TextStyle(fontSize: 12, color: cs.primary, fontWeight: FontWeight.w400)),
+            ],
+          ),
+        ),
+        body: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            children: [
+              if (meaning.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(meaning, style: TextStyle(fontSize: 14, color: cs.onPrimaryContainer), textAlign: TextAlign.center),
+                ),
+              Expanded(child: WhiteboardWidget(referenceChar: refChar)),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -304,6 +376,11 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
           onPressed: () => context.go(_backTarget),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.draw_rounded),
+            tooltip: '白板',
+            onPressed: () => _showWhiteboard(cs, vocab: vocab, grammar: grammar),
+          ),
           PopupMenuButton<String>(
             onSelected: (v) { if (v == 'reset') _confirmResetSrs(); },
             itemBuilder: (_) => [
@@ -398,33 +475,27 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
             children: [
               Text(vocab.word, style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
               const SizedBox(width: 12),
-              if (!_wordLoading && !_wordPlaying)
-                IconButton(
-                  icon: Icon(Icons.volume_up_rounded, color: cs.primary, size: 28),
-                  onPressed: () => _speakWord(vocab.word, audioUrl: vocab.audioUrl),
-                  tooltip: '朗读单词',
-                )
-              else if (_wordLoading)
-                SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: Center(
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(cs.primary),
-                      ),
-                    ),
+              GestureDetector(
+                onTap: _wordLoading ? null : () => _speakWord(vocab.word, audioUrl: vocab.audioUrl),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _wordPlaying ? cs.primary.withValues(alpha: 0.15) : Colors.transparent,
                   ),
-                )
-              else
-                IconButton(
-                  icon: Icon(Icons.volume_down_rounded, color: cs.primary, size: 28),
-                  onPressed: () async => await _tts?.stop(),
-                  tooltip: '停止播放',
+                  child: _wordLoading
+                      ? Center(child: SizedBox(
+                          width: 18, height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+                        ))
+                      : Icon(
+                          _wordPlaying ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+                          color: cs.primary,
+                          size: 28,
+                        ),
                 ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -466,11 +537,48 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
                       Text('例文', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: cs.onSurfaceVariant)),
                     ]),
                     const SizedBox(height: 8),
-                    Text(vocab.exampleSentence!, textAlign: TextAlign.start, style: const TextStyle(fontSize: 16, height: 1.6)),
-                    if (vocab.exampleMeaningZh != null) ...[
-                      const SizedBox(height: 4),
-                      Text(vocab.exampleMeaningZh!, style: TextStyle(color: cs.outline, fontSize: 14)),
-                    ],
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(vocab.exampleSentence!, textAlign: TextAlign.start, style: const TextStyle(fontSize: 16, height: 1.6)),
+                              if (vocab.exampleMeaningZh != null) ...[
+                                const SizedBox(height: 4),
+                                Text(vocab.exampleMeaningZh!, style: TextStyle(color: cs.outline, fontSize: 14)),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: GestureDetector(
+                            onTap: _exampleLoading ? null : () => _speakExample(vocab.exampleSentence!, audioUrl: vocab.exampleAudioUrl),
+                            child: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _examplePlaying ? cs.primary.withValues(alpha: 0.15) : Colors.transparent,
+                              ),
+                              child: _exampleLoading
+                                  ? Center(child: SizedBox(
+                                      width: 18, height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+                                    ))
+                                  : Icon(
+                                      _examplePlaying ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+                                      color: cs.primary,
+                                      size: 24,
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),

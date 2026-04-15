@@ -118,7 +118,8 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
       await apiService.startStudyPlanDay();
 
       final level = _planLevel(plan);
-      final queueRes = await apiService.getStudyPlanQueue(level: level);
+      final dailyTarget = ((_plan?['dailyTarget'] as int?) ?? 20).clamp(1, 999);
+      final queueRes = await apiService.getStudyPlanQueue(level: level, dailyTarget: dailyTarget);
       final rawQueue = (queueRes['queue'] as List<dynamic>? ?? const []).cast<dynamic>();
       final planType = _planType(plan);
 
@@ -140,7 +141,6 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
 
           final sorted = _sortCommonFirst(filtered);
 
-      final dailyTarget = ((_plan?['dailyTarget'] as int?) ?? 20).clamp(1, 999);
           final limited = sorted.take(dailyTarget).toList();
 
       _queue = limited;

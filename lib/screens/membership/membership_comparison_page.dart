@@ -4,6 +4,10 @@ import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../services/sync_service.dart';
 import '../../services/membership_service.dart';
+import '../../services/payment_service.dart';
+import '../../config/app_config.dart';
+import '../common/legal_webview_page.dart';
+import 'qr_payment_page.dart';
 
 /// 会员功能对比页面 — 展示免费用户与会员用户的功能差异
 class MembershipComparisonPage extends StatefulWidget {
@@ -26,6 +30,8 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
   String _trialDesc = '';
   bool _activating = false;
   List<Map<String, dynamic>> _plans = [];
+  bool _purchasing = false;
+  String _purchasingPlanId = '';
 
   @override
   void initState() {
@@ -67,6 +73,58 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
+
+    // iOS: 初始化 IAP 并加载产品价格
+    if (Platform.isIOS) {
+      await _initIAP();
+    }
+  }
+
+  Future<void> _initIAP() async {
+    await paymentService.init();
+    final productIds = _plans
+        .where((p) => p['apple_product_id'] != null && (p['apple_product_id'] as String).isNotEmpty)
+        .map((p) => p['apple_product_id'] as String)
+        .toList();
+    if (productIds.isNotEmpty) {
+      await paymentService.loadProducts(productIds);
+      if (mounted) setState(() {});
+    }
+
+    paymentService.onPurchaseResult = (planId, success, message) {
+      if (mounted) {
+        setState(() {
+          _purchasing = false;
+          _purchasingPlanId = '';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: success ? Colors.green : Colors.red,
+          ),
+        );
+        if (success) _loadData();
+      }
+    };
+  }
+
+  Future<void> _purchasePlan(Map<String, dynamic> plan) async {
+    final appleProductId = plan['apple_product_id'] as String?;
+    if (appleProductId == null || appleProductId.isEmpty) return;
+    setState(() {
+      _purchasing = true;
+      _purchasingPlanId = plan['id'] ?? '';
+    });
+    final started = await paymentService.purchaseApple(appleProductId);
+    if (!started && mounted) {
+      setState(() {
+        _purchasing = false;
+        _purchasingPlanId = '';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('无法发起购买，请稍后重试'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   @override
@@ -94,9 +152,9 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
                 // Comparison table
                 _buildComparisonTable(cs),
                 const SizedBox(height: 24),
-                // Membership plans (iOS 隐藏价格卡片，避免审核问题)
-                if (!Platform.isIOS) _buildPlansSection(cs),
-                if (!Platform.isIOS) const SizedBox(height: 32),
+                // Membership plans
+                _buildPlansSection(cs),
+                const SizedBox(height: 32),
               ],
             ),
     );
@@ -439,14 +497,15 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
       2: const Color(0xFF7C3AED),
     };
 
+    final isIOS = Platform.isIOS;
     // Use fetched plans if available, otherwise fallback to defaults
-    final plans = _plans.where((p) => p['enabled'] != false).toList();
+    final plans = _plans.where((p) => p['enabled'] != false && p['id'] != 'free').toList();
     final usePlans = plans.isNotEmpty
         ? plans
         : [
-            {'name': '月度会员', 'price': 18, 'period': 'month'},
-            {'name': '年度会员', 'price': 128, 'period': 'year'},
-            {'name': '终身会员', 'price': 398, 'period': 'forever'},
+            {'id': 'monthly', 'name': '月度会员', 'price': 18, 'period': 'month', 'apple_product_id': 'kotabi.vip.monthly'},
+            {'id': 'yearly', 'name': '年度会员', 'price': 128, 'period': 'year', 'apple_product_id': 'kotabi.vip.yearly'},
+            {'id': 'lifetime', 'name': '终身会员', 'price': 398, 'period': 'forever', 'apple_product_id': 'kotabi.vip.lifetime'},
           ];
 
     return Column(
@@ -463,14 +522,16 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
         ...usePlans.asMap().entries.map((e) {
           final i = e.key;
           final p = e.value;
-          final price = (p['price'] is num) ? (p['price'] as num).toInt() : 0;
+          final appleId = p['apple_product_id'] as String? ?? '';
+          final iapPrice = isIOS ? paymentService.getLocalizedPrice(appleId) : null;
+          final price = iapPrice ?? ((p['price'] is num) ? '¥${(p['price'] as num).toInt()}' : '¥0');
           final period = periodLabels[p['period']] ?? '';
           final isHighlighted = i == 1; // second plan highlighted as "最受欢迎"
           return Padding(
             padding: EdgeInsets.only(top: i > 0 ? 12 : 0),
             child: _PlanCard(
               name: p['name']?.toString() ?? '',
-              price: '¥$price',
+              price: price,
               period: period,
               features: (p['features'] as List<dynamic>?)?.cast<String>() ??
                   (i == 0
@@ -481,18 +542,41 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
               color: colorMap[i % 3] ?? cs.primary,
               highlighted: isHighlighted,
               badge: isHighlighted ? '最受欢迎' : null,
+              isMember: _isMember,
+              isIOS: isIOS,
+              purchasing: _purchasing && _purchasingPlanId == (p['id'] ?? ''),
+              onPurchase: _isMember || _purchasing
+                  ? null
+                  : isIOS
+                      ? () => _purchasePlan(p)
+                      : () => context.push('/qr-payment', extra: p),
             ),
           );
         }),
-        const SizedBox(height: 16),
-        Center(
-          child: Text(
-            '会员付费功能即将上线，敬请期待！\n目前可免费体验全部会员功能',
-            style: TextStyle(fontSize: 13, color: cs.outline),
-            textAlign: TextAlign.center,
+        if (_isMember) ...[
+          const SizedBox(height: 16),
+          Center(
+            child: Text(
+              '您已是会员，感谢支持！',
+              style: TextStyle(fontSize: 13, color: cs.outline),
+              textAlign: TextAlign.center,
+            ),
           ),
-        ),
-      ],
+        ],        const SizedBox(height: 16),
+        Center(
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => LegalWebViewPage(
+                title: '退款政策',
+                url: '${AppConfig.serverRoot}/app/refund.html',
+              ),
+            )),
+            child: Text(
+              '订阅前请阅读《退款政策》',
+              style: TextStyle(fontSize: 12, color: cs.outline, decoration: TextDecoration.underline),
+            ),
+          ),
+        ),      ],
     );
   }
 }
@@ -505,6 +589,10 @@ class _PlanCard extends StatelessWidget {
   final Color color;
   final bool highlighted;
   final String? badge;
+  final bool isMember;
+  final bool isIOS;
+  final bool purchasing;
+  final VoidCallback? onPurchase;
 
   const _PlanCard({
     required this.name,
@@ -514,6 +602,10 @@ class _PlanCard extends StatelessWidget {
     required this.color,
     this.highlighted = false,
     this.badge,
+    this.isMember = false,
+    this.isIOS = false,
+    this.purchasing = false,
+    this.onPurchase,
   });
 
   @override
@@ -568,6 +660,25 @@ class _PlanCard extends StatelessWidget {
                           ],
                         ),
                       )),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: onPurchase,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: isMember ? cs.surfaceContainerHighest : color,
+                            foregroundColor: isMember ? cs.outline : Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: purchasing
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : Text(
+                                  isMember ? '已开通' : (isIOS ? '立即订阅' : '立即购买'),
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

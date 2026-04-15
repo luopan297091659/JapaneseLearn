@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import '../config/app_config.dart';
 import '../models/models.dart';
 import 'local_db.dart';
+import 'guest_service.dart';
 
 // ─── 简单内存缓存 ─────────────────────────────────────────────────────────────
 
@@ -112,10 +113,16 @@ class ApiService {
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
+        options.headers['X-Client-Date'] = DateTime.now().toIso8601String().split('T').first;
         handler.next(options);
       },
       onError: (error, handler) async {
         if (error.response?.statusCode == 401) {
+          // 游客模式：静默处理 401，不触发 token 刷新或清除逻辑
+          if (guestService.isGuest) {
+            handler.next(error);
+            return;
+          }
           // 检查是否被其他设备顶替
           final data = error.response?.data;
           if (data is Map && data['error'] == 'SESSION_REPLACED') {
@@ -469,8 +476,27 @@ class ApiService {
     return res.data['orders'] as List? ?? [];
   }
 
+  /// Stripe: 创建 Checkout Session，返回 { url, sessionId }
+  Future<Map<String, dynamic>> createStripeCheckout(String planId) async {
+    final res = await _dio.post('/stripe/create-checkout-session', data: {'planId': planId});
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  /// Stripe: 查询支付状态
+  Future<Map<String, dynamic>> getStripeSessionStatus(String sessionId) async {
+    final res = await _dio.get('/stripe/session-status', queryParameters: {'session_id': sessionId});
+    return Map<String, dynamic>.from(res.data);
+  }
+
   // logout 时清缓存
   Future<void> logout() async {
+    _cache.clear();
+    await _storage.deleteAll();
+  }
+
+  /// 永久删除账户
+  Future<void> deleteAccount(String password) async {
+    await _dio.delete('/users/account', data: {'password': password});
     _cache.clear();
     await _storage.deleteAll();
   }
@@ -1101,11 +1127,12 @@ class ApiService {
     return Map<String, dynamic>.from(res.data as Map);
   }
 
-  Future<Map<String, dynamic>> getStudyPlanQueue({String? level}) async {
+  Future<Map<String, dynamic>> getStudyPlanQueue({String? level, int? dailyTarget}) async {
     final res = await _dio.get(
       '/progress/study-plan/queue',
       queryParameters: {
         if (level != null && level.isNotEmpty) 'level': level,
+        if (dailyTarget != null) 'daily_target': dailyTarget,
       },
     );
     return Map<String, dynamic>.from(res.data as Map);

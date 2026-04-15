@@ -576,7 +576,7 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
         <div style="display:flex;gap:6px">
           <input class="input" id="login-email" type="text" placeholder="请输入邮箱前缀" autocomplete="email" style="flex:1">
           <select class="input" id="login-email-suffix" style="width:auto;min-width:120px;cursor:pointer">
-            <option value="">邮箱选择</option>
+            <option value="">邮箱</option>
             <option>@gmail.com</option><option>@outlook.com</option><option>@qq.com</option>
             <option>@163.com</option><option>@126.com</option><option>@yahoo.com</option>
             <option>@hotmail.com</option><option>@icloud.com</option>
@@ -597,7 +597,7 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
         <div style="display:flex;gap:6px">
           <input class="input" id="code-login-email" type="text" placeholder="请输入邮箱前缀" autocomplete="email" style="flex:1">
           <select class="input" id="code-login-email-suffix" style="width:auto;min-width:120px;cursor:pointer">
-            <option value="">邮箱选择</option>
+            <option value="">邮箱</option>
             <option>@gmail.com</option><option>@outlook.com</option><option>@qq.com</option>
             <option>@163.com</option><option>@126.com</option><option>@yahoo.com</option>
             <option>@hotmail.com</option><option>@icloud.com</option>
@@ -625,7 +625,7 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
         <div style="display:flex;gap:6px">
           <input class="input" id="reg-email" type="text" placeholder="请输入邮箱前缀" style="flex:1">
           <select class="input" id="reg-email-suffix" style="width:auto;min-width:120px;cursor:pointer">
-            <option value="">邮箱选择</option>
+            <option value="">邮箱</option>
             <option>@gmail.com</option><option>@outlook.com</option><option>@qq.com</option>
             <option>@163.com</option><option>@126.com</option><option>@yahoo.com</option>
             <option>@hotmail.com</option><option>@icloud.com</option>
@@ -643,7 +643,13 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
         </select>
       </div>
       <div id="reg-err" style="color:var(--danger);font-size:13px;margin-bottom:10px;display:none"></div>
+      <p style="font-size:12px;color:#86868b;text-align:center;margin-bottom:10px">注册即表示您同意 <a href="/app/terms.html" style="color:#7c3aed" target="_blank">用户协议</a> 和 <a href="/app/privacy.html" style="color:#7c3aed" target="_blank">隐私政策</a></p>
       <button class="btn btn-primary" style="width:100%;justify-content:center" id="btn-register">注册并登录</button>
+    </div>
+    <div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid var(--border);font-size:12px;color:#86868b;line-height:1.8">
+      <a href="/app/terms.html" style="color:#7c3aed;text-decoration:none">用户协议</a>
+      <span style="margin:0 6px">·</span>
+      <a href="/app/privacy.html" style="color:#7c3aed;text-decoration:none">隐私政策</a>
     </div>
   </div>
 </div>
@@ -719,6 +725,12 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
       <div class="nav-item" data-page="membership" onclick="navigate('membership')"><span class="icon">👑</span>会员</div>
       <div class="nav-item" data-page="profile" onclick="navigate('profile')"><span class="icon">👤</span>我的</div>
       <div class="nav-footer">
+        <div style="padding:6px 14px 10px;font-size:12px;display:flex;gap:10px;flex-wrap:wrap">
+          <a href="/app/terms.html" style="color:var(--primary);text-decoration:none;opacity:.7" target="_blank">用户协议</a>
+          <a href="/app/privacy.html" style="color:var(--primary);text-decoration:none;opacity:.7" target="_blank">隐私政策</a>
+          <a href="/app/refund.html" style="color:var(--primary);text-decoration:none;opacity:.7" target="_blank">退款政策</a>
+          <a href="/app/tokusho.html" style="color:var(--primary);text-decoration:none;opacity:.7" target="_blank">特定商取引法</a>
+        </div>
         <div class="nav-item" onclick="doLogout()" style="color:var(--danger)"><span class="icon">↩</span>退出登录</div>
       </div>
     </div>
@@ -5005,7 +5017,7 @@ function renderMembershipPlans(isMember) {
         <li>Anki 导入 & 测验</li>
         <li>错题集</li>
       </ul>
-      ${!isMember ? '<div style="text-align:center;margin-top:12px"><button class="btn btn-primary" style="width:100%;justify-content:center" onclick="toast(\'请在 App 内购买会员\', 3000)">升级会员</button></div>' : ''}
+      ${!isMember ? '<div style="text-align:center;margin-top:12px"><button class="btn btn-primary" style="width:100%;justify-content:center" onclick="showPaymentModal()">升级会员</button></div>' : ''}
     </div>`;
 }
 
@@ -5051,6 +5063,171 @@ async function activateTrial() {
   }
 }
 
+// ── 支付方式选择弹窗（支付宝/微信/Stripe）──
+let _payChannel = null;
+let _payQrConfig = null;
+let _payProofFile = null;
+
+async function showPaymentModal() {
+  // 先加载套餐和QR配置
+  let plans = [];
+  try {
+    const data = await GET('/sync/membership-plans');
+    plans = (data.plans || []).filter(p => p.enabled);
+  } catch { plans = []; }
+  try { _payQrConfig = await GET('/payment/qrcode/config'); } catch { _payQrConfig = null; }
+
+  _payChannel = null;
+  _payProofFile = null;
+
+  // 可用渠道
+  const channels = [];
+  if (_payQrConfig && _payQrConfig.alipay && _payQrConfig.alipay.enabled) channels.push({ key: 'qrcode_alipay', icon: '💚', label: '支付宝' });
+  if (_payQrConfig && _payQrConfig.wechat && _payQrConfig.wechat.enabled) channels.push({ key: 'qrcode_wechat', icon: '💬', label: '微信支付' });
+  channels.push({ key: 'stripe', icon: '💳', label: 'Stripe 银行卡' });
+
+  // 套餐选择
+  const plansHtml = plans.length ? plans.map((p, i) => {
+    const periodLabel = { month: '/月', year: '/年', forever: ' 终身' }[p.period] || '';
+    const tag = p.id === 'yearly' ? ' <span style="background:#f59e0b;color:#fff;font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px">推荐</span>' : '';
+    return `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s" onclick="selectPayPlan(this,'${escHtml(p.id)}')">
+      <input type="radio" name="pay_plan" value="${escHtml(p.id)}" ${i === 0 ? 'checked' : ''} style="accent-color:var(--primary)">
+      <span style="flex:1;font-weight:600">${escHtml(p.name)}${tag}</span>
+      <span style="font-weight:700;color:var(--primary)">¥${p.price}<small style="font-weight:400;color:var(--text-sub)">${periodLabel}</small></span>
+    </label>`;
+  }).join('') : '<p style="color:var(--text-sub);text-align:center">暂无可用套餐</p>';
+
+  // 渠道标签
+  const tabsHtml = channels.map((ch, i) =>
+    `<button class="btn ${i === 0 ? 'btn-primary' : ''}" data-ch="${ch.key}" onclick="switchPayChannel('${ch.key}',this)" style="flex:1;min-width:90px;justify-content:center;font-size:13px;padding:8px">${ch.icon} ${ch.label}</button>`
+  ).join('');
+
+  const html = `
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px" id="payPlanList">${plansHtml}</div>
+    <div style="border-top:1px solid var(--border);padding-top:16px">
+      <div style="font-size:13px;font-weight:600;color:var(--text-sub);margin-bottom:8px">选择支付方式</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="payChTabs">${tabsHtml}</div>
+    </div>
+    <div id="payChannelBody" style="margin-top:16px"></div>
+  `;
+
+  openModal('💎 升级会员', html);
+
+  // 默认选中第一个套餐和第一个渠道
+  if (plans.length) {
+    const first = document.querySelector('#payPlanList label');
+    if (first) first.style.borderColor = 'var(--primary)';
+  }
+  switchPayChannel(channels[0].key, document.querySelector('#payChTabs button'));
+}
+
+function selectPayPlan(el, planId) {
+  document.querySelectorAll('#payPlanList label').forEach(l => l.style.borderColor = 'var(--border)');
+  el.style.borderColor = 'var(--primary)';
+}
+
+function getSelectedPlanId() {
+  const r = document.querySelector('input[name="pay_plan"]:checked');
+  return r ? r.value : null;
+}
+
+function switchPayChannel(ch, btn) {
+  _payChannel = ch;
+  _payProofFile = null;
+  document.querySelectorAll('#payChTabs button').forEach(b => {
+    b.className = b === btn ? 'btn btn-primary' : 'btn';
+  });
+  renderPayChannelBody();
+}
+
+function renderPayChannelBody() {
+  const body = document.getElementById('payChannelBody');
+  if (_payChannel === 'stripe') {
+    body.innerHTML = `
+      <div style="text-align:center;padding:12px 0">
+        <p style="font-size:13px;color:var(--text-sub)">点击下方按钮跳转至 Stripe 安全支付页面</p>
+        <p style="font-size:11px;color:var(--text-hint);margin-top:4px">支持 Visa / Mastercard / JCB 等银行卡</p>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;background:#635bff;border-color:#635bff" onclick="doStripeCheckout()">前往 Stripe 支付</button>
+      <p style="font-size:11px;color:var(--text-hint);text-align:center;margin-top:8px">支付成功后会员将自动开通</p>`;
+  } else {
+    const isAlipay = _payChannel === 'qrcode_alipay';
+    const qrUrl = isAlipay ? (_payQrConfig && _payQrConfig.alipay && _payQrConfig.alipay.qr_url) : (_payQrConfig && _payQrConfig.wechat && _payQrConfig.wechat.qr_url);
+    const name = isAlipay ? '支付宝' : '微信';
+    body.innerHTML = `
+      <div style="text-align:center">
+        ${qrUrl ? `<img src="${escHtml(qrUrl)}" style="max-width:200px;border-radius:12px;border:1px solid var(--border)" alt="${name}收款码">` : `<p style="color:var(--danger)">收款码暂未配置</p>`}
+        <p style="font-size:13px;color:var(--text-sub);margin-top:8px">请使用${name}扫描上方二维码完成付款</p>
+      </div>
+      <div style="margin-top:16px">
+        <div style="font-size:13px;font-weight:600;color:var(--text-sub);margin-bottom:6px">上传付款截图</div>
+        <div id="payDropZone" onclick="document.getElementById('payFileInput').click()" style="padding:14px;border:2px dashed var(--border);border-radius:8px;text-align:center;cursor:pointer;font-size:13px;color:var(--text-sub);background:var(--bg-card);transition:border-color .15s">
+          📷 点击选择截图 或 拖拽图片到此处
+        </div>
+        <input type="file" id="payFileInput" accept="image/*" style="display:none" onchange="onPayFileSelect(this)">
+        <div id="payPreview" style="margin-top:8px;text-align:center"></div>
+      </div>
+      <button class="btn btn-primary" id="paySubmitBtn" style="width:100%;justify-content:center;margin-top:12px" onclick="doSubmitQrProof()" disabled>提交付款截图</button>
+      <p style="font-size:11px;color:var(--text-hint);text-align:center;margin-top:8px">提交后管理员将在 24 小时内审核，审核通过后会员自动开通</p>`;
+    // drag & drop
+    const dz = document.getElementById('payDropZone');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor = 'var(--primary)'; });
+    dz.addEventListener('dragleave', () => dz.style.borderColor = '');
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.style.borderColor = ''; if (e.dataTransfer.files[0]) setPayFile(e.dataTransfer.files[0]); });
+  }
+}
+
+function onPayFileSelect(input) { if (input.files[0]) setPayFile(input.files[0]); }
+
+function setPayFile(file) {
+  if (!file.type.startsWith('image/')) { toast('请选择图片文件'); return; }
+  if (file.size > 10 * 1024 * 1024) { toast('图片不能超过 10MB'); return; }
+  _payProofFile = file;
+  const reader = new FileReader();
+  reader.onload = e => { document.getElementById('payPreview').innerHTML = `<img src="${e.target.result}" style="max-width:180px;max-height:180px;border-radius:8px;border:1px solid var(--border)">`; };
+  reader.readAsDataURL(file);
+  document.getElementById('paySubmitBtn').disabled = false;
+  document.getElementById('payDropZone').textContent = '✅ ' + file.name;
+}
+
+async function doSubmitQrProof() {
+  const planId = getSelectedPlanId();
+  if (!planId) { toast('请选择套餐'); return; }
+  if (!_payProofFile) return;
+  const btn = document.getElementById('paySubmitBtn');
+  btn.disabled = true; btn.textContent = '提交中...';
+  try {
+    const fd = new FormData();
+    fd.append('proof', _payProofFile);
+    fd.append('plan_id', planId);
+    fd.append('channel', _payChannel);
+    const token = getToken();
+    const headers = {};
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const res = await fetch(API + '/payment/qrcode/submit', { method: 'POST', headers, body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || data.message || '提交失败');
+    closeModal();
+    toast('付款截图已提交，请等待管理员审核 ✅', 4000);
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '提交付款截图';
+  }
+}
+
+async function doStripeCheckout() {
+  const planId = getSelectedPlanId();
+  if (!planId) { toast('请选择套餐'); return; }
+  try {
+    const data = await POST('/stripe/create-checkout-session', { planId });
+    if (data.url) window.location.href = data.url;
+    else toast('无法创建支付会话');
+  } catch (err) {
+    toast(err.message || '支付请求失败');
+  }
+}
+
 function showUpgradeModal(tip) {
   const title = '🔒 功能受限';
   document.getElementById('modal-title').textContent = title;
@@ -5070,7 +5247,7 @@ function showUpgradeModal(tip) {
         <li>Anki 导入、错题集</li>
       </ul>
       ${trialBtn}
-      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="closeModal();navigate('membership')">查看会员详情</button>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="closeModal();showPaymentModal()">查看会员详情</button>
     </div>`;
   document.getElementById('modal-overlay').classList.add('open');
 }

@@ -19,6 +19,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
+const { sendOrderNotification } = require('../services/emailService');
 
 // ── 配置读取 ─────────────────────────────────────────────────────────────────
 const PLANS_FILE = path.join(__dirname, '../../config/membership.json');
@@ -222,14 +223,22 @@ router.get('/qrcode/config', asyncHandler(async (req, res) => {
   const payment = config.payment || {};
   const plans = (config.plans || []).filter(p => p.enabled !== false && p.id !== 'free');
 
+  // 将相对路径转为完整 URL
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const toAbsolute = (url) => {
+    if (!url) return url;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return baseUrl + url;
+  };
+
   res.json({
     alipay: payment.alipay_enabled && payment.alipay_qr_url ? {
       enabled: true,
-      qr_url: payment.alipay_qr_url,
+      qr_url: toAbsolute(payment.alipay_qr_url),
     } : { enabled: false },
     wechat: payment.wechat_enabled && payment.wechat_qr_url ? {
       enabled: true,
-      qr_url: payment.wechat_qr_url,
+      qr_url: toAbsolute(payment.wechat_qr_url),
     } : { enabled: false },
     plans: plans.map(p => ({ id: p.id, name: p.name, price: p.price, period: p.period })),
   });
@@ -281,6 +290,25 @@ router.post('/qrcode/submit', authenticate, proofUpload.single('proof'), asyncHa
     status: 'pending',
     proof_image_url: proofUrl,
   });
+
+  // 异步发送邮件通知，不阻塞响应
+  try {
+    const cfg = readConfig();
+    const noti = cfg.notification || {};
+    if (noti.order_email_enabled && noti.order_email_recipients && noti.order_email_recipients.length) {
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      sendOrderNotification(noti.order_email_recipients, {
+        orderId: order.id,
+        userName: req.user.nickname || req.user.username || '未知',
+        userEmail: req.user.email || '',
+        planName: plan.name || plan.id,
+        amount: plan.price,
+        channel,
+        createdAt: order.createdAt,
+        proofUrl: proofUrl ? `${baseUrl}${proofUrl}` : null,
+      }).catch(err => logger.error('发送订单通知邮件失败:', err));
+    }
+  } catch (e) { /* ignore notification errors */ }
 
   res.json({
     ok: true,

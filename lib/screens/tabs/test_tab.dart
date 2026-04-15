@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../services/membership_service.dart';
+import '../../services/guest_service.dart';
 import '../../services/sync_service.dart';
 import '../../config/app_config.dart';
 import '../../providers/app_appearance_provider.dart';
@@ -151,6 +152,7 @@ class _TestTabState extends State<TestTab> {
             color: const Color(0xFFE53935),
             blocked: wrongBlocked,
             onTap: () {
+              if (GuestService.guardRoute(context, '/wrong-answers')) return;
               if (wrongBlocked) { _showMemberDialog('错题集'); return; }
               context.push('/wrong-answers');
             },
@@ -239,7 +241,10 @@ class _TestTabState extends State<TestTab> {
         elevation: 0,
         actions: [
           GestureDetector(
-            onTap: () => context.push('/profile'),
+            onTap: () {
+              if (GuestService.guardRoute(context, '/profile')) return;
+              context.push('/profile');
+            },
             child: Container(
               margin: const EdgeInsets.only(right: 12),
               child: Column(

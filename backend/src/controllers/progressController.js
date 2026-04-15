@@ -2,6 +2,28 @@ const { UserProgress, QuizSession, SrsCard, StudyPlanCardState, Vocabulary, Gram
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/database');
 
+/**
+ * 从请求头 X-Client-Date 获取客户端本地日期，校验合理性（±1天内），
+ * 不合法或缺失时回退到服务器 UTC 日期。
+ */
+function getClientDate(req) {
+  const clientDate = req.headers['x-client-date'];
+  if (clientDate && /^\d{4}-\d{2}-\d{2}$/.test(clientDate)) {
+    const cd = new Date(clientDate + 'T00:00:00Z');
+    const now = Date.now();
+    const diff = Math.abs(cd.getTime() - now);
+    // 允许±26小时（覆盖所有时区差异 + 容错）
+    if (diff < 26 * 60 * 60 * 1000) return clientDate;
+  }
+  return new Date().toISOString().split('T')[0];
+}
+
+function getClientYesterday(clientToday) {
+  const d = new Date(clientToday + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().split('T')[0];
+}
+
 async function logActivity(req, res) {
   const { activity_type, ref_id, duration_seconds, score } = req.body;
   const xp = calculateXP(activity_type, score, duration_seconds);
@@ -13,10 +35,10 @@ async function logActivity(req, res) {
       duration_seconds,
       score,
       xp_earned: xp,
-      studied_at: new Date().toISOString().split('T')[0],
+      studied_at: getClientDate(req),
     });
     // Update total study time & streak
-    await updateStreak(req.user);
+    await updateStreak(req.user, req);
     res.status(201).json({ record, xp_earned: xp });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -27,7 +49,7 @@ async function logActivity(req, res) {
 async function getDailyGoals(req, res) {
   try {
     const userId = req.user.id;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getClientDate(req);
 
     // 合并查询：今日统计 + 今日 SRS 复习数 + 总 XP + 测验数并行执行
     const [todayStats, todayByType, totalXpRow, todayQuizCount, srsDueCount, todayQuizByType] = await Promise.all([
@@ -83,7 +105,7 @@ async function getDailyGoals(req, res) {
     const todayActivities = parseInt(todayStats[0]?.dataValues?.activity_count) || 0;
 
     // ── 实时计算连续打卡 ──
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const yesterday = getClientYesterday(today);
     const lastStudy = req.user.last_study_date;
     let realStreak = req.user.streak_days || 0;
     if (lastStudy && lastStudy !== today && lastStudy !== yesterday) {
@@ -191,8 +213,8 @@ async function getSummary(req, res) {
     });
 
     // ── 实时计算连续打卡 ──
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const today = getClientDate(req);
+    const yesterday = getClientYesterday(today);
     const lastStudy = req.user.last_study_date;
     let realStreak = req.user.streak_days || 0;
     if (lastStudy && lastStudy !== today && lastStudy !== yesterday) {
@@ -241,11 +263,12 @@ function calculateXP(type, score, duration) {
   return xp;
 }
 
-async function updateStreak(user) {
-  const today = new Date().toISOString().split('T')[0];
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-  if (user.last_study_date === today) return;
-  const streakDays = user.last_study_date === yesterday ? user.streak_days + 1 : 1;
+async function updateStreak(user, req) {
+  const today = getClientDate(req);
+  if (user.last_study_date && user.last_study_date >= today) return;
+  const yesterday = getClientYesterday(today);
+  const streakDays = (user.last_study_date && user.last_study_date >= yesterday)
+    ? user.streak_days + 1 : 1;
   await user.update({
     last_study_date: today,
     streak_days: streakDays,
@@ -318,10 +341,10 @@ async function getStudyPlanProgress(req, res) {
 async function checkin(req, res) {
   try {
     const user = req.user;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getClientDate(req);
 
-    if (user.last_study_date === today) {
-      // Already checked in today
+    if (user.last_study_date && user.last_study_date >= today) {
+      // Already checked in today (or from a later timezone)
       return res.json({
         already: true,
         streak_days: user.streak_days,
@@ -329,8 +352,10 @@ async function checkin(req, res) {
       });
     }
 
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-    const streakDays = user.last_study_date === yesterday ? user.streak_days + 1 : 1;
+    const yesterday = getClientYesterday(today);
+    // 延续连续天数：last_study_date 是昨天或更近（跨时区可能为今天与昨天之间）
+    const streakDays = (user.last_study_date && user.last_study_date >= yesterday)
+      ? user.streak_days + 1 : 1;
     await user.update({
       last_study_date: today,
       streak_days: streakDays,

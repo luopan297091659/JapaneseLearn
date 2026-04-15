@@ -214,4 +214,53 @@ router.get('/trial-config', asyncHandler(async (req, res) => {
   });
 }));
 
+// ── DELETE /account  永久删除账户及所有数据 ──
+router.delete('/account', authenticate, asyncHandler(async (req, res) => {
+  const { password } = req.body;
+  if (!password) {
+    return res.status(400).json({ error: '请输入密码以确认删除' });
+  }
+  if (!(await req.user.validatePassword(password))) {
+    const HttpError = require('../utils/httpError');
+    throw new HttpError(401, '密码不正确');
+  }
+
+  const userId = req.user.id;
+  const {
+    UserVocabulary, SrsCard, QuizSession, UserProgress,
+    StudyPlanDailyTask, StudyPlanCardState, GameScore,
+    NewsFavorite, MembershipOrder,
+  } = require('../models/index');
+  const { ForumPost, ForumReply, ForumLike } = require('../models/Forum');
+
+  // 删除所有用户关联数据
+  await Promise.all([
+    UserVocabulary.destroy({ where: { user_id: userId } }),
+    SrsCard.destroy({ where: { user_id: userId } }),
+    QuizSession.destroy({ where: { user_id: userId } }),
+    UserProgress.destroy({ where: { user_id: userId } }),
+    StudyPlanDailyTask.destroy({ where: { user_id: userId } }),
+    StudyPlanCardState.destroy({ where: { user_id: userId } }),
+    GameScore.destroy({ where: { user_id: userId } }),
+    NewsFavorite.destroy({ where: { user_id: userId } }),
+    MembershipOrder.destroy({ where: { user_id: userId } }),
+    ForumLike.destroy({ where: { user_id: userId } }),
+    ForumReply.destroy({ where: { user_id: userId } }),
+    ForumPost.destroy({ where: { user_id: userId } }),
+  ]);
+
+  // 删除用户头像文件
+  if (req.user.avatar_url && req.user.avatar_url.startsWith('/uploads/avatars/')) {
+    const oldPath = path.join(__dirname, '../..', req.user.avatar_url.replace(/^\//, ''));
+    if (fs.existsSync(oldPath)) {
+      try { fs.unlinkSync(oldPath); } catch (_) {}
+    }
+  }
+
+  // 删除用户
+  await req.user.destroy();
+
+  res.json({ ok: true, message: '账户已永久删除' });
+}));
+
 module.exports = router;

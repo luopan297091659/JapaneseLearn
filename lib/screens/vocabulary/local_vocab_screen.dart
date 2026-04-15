@@ -40,7 +40,7 @@ class LocalVocabScreen extends StatefulWidget {
 }
 
 class _LocalVocabScreenState extends State<LocalVocabScreen> {
-  static const _pageSize = 30;
+  static const _pageSize = 200;
 
   List<({String deckName, int total, int pending})> _decks = [];
   bool _loading = true;

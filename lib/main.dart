@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'services/api_service.dart';
 import 'services/sync_service.dart';
+import 'services/guest_service.dart';
 import 'router/app_router.dart';
 import 'l10n/app_localizations.dart';
 import 'providers/locale_provider.dart';
@@ -62,6 +63,8 @@ void main() async {
   final container = ProviderContainer();
   await container.read(localeProvider.notifier).init();
   await container.read(appAppearanceProvider.notifier).init();
+  // 初始化游客模式状态
+  await guestService.init();
   // 后台检测服务端内容版本，有更新则清除缓存
   syncService.checkContentVersion();
   // 后台拉取功能开关
