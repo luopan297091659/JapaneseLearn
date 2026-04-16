@@ -62,9 +62,6 @@ workflows:
           new_ver="${prefix}${new_last}"
           sed -i.bak "s/^version: .*/version: $new_ver/" pubspec.yaml
           echo "New version: $new_ver"
-      - name: Debug: List files
-        script: ls -al
-                pwd
       - name: Get Flutter packages
         script: flutter pub get
       - name: Install CocoaPods dependencies
@@ -84,7 +81,7 @@ workflows:
       - build/ios/archive/*.xcarchive
       - build_log_ios.txt
 
-    # publishing:
-    #   app_store_connect:
-    #     auth: integration
-    #     submit_to_testflight: true
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
