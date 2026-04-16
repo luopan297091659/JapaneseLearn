@@ -96,20 +96,20 @@ List<VerbConjugation> _conjugateGodan(String w, String r) {
 
   // Special case: 行く → 行って (not 行いて)
   final isIku = w == '行く' || (w.endsWith('行く'));
-  final te = isIku ? '${stem}って' : '$stem${_godanTeMap[rEnding]}';
-  final ta = isIku ? '${stem}った' : '$stem${_godanTaMap[rEnding]}';
-  final teR = isIku ? '${rStem}って' : '$rStem${_godanTeMap[rEnding]}';
-  final taR = isIku ? '${rStem}った' : '$rStem${_godanTaMap[rEnding]}';
+  final te = isIku ? '$stemって' : '$stem${_godanTeMap[rEnding]}';
+  final ta = isIku ? '$stemった' : '$stem${_godanTaMap[rEnding]}';
+  final teR = isIku ? '$rStemって' : '$rStem${_godanTeMap[rEnding]}';
+  final taR = isIku ? '$rStemった' : '$rStem${_godanTaMap[rEnding]}';
 
   return [
-    VerbConjugation(form: 'ます形', value: '$stem${_forKanji(w, ending, iForm)}ます', reading: '$rStem${iForm}ます'),
-    VerbConjugation(form: 'ない形', value: '$stem${_forKanji(w, ending, aForm)}ない', reading: '$rStem${aForm}ない'),
+    VerbConjugation(form: 'ます形', value: '$stem${_forKanji(w, ending, iForm)}ます', reading: '$rStem$iFormます'),
+    VerbConjugation(form: 'ない形', value: '$stem${_forKanji(w, ending, aForm)}ない', reading: '$rStem$aFormない'),
     VerbConjugation(form: 'て形', value: te, reading: teR),
     VerbConjugation(form: 'た形', value: ta, reading: taR),
-    VerbConjugation(form: '可能形', value: '$stem${_forKanji(w, ending, eForm)}る', reading: '$rStem${eForm}る'),
+    VerbConjugation(form: '可能形', value: '$stem${_forKanji(w, ending, eForm)}る', reading: '$rStem$eFormる'),
     VerbConjugation(form: '意向形', value: '$stem${_forKanji(w, ending, m.$4)}う', reading: '$rStem${m.$4}う'),
     VerbConjugation(form: '命令形', value: '$stem${_forKanji(w, ending, eForm)}', reading: '$rStem$eForm'),
-    VerbConjugation(form: '受身形', value: '$stem${_forKanji(w, ending, aForm)}れる', reading: '$rStem${aForm}れる'),
+    VerbConjugation(form: '受身形', value: '$stem${_forKanji(w, ending, aForm)}れる', reading: '$rStem$aFormれる'),
   ];
 }
 
@@ -126,14 +126,14 @@ List<VerbConjugation> _conjugateIchidan(String w, String r) {
   final rStem = (r.isNotEmpty ? r : w).substring(0, (r.isNotEmpty ? r : w).length - 1);
 
   return [
-    VerbConjugation(form: 'ます形', value: '${stem}ます', reading: '${rStem}ます'),
-    VerbConjugation(form: 'ない形', value: '${stem}ない', reading: '${rStem}ない'),
-    VerbConjugation(form: 'て形', value: '${stem}て', reading: '${rStem}て'),
-    VerbConjugation(form: 'た形', value: '${stem}た', reading: '${rStem}た'),
-    VerbConjugation(form: '可能形', value: '${stem}られる', reading: '${rStem}られる'),
-    VerbConjugation(form: '意向形', value: '${stem}よう', reading: '${rStem}よう'),
-    VerbConjugation(form: '命令形', value: '${stem}ろ', reading: '${rStem}ろ'),
-    VerbConjugation(form: '受身形', value: '${stem}られる', reading: '${rStem}られる'),
+    VerbConjugation(form: 'ます形', value: '$stemます', reading: '$rStemます'),
+    VerbConjugation(form: 'ない形', value: '$stemない', reading: '$rStemない'),
+    VerbConjugation(form: 'て形', value: '$stemて', reading: '$rStemて'),
+    VerbConjugation(form: 'た形', value: '$stemた', reading: '$rStemた'),
+    VerbConjugation(form: '可能形', value: '$stemられる', reading: '$rStemられる'),
+    VerbConjugation(form: '意向形', value: '$stemよう', reading: '$rStemよう'),
+    VerbConjugation(form: '命令形', value: '$stemろ', reading: '$rStemろ'),
+    VerbConjugation(form: '受身形', value: '$stemられる', reading: '$rStemられる'),
   ];
 }
 
@@ -144,14 +144,14 @@ List<VerbConjugation> _conjugateSuru(String w, String r) {
   final rPrefix = r.isNotEmpty && r.endsWith('する') ? r.substring(0, r.length - 2) : prefix;
 
   return [
-    VerbConjugation(form: 'ます形', value: '${prefix}します', reading: '${rPrefix}します'),
-    VerbConjugation(form: 'ない形', value: '${prefix}しない', reading: '${rPrefix}しない'),
-    VerbConjugation(form: 'て形', value: '${prefix}して', reading: '${rPrefix}して'),
-    VerbConjugation(form: 'た形', value: '${prefix}した', reading: '${rPrefix}した'),
-    VerbConjugation(form: '可能形', value: '${prefix}できる', reading: '${rPrefix}できる'),
-    VerbConjugation(form: '意向形', value: '${prefix}しよう', reading: '${rPrefix}しよう'),
-    VerbConjugation(form: '命令形', value: '${prefix}しろ', reading: '${rPrefix}しろ'),
-    VerbConjugation(form: '受身形', value: '${prefix}される', reading: '${rPrefix}される'),
+    VerbConjugation(form: 'ます形', value: '$prefixします', reading: '$rPrefixします'),
+    VerbConjugation(form: 'ない形', value: '$prefixしない', reading: '$rPrefixしない'),
+    VerbConjugation(form: 'て形', value: '$prefixして', reading: '$rPrefixして'),
+    VerbConjugation(form: 'た形', value: '$prefixした', reading: '$rPrefixした'),
+    VerbConjugation(form: '可能形', value: '$prefixできる', reading: '$rPrefixできる'),
+    VerbConjugation(form: '意向形', value: '$prefixしよう', reading: '$rPrefixしよう'),
+    VerbConjugation(form: '命令形', value: '$prefixしろ', reading: '$rPrefixしろ'),
+    VerbConjugation(form: '受身形', value: '$prefixされる', reading: '$rPrefixされる'),
   ];
 }
 
@@ -162,13 +162,13 @@ List<VerbConjugation> _conjugateKuru(String w, String r) {
                  w.endsWith('くる') ? w.substring(0, w.length - 2) : '';
 
   return [
-    VerbConjugation(form: 'ます形', value: '${prefix}来ます', reading: '${prefix}きます'),
-    VerbConjugation(form: 'ない形', value: '${prefix}来ない', reading: '${prefix}こない'),
-    VerbConjugation(form: 'て形', value: '${prefix}来て', reading: '${prefix}きて'),
-    VerbConjugation(form: 'た形', value: '${prefix}来た', reading: '${prefix}きた'),
-    VerbConjugation(form: '可能形', value: '${prefix}来られる', reading: '${prefix}こられる'),
-    VerbConjugation(form: '意向形', value: '${prefix}来よう', reading: '${prefix}こよう'),
-    VerbConjugation(form: '命令形', value: '${prefix}来い', reading: '${prefix}こい'),
-    VerbConjugation(form: '受身形', value: '${prefix}来られる', reading: '${prefix}こられる'),
+    VerbConjugation(form: 'ます形', value: '$prefix来ます', reading: '$prefixきます'),
+    VerbConjugation(form: 'ない形', value: '$prefix来ない', reading: '$prefixこない'),
+    VerbConjugation(form: 'て形', value: '$prefix来て', reading: '$prefixきて'),
+    VerbConjugation(form: 'た形', value: '$prefix来た', reading: '$prefixきた'),
+    VerbConjugation(form: '可能形', value: '$prefix来られる', reading: '$prefixこられる'),
+    VerbConjugation(form: '意向形', value: '$prefix来よう', reading: '$prefixこよう'),
+    VerbConjugation(form: '命令形', value: '$prefix来い', reading: '$prefixこい'),
+    VerbConjugation(form: '受身形', value: '$prefix来られる', reading: '$prefixこられる'),
   ];
 }

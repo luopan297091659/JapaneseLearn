@@ -4,7 +4,7 @@ const { sequelize } = require('../config/database');
 
 /**
  * 从请求头 X-Client-Date 获取客户端本地日期，校验合理性（±1天内），
- * 不合法或缺失时回退到服务器 UTC 日期。
+ * 不合法或缺失时回退到服务器 JST 日期。
  */
 function getClientDate(req) {
   const clientDate = req.headers['x-client-date'];
@@ -15,7 +15,9 @@ function getClientDate(req) {
     // 允许±26小时（覆盖所有时区差异 + 容错）
     if (diff < 26 * 60 * 60 * 1000) return clientDate;
   }
-  return new Date().toISOString().split('T')[0];
+  // 回退到 JST (UTC+9) 日期，避免凌晨时段 UTC 日期错位
+  const jst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return jst.toISOString().split('T')[0];
 }
 
 function getClientYesterday(clientToday) {

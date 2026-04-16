@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../services/guest_service.dart';
 import '../../models/models.dart';
-import '../../l10n/app_localizations.dart';
 import '../../utils/japanese_text_utils.dart';
 
 class VocabularyListScreen extends StatefulWidget {

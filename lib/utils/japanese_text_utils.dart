@@ -1,4 +1,5 @@
 /// Strip raw formatting markers from vocabulary data.
+library;
 
 /// Clean word field: remove !, [...], (...) markers
 String cleanWord(String raw) {

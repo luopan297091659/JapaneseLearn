@@ -196,6 +196,7 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
     final lvCol = _grammarLevelColors[_selectedLevel] ?? cs.primary;
     final inPlanMode = widget.planId != null && widget.planId!.isNotEmpty;
     final levels = inPlanMode ? <String>[_selectedLevel] : <String>['N5', 'N4', 'N3', 'N2', 'N1'];
+    final isSearching = _searchCtrl.text.trim().isNotEmpty;
     final planStageText = switch (widget.planStage) {
       'new' => '新卡片',
       'learning' => '学习中',
@@ -234,6 +235,7 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
                 onSubmitted: (_) { _debounce?.cancel(); _load(); },
               ),
               const SizedBox(height: 8),
+              if (!isSearching)
               SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(children: levels.map((l) {
@@ -259,6 +261,15 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
                 );
               }).toList()),
             ),
+              if (isSearching)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Row(children: [
+                    Icon(Icons.travel_explore_rounded, size: 14, color: cs.primary),
+                    const SizedBox(width: 4),
+                    Text('全局搜索中…', style: TextStyle(fontSize: 12, color: cs.primary)),
+                  ]),
+                ),
             ]),
           ),
         ),
@@ -273,7 +284,10 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
                         SizedBox(height: MediaQuery.of(context).size.height * 0.25),
                         Icon(Icons.menu_book_outlined, size: 64, color: cs.outlineVariant),
                         const SizedBox(height: 12),
-                        Center(child: Text('暂无 $_selectedLevel 语法条目', style: TextStyle(color: cs.outline))),
+                        Center(child: Text(
+                          isSearching ? '未找到匹配的语法条目' : '暂无 $_selectedLevel 语法条目',
+                          style: TextStyle(color: cs.outline),
+                        )),
                       ],
                     )
                   : ListView.builder(
@@ -338,9 +352,12 @@ class _GrammarListScreenState extends State<GrammarListScreen> {
                                 );
                         }
                         final l = _lessons[idx];
+                        final cardColor = isSearching
+                            ? (_grammarLevelColors[l.jlptLevel] ?? lvCol)
+                            : lvCol;
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 10),
-                          child: _GrammarCard(lesson: l, index: idx + 1, levelColor: lvCol, lessonIds: _lessons.map((e) => e.id).toList()),
+                          child: _GrammarCard(lesson: l, index: idx + 1, levelColor: cardColor, showLevel: isSearching, lessonIds: _lessons.map((e) => e.id).toList()),
                         );
                       },
                     ),
@@ -427,8 +444,9 @@ class _GrammarCard extends StatelessWidget {
   final GrammarLessonModel lesson;
   final int index;
   final Color levelColor;
+  final bool showLevel;
   final List<String>? lessonIds;
-  const _GrammarCard({required this.lesson, required this.index, required this.levelColor, this.lessonIds});
+  const _GrammarCard({required this.lesson, required this.index, required this.levelColor, this.showLevel = false, this.lessonIds});
 
   @override
   Widget build(BuildContext context) {
@@ -486,6 +504,20 @@ class _GrammarCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (showLevel && lesson.jlptLevel.isNotEmpty)
+                          Container(
+                            margin: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: levelColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: levelColor.withValues(alpha: 0.3)),
+                            ),
+                            child: Text(
+                              lesson.jlptLevel,
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: levelColor),
+                            ),
+                          ),
                         if (lesson.examples.isNotEmpty)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

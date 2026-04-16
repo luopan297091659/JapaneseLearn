@@ -325,7 +325,6 @@ class _FlipCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: isFlipped ? 1.0 : 0.0),
       duration: const Duration(milliseconds: 400),

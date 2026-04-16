@@ -14,7 +14,6 @@ import '../../widgets/furigana_text.dart';
 import '../../utils/tts_helper.dart';
 import '../../services/permission_service.dart';
 import '../../widgets/membership_gate.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class PronunciationScreen extends StatefulWidget {
   const PronunciationScreen({super.key});
@@ -126,12 +125,14 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
         final j = Random().nextInt(i + 1);
         final tmp = words[i]; words[i] = words[j]; words[j] = tmp;
       }
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _words = words.take(10).toList();
         _index = 0;
         _scores.clear();
         _loading = false;
       });
+      }
       // 后台预缓存所有单词音频
       final audioUrls = _words
           .where((w) => w.audioUrl != null && w.audioUrl!.isNotEmpty)
@@ -184,11 +185,6 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
   String _debugListenStarted = '-';
   String _debugLastError = '-';
   String _debugPartial = '-';
-
-  bool _isOfflineSttError(String message) {
-    final msg = message.toLowerCase();
-    return msg.contains('error_network') || msg.contains('error_client');
-  }
 
   /// 统一 finalize 入口 —— 所有路径都走这里
   void _finalizeAttempt() {

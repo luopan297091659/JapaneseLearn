@@ -82,7 +82,7 @@ packages:
     source: hosted
     version: "0.1.4"
   audio_session:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: audio_session
       sha256: "8f96a7fecbb718cb093070f868b4cdcb8a9b1053dce342ff8ab2fde10eb9afb7"
@@ -958,7 +958,7 @@ packages:
     source: hosted
     version: "1.9.0"
   path_drawing:
-    dependency: "direct overridden"
+    dependency: "direct main"
     description:
       name: path_drawing
       sha256: bbb1934c0cbb03091af082a6389ca2080345291ef07a5fa6d6e078ba8682f977
@@ -1723,7 +1723,7 @@ packages:
     source: hosted
     version: "1.1.0"
   xml:
-    dependency: "direct overridden"
+    dependency: "direct main"
     description:
       name: xml
       sha256: b015a8ad1c488f66851d762d3090a21c600e479dc75e68328c52774040cf9226

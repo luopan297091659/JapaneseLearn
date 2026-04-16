@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/tts_helper.dart';
 import '../../widgets/kana_stroke_widget.dart';
 import '../../data/kana_data.dart';

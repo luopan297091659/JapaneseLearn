@@ -22,7 +22,6 @@ import '../../providers/locale_provider.dart';
 import '../../providers/app_appearance_provider.dart';
 import '../../utils/tts_helper.dart';
 import '../../services/plan_reminder_service.dart';
-import '../membership/membership_comparison_page.dart';
 import '../common/legal_webview_page.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -33,7 +32,6 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindingObserver {
   UserModel? _user;
-  ProgressSummaryModel? _progress;
   bool _loading = true;
   bool? _notifOverride; // 乐观更新开关状态
   Map<String, bool> _permissions = {};
@@ -110,7 +108,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
       await prefs.setBool('notification_enabled', user.notificationEnabled);
       setState(() {
         _user = user;
-        _progress = results[1] as ProgressSummaryModel;
         _avatarBytes = avatarBytes;
         _slowSpeed = (remotePreferences['slow_speed'] as num?)?.toDouble() ?? _slowSpeed;
         _loading = false;
@@ -341,8 +338,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
         await apiService.updateProfile(dailyGoalMinutes: selected);
         _load();
       } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('更新失败：$e'), behavior: SnackBarBehavior.floating));
+        }
       }
     }
   }
@@ -370,8 +369,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
       }
     } catch (e) {
       setState(() => _notifOverride = !value);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('设置失败：$e'), behavior: SnackBarBehavior.floating));
+      }
     }
   }
 
@@ -549,8 +550,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
         await apiService.updateProfile(username: ctrl.text.trim());
         _load();
       } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('更新失败：$e'), behavior: SnackBarBehavior.floating));
+        }
       }
     }
     ctrl.dispose();
@@ -617,8 +620,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
         await apiService.updateProfile(level: selected);
         _load();
       } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('更新失败：$e'), behavior: SnackBarBehavior.floating));
+        }
       }
     }
   }
@@ -842,22 +847,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                 Navigator.pop(ctx);
                 try {
                   await apiService.changePassword(currentCtrl.text, newCtrl.text);
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('密码已更新！请重新登录'),
                       backgroundColor: Colors.green,
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
+                  }
                   await apiService.logout();
                   if (mounted) context.go('/login');
                 } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('修改失败：当前密码不正确或网络错误'),
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
+                  }
                 }
               },
               child: const Text('确认修改'),

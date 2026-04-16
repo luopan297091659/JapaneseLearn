@@ -117,7 +117,8 @@ class _ListeningScreenState extends State<ListeningScreen> {
     setState(() { _loading = true; _score = null; _recognized = ''; _feedback = ''; _showSentence = false; _inputCtrl.clear(); });
     try {
       final res = await apiService.getListeningExercises(level: _level, count: 20, source: 'all');
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _sentences = res.map((q) {
           return {
             'sentence': q.sentence,
@@ -132,6 +133,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
         _scores.clear();
         _loading = false;
       });
+      }
       // 后台预缓存所有例句音频
       final audioUrls = _sentences
           .map((s) => s['audio_url'] as String)
@@ -168,11 +170,6 @@ class _ListeningScreenState extends State<ListeningScreen> {
   String _debugListenStarted = '-';
   String _debugLastError = '-';
   String _debugPartial = '-';
-
-  bool _isOfflineSttError(String message) {
-    final msg = message.toLowerCase();
-    return msg.contains('error_network') || msg.contains('error_client');
-  }
 
   /// 统一 finalize 入口 —— 所有路径（手动停止/statusListener/debounce/timeout）都走这里
   void _finalizeAttempt() {
@@ -751,7 +748,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
         ]),
         Container(width: 1, height: 30, color: cs.outlineVariant),
         Column(children: [
-          Text('$_level', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: cs.primary)),
+          Text(_level, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: cs.primary)),
           Text('当前级别', style: TextStyle(fontSize: 12, color: cs.outline)),
         ]),
       ]),

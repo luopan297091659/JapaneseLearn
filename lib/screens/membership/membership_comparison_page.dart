@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../services/sync_service.dart';
-import '../../services/membership_service.dart';
 import '../../services/payment_service.dart';
 import '../../config/app_config.dart';
 import '../common/legal_webview_page.dart';
-import 'qr_payment_page.dart';
 
 /// 会员功能对比页面 — 展示免费用户与会员用户的功能差异
 class MembershipComparisonPage extends StatefulWidget {
@@ -490,7 +488,6 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
 
   Widget _buildPlansSection(ColorScheme cs) {
     const periodLabels = {'month': '/月', 'year': '/年', 'forever': ''};
-    const defaultColors = ['primary', 'amber', 'purple'];
     final colorMap = {
       0: cs.primary,
       1: const Color(0xFFF59E0B),

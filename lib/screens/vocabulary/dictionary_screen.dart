@@ -137,7 +137,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         final vocabFuture = apiService
             .getVocabulary(query: q, page: 1, limit: 8)
             .catchError((_) => <String, dynamic>{'data': <VocabularyModel>[]});
-        final vocabRes = await vocabFuture as Map<String, dynamic>;
+        final vocabRes = await vocabFuture;
         final remoteVocab = (vocabRes['data'] as List<dynamic>? ?? const [])
             .whereType<VocabularyModel>()
             .toList();

@@ -32,7 +32,6 @@ class _ListeningExerciseScreenState extends State<ListeningExerciseScreen> {
 
   // ── TTS ──
   late FlutterTts _tts;
-  bool _ttsReady = false;
   bool _ttsPlaying = false;
 
   @override
@@ -49,7 +48,6 @@ class _ListeningExerciseScreenState extends State<ListeningExerciseScreen> {
       _tts.setCompletionHandler(() { if (mounted) setState(() => _ttsPlaying = false); });
       _tts.setCancelHandler(() { if (mounted) setState(() => _ttsPlaying = false); });
       _tts.setErrorHandler((_) { if (mounted) setState(() => _ttsPlaying = false); });
-      setState(() => _ttsReady = true);
     } catch (_) {}
   }
 

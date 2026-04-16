@@ -956,8 +956,9 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
         builder: (dialogCtx) => FutureBuilder<Response<dynamic>>(
         future: ApiService().dio.get('/game/leaderboard/global', queryParameters: {'game_type': widget.gameType}),
         builder: (ctx, snap) {
-          if (snap.connectionState != ConnectionState.done)
+          if (snap.connectionState != ConnectionState.done) {
             return const AlertDialog(content: SizedBox(height: 80, child: Center(child: CircularProgressIndicator())));
+          }
           if (snap.hasError || snap.data == null) {
             return AlertDialog(
               title: Text('🏆 ${_gameTitle.replaceAll('🎮 ', '')}排行榜'),
@@ -1018,7 +1019,7 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
                 label: const Text('返回', style: TextStyle(fontSize: 13)),
                 style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
               ),
-              Expanded(child: Text('关卡 $_currentLevel · ${_gRows}×$_gCols',
+              Expanded(child: Text('关卡 $_currentLevel · $_gRows×$_gCols',
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF4361ee)))),
               _livesMax >= 99
@@ -1190,8 +1191,9 @@ class _TetrisGrammarGameState extends State<TetrisGrammarGame> {
                     isActive = (r == landRow);
                   }
                   List<Color> gradClr;
-                  if (st == 'correct')     gradClr = clr;
-                  else if (st == 'wrong')  gradClr = _clrWrong;
+                  if (st == 'correct') {
+                    gradClr = clr;
+                  } else if (st == 'wrong')  gradClr = _clrWrong;
                   else if (isActive)       gradClr = const [Color(0xFF4361ee), Color(0xFF4361ee)];
                   else                     gradClr = const [Color(0xFFf1f5f9), Color(0xFFf1f5f9)];
                   return Expanded(child: Container(

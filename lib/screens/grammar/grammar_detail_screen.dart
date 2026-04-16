@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/tts_helper.dart';
 import '../../utils/audio_manager.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
-import '../../config/app_config.dart';
 import '../../widgets/report_dialog.dart';
 import '../../widgets/furigana_text.dart';
 

@@ -22,7 +22,7 @@ class VocabWhiteboardScreen extends StatefulWidget {
 }
 
 class _VocabWhiteboardScreenState extends State<VocabWhiteboardScreen> {
-  _RefMode _refMode = _RefMode.reading;
+  final _RefMode _refMode = _RefMode.reading;
 
   @override
   Widget build(BuildContext context) {

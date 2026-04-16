@@ -169,7 +169,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     } else if (msg.contains('无法读取') || msg.contains('cannot read')) {
       return '缓存文件已损坏，请清理存储后重试';
     }
-    return '音频加载失败: ${error.toString().length > 30 ? error.toString().substring(0, 30) + '...' : error.toString()}';
+    return '音频加载失败: ${error.toString().length > 30 ? '${error.toString().substring(0, 30)}...' : error.toString()}';
   }
 
   Future<void> _seek(double value) async {

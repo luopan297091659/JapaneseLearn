@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -40,8 +39,8 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
         paymentService.getQrConfig(),
         apiService.getPaymentPlans(),
       ]);
-      final qrConfig = results[0] as Map<String, dynamic>;
-      final plansData = results[1] as Map<String, dynamic>;
+      final qrConfig = results[0];
+      final plansData = results[1];
       final channels = plansData['channels'] as Map<String, dynamic>? ?? {};
       if (mounted) {
         setState(() {

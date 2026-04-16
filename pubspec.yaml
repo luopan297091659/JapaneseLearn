@@ -68,6 +68,9 @@ dependencies:
   speech_to_text: ^7.3.0
   record: 5.1.2
 
+  audio_session: any
+  xml: any
+  path_drawing: any
 dependency_overrides:
   record_linux: ^1.0.0
   xml: ^6.5.0

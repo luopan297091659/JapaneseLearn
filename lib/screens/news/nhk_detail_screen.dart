@@ -23,7 +23,7 @@ class _NhkDetailScreenState extends State<NhkDetailScreen> {
   bool _loading = true;
   bool _translating = false;
   bool _showTranslation = false;
-  bool _showRuby = true;
+  final bool _showRuby = true;
   double _fontSize = 18;
   bool _isFav = false;
   final FlutterTts _tts = FlutterTts();

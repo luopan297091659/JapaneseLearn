@@ -14,6 +14,12 @@ workflows:
       vars:
         GIT_LFS_SKIP_SMUDGE: "1"
     scripts:
+      - name: Disable Git LFS
+        script: |
+          git lfs uninstall || true
+          git config --global filter.lfs.required false
+          git config --global filter.lfs.smudge "cat"
+          git config --global filter.lfs.process ""
       - name: Bump version
         script: |
           #!/bin/bash
@@ -27,10 +33,9 @@ workflows:
       - name: Get Flutter packages
         script: flutter pub get
       - name: Build APK
-        script: flutter build apk --release | tee build_log_android.txt
-        # script: flutter build ipa --release --build-name=1.1.0 --export-options-plist=/Users/builder/export_options.plist
+        script: flutter build apk --release --dart-define=ENV=prod | tee build_log_android.txt
     artifacts:
-      - mobile/build/app/outputs/**/*.apk
+      - build/app/outputs/**/*.apk
       - build_log_android.txt
 
   ios-workflow:
@@ -57,6 +62,13 @@ workflows:
         # bundle_identifier: com.kotabi.app
         bundle_identifier: com.kotabi.app
     scripts:
+      - name: Disable Git LFS
+        script: |
+          git lfs uninstall || true
+          git config --global filter.lfs.required false
+          git config --global filter.lfs.smudge "cat"
+          git config --global filter.lfs.process ""
+
       - name: Bump version
         script: |
           #!/bin/bash

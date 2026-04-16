@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import '../providers/app_appearance_provider.dart';
 
 // ─── Anime full-screen background ──────────────────────────────────────────
 class AnimeModeBackground extends StatelessWidget {

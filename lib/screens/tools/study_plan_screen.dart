@@ -212,13 +212,6 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
     };
   }
 
-  Map<String, dynamic>? get _activePlan {
-    for (final plan in _plans) {
-      if (plan['id'] == _activePlanId) return plan;
-    }
-    return null;
-  }
-
   Future<void> _deletePlan(int index) async {
     final confirmed = await showDialog<bool>(
       context: context,

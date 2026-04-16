@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
@@ -245,7 +244,7 @@ class ApiService {
         return file.path;  // 已缓存且可读，直接返回
       } catch (e) {
         print('【缓存】缓存文件无法读取，将重新下载: $e');
-        await file.delete().catchError((_) {});  // 尝试删除损坏的缓存
+        await file.delete().catchError((_) => file);  // 尝试删除损坏的缓存
       }
     }
     
@@ -523,7 +522,7 @@ class ApiService {
     int page = 1,
     int limit = 20,
   }) async {
-    final key = 'vocab:${level}:${category}:${query}:$page:$limit';
+    final key = 'vocab:$level:$category:$query:$page:$limit';
     final cached = _cache.get(key);
     if (cached != null) return cached as Map<String, dynamic>;
     try {
@@ -653,7 +652,7 @@ class ApiService {
 
   // ─── Grammar ─────────────────────────────────────────────────────────────
   Future<Map<String, dynamic>> getGrammarLessons({String? level, String? query, int page = 1, int limit = 20}) async {
-    final key = 'grammar:${level}:${query}:$page:$limit';
+    final key = 'grammar:$level:$query:$page:$limit';
     final cached = _cache.get(key);
     if (cached != null) return cached as Map<String, dynamic>;
     try {
@@ -846,7 +845,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> getListeningTracks({String? level, String? category, int page = 1, int limit = 200}) async {
-    final key = 'listening:${level}:${category}:$page:$limit';
+    final key = 'listening:$level:$category:$page:$limit';
     final cached = _cache.get(key);
     if (cached != null) return cached as Map<String, dynamic>;
     final res = await _dio.get('/listening', queryParameters: {
@@ -887,7 +886,7 @@ class ApiService {
 
   // ─── News ─────────────────────────────────────────────────────────────────
   Future<List<NewsArticleModel>> getNews({String? difficulty, String? query, int page = 1}) async {
-    final key = 'news:${difficulty}:${query}:$page';
+    final key = 'news:$difficulty:$query:$page';
     final cached = _cache.get(key);
     if (cached != null) return cached as List<NewsArticleModel>;
     final res = await _dio.get('/news', queryParameters: {
@@ -1032,21 +1031,6 @@ class ApiService {
     final data = (res.data['data'] as List?) ?? [];
     final articles = data.map((j) => NewsArticleModel.fromJson(j as Map<String, dynamic>)).toList();
     return {'total': res.data['total'] ?? 0, 'data': articles};
-  }
-
-  /// 从文章页面 HTML 中提取正文段落
-  static String _extractNhkBody(String html) {
-    // 提取所有 <p> 标签中超过 10 字符的内容（过滤导航等短文本）
-    final pRegex = RegExp(r'<p[^>]*>([^<]{10,})</p>', dotAll: true);
-    final paragraphs = <String>[];
-    for (final m in pRegex.allMatches(html)) {
-      final text = _decodeXmlEntities(m.group(1)?.trim() ?? '');
-      // 排除版权声明等
-      if (text.contains('Copyright') || text.contains('受信料')) continue;
-      if (text.contains('受信契約')) continue;
-      paragraphs.add(text);
-    }
-    return paragraphs.join('\n\n');
   }
 
   static String _decodeXmlEntities(String s) {

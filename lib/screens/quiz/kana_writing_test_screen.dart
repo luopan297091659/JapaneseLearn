@@ -161,7 +161,6 @@ class _KanaWritingTestScreenState extends State<KanaWritingTestScreen> {
   // ── Setup ──
 
   Widget _buildSetup(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('五十音书写测试'),

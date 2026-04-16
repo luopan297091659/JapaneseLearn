@@ -87,7 +87,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _wordIndex = 0;
 
   // 各区域独立加载状态，不再阻塞整页显示
-  bool _userLoading   = true;
   bool _srsLoading    = true;
   bool _wordLoading   = true;
   bool _goalsLoading  = true;
@@ -96,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   // 是否正在刷新（下拉刷新时用）
   bool _refreshing = false;
+  bool _userLoading = true;
   bool _trialDialogHandledThisSession = false;
   bool _firstGuideHandledThisSession = false;
 
@@ -287,12 +287,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           await prefs.setInt('wod_index', startIdx);
           await prefs.setString('wod_level', level);
         }
-        if (mounted) setState(() {
+        if (mounted) {
+          setState(() {
           _wordPool  = words;
           _wordIndex = startIdx;
           _wordRevealed = false;
           _wordLoading = false;
         });
+        }
       } else {
         if (mounted) setState(() => _wordLoading = false);
       }
@@ -307,10 +309,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // 持久化索引，杀掉进程重新进仍显示换过的词
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('wod_index', newIdx);
-    if (mounted) setState(() {
+    if (mounted) {
+      setState(() {
       _wordIndex = newIdx;
       _wordRevealed = false;
     });
+    }
   }
 
   // ── 常用功能持久化 ──
@@ -501,39 +505,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (h < 12) return 'おはようございます ☀️';
     if (h < 18) return 'こんにちは 🌤️';
     return 'こんばんは 🌙';
-  }
-
-  Future<void> _doCheckin() async {
-    if (_checkingIn || _checkedInToday) return;
-    setState(() => _checkingIn = true);
-    try {
-      final res = await apiService.checkin();
-      final streak = res['streak_days'] as int? ?? 0;
-      if (mounted) {
-        setState(() {
-          _checkedInToday = true;
-          _checkingIn = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(res['already'] == true
-                ? '今日已签到 · 连续 $streak 天'
-                : '签到成功！连续 $streak 天 🔥 +5XP'),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        _loadDailyGoals();
-        _loadUser();
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _checkingIn = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('签到失败，请检查网络'), behavior: SnackBarBehavior.floating),
-        );
-      }
-    }
   }
 
   void _showCheckinCalendar() {
@@ -852,7 +823,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final isMember = _user?.isMember ?? false;
     final isTrial = _user?.isTrial ?? false;
     final daysLeft = _user?.membershipDaysLeft;
-    final memberLabel = isGuestMode ? '游客' : isTrial && daysLeft != null ? '体验${daysLeft}天' : isMember ? '会员' : '免费';
+    final memberLabel = isGuestMode ? '游客' : isTrial && daysLeft != null ? '体验$daysLeft天' : isMember ? '会员' : '免费';
     final rawAvatar = _user?.avatarUrl;
     final avatarUrl = rawAvatar == null || rawAvatar.isEmpty
       ? null
@@ -1381,51 +1352,6 @@ class _TrialPromptBanner extends StatelessWidget {
   }
 }
 
-class _TrialCountdownBanner extends StatelessWidget {
-  final int daysLeft;
-  const _TrialCountdownBanner({required this.daysLeft});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: GestureDetector(
-        onTap: () => context.push('/membership', extra: true),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          decoration: BoxDecoration(
-            color: daysLeft <= 1 ? const Color(0xFFFEF3C7) : const Color(0xFFEDE9FE),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: daysLeft <= 1 ? const Color(0xFFF59E0B) : const Color(0xFF8B5CF6), width: 0.5),
-          ),
-          child: Row(children: [
-            Text(daysLeft <= 1 ? '⏰' : '👑', style: const TextStyle(fontSize: 22)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                daysLeft <= 1 ? '体验即将到期，仅剩 $daysLeft 天' : '会员体验中，剩余 $daysLeft 天',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600, fontSize: 13,
-                  color: daysLeft <= 1 ? const Color(0xFF92400E) : const Color(0xFF5B21B6),
-                ),
-              ),
-            ),
-            if (daysLeft <= 1)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF59E0B),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Text('升级会员', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-              ),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
 class _WordOfDayCard extends StatefulWidget {
   final VocabularyModel word;
   final bool revealed;
@@ -1650,39 +1576,51 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
                               Icon(Icons.format_quote_rounded, size: 18, color: cs.primary),
                               const SizedBox(width: 6),
                               Text('例文', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: cs.onSurfaceVariant)),
-                              const Spacer(),
-                              GestureDetector(
-                                onTap: _playExampleAudio,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: cs.primary.withValues(alpha: 0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    _playingExample ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
-                                    size: 18, color: cs.primary,
-                                  ),
-                                ),
-                              ),
                             ]),
                             const SizedBox(height: 8),
-                            if (word.exampleReading != null && hasFurigana(word.exampleReading!))
-                              FuriganaText(
-                                text: word.exampleReading!,
-                                fontSize: 14,
-                                color: cs.onSurfaceVariant,
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (word.exampleReading != null && hasFurigana(word.exampleReading!))
+                                        FuriganaText(
+                                          text: word.exampleReading!,
+                                          fontSize: 14,
+                                          color: cs.onSurfaceVariant,
                                 fontWeight: FontWeight.normal,
                                 textAlign: TextAlign.start,
                               )
                             else
                               Text(word.exampleSentence!,
                                   style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant, height: 1.5)),
-                            if (word.exampleMeaningZh != null) ...[
-                              const SizedBox(height: 4),
-                              Text(word.exampleMeaningZh!,
-                                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant.withValues(alpha: 0.7), height: 1.4)),
-                            ],
+                                      if (word.exampleMeaningZh != null) ...[
+                                        const SizedBox(height: 4),
+                                        Text(word.exampleMeaningZh!,
+                                            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant.withValues(alpha: 0.7), height: 1.4)),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                GestureDetector(
+                                  onTap: _playExampleAudio,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: cs.primary.withValues(alpha: 0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      _playingExample ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+                                      size: 24, color: cs.primary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
                         ],
                       ),
@@ -1749,56 +1687,6 @@ class _SectionTitle extends StatelessWidget {
       Text(title,
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: cs.onSurface)),
     ]);
-  }
-}
-
-// ─── XP & 今日统计行 ──────────────────────────────────────────────────────────
-
-class _XpStatsRow extends StatelessWidget {
-  final int totalXp, todayXp, todayMinutes, streakDays;
-  const _XpStatsRow({required this.totalXp, required this.todayXp, required this.todayMinutes, required this.streakDays});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Expanded(child: _MiniStatCard(icon: Icons.diamond_rounded, color: const Color(0xFF7C3AED), label: '总经验', value: '$totalXp XP')),
-        const SizedBox(width: 8),
-        Expanded(child: _MiniStatCard(icon: Icons.trending_up_rounded, color: const Color(0xFF059669), label: '今日XP', value: '+$todayXp')),
-        const SizedBox(width: 8),
-        Expanded(child: _MiniStatCard(icon: Icons.local_fire_department, color: const Color(0xFFEA580C), label: '连续打卡', value: '$streakDays天')),
-        const SizedBox(width: 8),
-        Expanded(child: _MiniStatCard(icon: Icons.schedule_rounded, color: const Color(0xFF2563EB), label: '今日学习', value: '$todayMinutes分')),
-      ],
-    );
-  }
-}
-
-class _MiniStatCard extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String label, value;
-  const _MiniStatCard({required this.icon, required this.color, required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.15)),
-      ),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 20, color: color),
-        const SizedBox(height: 6),
-        Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: cs.onSurface)),
-        const SizedBox(height: 2),
-        Text(label, style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant), overflow: TextOverflow.ellipsis),
-      ]),
-    );
   }
 }
 

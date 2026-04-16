@@ -1,5 +1,6 @@
 /// 五十音数据
 /// 每行: [平假名, 片假名, 罗马音]
+library;
 
 // ── 清音（五十音）──
 const gojuonData = <List<List<String>>>[

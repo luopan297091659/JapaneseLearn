@@ -903,6 +903,7 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
           <div class="chip" onclick="selectVocabLevel('N2')">N2</div>
           <div class="chip" onclick="selectVocabLevel('N1')">N1</div>
         </div>
+        <div id="vocab-search-hint" style="display:none;font-size:12px;color:var(--primary);margin:6px 0">🌐 全局搜索中…</div>
         <div id="vocab-count" style="font-size:13px;color:var(--text-sub);margin-bottom:14px"></div>
         <div class="grid-3" id="vocab-list"></div>
         <div id="vocab-loading" class="loading"><div class="spinner"></div></div>
@@ -913,7 +914,10 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
       <div class="page" id="page-grammar">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
           <h2 style="margin:0;font-size:22px">📝 语法課程</h2>
-          <button class="btn btn-outline btn-sm" id="grammar-admin-btn" style="display:none" onclick="openGrammarAdminModal()">📥 导入</button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="input" id="grammar-search" placeholder="搜索语法、句型或释义…" style="width:220px" oninput="onGrammarSearch()">
+            <button class="btn btn-outline btn-sm" id="grammar-admin-btn" style="display:none" onclick="openGrammarAdminModal()">📥 导入</button>
+          </div>
         </div>
         <div class="chips" id="grammar-level-chips">
           <div class="chip active" onclick="selectGrammarLevel('N5')">N5</div>
@@ -922,6 +926,7 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
           <div class="chip" onclick="selectGrammarLevel('N2')">N2</div>
           <div class="chip" onclick="selectGrammarLevel('N1')">N1</div>
         </div>
+        <div id="grammar-search-hint" style="display:none;font-size:12px;color:var(--primary);margin:6px 0">🌐 全局搜索中…</div>
         <div class="grid-2" id="grammar-list"></div>
         <div id="grammar-pager" class="grammar-pager"></div>
         <div id="grammar-loading" class="loading"><div class="spinner"></div></div>
@@ -2436,6 +2441,10 @@ let _vocabDebounce;
 
 function selectVocabLevel(l) {
   vocabLevel = l; vocabPage = 1; vocabWords = []; vocabLoaded = false;
+  vocabQuery = ''; document.getElementById('vocab-search').value = '';
+  const hintEl = document.getElementById('vocab-search-hint');
+  if (hintEl) hintEl.style.display = 'none';
+  document.getElementById('vocab-level-chips').style.display = '';
   document.querySelectorAll('#vocab-level-chips .chip').forEach((c,i) => {
     c.classList.toggle('active', ['N5','N4','N3','N2','N1'][i] === l);
   });
@@ -2447,6 +2456,16 @@ function onVocabSearch() {
   _vocabDebounce = setTimeout(() => {
     vocabQuery = document.getElementById('vocab-search').value.trim();
     vocabPage = 1; vocabWords = [];
+    // 搜索时隐藏级别chips，显示全局搜索提示
+    const chipsEl = document.getElementById('vocab-level-chips');
+    const hintEl = document.getElementById('vocab-search-hint');
+    if (vocabQuery) {
+      chipsEl.style.display = 'none';
+      if (hintEl) hintEl.style.display = '';
+    } else {
+      chipsEl.style.display = '';
+      if (hintEl) hintEl.style.display = 'none';
+    }
     loadVocab();
   }, 400);
 }
@@ -2454,8 +2473,10 @@ function onVocabSearch() {
 async function loadVocab() {
   document.getElementById('vocab-loading').style.display = '';
   document.getElementById('vocab-pager').innerHTML = '';
-  let url = `/vocabulary?level=${vocabLevel}&page=${vocabPage}&limit=${vocabLimit}`;
-  if (vocabQuery) url += `&q=${encodeURIComponent(vocabQuery)}`;
+  // 搜索时不传level，实现全局搜索
+  let url = vocabQuery
+    ? `/vocabulary?page=${vocabPage}&limit=${vocabLimit}&q=${encodeURIComponent(vocabQuery)}`
+    : `/vocabulary?level=${vocabLevel}&page=${vocabPage}&limit=${vocabLimit}`;
   try {
     const res = await GET(url);
     vocabWords = res.data || [];
@@ -2701,13 +2722,38 @@ async function submitUserReport(refType, refId, refTitle) {
 //  GRAMMAR
 // ══════════════════════════════════════════════════════════════════
 let grammarLoaded = false, grammarLevel = 'N5', grammarPage = 1, grammarTotal = 0, grammarLimit = 20, grammarLessons = [];
+let grammarQuery = '', _grammarDebounce;
+
+const _grammarLevelColors = {N5:'#4CAF50',N4:'#2196F3',N3:'#9C27B0',N2:'#FF9800',N1:'#E53935'};
 
 function selectGrammarLevel(l) {
   grammarLevel = l; grammarPage = 1; grammarLoaded = false;
+  grammarQuery = ''; document.getElementById('grammar-search').value = '';
+  const hintEl = document.getElementById('grammar-search-hint');
+  if (hintEl) hintEl.style.display = 'none';
+  document.getElementById('grammar-level-chips').style.display = '';
   document.querySelectorAll('#grammar-level-chips .chip').forEach((c,i) => {
     c.classList.toggle('active', ['N5','N4','N3','N2','N1'][i] === l);
   });
   loadGrammar();
+}
+
+function onGrammarSearch() {
+  clearTimeout(_grammarDebounce);
+  _grammarDebounce = setTimeout(() => {
+    grammarQuery = document.getElementById('grammar-search').value.trim();
+    grammarPage = 1;
+    const chipsEl = document.getElementById('grammar-level-chips');
+    const hintEl = document.getElementById('grammar-search-hint');
+    if (grammarQuery) {
+      chipsEl.style.display = 'none';
+      if (hintEl) hintEl.style.display = '';
+    } else {
+      chipsEl.style.display = '';
+      if (hintEl) hintEl.style.display = 'none';
+    }
+    loadGrammar();
+  }, 400);
 }
 
 async function loadGrammar() {
@@ -2715,27 +2761,37 @@ async function loadGrammar() {
   document.getElementById('grammar-list').innerHTML = '';
   document.getElementById('grammar-pager').innerHTML = '';
   try {
-    const res = await GET(`/grammar?level=${grammarLevel}&page=${grammarPage}&limit=${grammarLimit}`);
+    // 搜索时不传level，实现全局搜索
+    let url = grammarQuery
+      ? `/grammar?page=${grammarPage}&limit=${grammarLimit}&query=${encodeURIComponent(grammarQuery)}`
+      : `/grammar?level=${grammarLevel}&page=${grammarPage}&limit=${grammarLimit}`;
+    const res = await GET(url);
     const lessons = res.data || [];
     grammarLessons = lessons;
     grammarTotal = res.total || 0;
     grammarLoaded = true;
+    const isSearching = !!grammarQuery;
     const el = document.getElementById('grammar-list');
     if (lessons.length === 0) {
-      el.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>暂无语法内容</p></div>';
+      el.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>${isSearching ? '未找到匹配的语法条目' : '暂无语法内容'}</p></div>`;
     } else {
       const startIdx = (grammarPage - 1) * grammarLimit;
-      el.innerHTML = lessons.map((g, i) => `
+      el.innerHTML = lessons.map((g, i) => {
+        const lvl = g.jlpt_level || grammarLevel;
+        const lvlColor = _grammarLevelColors[lvl] || 'var(--primary)';
+        const lvlBadge = isSearching ? `<span style="font-size:10px;font-weight:700;color:${lvlColor};background:${lvlColor}1a;border:1px solid ${lvlColor}44;border-radius:4px;padding:0 5px;margin-right:4px">${escHtml(lvl)}</span>` : '';
+        return `
         <div class="grammar-card" onclick="showGrammarDetail('${escHtml(g.id)}')">
           <div style="display:flex;align-items:center;gap:8px">
             <span style="font-size:12px;color:var(--text-sub);min-width:24px">${startIdx + i + 1}</span>
-            <span class="pattern" style="font-size:20px;font-weight:800;color:var(--primary)">${escHtml(g.pattern)}</span>
+            ${lvlBadge}
+            <span class="pattern" style="font-size:20px;font-weight:800;color:${isSearching ? lvlColor : 'var(--primary)'}">${escHtml(g.pattern)}</span>
           </div>
           <div class="grammar-card title">${escHtml(g.title)}</div>
           ${g.title_zh ? `<div class="grammar-card title-zh">${escHtml(g.title_zh)}</div>` : ''}
           ${g.explanation_zh ? `<div style="font-size:12px;color:var(--text-sub);margin-top:6px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escHtml(g.explanation_zh)}</div>` : ''}
         </div>
-      `).join('');
+      `}).join('');
     }
     renderGrammarPager();
   } catch(e) { toast('语法加载失败: ' + e.message); }

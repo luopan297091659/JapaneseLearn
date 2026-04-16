@@ -24,10 +24,12 @@ class _GameTabState extends State<GameTab> {
     final p = await SharedPreferences.getInstance();
     final pc = (p.getInt('g_unlocked_to_particles') ?? 1) - 1;
     final vc = (p.getInt('g_unlocked_to_verbs') ?? 1) - 1;
-    if (mounted) setState(() {
+    if (mounted) {
+      setState(() {
       _particlesCleared = pc.clamp(0, 999);
       _verbsCleared = vc.clamp(0, 999);
     });
+    }
   }
 
   @override

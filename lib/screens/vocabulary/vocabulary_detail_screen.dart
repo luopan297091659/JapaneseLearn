@@ -89,22 +89,32 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
       await tts.stop();
       final rate = slow ? 0.25 : 0.45;
       await tts.setSpeechRate(rate);
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         if (isExample) { _exampleLoading = false; _examplePlaying = true; }
         else { _wordLoading = false; _wordPlaying = true; }
       });
+      }
       tts.setCompletionHandler(() {
-        if (mounted) setState(() {
-          if (isExample) _examplePlaying = false; else _wordPlaying = false;
+        if (mounted) {
+          setState(() {
+          if (isExample) {
+            _examplePlaying = false;
+          } else {
+            _wordPlaying = false;
+          }
         });
+        }
       });
       await TtsHelper.speakJapanese(tts, text);
     } catch (e) {
       debugPrint('TTS播放出错: $e');
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         if (isExample) { _exampleLoading = false; _examplePlaying = false; }
         else { _wordLoading = false; _wordPlaying = false; }
       });
+      }
     }
   }
 
@@ -136,9 +146,15 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
     final player = isExample ? _examplePlayer! : _wordPlayer!;
 
     // 设置 loading 状态
-    if (mounted) setState(() {
-      if (isExample) _exampleLoading = true; else _wordLoading = true;
+    if (mounted) {
+      setState(() {
+      if (isExample) {
+        _exampleLoading = true;
+      } else {
+        _wordLoading = true;
+      }
     });
+    }
 
     try {
       // 停止全局其他音频
@@ -174,23 +190,33 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
       }
 
       await player.setVolume(1.0);
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         if (isExample) { _exampleLoading = false; _examplePlaying = true; }
         else { _wordLoading = false; _wordPlaying = true; }
       });
+      }
 
       await player.play();
 
       // 播放结束后重置状态
-      if (mounted) setState(() {
-        if (isExample) _examplePlaying = false; else _wordPlaying = false;
+      if (mounted) {
+        setState(() {
+        if (isExample) {
+          _examplePlaying = false;
+        } else {
+          _wordPlaying = false;
+        }
       });
+      }
     } catch (e) {
       debugPrint('音频播放出错: $e');
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         if (isExample) { _exampleLoading = false; _examplePlaying = false; }
         else { _wordLoading = false; _wordPlaying = false; }
       });
+      }
     }
   }
 
@@ -225,13 +251,15 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
   Future<void> _loadSrsCard() async {
     try {
       final card = await apiService.getSrsCardByRef(_currentId);
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _srsCardId       = card?['id']?.toString();
         _addedToSrs      = card != null;
         _srsRepetitions  = (card?['repetitions']  as num?)?.toInt()    ?? 0;
         _srsEaseFactor   = (card?['ease_factor']  as num?)?.toDouble() ?? 2.5;
         _srsIntervalDays = (card?['interval_days'] as num?)?.toInt()   ?? 0;
       });
+      }
     } catch (_) {}
   }
 
