@@ -1,3 +1,10 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:bc55023dc706f96307eccaac20b46890cf0c7dd174b8e587adee393d73a8ce78
-size 332
+﻿CREATE TABLE IF NOT EXISTS password_reset_codes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(255) NOT NULL,
+  code VARCHAR(6) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used TINYINT(1) DEFAULT 0,
+  createdAt DATETIME,
+  updatedAt DATETIME,
+  INDEX idx_email_code (email, code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

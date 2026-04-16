@@ -1,3 +1,3 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:a9a680ed2bfb5f3353bcba78725aaed3b1c0cf6c2e70001bdf057b645647ea2e
-size 223
+SET NAMES utf8mb4;
+SELECT HEX(title), audio_url FROM listening_tracks WHERE audio_url = '/uploads/audio/tanpun/001.mp4';
+SELECT HEX(title), audio_url FROM listening_tracks WHERE audio_url = '/uploads/audio/tanpun/002.mp4';
