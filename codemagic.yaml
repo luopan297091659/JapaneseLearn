@@ -11,15 +11,7 @@ workflows:
     environment:
       flutter: stable
       java: 17
-      vars:
-        GIT_LFS_SKIP_SMUDGE: "1"
     scripts:
-      - name: Disable Git LFS
-        script: |
-          git lfs uninstall || true
-          git config --global filter.lfs.required false
-          git config --global filter.lfs.smudge "cat"
-          git config --global filter.lfs.process ""
       - name: Bump version
         script: |
           #!/bin/bash
@@ -55,20 +47,11 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
-      vars:
-        GIT_LFS_SKIP_SMUDGE: "1"
       ios_signing:
         distribution_type: app_store
         # bundle_identifier: com.kotabi.app
         bundle_identifier: com.kotabi.app
     scripts:
-      - name: Disable Git LFS
-        script: |
-          git lfs uninstall || true
-          git config --global filter.lfs.required false
-          git config --global filter.lfs.smudge "cat"
-          git config --global filter.lfs.process ""
-
       - name: Bump version
         script: |
           #!/bin/bash

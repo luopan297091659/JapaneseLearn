@@ -235,7 +235,7 @@ class _StudyTabState extends State<StudyTab> {
                             ),
                             const SizedBox(width: 2),
                             Text(
-                              _isMember ? '会员' : '免费',
+                              GuestService().isGuest ? '游客' : _isMember ? '会员' : '免费',
                               style: TextStyle(
                                 color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
                                 fontSize: 9,

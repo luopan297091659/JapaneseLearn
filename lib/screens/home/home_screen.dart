@@ -740,7 +740,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       guestService.disableGuestMode();
                       context.go('/login');
                     }),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                   ],
                   // ── 今日目标（游客隐藏）───────────────────────────
                   if (!guestService.isGuest && !_goalsLoading && adjustedGoals != null) ...[
@@ -954,9 +954,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                   const SizedBox(height: 8),
                   // 统计数据行（紧凑）
-                  if (isGuestMode)
-                    _GuestLoginPrompt()
-                  else
+                  if (!isGuestMode)
                     Row(children: [
                       _StatBadge(icon: Icons.star, color: Colors.amber, label: _user?.level ?? 'N5'),
                       const SizedBox(width: 8),
@@ -1086,30 +1084,6 @@ class _StatBadge extends StatelessWidget {
 }
 
 // ─── Guest Mode Widgets ──────────────────────────────────────────────────────
-
-class _GuestLoginPrompt extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        guestService.disableGuestMode();
-        GoRouter.of(context).go('/login');
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.login_rounded, size: 14, color: Colors.white),
-          SizedBox(width: 4),
-          Text('登录解锁完整功能', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-        ]),
-      ),
-    );
-  }
-}
 
 class _GuestBanner extends StatelessWidget {
   final VoidCallback onLogin;

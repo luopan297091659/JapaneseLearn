@@ -287,10 +287,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 20),
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(s.noAccount, style: TextStyle(color: cs.outline)),
+                  if (Platform.isIOS)
+                    TextButton(
+                      onPressed: _loading ? null : () async {
+                        await guestService.enableGuestMode();
+                        if (mounted) context.go('/home');
+                      },
+                      child: Text('游客模式', style: TextStyle(color: cs.outline)),
+                    ),
+                  if (Platform.isIOS)
+                    const SizedBox(width: 8),
                   TextButton(onPressed: () => context.go('/register'), child: Text(s.registerNow)),
                 ]),
-                if (Platform.isIOS) ...[
+                if (false) ...[
                   const SizedBox(height: 8),
                   Center(
                     child: TextButton(
@@ -298,7 +307,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         await guestService.enableGuestMode();
                         if (mounted) context.go('/home');
                       },
-                      child: Text('跳过登录，先看看',
+                      child: Text('游客模式',
                         style: TextStyle(fontSize: 14, color: cs.outline),
                       ),
                     ),
