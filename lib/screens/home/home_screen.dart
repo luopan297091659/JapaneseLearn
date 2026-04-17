@@ -115,11 +115,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadCachedUser();
     _loadFavFeatures();
     _loadFeatureToggles();
     _loadAll(fromCache: true);
     // 后台静默同步服务端内容版本
     Future.microtask(() => syncService.checkContentVersion());
+  }
+
+  /// 从本地缓存立即恢复用户数据，避免 UI 闪烁
+  Future<void> _loadCachedUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cached = apiService.getCachedUser(prefs);
+    if (cached != null && mounted) {
+      final today = DateTime.now().toIso8601String().split('T').first;
+      setState(() {
+        _user = cached;
+        _userLoading = false;
+        _checkedInToday = cached.lastStudyDate == today;
+      });
+      membershipService.updateCache(isMember: cached.isMember, avatarUrl: cached.avatarUrl);
+    }
   }
 
   /// [fromCache] true = 先用缓存立即渲染，后台同步刷新；false = 强制刷新

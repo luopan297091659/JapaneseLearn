@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import 'api_service.dart';
 import 'sync_service.dart';
@@ -17,10 +18,22 @@ class MembershipService {
   DateTime? _cacheTime;
   static const _cacheDuration = Duration(minutes: 5);
 
+  static const _persistKeyIsMember = 'membership_is_member';
+  static const _persistKeyAvatarUrl = 'membership_avatar_url';
+
   /// 是否有有效缓存（供同步读取，避免页面闪烁）
   bool get hasCachedStatus => _cacheTime != null;
   bool get cachedIsMember => _cachedIsMember;
   String? get cachedAvatarUrl => _cachedAvatarUrl;
+
+  /// 从 SharedPreferences 恢复缓存（app 启动时调用）
+  void restoreFromPrefs(SharedPreferences prefs) {
+    _cachedIsMember = prefs.getBool(_persistKeyIsMember) ?? false;
+    _cachedAvatarUrl = prefs.getString(_persistKeyAvatarUrl);
+    if (prefs.containsKey(_persistKeyIsMember)) {
+      _cacheTime = DateTime.now();
+    }
+  }
 
   /// 获取缓存的会员状态，如未缓存则自动加载
   Future<({bool isMember, String? avatarUrl})> getCachedStatus() async {
@@ -42,6 +55,15 @@ class MembershipService {
     _cachedIsMember = isMember;
     _cachedAvatarUrl = avatarUrl;
     _cacheTime = DateTime.now();
+    // 异步持久化，不阻塞调用方
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setBool(_persistKeyIsMember, isMember);
+      if (avatarUrl != null) {
+        prefs.setString(_persistKeyAvatarUrl, avatarUrl);
+      } else {
+        prefs.remove(_persistKeyAvatarUrl);
+      }
+    });
   }
 
   /// 检查某功能对当前用户是否完全锁定

@@ -383,7 +383,10 @@ class _CardFront extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           // 日文大字 + 假名
-          FuriganaText(text: word.word, fontSize: 56, color: cs.primary),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: FuriganaText(text: word.word, fontSize: 56, color: cs.primary),
+          ),
           const SizedBox(height: 16),
           // 词性标签
           Container(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
@@ -6,6 +7,7 @@ import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart' show VoidCallback;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 import '../models/models.dart';
 import 'local_db.dart';
@@ -361,7 +363,33 @@ class ApiService {
     final res = await _dio.get('/auth/me');
     final user = UserModel.fromJson(res.data['user']);
     _cache.set(key, user, AppConfig.cacheTtlShort);
+    _persistUser(user);
     return user;
+  }
+
+  static const _userCacheKey = 'cached_user_data';
+
+  /// 持久化用户数据到 SharedPreferences
+  Future<void> _persistUser(UserModel user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userCacheKey, jsonEncode(user.toJson()));
+  }
+
+  /// 从 SharedPreferences 读取缓存的用户数据（同步启动时用）
+  UserModel? getCachedUser(SharedPreferences prefs) {
+    final raw = prefs.getString(_userCacheKey);
+    if (raw == null) return null;
+    try {
+      return UserModel.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 清除本地持久化的用户数据
+  Future<void> _clearCachedUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_userCacheKey);
   }
 
   /// 获取会员体验配置
@@ -404,7 +432,9 @@ class ApiService {
       if (level    != null) 'level':    level,
       if (username != null) 'username': username,
     });
-    return UserModel.fromJson(res.data);
+    final user = UserModel.fromJson(res.data);
+    _persistUser(user);
+    return user;
   }
 
   Future<UserModel> uploadAvatarBytes(Uint8List bytes, {String fileName = 'avatar.png'}) async {
@@ -413,7 +443,9 @@ class ApiService {
       'avatar': MultipartFile.fromBytes(bytes, filename: fileName),
     });
     final res = await _dio.post('/users/avatar', data: formData);
-    return UserModel.fromJson(res.data);
+    final user = UserModel.fromJson(res.data);
+    _persistUser(user);
+    return user;
   }
 
   /// 修改密码
@@ -490,6 +522,7 @@ class ApiService {
   // logout 时清缓存
   Future<void> logout() async {
     _cache.clear();
+    await _clearCachedUser();
     await _storage.deleteAll();
   }
 
@@ -497,6 +530,7 @@ class ApiService {
   Future<void> deleteAccount(String password) async {
     await _dio.delete('/users/account', data: {'password': password});
     _cache.clear();
+    await _clearCachedUser();
     await _storage.deleteAll();
   }
 
@@ -1082,9 +1116,36 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> checkin() async {
-    final res = await _dio.post('/progress/checkin');
-    _cache.invalidate('progress:');
-    return Map<String, dynamic>.from(res.data as Map);
+    Future<Map<String, dynamic>> _handleResult(Response res) async {
+      _cache.invalidate('progress:');
+      final data = Map<String, dynamic>.from(res.data as Map);
+      // 签到成功后立即更新本地缓存的用户数据
+      final prefs = await SharedPreferences.getInstance();
+      final cached = getCachedUser(prefs);
+      if (cached != null) {
+        final today = DateTime.now().toIso8601String().split('T').first;
+        final updated = cached.copyWith(
+          streakDays: data['streak_days'] as int? ?? cached.streakDays,
+          lastStudyDate: today,
+        );
+        await prefs.setString(_userCacheKey, jsonEncode(updated.toJson()));
+        _cache.remove('me');
+      }
+      return data;
+    }
+    try {
+      final res = await _dio.post('/progress/checkin');
+      return await _handleResult(res);
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        await Future.delayed(const Duration(milliseconds: 1500));
+        final res = await _dio.post('/progress/checkin');
+        return await _handleResult(res);
+      }
+      rethrow;
+    }
   }
 
   Future<ProgressSummaryModel> getProgressSummary() async {

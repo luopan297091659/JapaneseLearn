@@ -473,7 +473,12 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(vocab.word, style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(vocab.word, style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
+                ),
+              ),
               const SizedBox(width: 12),
               GestureDetector(
                 onTap: _wordLoading ? null : () => _speakWord(vocab.word, audioUrl: vocab.audioUrl),

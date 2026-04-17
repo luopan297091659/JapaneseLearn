@@ -59,6 +59,49 @@ class UserModel {
         trialActivated: json['trial_activated'] == true,
         membershipDaysLeft: json['membership_days_left'] as int?,
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'username': username,
+        'email': email,
+        'avatar_url': avatarUrl,
+        'level': level,
+        'streak_days': streakDays,
+        'total_study_minutes': totalStudyMinutes,
+        'last_study_date': lastStudyDate,
+        'daily_goal_minutes': dailyGoalMinutes,
+        'notification_enabled': notificationEnabled,
+        'preferences': preferences,
+        'is_member': isMember,
+        'membership_plan': membershipPlan,
+        'membership_expire': membershipExpire,
+        'is_trial': isTrial,
+        'trial_activated': trialActivated,
+        'membership_days_left': membershipDaysLeft,
+      };
+
+  UserModel copyWith({
+    int? streakDays,
+    String? lastStudyDate,
+  }) => UserModel(
+        id: id,
+        username: username,
+        email: email,
+        avatarUrl: avatarUrl,
+        level: level,
+        streakDays: streakDays ?? this.streakDays,
+        totalStudyMinutes: totalStudyMinutes,
+        lastStudyDate: lastStudyDate ?? this.lastStudyDate,
+        dailyGoalMinutes: dailyGoalMinutes,
+        notificationEnabled: notificationEnabled,
+        preferences: preferences,
+        isMember: isMember,
+        membershipPlan: membershipPlan,
+        membershipExpire: membershipExpire,
+        isTrial: isTrial,
+        trialActivated: trialActivated,
+        membershipDaysLeft: membershipDaysLeft,
+      );
 }
 
 // ─── Vocabulary Model ────────────────────────────────────────────────────────
