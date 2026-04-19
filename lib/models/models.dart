@@ -19,6 +19,8 @@ class UserModel {
   final bool isTrial;
   final bool trialActivated;
   final int? membershipDaysLeft;
+  final String? inviteCode;
+  final int inviteCount;
 
   const UserModel({
     required this.id,
@@ -38,6 +40,8 @@ class UserModel {
     this.isTrial = false,
     this.trialActivated = false,
     this.membershipDaysLeft,
+    this.inviteCode,
+    this.inviteCount = 0,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -58,6 +62,8 @@ class UserModel {
         isTrial: json['is_trial'] == true,
         trialActivated: json['trial_activated'] == true,
         membershipDaysLeft: json['membership_days_left'] as int?,
+        inviteCode: json['invite_code'] as String?,
+        inviteCount: json['invite_count'] as int? ?? 0,
       );
 
   Map<String, dynamic> toJson() => {
@@ -78,6 +84,8 @@ class UserModel {
         'is_trial': isTrial,
         'trial_activated': trialActivated,
         'membership_days_left': membershipDaysLeft,
+        'invite_code': inviteCode,
+        'invite_count': inviteCount,
       };
 
   UserModel copyWith({
@@ -101,6 +109,8 @@ class UserModel {
         isTrial: isTrial,
         trialActivated: trialActivated,
         membershipDaysLeft: membershipDaysLeft,
+        inviteCode: inviteCode,
+        inviteCount: inviteCount,
       );
 }
 

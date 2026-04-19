@@ -136,8 +136,8 @@ button{cursor:pointer;font-family:inherit}
 
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead tr{background:#f8fafc}
-th{padding:11px 14px;text-align:left;font-weight:600;color:var(--text-muted);border-bottom:2px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
-td{padding:11px 14px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+th{padding:8px 10px;text-align:left;font-weight:600;color:var(--text-muted);border-bottom:2px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+td{padding:8px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle;font-size:12px}
 tbody tr:last-child td{border-bottom:none}
 tbody tr:hover td{background:#f8faff}
 .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;line-height:1.8}
@@ -2411,15 +2411,34 @@ async function deleteTrack(id){
 }
 
 /* ───────────────────────────────── USERS ─────────────────────────────────── */
-let uState = {page:1, limit:20, search:'', total:0};
+let uState = {page:1, limit:20, search:'', total:0, sort:'', order:'', minInvite:'', role:'', membership:''};
 async function renderUsers(){
   document.getElementById('content').innerHTML = `
   <div class="toolbar">
     <input type="text" id="us-search" placeholder="搜索用户名/邮箱…" onkeydown="if(event.key==='Enter')userSearch()" />
     <button class="btn btn-primary" onclick="userSearch()">搜索</button>
+    <select id="us-role-filter" onchange="userFilterChanged()" style="margin-left:8px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px">
+      <option value="">全部角色</option>
+      <option value="user">普通用户</option>
+      <option value="admin">管理员</option>
+    </select>
+    <select id="us-mem-filter" onchange="userFilterChanged()" style="margin-left:8px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px">
+      <option value="">全部会员</option>
+      <option value="active">有效会员</option>
+      <option value="expired">已过期</option>
+      <option value="trial">体验会员</option>
+      <option value="none">非会员</option>
+    </select>
+    <select id="us-invite-filter" onchange="userFilterChanged()" style="margin-left:8px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px">
+      <option value="">全部邀请数</option>
+      <option value="1">≥1 人</option>
+      <option value="3">≥3 人</option>
+      <option value="5">≥5 人</option>
+      <option value="10">≥10 人</option>
+    </select>
   </div>
   <div class="panel" style="padding:0">
-    <table><thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th><th>会员</th><th>偏好习惯</th><th>活跃</th><th>注册时间</th><th>操作</th></tr></thead>
+    <table><thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th><th>会员</th><th style="cursor:pointer" onclick="toggleUserSort('invite_count')">邀请数 <span id="us-sort-icon">⇅</span></th><th>偏好习惯</th><th>活跃</th><th>注册时间</th><th>操作</th></tr></thead>
     <tbody id="us-body"></tbody></table>
     <div style="padding:12px 16px" id="us-pager"></div>
   </div>`;
@@ -2427,7 +2446,11 @@ async function renderUsers(){
 }
 async function loadUsers(){
   try{
-    const d=await api('GET',`/admin/users?page=${uState.page}&limit=${uState.limit}&q=${encodeURIComponent(uState.search)}`);
+    const sortParam = uState.sort ? `&sort=${uState.sort}&order=${uState.order}` : '';
+    const inviteParam = uState.minInvite ? `&min_invite=${uState.minInvite}` : '';
+    const roleParam = uState.role ? `&role=${uState.role}` : '';
+    const memParam = uState.membership ? `&membership=${uState.membership}` : '';
+    const d=await api('GET',`/admin/users?page=${uState.page}&limit=${uState.limit}&q=${encodeURIComponent(uState.search)}${sortParam}${inviteParam}${roleParam}${memParam}`);
     uState.total=d.total||0;
     const _uData = d.data||[];
     uState._pageCount = _uData.length;
@@ -2462,6 +2485,7 @@ async function loadUsers(){
         <td>${u.id}</td><td>${esc(u.username)}</td><td>${esc(u.email)}</td>
         <td><span class="badge ${u.role==='admin'?'badge-red':'badge-blue'}">${esc(u.role)}</span></td>
         <td>${memBadge}${memExpire}</td>
+        <td><span class="badge badge-blue" title="邀请码: ${esc(u.invite_code||'')}">${u.invite_count||0} 人</span></td>
         <td>${prefHtml}</td>
         <td>${u.is_active?'✅':'❌'}</td>
         <td>${new Date(u.createdAt).toLocaleDateString('zh-CN')}</td>
@@ -2474,9 +2498,14 @@ async function loadUsers(){
       </tr>`;
     }).join('');
     renderPager('us-pager', uState.page, Math.ceil(uState.total/uState.limit), p=>{ uState.page=p; loadUsers(); }, uState);
+    // 更新排序图标
+    const si = document.getElementById('us-sort-icon');
+    if(si) si.textContent = uState.sort==='invite_count' ? (uState.order==='desc'?'↓':'↑') : '⇅';
   }catch(e){ toast(e.message,true) }
 }
 function userSearch(){ uState.page=1; uState.search=document.getElementById('us-search').value; loadUsers(); }
+function userFilterChanged(){ uState.page=1; uState.minInvite=document.getElementById('us-invite-filter').value; uState.role=document.getElementById('us-role-filter').value; uState.membership=document.getElementById('us-mem-filter').value; loadUsers(); }
+function toggleUserSort(field){ if(uState.sort===field){ uState.order=uState.order==='desc'?'asc':'desc'; } else { uState.sort=field; uState.order='desc'; } uState.page=1; loadUsers(); }
 async function toggleRole(id, role){ try{ await api('PUT',`/admin/users/${id}`,{role}); toast('已更新'); loadUsers(); }catch(e){ toast(e.message,true) } }
 async function toggleActive(id, is_active){ try{ await api('PUT',`/admin/users/${id}`,{is_active}); toast('已更新'); loadUsers(); }catch(e){ toast(e.message,true) } }
 

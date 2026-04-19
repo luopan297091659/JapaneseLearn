@@ -305,14 +305,17 @@ class ApiService {
     required String email,
     required String password,
     String level = 'N5',
+    String inviteCode = '',
   }) async {
-    final res = await _dio.post('/auth/register', data: {
+    final data = {
       'username': username,
       'email': email,
       'password': password,
       'level': level,
       'platform': 'app',
-    });
+    };
+    if (inviteCode.isNotEmpty) data['invite_code'] = inviteCode;
+    final res = await _dio.post('/auth/register', data: data);
     await _saveTokens(res.data);
     return res.data;
   }

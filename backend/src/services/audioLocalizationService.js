@@ -278,9 +278,9 @@ function extractFilenameFromUrl(url) {
       filename = filename.split('?')[0];
     }
 
-    // 如果没有后缀，添加.wav
+    // 如果没有后缀，添加.mp3（默认格式）
     if (!filename.includes('.')) {
-      filename = filename + '.wav';
+      filename = filename + '.mp3';
     }
 
     return filename;

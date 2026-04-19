@@ -19,13 +19,21 @@ async function register(req, res) {
     throw new HttpError(400, msgs);
   }
 
-  const { username, email, password, level } = req.body;
+  const { username, email, password, level, invite_code } = req.body;
   const existing = await User.findOne({ where: { email } });
   if (existing) throw new HttpError(409, '该邮箱已被注册');
 
+  // 处理邀请码
+  let inviterId = null;
+  if (invite_code) {
+    const inviter = await User.findOne({ where: { invite_code: invite_code.toUpperCase() } });
+    if (!inviter) throw new HttpError(400, '邀请码无效');
+    inviterId = inviter.id;
+  }
+
   const platform = req.body.platform === 'app' ? 'app' : 'web';
   const loginToken = crypto.randomUUID();
-  const user = await User.create({ username, email, password_hash: password, level: level || 'N5', [`${platform}_login_token`]: loginToken });
+  const user = await User.create({ username, email, password_hash: password, level: level || 'N5', invited_by: inviterId, [`${platform}_login_token`]: loginToken });
   const accessToken = signAccessToken({ id: user.id, email: user.email, loginToken, platform });
   const refreshToken = signRefreshToken({ id: user.id, loginToken, platform });
   res.status(201).json({ user, accessToken, refreshToken });
@@ -91,6 +99,9 @@ async function getMe(req, res) {
   // 附加试用信息
   userJson.is_trial = user.membership_plan === 'trial';
   userJson.trial_activated = !!user.trial_activated;
+  // 附加邀请码和邀请人数
+  userJson.invite_code = user.invite_code;
+  userJson.invite_count = await User.count({ where: { invited_by: user.id } });
   if (user.membership_expire) {
     const expire = new Date(user.membership_expire);
     const now = new Date();

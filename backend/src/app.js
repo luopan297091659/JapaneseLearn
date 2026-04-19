@@ -254,6 +254,21 @@ async function start() {
     const { seedCategories } = require('./controllers/forumController');
     await seedCategories();
 
+    // 为已有用户生成邀请码
+    const crypto = require('crypto');
+    const User = require('./models/User');
+    const usersNoCode = await User.findAll({ where: { invite_code: null } });
+    for (const u of usersNoCode) {
+      let code;
+      for (let i = 0; i < 10; i++) {
+        code = crypto.randomBytes(4).toString('hex').toUpperCase();
+        const exists = await User.findOne({ where: { invite_code: code } });
+        if (!exists) break;
+      }
+      await u.update({ invite_code: code });
+    }
+    if (usersNoCode.length) logger.info(`Generated invite codes for ${usersNoCode.length} existing users.`);
+
     // 初始化音频存储服务
     const audioLocalizationService = require('./services/audioLocalizationService');
     await audioLocalizationService.ensureAudioDirectories();

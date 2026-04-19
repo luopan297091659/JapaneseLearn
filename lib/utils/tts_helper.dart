@@ -11,7 +11,10 @@ import 'audio_manager.dart';
 
 /// 创建支持自签名证书的 Dio 实例
 Dio _createTrustingDio() {
-  final dio = Dio();
+  final dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 30),
+  ));
   (dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
     final client = HttpClient();
     client.badCertificateCallback = (cert, host, port) {
@@ -68,12 +71,22 @@ class TtsHelper {
         }
         await player.setVolume(1.0);
         await player.setSpeed(slow ? 0.5 : 1.0);
-        await player.play();
+        // 先注册监听再播放，避免 await play() 阻塞导致 Android 卡死
         player.playerStateStream.listen((state) {
           if (state.processingState == ProcessingState.completed) {
             player.dispose();
             if (onComplete != null) onComplete();
           }
+        }, onError: (e) {
+          debugPrint('音频播放流错误: $e');
+          player.dispose();
+          if (onComplete != null) onComplete();
+        });
+        // play() 异步执行，捕获其错误防止卡死
+        player.play().catchError((e) {
+          debugPrint('音频play()失败: $e');
+          player.dispose();
+          if (onComplete != null) onComplete();
         });
         return;
       } catch (e) {
@@ -94,58 +107,11 @@ class TtsHelper {
       final result = await ttsInst.speak(text);
       if (result == 1) return;
     } catch (e) {
-      debugPrint('本地TTS失败，尝试Kokoro: $e');
+      debugPrint('本地TTS失败: $e');
     }
 
-    // 3. 后端Kokoro TTS
-    try {
-      debugPrint('[TTS] 第3层：尝试Kokoro后端合成 - URL: ${AppConfig.kokoroTtsUrl}');
-      final dio = _createTrustingDio();
-      final requestData = {
-        'text': text,
-        'voice': 'a',  // 'a', 'b', 或 'c'
-        'emotion': 'neutral',
-        'speed': slow ? 0.7 : 1.0,
-      };
-      debugPrint('[TTS] 请求数据: ${jsonEncode(requestData)}');
-      
-      final resp = await dio.post(
-        AppConfig.kokoroTtsUrl,
-        data: jsonEncode(requestData),
-        options: Options(headers: {'Content-Type': 'application/json'}),
-      );
-      
-      debugPrint('[TTS] 收到响应: ${resp.statusCode}');
-      final kokoroAudioUrl = resp.data['audio_url'] as String?;
-      debugPrint('[TTS] 返回的audio_url: $kokoroAudioUrl');
-      if (kokoroAudioUrl != null && kokoroAudioUrl.isNotEmpty) {
-        // 后端返回相对路径（/api/v1/tts/kokoro/audio/xxx.wav），需要拼接基地址
-        // 这样APP永远通过8002来访问，不直接访问8010，满足安全架构要求
-        String fullUrl = kokoroAudioUrl;
-        if (!kokoroAudioUrl.startsWith('http')) {
-          // 从kokoroTtsUrl (https://139.196.44.6:8002/api/v1/tts/kokoro-speak)
-          // 提取基地址 (https://139.196.44.6:8002)
-          final baseUrl = AppConfig.kokoroTtsUrl.replaceAll(RegExp(r'/api/v1/tts/.*'), '');
-          fullUrl = baseUrl + kokoroAudioUrl;
-        }
-        debugPrint('[TTS] 最终播放URL (通过8002): $fullUrl');
-        final player = AudioPlayer();
-        debugPrint('[TTS] 开始播放...');
-        await player.setUrl(fullUrl);
-        await player.setVolume(1.0);
-        await player.setSpeed(slow ? 0.5 : 1.0);
-        await player.play();
-        player.playerStateStream.listen((state) {
-          if (state.processingState == ProcessingState.completed) {
-            player.dispose();
-            if (onComplete != null) onComplete();
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint('[TTS] Kokoro TTS后端失败: $e');
-      if (onComplete != null) onComplete();
-    }
+    // TTS也失败，直接回调完成
+    if (onComplete != null) onComplete();
   }
 
   /// 预缓存单个音频文件到本地（不播放），已缓存则跳过

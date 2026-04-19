@@ -1134,10 +1134,21 @@ async function deleteTrack(req, res) {
 
 // ─── 用户管理 ─────────────────────────────────────────────────────────────────
 async function listUsers(req, res) {
-  const { q, page = 1, limit = 30, role } = req.query;
+  const { q, page = 1, limit = 30, role, sort, order, min_invite, membership } = req.query;
   const lim = Math.min(parseInt(limit) || 30, 200);
   const where = {};
   if (role) where.role = role;
+  if (membership === 'none') {
+    where.membership_plan = null;
+  } else if (membership === 'trial') {
+    where.membership_plan = 'trial';
+  } else if (membership === 'active') {
+    where.membership_plan = { [Op.ne]: null };
+    where.membership_expire = { [Op.gt]: new Date() };
+  } else if (membership === 'expired') {
+    where.membership_plan = { [Op.ne]: null };
+    where.membership_expire = { [Op.lt]: new Date() };
+  }
   if (q) {
     where[Op.or] = [
       { username: { [Op.like]: `%${q}%` } },
@@ -1155,15 +1166,32 @@ async function listUsers(req, res) {
       order: [['createdAt', 'DESC']],
       attributes: { exclude: ['password_hash'] },
     });
+    // 批量查询每个用户的邀请人数
+    const userIds = rows.map(r => r.id);
+    const inviteCounts = await User.findAll({
+      where: { invited_by: { [Op.in]: userIds } },
+      attributes: ['invited_by', [require('sequelize').fn('COUNT', require('sequelize').col('id')), 'cnt']],
+      group: ['invited_by'],
+      raw: true,
+    });
+    const inviteMap = {};
+    inviteCounts.forEach(r => { inviteMap[r.invited_by] = parseInt(r.cnt); });
     const data = rows.map((row) => {
       const json = row.toJSON ? row.toJSON() : row;
       return {
         ...json,
+        invite_count: inviteMap[row.id] || 0,
         preferences: json.preferences || getUserPreferences(json),
         preference_summary: json.preference_summary || summarizeUserPreferences(json.preferences || getUserPreferences(json)),
       };
     });
-    res.json({ total: count, page: parseInt(page), limit: lim, data });
+    // 支持按邀请数排序（内存排序，因为是计算字段）
+    if (sort === 'invite_count') {
+      data.sort((a, b) => order === 'asc' ? a.invite_count - b.invite_count : b.invite_count - a.invite_count);
+    }
+    // 支持按最小邀请数筛选
+    const filteredData = min_invite ? data.filter(u => u.invite_count >= parseInt(min_invite)) : data;
+    res.json({ total: min_invite ? filteredData.length : count, page: parseInt(page), limit: lim, data: filteredData });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -185,6 +185,7 @@ footer { text-align: center; padding: 28px 16px; font-size: 12px; color: var(--t
   <div class="user-account" id="userAccount">
     <span class="user-badge" id="userBadge" onclick="showUserMenu()"></span>
     <span class="user-sub" id="memberExpire"></span>
+    <span class="user-sub" id="userInviteCode" style="cursor:pointer;display:none;" onclick="copyInviteCode()"></span>
   </div>
   <a class="nav-link" id="loginBtn" href="javascript:void(0)" onclick="showAuthModal()">登录</a>
 </nav>
@@ -248,6 +249,10 @@ footer { text-align: center; padding: 28px 16px; font-size: 12px; color: var(--t
       <div class="form-group" id="usernameGroup" style="display:none;">
         <label>用户名</label>
         <input type="text" id="regUsername" placeholder="3-50 个字符" autocomplete="username">
+      </div>
+      <div class="form-group" id="inviteCodeGroup" style="display:none;">
+        <label>邀请码（选填）</label>
+        <input type="text" id="regInviteCode" placeholder="有邀请码可填写" maxlength="8" style="text-transform:uppercase;">
       </div>
       <div class="form-group">
         <label>邮箱</label>
@@ -377,6 +382,7 @@ function switchTab(mode) {
   document.getElementById('tabCodeLogin').classList.toggle('active', mode === 'codeLogin');
   document.getElementById('tabRegister').classList.toggle('active', mode === 'register');
   document.getElementById('usernameGroup').style.display = mode === 'register' ? '' : 'none';
+  document.getElementById('inviteCodeGroup').style.display = mode === 'register' ? '' : 'none';
   document.getElementById('passwordGroup').style.display = mode === 'codeLogin' ? 'none' : '';
   document.getElementById('loginCodeGroup').style.display = mode === 'codeLogin' ? '' : 'none';
   document.getElementById('forgotLink').style.display = mode === 'codeLogin' ? 'none' : '';
@@ -491,8 +497,11 @@ async function handleAuth(e) {
     if (authMode === 'register') {
       const username = document.getElementById('regUsername').value.trim();
       const password = document.getElementById('authPassword').value;
+      const inviteCode = document.getElementById('regInviteCode').value.trim();
       if (!username || username.length < 3) throw new Error('用户名至少 3 个字符');
-      data = await apiCall('POST', '/auth/register', { username, email, password, platform: 'web' });
+      const regData = { username, email, password, platform: 'web' };
+      if (inviteCode) regData.invite_code = inviteCode;
+      data = await apiCall('POST', '/auth/register', regData);
     } else if (authMode === 'codeLogin') {
       const code = document.getElementById('loginCode').value.trim();
       if (!code) throw new Error('请输入验证码');
@@ -508,7 +517,8 @@ async function handleAuth(e) {
     currentUser = data.user;
     const pid = pendingPlanId;
     closeAuthModal();
-    updateUI();
+    // 登录/注册后重新拉取完整用户信息（含 invite_count）
+    loadUser();
     showToast(authMode === 'register' ? '注册成功' : '登录成功', 'success');
     if (pid) {
       startCheckout(pid);
@@ -643,6 +653,7 @@ function updateUI() {
   const badge = document.getElementById('userBadge');
   const account = document.getElementById('userAccount');
   const subEl = document.getElementById('memberExpire');
+  const inviteEl = document.getElementById('userInviteCode');
 
   if (currentUser) {
     loginBtn.style.display = 'none';
@@ -657,10 +668,35 @@ function updateUI() {
       badge.textContent = currentUser.username || currentUser.email;
       subEl.textContent = '免费版';
     }
+    // 显示邀请码
+    if (currentUser.invite_code) {
+      inviteEl.style.display = '';
+      const cnt = currentUser.invite_count || 0;
+      inviteEl.innerHTML = '🎁 邀请码: <b>' + esc(currentUser.invite_code) + '</b> · 已邀请 ' + cnt + ' 人 <span style="color:var(--primary);font-size:10px">(点击复制)</span>';
+    } else {
+      inviteEl.style.display = 'none';
+    }
   } else {
     loginBtn.style.display = '';
     account.classList.remove('show');
+    inviteEl.style.display = 'none';
   }
+}
+
+function copyInviteCode() {
+  if (!currentUser || !currentUser.invite_code) return;
+  navigator.clipboard.writeText(currentUser.invite_code).then(() => {
+    showToast('邀请码已复制: ' + currentUser.invite_code, 'success');
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = currentUser.invite_code;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('邀请码已复制: ' + currentUser.invite_code, 'success');
+  });
 }
 
 // ── Toast ──

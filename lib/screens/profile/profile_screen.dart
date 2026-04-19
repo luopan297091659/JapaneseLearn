@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
@@ -1090,6 +1091,63 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                                 _PermChip(icon: Icons.notifications, label: '通知', granted: _permissions['notification'] ?? false),
                               ],
                             ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  // ── 邀请码卡片 ──
+                  if (_user?.inviteCode != null) ...[
+                    Card(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(children: [
+                              Icon(Icons.card_giftcard_rounded, size: 20, color: cs.primary),
+                              const SizedBox(width: 8),
+                              const Expanded(child: Text('我的邀请码', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                              Text('已邀请 ${_user!.inviteCount} 人', style: TextStyle(fontSize: 13, color: cs.outline)),
+                            ]),
+                            const SizedBox(height: 12),
+                            GestureDetector(
+                              onTap: () {
+                                final code = _user!.inviteCode!;
+                                Clipboard.setData(ClipboardData(text: code));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('邀请码 $code 已复制'), behavior: SnackBarBehavior.floating),
+                                );
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: cs.primaryContainer.withValues(alpha: 0.3),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
+                                ),
+                                child: Row(children: [
+                                  Expanded(
+                                    child: Text(
+                                      _user!.inviteCode!,
+                                      style: TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 4,
+                                        color: cs.primary,
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(Icons.copy_rounded, size: 20, color: cs.primary),
+                                ]),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text('分享邀请码给好友，注册时填写即可', style: TextStyle(fontSize: 12, color: cs.outline)),
                           ],
                         ),
                       ),

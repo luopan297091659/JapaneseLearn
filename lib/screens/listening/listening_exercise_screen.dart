@@ -401,7 +401,12 @@ class _ListeningExerciseScreenState extends State<ListeningExerciseScreen> {
                 const SizedBox(height: 12),
                 // 服务端音频 → 完整播放器（含进度条）；无音频 → TTS 按钮
                 if (q.audioUrl != null && q.audioUrl!.isNotEmpty) ...[
-                  AudioPlayerWidget(audioUrl: q.audioUrl, compact: false),
+                  AudioPlayerWidget(
+                    key: ValueKey('audio_$_current'),
+                    audioUrl: q.audioUrl,
+                    compact: false,
+                    autoPlay: true,
+                  ),
                 ] else ...[
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,

@@ -642,6 +642,10 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
           <option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option>
         </select>
       </div>
+      <div class="input-group">
+        <label>邀请码（选填）</label>
+        <input class="input" id="reg-invite-code" type="text" placeholder="有邀请码可填写" maxlength="8" style="text-transform:uppercase">
+      </div>
       <div id="reg-err" style="color:var(--danger);font-size:13px;margin-bottom:10px;display:none"></div>
       <p style="font-size:12px;color:#86868b;text-align:center;margin-bottom:10px">注册即表示您同意 <a href="/app/terms.html" style="color:#7c3aed" target="_blank">用户协议</a> 和 <a href="/app/privacy.html" style="color:#7c3aed" target="_blank">隐私政策</a></p>
       <button class="btn btn-primary" style="width:100%;justify-content:center" id="btn-register">注册并登录</button>
@@ -1948,7 +1952,10 @@ async function doRegister() {
   if (!/^[a-zA-Z0-9_]+$/.test(name)) { errEl.textContent = '用户名只能包含英文字母、数字和下划线'; errEl.style.display = ''; return; }
   if (name.length < 3 || name.length > 50) { errEl.textContent = '用户名长度需在 3-50 个字符之间'; errEl.style.display = ''; return; }
   try {
-    const res = await POST('/auth/register', { username: name, email, password: pwd, level, platform: 'web' });
+    const regData = { username: name, email, password: pwd, level, platform: 'web' };
+    const inviteCode = document.getElementById('reg-invite-code').value.trim();
+    if (inviteCode) regData.invite_code = inviteCode;
+    const res = await POST('/auth/register', regData);
     setToken(res.accessToken, res.refreshToken);
     showApp();
     loadHome();
@@ -4726,7 +4733,18 @@ async function loadProfile() {
         <span>👑</span>
         <span>${escHtml(bannerText)}</span>
         <span class="banner-arrow">›</span>
-      </div>`;
+      </div>
+      ${u.invite_code ? `
+      <div style="margin-top:12px;padding:12px 16px;background:var(--primary-light);border-radius:10px;border:1px solid rgba(99,102,241,0.15);cursor:pointer" onclick="copyInviteCode('${escHtml(u.invite_code)}')">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:12px;color:var(--text-sub);margin-bottom:4px">🎁 我的邀请码 · 已邀请 <b>${u.invite_count||0}</b> 人</div>
+            <div style="font-size:20px;font-weight:700;letter-spacing:3px;color:var(--primary);font-family:monospace">${escHtml(u.invite_code)}</div>
+          </div>
+          <span style="font-size:18px;color:var(--primary)">📋</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-sub);margin-top:4px">点击复制，分享给好友注册时填写</div>
+      </div>` : ''}`;
 
     // Settings card
     settingsEl.style.display = '';
@@ -4798,6 +4816,18 @@ async function updateProfile() {
     await PUT('/users/profile', { daily_goal_minutes: goal, level });
     toast('设置已保存 ✓');
   } catch(e) { toast('保存失败: ' + e.message); }
+}
+
+// ── 复制邀请码 ──
+function copyInviteCode(code) {
+  navigator.clipboard.writeText(code).then(() => {
+    toast('邀请码已复制: ' + code);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = code; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    toast('邀请码已复制: ' + code);
+  });
 }
 
 // ── 编辑用户名 ──

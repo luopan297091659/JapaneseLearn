@@ -36,11 +36,17 @@ const User = sequelize.define('User', {
   },
   web_login_token: { type: DataTypes.STRING(36), allowNull: true },
   app_login_token: { type: DataTypes.STRING(36), allowNull: true },
+  invite_code: { type: DataTypes.STRING(8), allowNull: true, unique: true },
+  invited_by: { type: DataTypes.UUID, allowNull: true },
 }, {
   tableName: 'users',
   hooks: {
     beforeCreate: async (user) => {
       user.password_hash = await bcrypt.hash(user.password_hash, 12);
+      // 自动生成唯一邀请码
+      if (!user.invite_code) {
+        user.invite_code = require('crypto').randomBytes(4).toString('hex').toUpperCase();
+      }
     },
     beforeUpdate: async (user) => {
       if (user.changed('password_hash')) {

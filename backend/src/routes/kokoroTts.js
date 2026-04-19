@@ -93,8 +93,8 @@ router.post('/kokoro-speak', async (req, res) => {
 router.get('/kokoro/audio/:filename', async (req, res) => {
   const { filename } = req.params;
   
-  // 安全检查：防止路径遍历攻击
-  if (!filename.match(/^kokoro_[a-f0-9]{32}\.wav$/)) {
+  // 安全检查：防止路径遍历攻击，支持 .wav 和 .mp3
+  if (!filename.match(/^kokoro_[a-f0-9]{32}\.(wav|mp3)$/)) {
     return res.status(400).json({ error: 'Invalid audio filename format' });
   }
   
@@ -104,7 +104,8 @@ router.get('/kokoro/audio/:filename', async (req, res) => {
       { responseType: 'arraybuffer', timeout: 5000 }
     );
     
-    res.set('Content-Type', 'audio/wav');
+    const contentType = filename.endsWith('.mp3') ? 'audio/mpeg' : 'audio/wav';
+    res.set('Content-Type', contentType);
     res.set('Cache-Control', 'public, max-age=86400');
     res.send(audioResponse.data);
     

@@ -19,6 +19,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _usernameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  final _inviteCodeCtrl = TextEditingController();
   String _selectedLevel = 'N5';
   bool _loading = false;
   bool _obscure = true;
@@ -41,6 +42,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: _emailCtrl.text.trim(),
         password: _passwordCtrl.text,
         level: _selectedLevel,
+        inviteCode: _inviteCodeCtrl.text.trim(),
       );
       if (mounted) context.go('/home');
     } catch (e) {
@@ -114,6 +116,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   items: ['N5', 'N4', 'N3', 'N2', 'N1'].map((l) => DropdownMenuItem(
                     value: l, child: Text('$l - ${_levelLabel(l, s)}'))).toList(),
                   onChanged: (v) => setState(() => _selectedLevel = v!),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _inviteCodeCtrl,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(
+                    labelText: '邀请码（选填）',
+                    prefixIcon: Icon(Icons.card_giftcard_outlined),
+                    hintText: '有邀请码可填写',
+                  ),
                 ),
                 const SizedBox(height: 24),
                 if (_error != null) ...[

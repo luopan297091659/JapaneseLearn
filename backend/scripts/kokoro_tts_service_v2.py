@@ -62,6 +62,7 @@ CONFIG = {
     "default_voice": "a",
     "default_emotion": "neutral",
     "tts_engine": os.getenv("TTS_ENGINE", "edge-tts"),  # 可配置: edge-tts, gtts, google-tts, white-noise
+    "audio_format": os.getenv("AUDIO_FORMAT", "mp3"),  # 输出格式: mp3(默认,兼容性最好) 或 wav
     "voices": {
         "a": {"name": "女声优美", "lang": "ja_JP", "supported_emotions": ["neutral", "happy", "sad"]},
         "b": {"name": "女声清晰", "lang": "ja_JP", "supported_emotions": ["neutral", "happy", "sad"]},
@@ -335,6 +336,7 @@ async def health_check():
         "voices": list(CONFIG["voices"].keys()),
         "available_engines": ["edge-tts", "gtts", "google-tts", "white-noise"],
         "configured_engine": CONFIG.get("tts_engine", "edge-tts"),
+        "audio_format": CONFIG.get("audio_format", "mp3"),
         "note": "Engine can be customized per request or via TTS_ENGINE env var",
     }
 
@@ -378,8 +380,9 @@ async def kokoro_tts_api(req: TTSRequest, background_tasks: BackgroundTasks):
         # 使用asyncio.to_thread在线程池中运行，避免event loop冲突
         audio_bytes = await asyncio.to_thread(synthesize_sync)
         
-        # 保存到临时文件
-        filename = f"kokoro_{uuid.uuid4().hex}.wav"
+        # 保存到临时文件（根据配置决定格式）
+        audio_fmt = CONFIG.get("audio_format", "mp3")
+        filename = f"kokoro_{uuid.uuid4().hex}.{audio_fmt}"
         file_path = TEMP_AUDIO_DIR / filename
         
         with open(file_path, "wb") as f:
@@ -418,8 +421,9 @@ async def synthesize_single(text: str, voice: str, emotion: str, engine: str, sp
             timeout=15.0
         )
         
-        # 保存到临时文件
-        filename = f"kokoro_{uuid.uuid4().hex}.wav"
+        # 保存到临时文件（根据配置决定格式）
+        audio_fmt = CONFIG.get("audio_format", "mp3")
+        filename = f"kokoro_{uuid.uuid4().hex}.{audio_fmt}"
         file_path = TEMP_AUDIO_DIR / filename
         
         with open(file_path, "wb") as f:
@@ -518,9 +522,11 @@ async def get_audio(filename: str):
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="Audio file not found")
         
+        # 根据文件扩展名返回正确的Content-Type
+        media_type = "audio/mpeg" if filename.endswith(".mp3") else "audio/wav"
         return FileResponse(
             path=file_path,
-            media_type="audio/wav",
+            media_type=media_type,
             headers={"Cache-Control": "public, max-age=86400"}
         )
     except Exception as e:

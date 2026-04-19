@@ -10,12 +10,14 @@ class AudioPlayerWidget extends StatefulWidget {
   final String? audioUrl;
   final bool compact; // compact: icon+bar; full: full controls
   final String? label;
+  final bool autoPlay; // 自动播放
 
   const AudioPlayerWidget({
     super.key,
     required this.audioUrl,
     this.compact = false,
     this.label,
+    this.autoPlay = false,
   });
 
   @override
@@ -48,6 +50,12 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     _player.durationStream.listen((d) {
       if (mounted && d != null) setState(() => _duration = d);
     });
+    // 自动播放
+    if (widget.autoPlay) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _togglePlay();
+      });
+    }
   }
 
   /// 初始化音频焦点（确保音频可以正常播放）
