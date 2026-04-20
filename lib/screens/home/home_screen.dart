@@ -106,6 +106,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _checkedInToday = false;
   bool _checkingIn = false;
 
+  // 未读通知数（右上角头像角标）
+  int _unreadNotifCount = 0;
+
   // 可用功能（经服务端开关过滤后）
   Map<String, ({IconData icon, String label, String sub, String path, Color color})> _enabledFeatures = Map.fromEntries(
     _allFeatures.entries.where((e) => !Platform.isIOS || e.key != 'immersion'),
@@ -151,7 +154,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // 从后台回来时清除缓存、同步最新数据
       apiService.invalidateCache();
       _loadAll(fromCache: false);
+      _refreshUnreadNotif();
     }
+  }
+
+  Future<void> _refreshUnreadNotif() async {
+    if (guestService.isGuest) return;
+    try {
+      final c = await apiService.getNotificationUnreadCount();
+      if (mounted && c != _unreadNotifCount) setState(() => _unreadNotifCount = c);
+    } catch (_) {}
   }
 
   /// [fromCache] true = 先用缓存立即渲染，后台同步刷新；false = 强制刷新
@@ -177,6 +189,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _loadSrs(),
       _loadDailyGoals(),
       _loadActivePlans(),
+      _refreshUnreadNotif(),
     ]);
     await _loadWordOfDay();
     if (mounted) setState(() => _refreshing = false);
@@ -860,11 +873,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           )),
       actions: [
         GestureDetector(
-          onTap: () {
+          onTap: () async {
             if (isGuestMode) {
               GuestService.guardRoute(context, '/profile');
             } else {
-              context.push('/profile');
+              await context.push('/profile');
+              _refreshUnreadNotif();
             }
           },
           child: Container(
@@ -876,22 +890,46 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.4),
-                    ),
-                    child: ClipOval(
-                      child: (!isGuestMode && avatarUrl != null)
-                          ? Image.network(
-                              avatarUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(Icons.person_outline, color: Colors.white, size: 20),
-                            )
-                          : const Icon(Icons.person_outline, color: Colors.white, size: 20),
-                    ),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.4),
+                        ),
+                        child: ClipOval(
+                          child: (!isGuestMode && avatarUrl != null)
+                              ? Image.network(
+                                  avatarUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                                )
+                              : const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                        ),
+                      ),
+                      if (!isGuestMode && _unreadNotifCount > 0)
+                        Positioned(
+                          right: -4,
+                          top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white, width: 1.2),
+                            ),
+                            child: Text(
+                              _unreadNotifCount > 99 ? '99+' : '$_unreadNotifCount',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, height: 1.1),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 2),
                   GestureDetector(
