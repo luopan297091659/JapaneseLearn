@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 语音合成 — 言旅 Kotabi 工具箱</title>
+<link rel="icon" type="image/png" href="/app/favicon.png">
+<meta name="description" content="基于 Kokoro 引擎的日语 AI 语音合成工具，支持多种音色、语速调节、情感控制。">
+<style>
+:root {
+  --primary: #4361ee;
+  --primary-dark: #2f4ac1;
+  --primary-light: #eef0fd;
+  --surface: #ffffff;
+  --surface2: #f8f9fc;
+  --border: #e5e7ef;
+  --text: #1a1c2e;
+  --text-sub: #6b7280;
+  --text-hint: #9ca3af;
+  --radius: 16px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 16px rgba(67,97,238,.08);
+  --shadow-md: 0 4px 24px rgba(67,97,238,.13);
+  --nav-h: 56px;
+  --danger: #ef4444;
+  --success: #10b981;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { font-family: "Noto Sans CJK SC","PingFang SC","Microsoft YaHei",sans-serif; color: var(--text); background: var(--surface2); line-height: 1.6; }
+a { text-decoration: none; color: var(--primary); }
+a:hover { opacity: .85; }
+
+/* Nav */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h);
+  background: rgba(255,255,255,.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border); display: flex; align-items: center;
+  padding: 0 clamp(12px,4vw,48px); gap: 8px; z-index: 100;
+}
+nav .logo { font-size: 20px; font-weight: 800; color: var(--primary); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+nav .logo img { width: 32px; height: 32px; border-radius: 8px; }
+nav .logo sub { font-size: 11px; font-weight: 400; color: var(--text-sub); margin-left: 2px; vertical-align: baseline; }
+nav .spacer { flex: 1; }
+nav .nav-link {
+  font-size: 13px; font-weight: 600; color: var(--text-sub); padding: 5px 10px;
+  border-radius: var(--radius-sm); transition: all .15s; white-space: nowrap;
+}
+nav .nav-link:hover { color: var(--primary); background: var(--primary-light); }
+nav .nav-link.active { color: var(--primary); }
+.user-badge { font-size: 13px; font-weight: 600; color: var(--primary); padding: 5px 12px; border-radius: var(--radius-sm); background: var(--primary-light); cursor: pointer; display: none; align-items: center; gap: 4px; white-space: nowrap; }
+.user-badge.show { display: inline-flex; }
+
+/* Hero */
+.hero {
+  margin-top: var(--nav-h); padding: 40px clamp(16px,6vw,80px) 30px;
+  text-align: center;
+  background: linear-gradient(135deg, #0f0c29 0%, #1a1a4e 40%, #24243e 100%);
+  color: #fff;
+}
+.hero h1 { font-size: clamp(22px,4vw,36px); font-weight: 900; margin-bottom: 8px; }
+.hero h1 span {
+  background: linear-gradient(90deg, #60a5fa, #a78bfa, #f472b6);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.hero p { font-size: clamp(13px,1.8vw,15px); color: rgba(255,255,255,.65); max-width: 600px; margin: 0 auto; }
+
+/* Layout */
+.container { max-width: 800px; margin: 0 auto; padding: 24px clamp(12px,4vw,48px) 60px; }
+
+/* Auth gate */
+.auth-gate {
+  text-align: center; padding: 60px 20px; max-width: 480px; margin: 40px auto;
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.auth-gate .icon { font-size: 48px; margin-bottom: 12px; }
+.auth-gate h2 { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+.auth-gate p { font-size: 14px; color: var(--text-sub); margin-bottom: 20px; }
+.auth-gate .gate-btn {
+  padding: 12px 32px; border: none; border-radius: var(--radius-sm);
+  background: var(--primary); color: #fff; font-size: 15px; font-weight: 700;
+  cursor: pointer; transition: all .15s; font-family: inherit; display: inline-block;
+}
+.auth-gate .gate-btn:hover { background: var(--primary-dark); color: #fff; opacity: 1; }
+
+/* Panel */
+.panel {
+  background: var(--surface); border-radius: var(--radius); padding: 24px;
+  box-shadow: var(--shadow); margin-bottom: 20px;
+}
+.panel-title { font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+.panel-title .icon { font-size: 18px; }
+
+/* Form */
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-sub); margin-bottom: 4px; }
+.form-input, .form-select {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 14px; outline: none; transition: border .15s; background: var(--surface); font-family: inherit;
+}
+.form-input:focus { border-color: var(--primary); }
+textarea.form-input { min-height: 120px; resize: vertical; line-height: 1.6; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 500px) { .form-row { grid-template-columns: 1fr; } }
+.char-count { font-size: 11px; color: var(--text-hint); text-align: right; margin-top: 2px; }
+.char-count.warn { color: var(--danger); }
+
+/* Buttons */
+.btn {
+  padding: 11px 24px; border: none; border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 700; cursor: pointer; transition: all .15s;
+  display: inline-flex; align-items: center; gap: 6px; font-family: inherit;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.btn-secondary { background: var(--surface2); color: var(--text-sub); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--border); }
+.btn-block { width: 100%; justify-content: center; }
+
+/* Audio player */
+.audio-result {
+  margin-top: 16px; padding: 16px; background: var(--surface2); border-radius: var(--radius);
+  display: none;
+}
+.audio-result.show { display: block; }
+.audio-result audio { width: 100%; margin-bottom: 10px; }
+.audio-result .meta { font-size: 12px; color: var(--text-hint); }
+.audio-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+/* History */
+.history-item {
+  padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  margin-bottom: 8px; display: flex; align-items: center; gap: 12px;
+  transition: background .15s; cursor: default;
+}
+.history-item:hover { background: var(--surface2); }
+.history-item .hist-text { flex: 1; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-item .hist-meta { font-size: 11px; color: var(--text-hint); white-space: nowrap; }
+.history-item .hist-play {
+  width: 32px; height: 32px; border-radius: 50%; border: none;
+  background: var(--primary); color: #fff; font-size: 14px;
+  cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+}
+.history-item .hist-play:hover { background: var(--primary-dark); }
+.empty-history { text-align: center; padding: 20px; color: var(--text-hint); font-size: 13px; }
+
+/* Spinner */
+.spinner-sm { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: 4px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Toast */
+.toast {
+  position: fixed; top: 72px; left: 50%; transform: translateX(-50%);
+  padding: 10px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+  color: #fff; z-index: 300; opacity: 0; transition: opacity .3s; pointer-events: none;
+}
+.toast.show { opacity: 1; }
+.toast-success { background: var(--success); }
+.toast-error { background: var(--danger); }
+
+/* Quota bar */
+.quota-bar {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  background: var(--surface2); border-radius: var(--radius-sm); margin-bottom: 16px;
+  font-size: 12px; color: var(--text-sub);
+}
+.quota-bar .quota-fill-wrap { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.quota-bar .quota-fill { height: 100%; background: var(--primary); border-radius: 3px; transition: width .3s; }
+.quota-bar .quota-text { white-space: nowrap; font-weight: 600; }
+
+/* Footer */
+footer {
+  text-align: center; padding: 28px 16px; font-size: 12px; color: var(--text-hint);
+  border-top: 1px solid var(--border); margin-top: 48px;
+}
+footer a { color: var(--text-hint); }
+
+/* Voice chips */
+.voice-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.voice-chip {
+  padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  border: 1.5px solid var(--border); cursor: pointer; transition: all .15s;
+  user-select: none; color: var(--text-sub); background: var(--surface);
+}
+.voice-chip:hover { border-color: var(--primary); color: var(--primary); }
+.voice-chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <a class="logo" href="/">
+    <img src="/home/app_icon.png" alt="言旅" onerror="this.style.display='none'">
+    言旅<sub>Kotabi</sub>
+  </a>
+  <div class="spacer"></div>
+  <a class="nav-link" href="/">首页</a>
+  <a class="nav-link" href="/membership">会员</a>
+  <a class="nav-link" href="/support">支持</a>
+  <a class="nav-link active" href="/tools">工具箱</a>
+  <span class="user-badge" id="userBadge" onclick="if(confirm('确定退出登录？')){localStorage.removeItem('kotabi_token');localStorage.removeItem('kotabi_refresh');location.reload();}"></span>
+  <a class="nav-link" id="loginBtn" href="/tools" style="display:none;">登录</a>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <h1><span>AI 语音合成</span></h1>
+  <p>输入日语文本，选择音色，一键生成自然流畅的日语朗读音频</p>
+</div>
+
+<!-- Content -->
+<div class="container">
+
+  <!-- Auth Gate -->
+  <div class="auth-gate" id="authGate" style="display:none;">
+    <div class="icon">🔐</div>
+    <h2>登录后使用此工具</h2>
+    <p>注册言旅账号即可获得免费合成额度</p>
+    <a class="gate-btn" href="/tools">前往登录</a>
+  </div>
+
+  <!-- Main Tool -->
+  <div id="mainContent" style="display:none;">
+
+    <!-- Quota -->
+    <div class="quota-bar" id="quotaBar">
+      <span>今日额度</span>
+      <div class="quota-fill-wrap"><div class="quota-fill" id="quotaFill" style="width:100%"></div></div>
+      <span class="quota-text" id="quotaText">--/--</span>
+      <a href="/membership" style="font-size:11px;margin-left:4px;">升级无限</a>
+    </div>
+
+    <!-- Input Panel -->
+    <div class="panel">
+      <div class="panel-title"><span class="icon">✍️</span> 文本输入</div>
+      <div class="form-group">
+        <textarea class="form-input" id="ttsText" placeholder="请输入要合成的日语文本，例如：&#10;こんにちは、今日はいい天気ですね。&#10;日本語の勉強を頑張りましょう！" maxlength="500"></textarea>
+        <div class="char-count" id="charCount">0 / 500</div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">音色</label>
+          <div class="voice-chips" id="voiceChips">
+            <span class="voice-chip active" data-voice="a">👩 女声优美</span>
+            <span class="voice-chip" data-voice="b">👩 女声清晰</span>
+            <span class="voice-chip" data-voice="c">👨 男声深沉</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">语速 <span id="speedVal" style="color:var(--primary);">1.0x</span></label>
+          <input type="range" id="speedSlider" min="0.5" max="2.0" step="0.1" value="1.0" style="width:100%;">
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-block" id="synthBtn" onclick="synthesize()">
+        🎙️ 合成语音
+      </button>
+
+      <!-- Result -->
+      <div class="audio-result" id="audioResult">
+        <audio id="audioPlayer" controls></audio>
+        <div class="meta" id="audioMeta"></div>
+        <div class="audio-actions">
+          <button class="btn btn-secondary" onclick="downloadAudio()">💾 下载音频</button>
+          <button class="btn btn-secondary" onclick="copyAudioUrl()">📋 复制链接</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="panel">
+      <div class="panel-title"><span class="icon">📜</span> 合成历史</div>
+      <div id="historyList">
+        <div class="empty-history">暂无合成记录</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Footer -->
+<footer>
+  <p>© 2026 言旅 Kotabi &nbsp;|&nbsp; <a href="/tools">返回工具箱</a> &nbsp;|&nbsp; <a href="/">首页</a></p>
+</footer>
+
+<script>
+// ============================================================
+// State
+// ============================================================
+let accessToken = localStorage.getItem('kotabi_token');
+let currentUser = null;
+let currentAudioUrl = '';
+let selectedVoice = 'a';
+let history = [];
+const MAX_FREE_DAILY = 20;
+let usedToday = 0;
+
+// ============================================================
+// Auth
+// ============================================================
+async function checkAuth() {
+  if (!accessToken) { showGate(); return; }
+  try {
+    const headers = { 'Authorization': 'Bearer ' + accessToken };
+    let res = await fetch('/api/v1/auth/me', { headers });
+    if (res.status === 401) {
+      const refresh = localStorage.getItem('kotabi_refresh');
+      if (refresh) {
+        const rr = await fetch('/api/v1/auth/refresh', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: refresh })
+        });
+        if (rr.ok) {
+          const rd = await rr.json();
+          accessToken = rd.accessToken;
+          localStorage.setItem('kotabi_token', accessToken);
+          res = await fetch('/api/v1/auth/me', { headers: { 'Authorization': 'Bearer ' + accessToken } });
+        } else { showGate(); return; }
+      } else { showGate(); return; }
+    }
+    if (!res.ok) { showGate(); return; }
+    const data = await res.json();
+    currentUser = data.user;
+    document.getElementById('userBadge').classList.add('show');
+    document.getElementById('userBadge').textContent = currentUser.username || currentUser.email;
+    document.getElementById('loginBtn').style.display = 'none';
+    document.getElementById('authGate').style.display = 'none';
+    document.getElementById('mainContent').style.display = '';
+    loadVoices();
+    updateQuota();
+  } catch { showGate(); }
+}
+
+function showGate() {
+  document.getElementById('authGate').style.display = '';
+  document.getElementById('mainContent').style.display = 'none';
+  document.getElementById('loginBtn').style.display = '';
+}
+
+// ============================================================
+// Voices
+// ============================================================
+async function loadVoices() {
+  try {
+    const res = await fetch('/api/v1/tts/voices');
+    if (!res.ok) return;
+    const data = await res.json();
+    const voiceMap = data.voices;
+    if (voiceMap && typeof voiceMap === 'object') {
+      const keys = Object.keys(voiceMap);
+      if (keys.length) {
+        const container = document.getElementById('voiceChips');
+        container.innerHTML = '';
+        const icons = ['👩','👩','👨','🎤','🎵','🗣️','🔊','🎧','✨','❤️'];
+        keys.forEach((id, i) => {
+          const v = voiceMap[id];
+          const chip = document.createElement('span');
+          chip.className = 'voice-chip' + (id === selectedVoice ? ' active' : '');
+          chip.dataset.voice = id;
+          chip.textContent = (icons[i % icons.length]) + ' ' + (v.name || id);
+          chip.onclick = () => selectVoice(id, chip);
+          container.appendChild(chip);
+        });
+        if (data.default_voice) selectedVoice = data.default_voice;
+        else if (!voiceMap[selectedVoice]) selectedVoice = keys[0];
+      }
+    }
+  } catch {}
+}
+
+function selectVoice(voice, chip) {
+  selectedVoice = voice;
+  document.querySelectorAll('.voice-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+}
+
+// Init voice chips click
+document.querySelectorAll('.voice-chip').forEach(chip => {
+  chip.addEventListener('click', function() {
+    selectVoice(this.dataset.voice, this);
+  });
+});
+
+// ============================================================
+// Speed
+// ============================================================
+const speedSlider = document.getElementById('speedSlider');
+speedSlider.addEventListener('input', () => {
+  document.getElementById('speedVal').textContent = parseFloat(speedSlider.value).toFixed(1) + 'x';
+});
+
+// ============================================================
+// Char count
+// ============================================================
+const ttsText = document.getElementById('ttsText');
+ttsText.addEventListener('input', () => {
+  const len = ttsText.value.length;
+  const counter = document.getElementById('charCount');
+  counter.textContent = len + ' / 500';
+  counter.classList.toggle('warn', len >= 450);
+});
+
+// ============================================================
+// Quota
+// ============================================================
+function updateQuota() {
+  const isMember = currentUser?.is_member;
+  const fill = document.getElementById('quotaFill');
+  const text = document.getElementById('quotaText');
+  if (isMember) {
+    fill.style.width = '100%';
+    fill.style.background = 'linear-gradient(90deg, #f59e0b, #d97706)';
+    text.textContent = '会员无限';
+  } else {
+    const remain = Math.max(0, MAX_FREE_DAILY - usedToday);
+    fill.style.width = (remain / MAX_FREE_DAILY * 100) + '%';
+    text.textContent = remain + ' / ' + MAX_FREE_DAILY;
+  }
+}
+
+// ============================================================
+// Synthesize
+// ============================================================
+async function synthesize() {
+  const text = ttsText.value.trim();
+  if (!text) { showToast('请输入文本', 'error'); return; }
+  if (!currentUser?.is_member && usedToday >= MAX_FREE_DAILY) {
+    showToast('今日免费额度已用完，升级会员可无限使用', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('synthBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-sm"></span>合成中...';
+
+  try {
+    const res = await fetch('/api/v1/tts/kokoro-speak', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + accessToken
+      },
+      body: JSON.stringify({
+        text,
+        voice: selectedVoice,
+        speed: parseFloat(speedSlider.value),
+        engine: 'edge-tts'
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || '合成失败');
+    }
+
+    const data = await res.json();
+    currentAudioUrl = data.audio_url;
+
+    // Show player
+    const player = document.getElementById('audioPlayer');
+    player.src = currentAudioUrl;
+    document.getElementById('audioMeta').textContent = `音色: ${data.voice || selectedVoice} · 文本: ${text.substring(0, 30)}${text.length > 30 ? '...' : ''}`;
+    document.getElementById('audioResult').classList.add('show');
+    player.play().catch(() => {});
+
+    // Update quota
+    usedToday++;
+    updateQuota();
+
+    // Add to history
+    history.unshift({ text: text.substring(0, 60), voice: selectedVoice, url: currentAudioUrl, time: new Date() });
+    if (history.length > 20) history.pop();
+    renderHistory();
+
+    showToast('合成成功', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🎙️ 合成语音';
+  }
+}
+
+// ============================================================
+// Download & Copy
+// ============================================================
+function downloadAudio() {
+  if (!currentAudioUrl) return;
+  const a = document.createElement('a');
+  a.href = currentAudioUrl;
+  a.download = 'kokoro_tts.wav';
+  a.click();
+}
+
+function copyAudioUrl() {
+  if (!currentAudioUrl) return;
+  const url = location.origin + currentAudioUrl;
+  navigator.clipboard.writeText(url).then(() => showToast('链接已复制', 'success')).catch(() => showToast('复制失败', 'error'));
+}
+
+// ============================================================
+// History
+// ============================================================
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (!history.length) {
+    list.innerHTML = '<div class="empty-history">暂无合成记录</div>';
+    return;
+  }
+  list.innerHTML = history.map((h, i) => `
+    <div class="history-item">
+      <button class="hist-play" onclick="playHistory(${i})">▶</button>
+      <div class="hist-text">${escHtml(h.text)}</div>
+      <div class="hist-meta">${h.voice}</div>
+    </div>
+  `).join('');
+}
+
+function playHistory(i) {
+  const h = history[i];
+  if (!h) return;
+  const player = document.getElementById('audioPlayer');
+  player.src = h.url;
+  currentAudioUrl = h.url;
+  document.getElementById('audioResult').classList.add('show');
+  player.play().catch(() => {});
+}
+
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ============================================================
+// Toast
+// ============================================================
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.className = `toast toast-${type} show`;
+  t.textContent = msg;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ============================================================
+// Init
+// ============================================================
+checkAuth();
+</script>
+</body>
+</html>

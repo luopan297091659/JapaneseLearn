@@ -104,6 +104,8 @@ async function sendOrderNotification(recipients, orderInfo) {
     qrcode_wechat: '微信二维码',
     stripe: 'Stripe 银行卡',
     apple_iap: 'Apple IAP',
+    apple_iap_failed: 'Apple IAP 失败补单',
+    refund_request: '退款申请',
   };
   const channelLabel = channelMap[orderInfo.channel] || orderInfo.channel;
   const time = new Date(orderInfo.createdAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });

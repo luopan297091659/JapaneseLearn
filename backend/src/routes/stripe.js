@@ -67,6 +67,15 @@ function calcExpire(period) {
   }
 }
 
+// 会员等级（越高越尊贵）——只允许升级到更高等级
+const PLAN_RANK = { monthly: 1, yearly: 2, lifetime: 3 };
+function isActiveMembership(user) {
+  if (!user || !user.membership_plan || user.membership_plan === 'free' || user.membership_plan === 'trial') return false;
+  if (user.membership_plan === 'lifetime') return true;
+  if (!user.membership_expire) return false;
+  return new Date(user.membership_expire) > new Date();
+}
+
 // ── 创建 Checkout Session ──
 router.post('/create-checkout-session', authenticate, asyncHandler(async (req, res) => {
   const stripe = getStripe();
@@ -76,6 +85,19 @@ router.post('/create-checkout-session', authenticate, asyncHandler(async (req, r
   const plans = readPlans();
   const plan = plans.find(p => p.id === planId && p.enabled !== false && p.id !== 'free');
   if (!plan) throw new HttpError(400, '无效的套餐');
+
+  // 会员等级检查：不允许购买同等/低于当前等级的套餐
+  const user = await User.findByPk(req.user.id);
+  if (isActiveMembership(user)) {
+    const userRank = PLAN_RANK[user.membership_plan] || 0;
+    const targetRank = PLAN_RANK[plan.id] || 0;
+    if (targetRank && userRank && targetRank <= userRank) {
+      const msg = user.membership_plan === plan.id
+        ? '您已是该套餐会员'
+        : '您当前的会员等级高于该套餐，无法降级';
+      throw new HttpError(400, msg);
+    }
+  }
 
   // 价格转为分（Stripe 以最小货币单位计费）
   const unitAmount = Math.round(plan.price * 100);
@@ -147,18 +169,29 @@ async function stripeWebhook(req, res) {
           try {
             const user = await User.findByPk(user_id);
             if (user) {
-              const expire = calcExpire(plan_period);
-              // 如果已有会员且未过期，从当前到期日延长
-              if (user.membership_expire && new Date(user.membership_expire) > new Date()) {
-                const currentExpire = new Date(user.membership_expire);
-                const extension = expire.getTime() - Date.now();
-                expire.setTime(currentExpire.getTime() + extension);
+              // 终身会员不可被降级，同时避免为终身会员叠加日期造成溢出
+              if (user.membership_plan === 'lifetime') {
+                logger.warn(`Stripe payment ignored (already lifetime): user=${user_id}, plan=${plan_id}`);
+              } else if (plan_id === 'lifetime') {
+                await user.update({
+                  membership_plan: 'lifetime',
+                  membership_expire: new Date('2099-12-31'),
+                });
+                logger.info(`Stripe payment success: user=${user_id}, plan=lifetime`);
+              } else {
+                let expire = calcExpire(plan_period);
+                // 如果已有会员且未过期，从当前到期日延长
+                if (user.membership_expire && new Date(user.membership_expire) > new Date()) {
+                  const currentExpire = new Date(user.membership_expire);
+                  const extension = expire.getTime() - Date.now();
+                  expire = new Date(currentExpire.getTime() + extension);
+                }
+                await user.update({
+                  membership_plan: plan_id,
+                  membership_expire: expire,
+                });
+                logger.info(`Stripe payment success: user=${user_id}, plan=${plan_id}, expire=${expire.toISOString()}`);
               }
-              await user.update({
-                membership_plan: plan_id,
-                membership_expire: expire,
-              });
-              logger.info(`Stripe payment success: user=${user_id}, plan=${plan_id}, expire=${expire.toISOString()}`);
             }
           } catch (err) {
             logger.error(`Failed to activate membership after payment: ${err.message}`);

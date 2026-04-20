@@ -2,6 +2,7 @@ const { NewsArticle, NewsFavorite, NhkNewsCache } = require('../models');
 const { Op } = require('sequelize');
 const https = require('https');
 const http  = require('http');
+const { fetchNhkMetadata, buildArticleUrl } = require('../utils/nhkScraper');
 
 // ── 简易 HTTP GET（返回 Promise<string>）──────────────────────────────────
 function httpGet(url, timeout = 8000) {
@@ -195,8 +196,8 @@ async function nhkHistory(req, res) {
 
 async function nhkArticle(req, res) {
   const rawId = req.params.id;
-  // 白名单校验: 格式为 YYYYMMDD-kXXXXX
-  if (!/^[\d]{8}-[a-zA-Z0-9]+$/.test(rawId)) {
+  // 白名单校验: 格式为 YYYYMMDD-kXXXXX 或 kXXXXX
+  if (!/^([\d]{8}-)?[a-zA-Z0-9]+$/.test(rawId)) {
     return res.status(400).json({ error: 'Invalid news ID' });
   }
 
@@ -204,53 +205,85 @@ async function nhkArticle(req, res) {
   let cached = null;
   try { cached = await NhkNewsCache.findOne({ where: { nhk_id: rawId } }); } catch (_) {}
 
-  // 如果缓存有数据，立即返回（不等 NHK 超时）
-  if (cached) {
-    const body = cached.body || cached.description || '';
-    const result = {
+  // 构造文章链接
+  const articleLink = buildArticleUrl(rawId);
+
+  // 1) 如果缓存有数据且 body 足够长（已有完整内容），立即返回
+  if (cached && cached.body && cached.body.length > 200) {
+    return res.json({
       id: rawId,
       title: cached.title || '',
       description: cached.description || '',
       image: cached.image_url || '',
-      body,
-      link: cached.link || '',
+      body: cached.body,
+      link: articleLink,
+    });
+  }
+
+  // 2) 尝试从 NHK Content API 获取元数据
+  const meta = await fetchNhkMetadata(rawId);
+
+  if (cached) {
+    // 有缓存但 body 不够长，用 API 数据补充
+    const bestDesc = (meta?.description && meta.description.length > (cached.description || '').length)
+      ? meta.description : (cached.description || '');
+    const result = {
+      id: rawId,
+      title: meta?.title || cached.title || '',
+      description: bestDesc,
+      image: meta?.image || cached.image_url || '',
+      body: cached.body || bestDesc,
+      link: articleLink,
     };
-    // 后台尝试从 NHK 更新缓存（不阻塞响应）
+    // 后台更新缓存
+    if (meta) {
+      setImmediate(async () => {
+        try {
+          await NhkNewsCache.update({
+            title: meta.title || undefined,
+            description: meta.description || undefined,
+            image_url: meta.image || undefined,
+            body: bestDesc.length > (cached.body || '').length ? bestDesc : undefined,
+          }, { where: { nhk_id: rawId } });
+        } catch (_) {}
+      });
+    }
+    return res.json(result);
+  }
+
+  // 3) 完全无缓存，用 API 数据 + 旧 HTML 抓取
+  if (meta) {
+    const result = {
+      id: rawId,
+      title: meta.title,
+      description: meta.description,
+      image: meta.image,
+      body: meta.description,
+      link: articleLink,
+    };
+    // 后台保存到缓存
     setImmediate(async () => {
       try {
-        const url = `https://www3.nhk.or.jp/news/html/${rawId.replace('-', '/')}.html`;
-        const html = await httpGet(url);
-        let title = '', description = '', image = '';
-        const ldRegex = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi;
-        let ldm;
-        while ((ldm = ldRegex.exec(html)) !== null) {
-          try {
-            const obj = JSON.parse(ldm[1]);
-            if (obj['@type'] === 'NewsArticle') {
-              title = obj.headline || '';
-              description = obj.description || '';
-              if (obj.image && obj.image[0]) image = obj.image[0].url || '';
-            }
-          } catch (_) {}
-        }
-        const rssDesc = cached.description || '';
-        const newBody = rssDesc.length >= description.length ? rssDesc : description;
-        if (newBody.length >= 50) {
-          await NhkNewsCache.update(
-            { body: newBody, image_url: image || undefined, title: title || undefined, description: description || undefined },
-            { where: { nhk_id: rawId } },
-          );
-        }
-      } catch (_) { /* 后台更新失败忽略 */ }
+        await NhkNewsCache.findOrCreate({
+          where: { nhk_id: rawId },
+          defaults: {
+            nhk_id: rawId,
+            title: meta.title,
+            description: meta.description,
+            body: meta.description,
+            image_url: meta.image,
+            link: articleLink,
+            published_at: meta.datePublished ? new Date(meta.datePublished) : null,
+          },
+        });
+      } catch (_) {}
     });
     return res.json(result);
   }
 
-  // 缓存为空 → 尝试从 NHK 抓取
+  // 4) API 也失败，回退到旧的 HTML 抓取
   try {
-    const url = `https://www3.nhk.or.jp/news/html/${rawId.replace('-', '/')}.html`;
-    const html = await httpGet(url);
-
+    const html = await httpGet(articleLink);
     let title = '', description = '', image = '';
     const ldRegex = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi;
     let ldm;
@@ -272,8 +305,7 @@ async function nhkArticle(req, res) {
       const titleMatch = html.match(/<title>([^<]*)<\/title>/);
       if (titleMatch) title = titleMatch[1].replace(/\s*\|.*$/, '').trim();
     }
-    const body = description;
-    res.json({ id: rawId, title, description, image, body, link: url });
+    res.json({ id: rawId, title, description, image, body: description, link: articleLink });
   } catch (err) {
     res.status(502).json({ error: 'Failed to fetch article: ' + err.message });
   }

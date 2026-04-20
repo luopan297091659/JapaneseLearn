@@ -893,6 +893,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
         ),
         title: Text(s.profile),
         actions: [
+          FutureBuilder<int>(
+            future: apiService.getNotificationUnreadCount(),
+            builder: (ctx, snap) {
+              final unread = snap.data ?? 0;
+              return IconButton(
+                tooltip: '消息通知',
+                onPressed: () async {
+                  await context.push('/notifications');
+                  if (mounted) setState(() {});
+                },
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.notifications_none_rounded),
+                    if (unread > 0)
+                      Positioned(
+                        right: -4, top: -2,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            unread > 99 ? '99+' : '$unread',
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
           TextButton(onPressed: _logout, child: Text(s.logout)),
         ],
       ),

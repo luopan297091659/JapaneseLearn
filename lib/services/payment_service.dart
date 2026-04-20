@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'api_service.dart';
 
@@ -38,14 +39,36 @@ class PaymentService {
 
   // ── 加载 Apple IAP 产品 ──────────────────────────────────────────────────
   Future<List<ProductDetails>> loadProducts(List<String> productIds) async {
-    if (!_iapAvailable || productIds.isEmpty) return [];
+    if (!Platform.isIOS) return [];
+    if (!_iapAvailable) {
+      debugPrint('[IAP] ❌ StoreKit 不可用 (设备未登录 App Store / 未启用购买功能)');
+      _lastLoadError = 'StoreKit 不可用';
+      return [];
+    }
+    if (productIds.isEmpty) return [];
     final ids = productIds.where((id) => id.isNotEmpty).toSet();
     if (ids.isEmpty) return [];
 
+    debugPrint('[IAP] 查询产品: $ids');
     final response = await _iap.queryProductDetails(ids);
     _products = {for (final p in response.productDetails) p.id: p};
+
+    if (response.error != null) {
+      debugPrint('[IAP] ❌ 查询错误: ${response.error}');
+      _lastLoadError = response.error?.message ?? '产品查询失败';
+    }
+    if (response.notFoundIDs.isNotEmpty) {
+      debugPrint('[IAP] ⚠️  以下产品在 App Store Connect 未找到/未通过审核: ${response.notFoundIDs}');
+      _lastLoadError =
+          '以下 IAP 产品未配置或未审核: ${response.notFoundIDs.join(", ")}';
+    }
+    debugPrint('[IAP] ✅ 已加载产品: ${_products.keys.toList()}');
     return response.productDetails;
   }
+
+  /// 上一次产品加载的错误信息（供 UI 诊断）
+  String? _lastLoadError;
+  String? get lastLoadError => _lastLoadError;
 
   /// 根据 apple_product_id 获取本地化价格
   String? getLocalizedPrice(String appleProductId) {
@@ -53,13 +76,58 @@ class PaymentService {
   }
 
   // ── 发起 Apple IAP 购买 ──────────────────────────────────────────────────
-  Future<bool> purchaseApple(String appleProductId) async {
-    if (!_iapAvailable) return false;
+  /// 发起购买。返回 (started, errorMessage)：
+  ///   started=true  → StoreKit 购买流程已发起（不代表用户最终完成）
+  ///   started=false → 未能发起，errorMessage 给出原因
+  Future<({bool started, String? error})> purchaseAppleDetailed(String appleProductId) async {
+    if (!Platform.isIOS) {
+      return (started: false, error: '仅 iOS 支持 Apple 内购');
+    }
+    if (!_iapAvailable) {
+      return (started: false, error: 'StoreKit 不可用，请检查设备 App Store 登录状态');
+    }
     final product = _products[appleProductId];
-    if (product == null) return false;
+    if (product == null) {
+      final hint = _lastLoadError != null ? '\n($_lastLoadError)' : '';
+      return (
+        started: false,
+        error: '产品未加载：$appleProductId\n请检查 App Store Connect 中此 IAP 是否已配置并通过审核$hint'
+      );
+    }
+    try {
+      final purchaseParam = PurchaseParam(productDetails: product);
+      final ok = await _iap.buyNonConsumable(purchaseParam: purchaseParam);
+      if (!ok) {
+        return (started: false, error: 'StoreKit 拒绝发起购买（可能上一笔交易未完成）');
+      }
+      return (started: true, error: null);
+    } catch (e) {
+      return (started: false, error: '发起购买异常: $e');
+    }
+  }
 
-    final purchaseParam = PurchaseParam(productDetails: product);
-    return _iap.buyNonConsumable(purchaseParam: purchaseParam);
+  /// 兼容旧调用：仅返回是否发起成功
+  Future<bool> purchaseApple(String appleProductId) async {
+    final r = await purchaseAppleDetailed(appleProductId);
+    if (r.error != null) debugPrint('[IAP] ❌ ${r.error}');
+    return r.started;
+  }
+
+  // ── 恢复购买 (Apple 审核 3.1.1 强制要求) ──────────────────────────────
+  /// 触发 Apple IAP 恢复购买流程。结果通过 [onPurchaseResult] 回调返回。
+  Future<bool> restorePurchases() async {
+    if (!Platform.isIOS) return false;
+    if (!_iapAvailable) {
+      onPurchaseResult?.call('', false, '当前无法连接 App Store，请稍后重试');
+      return false;
+    }
+    try {
+      await _iap.restorePurchases();
+      return true;
+    } catch (e) {
+      onPurchaseResult?.call('', false, '恢复购买失败：$e');
+      return false;
+    }
   }
 
   // ── IAP 购买回调处理 ────────────────────────────────────────────────────

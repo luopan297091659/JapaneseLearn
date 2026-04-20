@@ -264,6 +264,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item" onclick="nav('ai-settings')" id="nav-ai-settings"><span class="icon">🤖</span><span class="nav-label">AI设置</span></div>
   <div class="nav-item" onclick="nav('kokoro-settings')" id="nav-kokoro-settings"><span class="icon">🎤</span><span class="nav-label">Kokoro TTS</span></div>
   <div class="nav-item" onclick="nav('email-settings')" id="nav-email-settings"><span class="icon">✉️</span><span class="nav-label">邮件配置</span></div>
+  <div class="nav-item" onclick="nav('support-channels')" id="nav-support-channels"><span class="icon">🤝</span><span class="nav-label">支持渠道</span></div>
   <div class="nav-item" onclick="nav('admin-mgmt')" id="nav-admin-mgmt"><span class="icon">🔐</span><span class="nav-label">权限管理</span></div>
   <div class="sidebar-footer"><div class="sidebar-footer-txt">言旅 Kotabi v1.0</div></div>
 </div>
@@ -661,7 +662,7 @@ function showApp(){
   nav('dashboard');
 }
 function applySidebarPermissions(){
-  const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-ai-settings','nav-kokoro-settings','nav-email-settings','nav-admin-mgmt'];
+  const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-ai-settings','nav-kokoro-settings','nav-email-settings','nav-support-channels','nav-admin-mgmt'];
   const permNavMap = {
     'nav-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-kana': 'vocabulary', 'nav-tracks': 'tracks',
     'nav-channels': 'tracks', 'nav-users': 'users', 'nav-reports': 'reports',
@@ -691,7 +692,7 @@ const PAGE_TITLES = {
   'stat-behavior':'行为分析',
   membership:'会员配置', orders:'订单审核', import:'内容导入', sync:'全局同步', 'feature-tiers':'功能分级',
   app:'App管理', 'feature-toggles':'功能开关', 'ai-settings':'AI设置', 'kokoro-settings':'Kokoro TTS设置',
-  'email-settings':'邮件配置',
+  'email-settings':'邮件配置', 'support-channels':'支持渠道',
   'admin-mgmt':'权限管理'
 };
 const PAGE_ICONS = {
@@ -701,7 +702,7 @@ const PAGE_ICONS = {
   'stat-behavior':'🧠',
   membership:'👑', orders:'💰', import:'📥', sync:'🔄', 'feature-tiers':'🎯',
   app:'📱', 'feature-toggles':'🔀', 'ai-settings':'🤖', 'kokoro-settings':'🎤',
-  'email-settings':'✉️', 'admin-mgmt':'🔐'
+  'email-settings':'✉️', 'support-channels':'🤝', 'admin-mgmt':'🔐'
 };
 const PAGE_DESCS = {
   vocab:'管理词汇条目', grammar:'管理语法条目', kana:'管理五十音数据', reports:'查看用户反馈的问题',
@@ -710,7 +711,7 @@ const PAGE_DESCS = {
   'stat-behavior':'用户行为数据分析',
   membership:'会员套餐管理', orders:'审核用户付款订单', import:'Anki/CSV导入', sync:'内容版本发布', 'feature-tiers':'会员功能分级配置',
   app:'App上传下载', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量', 'kokoro-settings':'Kokoro TTS 合成参数配置',
-  'email-settings':'SMTP 邮件发送配置',
+  'email-settings':'SMTP 邮件发送配置', 'support-channels':'管理微信/钉钉/LINE/飞书等支持群组',
   'admin-mgmt':'管理员权限配置'
 };
 
@@ -743,6 +744,7 @@ const PAGE_FNS = {
   membership: renderMembership, orders: renderOrders, import: renderImport, sync: renderSync,
   app: renderAppManage, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings, 'kokoro-settings': renderKokoroSettings,
   'email-settings': renderEmailSettings,
+  'support-channels': renderSupportChannels,
   'admin-mgmt': renderAdminMgmt, reports: renderReports,
 };
 /* ─────────────────────────── 功能分级（会员权益）───────────────────────────── */
@@ -3157,7 +3159,7 @@ async function loadOrdersList() {
       const l = { pending:'待审核', paid:'已通过', rejected:'已拒绝', expired:'已过期', refunded:'已退款' };
       return `<span class="badge ${m[s]||''}">${l[s]||s}</span>`;
     };
-    const channelLabel = c => ({ apple_iap:'Apple IAP', stripe:'Stripe', qrcode_alipay:'支付宝二维码', qrcode_wechat:'微信二维码' }[c] || c);
+    const channelLabel = c => ({ apple_iap:'Apple IAP', stripe:'Stripe', qrcode_alipay:'支付宝二维码', qrcode_wechat:'微信二维码', qrcode_bank:'银行卡', apple_iap_failed:'支付截图补单', refund_request:'退款申请' }[c] || c);
     const rows = orders.map(o => `<tr>
       <td style="font-size:11px;color:#999">${esc(o.id?.substring(0,8))}…</td>
       <td><b>${esc(o.user?.username||'')}</b><br/><small style="color:#999">${esc(o.user?.email||'')}</small></td>
@@ -3165,7 +3167,7 @@ async function loadOrdersList() {
       <td style="font-weight:700">¥${o.amount}</td>
       <td>${channelLabel(o.channel)}</td>
       <td>${statusBadge(o.status)}</td>
-      <td>${o.proof_image_url ? `<a href="${esc(o.proof_image_url)}" target="_blank" style="color:#2563eb">查看截图</a>` : '—'}</td>
+      <td>${o.proof_image_url ? `<a href="${esc(o.proof_image_url)}" target="_blank" style="color:#2563eb">查看截图</a>` : '—'}${o.user_note ? `<br/><small style="color:#666;display:block;margin-top:2px;max-width:200px;white-space:pre-wrap">📝 ${esc(o.user_note)}</small>` : ''}</td>
       <td style="font-size:12px;color:#888">${new Date(o.createdAt).toLocaleString('zh-CN')}</td>
       <td>${o.status === 'pending' ? `
         <button class="btn btn-success btn-sm" onclick="approveOrder('${o.id}')">通过</button>
@@ -3188,6 +3190,8 @@ async function loadOrdersList() {
             <option value="qrcode_alipay" ${_ordersFilter.channel==='qrcode_alipay'?'selected':''}>支付宝二维码</option>
             <option value="qrcode_wechat" ${_ordersFilter.channel==='qrcode_wechat'?'selected':''}>微信二维码</option>
             <option value="apple_iap" ${_ordersFilter.channel==='apple_iap'?'selected':''}>Apple IAP</option>
+            <option value="apple_iap_failed" ${_ordersFilter.channel==='apple_iap_failed'?'selected':''}>支付截图补单</option>
+            <option value="refund_request" ${_ordersFilter.channel==='refund_request'?'selected':''}>退款申请</option>
             <option value="stripe" ${_ordersFilter.channel==='stripe'?'selected':''}>Stripe</option>
           </select>
           <button class="btn btn-ghost btn-sm" onclick="loadOrdersList()">刷新</button>
@@ -4102,6 +4106,194 @@ async function toggleChannel(id,active){
 }
 async function refreshChannel(id){
   try{ toast('刷新中…'); await api('POST',`/admin/channels/${id}/refresh`); toast('刷新成功'); loadChannels(); }catch(e){ toast(e.message,true) }
+}
+
+async function refreshChannel(id){
+  try{ toast('刷新中…'); await api('POST',`/admin/channels/${id}/refresh`); toast('刷新成功'); loadChannels(); }catch(e){ toast(e.message,true) }
+}
+
+/* ───────────────────────────── 支持渠道 (SUPPORT CHANNELS) ──────────────── */
+let _supportChannels = [];
+const PLATFORM_LABELS = {wechat:'微信群',dingtalk:'钉钉群',slack:'Slack',telegram:'Telegram',discord:'Discord',qq:'QQ群',line:'LINE',feishu:'飞书',other:'其他'};
+const PLATFORM_ICONS = {wechat:'💬',dingtalk:'🔔',slack:'💼',telegram:'✈️',discord:'🎮',qq:'🐧',line:'💚',feishu:'🪶',other:'🔗'};
+
+async function renderSupportChannels(){
+  document.getElementById('content').innerHTML = '<p style="color:#aaa;padding:40px;text-align:center">加载中…</p>';
+  try{
+    const res = await api('GET','/admin/support-channels');
+    _supportChannels = res.channels || [];
+    buildSupportUI();
+  }catch(e){
+    document.getElementById('content').innerHTML = `<div class="panel"><p style="color:#e74c3c">加载失败: ${esc(e.message)}</p></div>`;
+  }
+}
+
+function buildSupportUI(){
+  const rows = _supportChannels.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)).map((c,i)=>{
+    const pLabel = PLATFORM_LABELS[c.platform]||c.platform;
+    const pIcon = PLATFORM_ICONS[c.platform]||'🔗';
+    const enableBadge = c.enabled!==false ? '<span class="badge badge-green">启用</span>' : '<span class="badge badge-red">禁用</span>';
+    const qrPreview = c.qr_code_url ? `<img src="${esc(c.qr_code_url)}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="window.open('${esc(c.qr_code_url)}','_blank')" title="点击查看大图">` : '<span style="color:#aaa">无</span>';
+    const linkShow = c.link ? `<a href="${esc(c.link)}" target="_blank" style="color:#3b82f6;word-break:break-all">${esc(c.link.length>30?c.link.slice(0,30)+'…':c.link)}</a>` : '<span style="color:#aaa">无</span>';
+    return `<tr>
+      <td>${pIcon} ${esc(pLabel)}</td>
+      <td><b>${esc(c.name)}</b></td>
+      <td>${linkShow}</td>
+      <td>${qrPreview}</td>
+      <td>${enableBadge}</td>
+      <td>${c.sort_order??i}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="editSupportChannel('${esc(c.id)}')">编辑</button>
+        <button class="btn btn-danger btn-sm" onclick="delSupportChannel('${esc(c.id)}')">删除</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('content').innerHTML = `
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="openSupportModal()">＋ 添加渠道</button>
+    <span style="flex:1"></span>
+    <span style="font-size:12px;color:var(--text-muted)">官网展示地址: <a href="/support" target="_blank" style="color:#3b82f6">/support</a></span>
+  </div>
+  <div class="panel" style="padding:0">
+    <table><thead><tr>
+      <th>平台</th><th>名称</th><th>链接</th><th>二维码</th><th>状态</th><th>排序</th><th>操作</th>
+    </tr></thead>
+    <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:40px">暂无支持渠道，点击上方按钮添加</td></tr>'}</tbody></table>
+  </div>
+
+  <div class="modal-overlay" id="modal-support">
+    <div class="modal" style="width:560px">
+      <h2 id="sp-title">添加支持渠道</h2>
+      <div class="form-row" style="margin-bottom:12px">
+        <label>平台类型 *</label>
+        <select id="sp-platform" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px">
+          <option value="wechat">💬 微信群</option>
+          <option value="dingtalk">🔔 钉钉群</option>
+          <option value="slack">💼 Slack</option>
+          <option value="telegram">✈️ Telegram</option>
+          <option value="discord">🎮 Discord</option>
+          <option value="qq">🐧 QQ群</option>
+          <option value="line">💚 LINE</option>
+          <option value="feishu">🪶 飞书</option>
+          <option value="other">🔗 其他</option>
+        </select>
+      </div>
+      <div class="form-row" style="margin-bottom:12px">
+        <label>群组名称 *</label>
+        <input id="sp-name" placeholder="如：言旅用户交流群①" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px">
+      </div>
+      <div class="form-row" style="margin-bottom:12px">
+        <label>邀请链接</label>
+        <input id="sp-link" placeholder="如：https://t.me/xxx 或 https://join.slack.com/xxx" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px">
+      </div>
+      <div class="form-row" style="margin-bottom:12px">
+        <label>二维码图片</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="file" id="sp-qr-file" accept="image/*" onchange="previewSupportQr(this)" style="flex:1">
+          <img id="sp-qr-preview" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;display:none">
+        </div>
+        <input type="hidden" id="sp-qr-url">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div class="form-row">
+          <label>排序 (小的在前)</label>
+          <input id="sp-sort" type="number" value="0" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px">
+        </div>
+        <div class="form-row">
+          <label>状态</label>
+          <select id="sp-enabled" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px">
+            <option value="true">启用</option>
+            <option value="false">禁用</option>
+          </select>
+        </div>
+      </div>
+      <input type="hidden" id="sp-id">
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('modal-support')">取消</button>
+        <button class="btn btn-primary" id="sp-save-btn" onclick="saveSupportChannel()">保存</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function openSupportModal(data){
+  document.getElementById('sp-title').textContent = data ? '编辑支持渠道' : '添加支持渠道';
+  document.getElementById('sp-id').value = data?.id || '';
+  document.getElementById('sp-platform').value = data?.platform || 'wechat';
+  document.getElementById('sp-name').value = data?.name || '';
+  document.getElementById('sp-link').value = data?.link || '';
+  document.getElementById('sp-qr-url').value = data?.qr_code_url || '';
+  document.getElementById('sp-sort').value = data?.sort_order ?? 0;
+  document.getElementById('sp-enabled').value = data?.enabled !== false ? 'true' : 'false';
+  const preview = document.getElementById('sp-qr-preview');
+  if(data?.qr_code_url){ preview.src = data.qr_code_url; preview.style.display=''; }
+  else { preview.style.display='none'; }
+  document.getElementById('sp-qr-file').value = '';
+  openModal('modal-support');
+}
+
+function editSupportChannel(id){
+  const ch = _supportChannels.find(c=>c.id===id);
+  if(ch) openSupportModal(ch);
+}
+
+function previewSupportQr(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const preview = document.getElementById('sp-qr-preview');
+    preview.src = e.target.result;
+    preview.style.display = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveSupportChannel(){
+  const btn = document.getElementById('sp-save-btn');
+  btn.disabled = true; btn.textContent = '保存中…';
+  try{
+    // 先上传二维码（如果有新文件）
+    const fileInput = document.getElementById('sp-qr-file');
+    let qrUrl = document.getElementById('sp-qr-url').value;
+    if(fileInput.files.length > 0){
+      const fd = new FormData();
+      fd.append('qrcode', fileInput.files[0]);
+      const upRes = await fetch(API+'/admin/support-channels/upload-qr', {
+        method:'POST', headers:{'Authorization':'Bearer '+TOKEN}, body:fd
+      });
+      const upData = await upRes.json();
+      if(!upRes.ok) throw new Error(upData.error||'上传失败');
+      qrUrl = upData.url;
+    }
+
+    const id = document.getElementById('sp-id').value || undefined;
+    const body = {
+      id,
+      platform: document.getElementById('sp-platform').value,
+      name: document.getElementById('sp-name').value.trim(),
+      link: document.getElementById('sp-link').value.trim(),
+      qr_code_url: qrUrl,
+      sort_order: parseInt(document.getElementById('sp-sort').value)||0,
+      enabled: document.getElementById('sp-enabled').value === 'true',
+    };
+    if(!body.name){ toast('名称必填',true); return; }
+    await api('POST','/admin/support-channels', body);
+    toast(id?'已更新':'已添加');
+    closeModal('modal-support');
+    renderSupportChannels();
+  }catch(e){ toast(e.message,true); }
+  finally{ btn.disabled=false; btn.textContent='保存'; }
+}
+
+async function delSupportChannel(id){
+  if(!confirm('确定要删除这个支持渠道吗？')) return;
+  try{
+    await api('DELETE',`/admin/support-channels/${id}`);
+    toast('已删除');
+    renderSupportChannels();
+  }catch(e){ toast(e.message,true); }
 }
 
 /* ───────────────────────────── 问题反馈 (REPORTS) ──────────────────────────── */

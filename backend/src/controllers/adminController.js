@@ -1838,7 +1838,7 @@ const DEFAULT_FEATURE_TIERS = {
     { id: 'quiz_meaning_daily', name: '词汇测验(意思题)', icon: '✏️', type: 'daily_limit', free_limit: 10, free_label: '每日10题', member_label: '无限制' },
     { id: 'quiz_reading_daily', name: '词汇测验(读音题)', icon: '📖', type: 'daily_limit', free_limit: 10, free_label: '每日10题', member_label: '无限制' },
     { id: 'quiz_jlpt_levels', name: 'JLPT等级筛选', icon: '🏅', type: 'enum', free_values: ['N5','N4'], member_values: ['N5','N4','N3','N2','N1'], free_label: 'N5 / N4', member_label: 'N5~N1 全部' },
-    { id: 'quiz_count_options', name: '题目数量选择', icon: '🔢', type: 'enum', free_values: [10], member_values: [10,20,30], free_label: '仅10题', member_label: '10 / 20 / 30题' },
+    { id: 'quiz_count_options', name: '题目数量选择', icon: '🔢', type: 'enum', free_values: [10], member_values: [10,20,30], free_label: '仅10题', member_label: '无限制' },
     { id: 'kana_writing_modes', name: '假名手写测试', icon: '✍️', type: 'enum', free_values: ['basic'], member_values: ['basic','dakuon','mixed'], free_label: '基础清音', member_label: '全部(浊音/混合)' },
     { id: 'flashcard_levels', name: '闪卡复习', icon: '🃏', type: 'enum', free_values: ['N5'], member_values: ['N5','N4','N3','N2','N1'], free_label: 'N5', member_label: '全等级' },
     { id: 'anki_quiz', name: 'Anki本地卡组测验', icon: '📋', type: 'blocked', free_label: '不可用', member_label: '可用' },
@@ -2228,9 +2228,61 @@ async function updateReport(req, res) {
   const { status, admin_reply } = req.body;
   const report = await UserReport.findByPk(id);
   if (!report) return res.status(404).json({ error: '未找到该报告' });
+  const prevStatus = report.status;
   if (status) report.status = status;
   if (admin_reply !== undefined) report.admin_reply = admin_reply;
   await report.save();
+
+  // 通知用户：状态变化或仅仅回复了
+  try {
+    const refLabel = report.ref_type === 'grammar' ? '语法' : '单词';
+    const titleSuffix = report.ref_title ? `《${report.ref_title}》` : '';
+    if (status && status !== prevStatus) {
+      if (status === 'resolved') {
+        // 奖励 xp
+        const xpAward = 20;
+        try {
+          const { User } = require('../models/index');
+          const u = await User.findByPk(report.user_id);
+          if (u) {
+            await u.update({ xp_earned: (u.xp_earned || 0) + xpAward });
+          }
+        } catch (_) {}
+        createNotification({
+          userId: report.user_id,
+          type: 'report_resolved',
+          title: `${refLabel}反馈已采纳`,
+          content: (admin_reply ? `管理员回复：${admin_reply}\n\n` : '感谢您的反馈！\n')
+            + `已为您奖励 ${xpAward} XP。`,
+          refType: 'report',
+          refId: report.id,
+          extra: { ref_type: report.ref_type, ref_title: report.ref_title, admin_reply: admin_reply || null, xp_awarded: xpAward },
+        });
+      } else if (status === 'rejected') {
+        createNotification({
+          userId: report.user_id,
+          type: 'report_rejected',
+          title: `${refLabel}反馈未采纳${titleSuffix}`,
+          content: admin_reply ? `管理员回复：${admin_reply}` : '您的反馈经核实后未予采纳，感谢支持。',
+          refType: 'report',
+          refId: report.id,
+          extra: { ref_type: report.ref_type, ref_title: report.ref_title, admin_reply: admin_reply || null },
+        });
+      }
+    } else if (admin_reply !== undefined && admin_reply) {
+      // 仅添加了回复
+      createNotification({
+        userId: report.user_id,
+        type: 'report_replied',
+        title: `${refLabel}反馈有新回复${titleSuffix}`,
+        content: `管理员回复：${admin_reply}`,
+        refType: 'report',
+        refId: report.id,
+        extra: { ref_type: report.ref_type, ref_title: report.ref_title, admin_reply },
+      });
+    }
+  } catch (_) {}
+
   res.json({ success: true, data: report });
 }
 
@@ -2734,6 +2786,7 @@ async function generateSingleAudio(req, res) {
 // ─── 订单管理 ───────────────────────────────────────────────────────────────
 const { MembershipOrder } = require('../models/index');
 const { isActiveMember } = require('../middlewares/membership');
+const { createNotification } = require('../routes/notifications');
 
 async function listOrders(req, res) {
   const { status, channel, page = 1, limit = 20 } = req.query;
@@ -2783,6 +2836,15 @@ async function reviewOrder(req, res) {
       reviewed_by: req.user.id,
       reviewed_at: new Date(),
     });
+    createNotification({
+      userId: order.user_id,
+      type: 'order_rejected',
+      title: '订单审核未通过',
+      content: admin_note ? `审核备注：${admin_note}` : '您的支付凭证未通过审核，如有疑问请联系客服。',
+      refType: 'order',
+      refId: order.id,
+      extra: { plan_id: order.plan_id, channel: order.channel, admin_note: admin_note || null },
+    });
     return res.json({ ok: true, message: '已拒绝', order: order.toJSON() });
   }
 
@@ -2817,6 +2879,18 @@ async function reviewOrder(req, res) {
     admin_note: admin_note || null,
     reviewed_by: req.user.id,
     reviewed_at: new Date(),
+  });
+
+  createNotification({
+    userId: order.user_id,
+    type: 'order_approved',
+    title: '订单审核已通过',
+    content: admin_note
+      ? `您的会员已成功开通，到期时间：${expire.toISOString().slice(0,10)}。审核备注：${admin_note}`
+      : `您的会员已成功开通，到期时间：${expire.toISOString().slice(0,10)}。`,
+    refType: 'order',
+    refId: order.id,
+    extra: { plan_id: order.plan_id, channel: order.channel, expire_at: expire, admin_note: admin_note || null },
   });
 
   res.json({ ok: true, message: '已通过，会员已激活', order: order.toJSON() });
@@ -2926,6 +3000,89 @@ async function testEmailSettings(req, res) {
   }
 }
 
+// ─── 支持渠道管理 ──────────────────────────────────────────────────────
+const SUPPORT_KEY = 'support_channels';
+
+async function _readSupportChannels() {
+  try {
+    const kv = await sequelize.models.AppConfig?.findOne({ where: { key: SUPPORT_KEY } });
+    return kv ? JSON.parse(kv.value) : [];
+  } catch { return []; }
+}
+
+async function _writeSupportChannels(channels) {
+  await sequelize.models.AppConfig.upsert({
+    key: SUPPORT_KEY,
+    value: JSON.stringify(channels),
+    description: '软件支持渠道配置',
+  });
+}
+
+async function getSupportChannels(req, res) {
+  const channels = await _readSupportChannels();
+  res.json({ channels });
+}
+
+async function saveSupportChannel(req, res) {
+  const { id, platform, name, link, qr_code_url, enabled, sort_order } = req.body;
+  if (!platform || !name) return res.status(400).json({ error: 'platform 和 name 必填' });
+  const allowed = ['wechat', 'dingtalk', 'slack', 'telegram', 'discord', 'qq', 'line', 'feishu', 'other'];
+  if (!allowed.includes(platform)) return res.status(400).json({ error: `platform 必须为: ${allowed.join(', ')}` });
+
+  const channels = await _readSupportChannels();
+  if (id) {
+    // 更新
+    const idx = channels.findIndex(c => c.id === id);
+    if (idx === -1) return res.status(404).json({ error: '渠道不存在' });
+    channels[idx] = { ...channels[idx], platform, name, link: link || '', qr_code_url: qr_code_url || channels[idx].qr_code_url || '', enabled: enabled !== false, sort_order: sort_order ?? channels[idx].sort_order ?? 0, updated_at: new Date().toISOString() };
+  } else {
+    // 新增
+    channels.push({
+      id: uuidv4(),
+      platform, name,
+      link: link || '',
+      qr_code_url: qr_code_url || '',
+      enabled: enabled !== false,
+      sort_order: sort_order ?? channels.length,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+  }
+  await _writeSupportChannels(channels);
+  res.json({ ok: true, channels });
+}
+
+async function deleteSupportChannel(req, res) {
+  const { id } = req.params;
+  const channels = await _readSupportChannels();
+  const target = channels.find(c => c.id === id);
+  if (!target) return res.status(404).json({ error: '渠道不存在' });
+  // 删除关联的二维码文件
+  if (target.qr_code_url && target.qr_code_url.startsWith('/uploads/')) {
+    const filePath = path.join(__dirname, '../..', target.qr_code_url);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  }
+  await _writeSupportChannels(channels.filter(c => c.id !== id));
+  res.json({ ok: true });
+}
+
+async function uploadSupportQrCode(req, res) {
+  if (!req.file) return res.status(400).json({ error: '请上传二维码图片' });
+  const ext = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' }[req.file.mimetype] || '.jpg';
+  const filename = `support_${Date.now()}${ext}`;
+  const dir = path.join(__dirname, '../../uploads/support');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, filename), req.file.buffer);
+  const url = `/uploads/support/${filename}`;
+  res.json({ ok: true, url });
+}
+
+async function getPublicSupportChannels(req, res) {
+  const channels = await _readSupportChannels();
+  const visible = channels.filter(c => c.enabled !== false).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  res.json({ channels: visible });
+}
+
 module.exports = {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, generateVocabExamplesKokoroAudio, deduplicateVocab, fixVocabReadings,
@@ -2953,4 +3110,5 @@ module.exports = {
   generateSingleAudio,
   listOrders, reviewOrder, uploadQrCode,
   getEmailSettings, saveEmailSettings, testEmailSettings,
+  getSupportChannels, saveSupportChannel, deleteSupportChannel, uploadSupportQrCode, getPublicSupportChannels,
 };

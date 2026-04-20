@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工具箱 — 言旅 Kotabi</title>
+<link rel="icon" type="image/png" href="/app/favicon.png">
+<meta name="description" content="言旅工具箱 — App Store截图生成、AI语音合成等开发者工具，免费在线使用。">
+<style>
+:root {
+  --primary: #4361ee;
+  --primary-dark: #2f4ac1;
+  --primary-light: #eef0fd;
+  --surface: #ffffff;
+  --surface2: #f8f9fc;
+  --border: #e5e7ef;
+  --text: #1a1c2e;
+  --text-sub: #6b7280;
+  --text-hint: #9ca3af;
+  --radius: 16px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 16px rgba(67,97,238,.08);
+  --shadow-md: 0 4px 24px rgba(67,97,238,.13);
+  --nav-h: 56px;
+  --success: #10b981;
+  --warning: #f59e0b;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { font-family: "Noto Sans CJK SC","PingFang SC","Microsoft YaHei",sans-serif; color: var(--text); background: var(--surface2); line-height: 1.6; }
+a { text-decoration: none; color: var(--primary); }
+a:hover { opacity: .85; }
+
+/* Nav */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h);
+  background: rgba(255,255,255,.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border); display: flex; align-items: center;
+  padding: 0 clamp(12px,4vw,48px); gap: 8px; z-index: 100;
+}
+nav .logo { font-size: 20px; font-weight: 800; color: var(--primary); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+nav .logo img { width: 32px; height: 32px; border-radius: 8px; }
+nav .logo sub { font-size: 11px; font-weight: 400; color: var(--text-sub); margin-left: 2px; vertical-align: baseline; }
+nav .spacer { flex: 1; }
+nav .nav-link {
+  font-size: 13px; font-weight: 600; color: var(--text-sub); padding: 5px 10px;
+  border-radius: var(--radius-sm); transition: all .15s; white-space: nowrap;
+}
+nav .nav-link:hover { color: var(--primary); background: var(--primary-light); }
+nav .nav-link.active { color: var(--primary); }
+.user-badge { font-size: 13px; font-weight: 600; color: var(--primary); padding: 5px 12px; border-radius: var(--radius-sm); background: var(--primary-light); cursor: pointer; display: none; align-items: center; gap: 4px; white-space: nowrap; }
+.user-badge.show { display: inline-flex; }
+.user-badge .vip-icon { font-size: 14px; margin-right: 2px; }
+.user-badge.is-member { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; }
+
+/* Hero */
+.hero {
+  margin-top: var(--nav-h); padding: 48px clamp(16px,6vw,80px) 36px;
+  text-align: center;
+  background: linear-gradient(135deg, #0f0c29 0%, #1a1a4e 40%, #24243e 100%);
+  color: #fff;
+}
+.hero h1 { font-size: clamp(24px,5vw,38px); font-weight: 900; margin-bottom: 8px; }
+.hero h1 span {
+  background: linear-gradient(90deg, #60a5fa, #a78bfa, #f472b6);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.hero p { font-size: clamp(13px,1.8vw,15px); color: rgba(255,255,255,.65); max-width: 600px; margin: 0 auto; }
+
+/* Content */
+.container { max-width: 960px; margin: 0 auto; padding: 32px clamp(12px,4vw,48px) 60px; }
+
+/* Login gate */
+.login-gate {
+  text-align: center; padding: 60px 20px;
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.login-gate .icon { font-size: 48px; margin-bottom: 12px; }
+.login-gate h2 { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+.login-gate p { font-size: 14px; color: var(--text-sub); margin-bottom: 20px; }
+.login-gate .btn {
+  padding: 12px 32px; border: none; border-radius: var(--radius-sm);
+  background: var(--primary); color: #fff; font-size: 15px; font-weight: 700;
+  cursor: pointer; transition: all .15s; font-family: inherit;
+}
+.login-gate .btn:hover { background: var(--primary-dark); }
+
+/* Tools grid */
+.tools-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+.tool-card {
+  background: var(--surface); border-radius: var(--radius); padding: 28px 24px;
+  box-shadow: var(--shadow); transition: transform .2s, box-shadow .2s;
+  display: flex; flex-direction: column; position: relative; overflow: hidden;
+}
+.tool-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+.tool-card .tool-icon { font-size: 40px; margin-bottom: 12px; }
+.tool-card h3 { font-size: 17px; font-weight: 800; margin-bottom: 6px; }
+.tool-card p { font-size: 13px; color: var(--text-sub); line-height: 1.6; flex: 1; margin-bottom: 16px; }
+.tool-card .tool-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.tool-tag {
+  display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 10px;
+  font-weight: 600;
+}
+.tool-tag-free { background: #d1fae5; color: #065f46; }
+.tool-tag-member { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; }
+.tool-tag-new { background: #fee2e2; color: #991b1b; }
+.tool-tag-beta { background: #e0e7ff; color: #3730a3; }
+.tool-card .tool-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px 20px; border: none; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s;
+  background: var(--primary); color: #fff; font-family: inherit; width: 100%;
+}
+.tool-card .tool-btn:hover { background: var(--primary-dark); }
+
+/* Member badge on card */
+.tool-card .member-ribbon {
+  position: absolute; top: 16px; right: -32px; transform: rotate(45deg);
+  background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff;
+  font-size: 10px; font-weight: 700; padding: 3px 40px; box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+
+/* Coming soon */
+.tool-card.coming-soon { opacity: .7; }
+.tool-card.coming-soon .tool-btn { background: var(--border); color: var(--text-hint); cursor: default; }
+.tool-card.coming-soon .tool-btn:hover { background: var(--border); }
+
+/* Auth Modal */
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,.5); z-index: 200; align-items: center; justify-content: center;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: var(--surface); border-radius: var(--radius); padding: 32px 28px;
+  width: 100%; max-width: 400px; margin: 16px; box-shadow: 0 8px 40px rgba(0,0,0,.2); position: relative;
+}
+.modal h2 { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+.modal .subtitle { font-size: 13px; color: var(--text-sub); margin-bottom: 20px; }
+.modal .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+.modal .tab {
+  flex: 1; padding: 8px; text-align: center; font-size: 13px; font-weight: 600;
+  border: none; background: var(--surface2); color: var(--text-sub);
+  border-radius: var(--radius-sm); cursor: pointer; transition: all .15s;
+}
+.modal .tab.active { background: var(--primary); color: #fff; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: var(--text-sub); }
+.form-group input, .form-group select {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 14px; outline: none; transition: border .15s; background: var(--surface); font-family: inherit;
+}
+.form-group input:focus { border-color: var(--primary); }
+.form-error { font-size: 12px; color: #ef4444; margin-top: 16px; display: none; text-align: center; }
+.form-error.show { display: block; }
+.modal-btn {
+  width: 100%; padding: 11px; border: none; border-radius: var(--radius-sm);
+  background: var(--primary); color: #fff; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: all .15s; margin-top: 6px; font-family: inherit;
+}
+.modal-btn:hover { background: var(--primary-dark); }
+.modal-btn:disabled { opacity: .6; cursor: not-allowed; }
+.modal-close {
+  position: absolute; top: 10px; right: 14px; background: none; border: none;
+  font-size: 20px; color: var(--text-hint); cursor: pointer;
+}
+.spinner-sm { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: 4px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Toast */
+.toast {
+  position: fixed; top: 72px; left: 50%; transform: translateX(-50%);
+  padding: 10px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+  color: #fff; z-index: 300; opacity: 0; transition: opacity .3s; pointer-events: none;
+}
+.toast.show { opacity: 1; }
+.toast-success { background: var(--success); }
+.toast-error { background: #ef4444; }
+
+/* Footer */
+footer {
+  text-align: center; padding: 28px 16px; font-size: 12px; color: var(--text-hint);
+  border-top: 1px solid var(--border); margin-top: 48px;
+}
+footer a { color: var(--text-hint); }
+
+/* Pricing hint */
+.pricing-hint {
+  text-align: center; margin-bottom: 28px; padding: 14px 20px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: var(--radius);
+  font-size: 13px; color: #92400e; font-weight: 600;
+}
+.pricing-hint a { color: #92400e; text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <a class="logo" href="/">
+    <img src="/home/app_icon.png" alt="言旅">
+    言旅<sub>Kotabi</sub>
+  </a>
+  <div class="spacer"></div>
+  <a class="nav-link" href="/">首页</a>
+  <a class="nav-link" href="/membership">会员</a>
+  <a class="nav-link" href="/support">支持</a>
+  <a class="nav-link active" href="/tools">工具箱</a>
+  <span class="user-badge" id="userBadge" onclick="showUserMenu()"></span>
+  <a class="nav-link" id="loginBtn" href="javascript:void(0)" onclick="showAuthModal()">登录</a>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <h1>言旅 <span>工具箱</span></h1>
+  <p>面向开发者与创作者的在线工具集 — 截图生成、AI 语音合成等，登录即可免费使用</p>
+</div>
+
+<!-- Content -->
+<div class="container">
+
+  <!-- Tools (always shown; login required when opening) -->
+  <div id="toolsContent">
+    <div class="pricing-hint" id="pricingHint">
+      🔐 浏览即可，<a href="javascript:void(0)" onclick="showAuthModal()">登录 / 注册</a>后使用工具 · 基础功能免费
+    </div>
+
+    <div class="tools-grid">
+      <!-- Screenshot Generator -->
+      <div class="tool-card">
+        <div class="tool-icon">📱</div>
+        <h3>App Store 截图生成器</h3>
+        <p>一键生成所有 Apple 设备尺寸的上架截图。支持自定义背景、标题、圆角、阴影，批量导出 ZIP。纯浏览器处理，隐私安全。</p>
+        <div class="tool-tags">
+          <span class="tool-tag tool-tag-free">免费</span>
+          <span class="tool-tag tool-tag-new">NEW</span>
+        </div>
+        <button class="tool-btn" onclick="goTool('/tools/screenshot-generator/')">打开工具 →</button>
+      </div>
+
+      <!-- Kokoro TTS -->
+      <div class="tool-card">
+        <div class="tool-icon">🎙️</div>
+        <h3>Kokoro AI 语音合成</h3>
+        <p>基于 Kokoro 引擎的日语语音合成工具。支持多种音色、语速调节、情感控制，生成自然流畅的日语朗读音频。</p>
+        <div class="tool-tags">
+          <span class="tool-tag tool-tag-free">免费额度</span>
+          <span class="tool-tag tool-tag-member">会员无限</span>
+        </div>
+        <button class="tool-btn" onclick="goTool('/tools/kokoro-tts/')">打开工具 →</button>
+      </div>
+
+      <!-- Coming soon -->
+      <div class="tool-card coming-soon">
+        <div class="tool-icon">🔤</div>
+        <h3>日语 OCR 识别</h3>
+        <p>拍照或上传图片，自动识别日语文字并提供翻译和假名标注。即将上线。</p>
+        <div class="tool-tags">
+          <span class="tool-tag tool-tag-beta">即将上线</span>
+        </div>
+        <button class="tool-btn" disabled>敬请期待</button>
+      </div>
+
+      <div class="tool-card coming-soon">
+        <div class="tool-icon">📝</div>
+        <h3>JLPT 模拟测试</h3>
+        <p>在线模拟 JLPT N5–N1 真题，自动评分与解析，追踪备考进度。即将上线。</p>
+        <div class="tool-tags">
+          <span class="tool-tag tool-tag-beta">即将上线</span>
+        </div>
+        <button class="tool-btn" disabled>敬请期待</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Auth Modal -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAuthModal()">✕</button>
+    <h2 id="authTitle">登录账号</h2>
+    <p class="subtitle" id="authSubtitle">登录后使用工具箱</p>
+    <div class="tabs">
+      <button class="tab active" id="tabLogin" onclick="switchTab('login')">密码登录</button>
+      <button class="tab" id="tabCodeLogin" onclick="switchTab('codeLogin')">验证码登录</button>
+      <button class="tab" id="tabRegister" onclick="switchTab('register')">注册</button>
+    </div>
+    <form id="authForm" onsubmit="handleAuth(event)">
+      <div class="form-group" id="usernameGroup" style="display:none;">
+        <label>用户名</label>
+        <input type="text" id="regUsername" placeholder="3-50 个字符" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>邮箱</label>
+        <div style="display:flex;gap:6px;">
+          <input type="text" id="authEmail" placeholder="请输入邮箱前缀" required autocomplete="email" style="flex:1;">
+          <select id="emailSuffix" style="width:auto;min-width:120px;padding:8px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;">
+            <option value="">邮箱</option>
+            <option>@gmail.com</option><option>@outlook.com</option><option>@qq.com</option>
+            <option>@163.com</option><option>@126.com</option><option>@yahoo.com</option>
+            <option>@hotmail.com</option><option>@icloud.com</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" id="passwordGroup">
+        <label>密码</label>
+        <input type="password" id="authPassword" placeholder="至少 8 位" minlength="8" autocomplete="current-password">
+      </div>
+      <div class="form-group" id="loginCodeGroup" style="display:none;">
+        <label>验证码</label>
+        <div style="display:flex;gap:6px;">
+          <input type="text" id="loginCode" placeholder="6 位验证码" maxlength="6" style="flex:1;">
+          <button type="button" id="sendLoginCodeBtn" onclick="sendLoginCode()" style="white-space:nowrap;padding:8px 16px;border:1px solid var(--primary);border-radius:8px;background:#fff;color:var(--primary);cursor:pointer;font-size:13px;">发送验证码</button>
+        </div>
+      </div>
+      <div class="form-group" id="inviteCodeGroup" style="display:none;">
+        <label>邀请码 <span style="color:#9ca3af;font-weight:400">(选填)</span></label>
+        <input type="text" id="regInviteCode" placeholder="有邀请码请填写" maxlength="16" style="text-transform:uppercase;">
+      </div>
+      <div class="form-error" id="authError"></div>
+      <button type="submit" class="modal-btn" id="authSubmitBtn">登录</button>
+      <div style="text-align:center;margin-top:14px;font-size:12px;color:#9ca3af">
+        登录或注册即表示您同意 <a href="/app/terms.html" style="color:var(--primary);">用户协议</a> 和 <a href="/app/privacy.html" style="color:var(--primary);">隐私政策</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Footer -->
+<footer>
+  <p>© 2026 言旅 Kotabi &nbsp;|&nbsp; <a href="/app/privacy.html">隐私政策</a> &nbsp;|&nbsp; <a href="/">返回首页</a></p>
+</footer>
+
+<script>
+const API = '/api/v1';
+let accessToken = localStorage.getItem('kotabi_token');
+let refreshTokenStr = localStorage.getItem('kotabi_refresh');
+let currentUser = null;
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+async function apiCall(method, path, body) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+  const opts = { method, headers };
+  if (body && method !== 'GET') opts.body = JSON.stringify(body);
+  let res = await fetch(API + path, opts);
+  if (res.status === 401 && refreshTokenStr) {
+    const rr = await fetch(API + '/auth/refresh', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: refreshTokenStr })
+    });
+    if (rr.ok) {
+      const rd = await rr.json();
+      accessToken = rd.accessToken;
+      localStorage.setItem('kotabi_token', accessToken);
+      headers['Authorization'] = 'Bearer ' + accessToken;
+      res = await fetch(API + path, { method, headers, body: opts.body });
+    } else { logout(); throw new Error('SESSION_EXPIRED'); }
+  }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || data.message || 'Request failed');
+  return data;
+}
+
+function logout() {
+  accessToken = null; refreshTokenStr = null; currentUser = null;
+  localStorage.removeItem('kotabi_token');
+  localStorage.removeItem('kotabi_refresh');
+  updateUI();
+}
+
+function showUserMenu() { if (confirm('确定退出登录？')) logout(); }
+
+let authMode = 'login';
+function showAuthModal() {
+  document.getElementById('authModal').classList.add('show');
+  document.getElementById('authError').classList.remove('show');
+  switchTab('login');
+}
+function closeAuthModal() { document.getElementById('authModal').classList.remove('show'); }
+function switchTab(mode) {
+  authMode = mode;
+  document.getElementById('tabLogin').classList.toggle('active', mode === 'login');
+  document.getElementById('tabCodeLogin').classList.toggle('active', mode === 'codeLogin');
+  document.getElementById('tabRegister').classList.toggle('active', mode === 'register');
+  document.getElementById('usernameGroup').style.display = mode === 'register' ? '' : 'none';
+  document.getElementById('passwordGroup').style.display = mode === 'codeLogin' ? 'none' : '';
+  document.getElementById('loginCodeGroup').style.display = mode === 'codeLogin' ? '' : 'none';
+  document.getElementById('inviteCodeGroup').style.display = mode === 'register' ? '' : 'none';
+  document.getElementById('authSubmitBtn').textContent = mode === 'register' ? '注册' : '登录';
+  document.getElementById('authTitle').textContent = mode === 'register' ? '注册账号' : '登录账号';
+  document.getElementById('authError').classList.remove('show');
+}
+
+function getAuthEmail() {
+  const prefix = document.getElementById('authEmail').value.trim();
+  const suffix = document.getElementById('emailSuffix').value;
+  if (!prefix) return '';
+  if (prefix.includes('@')) return prefix;
+  return suffix ? prefix + suffix : prefix;
+}
+
+let _codeCountdown = 0;
+async function sendLoginCode() {
+  const email = getAuthEmail();
+  if (!email) { showToast('请输入邮箱', 'error'); return; }
+  const btn = document.getElementById('sendLoginCodeBtn');
+  btn.disabled = true; btn.textContent = '发送中...';
+  try {
+    const r = await fetch(API + '/auth/send-login-code', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
+    if (!r.ok) { const d = await r.json(); throw new Error(d.error || '发送失败'); }
+    showToast('验证码已发送', 'success');
+    _codeCountdown = 60;
+    const iv = setInterval(() => {
+      _codeCountdown--;
+      btn.textContent = _codeCountdown + 's';
+      if (_codeCountdown <= 0) { clearInterval(iv); btn.disabled = false; btn.textContent = '重新发送'; }
+    }, 1000);
+  } catch (e) { showToast(e.message, 'error'); btn.disabled = false; btn.textContent = '发送验证码'; }
+}
+
+async function handleAuth(e) {
+  e.preventDefault();
+  const btn = document.getElementById('authSubmitBtn');
+  const errEl = document.getElementById('authError');
+  errEl.classList.remove('show');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-sm"></span>' + (authMode === 'register' ? '注册中...' : '登录中...');
+  try {
+    const email = getAuthEmail();
+    let data;
+    if (authMode === 'register') {
+      const username = document.getElementById('regUsername').value.trim();
+      const password = document.getElementById('authPassword').value;
+      const inviteCode = document.getElementById('regInviteCode').value.trim().toUpperCase();
+      if (!username || username.length < 3) throw new Error('用户名至少 3 个字符');
+      const regBody = { username, email, password, platform: 'web' };
+      if (inviteCode) regBody.invite_code = inviteCode;
+      data = await apiCall('POST', '/auth/register', regBody);
+    } else if (authMode === 'codeLogin') {
+      const code = document.getElementById('loginCode').value.trim();
+      if (!code) throw new Error('请输入验证码');
+      data = await apiCall('POST', '/auth/login-with-code', { email, code, platform: 'web' });
+    } else {
+      const password = document.getElementById('authPassword').value;
+      data = await apiCall('POST', '/auth/login', { email, password, platform: 'web' });
+    }
+    accessToken = data.accessToken;
+    refreshTokenStr = data.refreshToken;
+    localStorage.setItem('kotabi_token', accessToken);
+    localStorage.setItem('kotabi_refresh', refreshTokenStr);
+    currentUser = data.user;
+    closeAuthModal();
+    updateUI();
+    showToast(authMode === 'register' ? '注册成功' : '登录成功', 'success');
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = authMode === 'register' ? '注册' : '登录';
+  }
+}
+
+function updateUI() {
+  const loginBtn = document.getElementById('loginBtn');
+  const badge = document.getElementById('userBadge');
+  const hint = document.getElementById('pricingHint');
+
+  if (currentUser) {
+    loginBtn.style.display = 'none';
+    badge.classList.add('show');
+    if (currentUser.is_member) {
+      badge.classList.add('is-member');
+      badge.innerHTML = '<span class="vip-icon">👑</span>' + esc(currentUser.username || currentUser.email);
+    } else {
+      badge.classList.remove('is-member');
+      badge.textContent = currentUser.username || currentUser.email;
+    }
+    if (hint) hint.innerHTML = '👑 基础功能免费使用 · <a href="/membership">升级会员</a> 解锁更多额度与高级功能';
+  } else {
+    loginBtn.style.display = '';
+    badge.classList.remove('show');
+    if (hint) hint.innerHTML = '🔐 浏览即可，<a href="javascript:void(0)" onclick="showAuthModal()">登录 / 注册</a>后使用工具 · 基础功能免费';
+  }
+}
+
+function goTool(path) {
+  if (!currentUser) { showAuthModal(); return; }
+  location.href = path;
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.className = `toast toast-${type} show`;
+  t.textContent = msg;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Init
+(async function() {
+  if (accessToken) {
+    try {
+      const data = await apiCall('GET', '/auth/me');
+      currentUser = data.user;
+    } catch { logout(); }
+  }
+  updateUI();
+})();
+</script>
+</body>
+</html>

@@ -37,6 +37,7 @@ const wrongAnswersRoutes = require('./routes/wrongAnswers');
 const pronunciationRoutes = require('./routes/pronunciation');
 const listeningChannelRoutes = require('./routes/listeningChannel');
 const reportRoutes = require('./routes/reports');
+const notificationRoutes = require('./routes/notifications');
 const kokoroTtsRoutes = require('./routes/kokoroTts');
 const kokoroAudioManagementRoutes = require('./routes/kokoroAudioManagement');
 const kanaRoutes = require('./routes/kana');
@@ -77,6 +78,10 @@ app.get('/', (_req, res, next) => {
   res.setHeader('Content-Security-Policy', homeCsp);
   next();
 });
+app.use('/support', (_req, res, next) => {
+  res.setHeader('Content-Security-Policy', homeCsp);
+  next();
+});
 
 // 会员页 CSP（需要连接 Stripe）
 const membershipCsp = "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https: data:; connect-src 'self' https://api.stripe.com; frame-src https://js.stripe.com https://hooks.stripe.com";
@@ -110,6 +115,9 @@ app.use('/api/', limiter);
 
 // Stripe webhook needs raw body for signature verification — must come before express.json()
 app.post('/api/v1/stripe/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
+// 兼容 Stripe Dashboard 上历史配置的端点路径
+app.post('/stripe_webhooks', express.raw({ type: 'application/json' }), stripeWebhook);
+app.post('/api/v1/stripe_webhooks', express.raw({ type: 'application/json' }), stripeWebhook);
 
 // Body parsing
 app.use(express.json({ limit: '50mb' }));
@@ -145,6 +153,21 @@ app.get('/privacy', (req, res) => res.sendFile(path.join(__dirname, '../public/p
 // Forum static files
 app.use('/forum', express.static(path.join(__dirname, '../public/forum')));
 app.get('/forum', (req, res) => res.sendFile(path.join(__dirname, '../public/forum/index.html')));
+// Support page
+app.use('/support', express.static(path.join(__dirname, '../public/support')));
+app.get('/support', (req, res) => res.sendFile(path.join(__dirname, '../public/support/index.html')));
+// Tools pages
+app.use('/tools', (_req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' https: data:; media-src 'self' blob: https:; connect-src 'self'"
+  );
+  next();
+});
+app.use('/tools', express.static(path.join(__dirname, '../public/tools')));
+app.get('/tools', (req, res) => res.sendFile(path.join(__dirname, '../public/tools/index.html')));
+app.get('/tools/screenshot-generator', (req, res) => res.sendFile(path.join(__dirname, '../public/tools/screenshot-generator/index.html')));
+app.get('/tools/kokoro-tts', (req, res) => res.sendFile(path.join(__dirname, '../public/tools/kokoro-tts/index.html')));
 
 // API Routes
 app.use('/api/v1/auth', authRoutes);
@@ -167,11 +190,17 @@ app.use('/api/v1/wrong-answers', wrongAnswersRoutes);
 app.use('/api/v1/pronunciation', pronunciationRoutes);
 app.use('/api/v1/listening-channels', listeningChannelRoutes);
 app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/tts', kokoroTtsRoutes);
 app.use('/api/v1/kokoro-audio', kokoroAudioManagementRoutes);
 app.use('/api/v1/kana', kanaRoutes);
 app.use('/api/v1/stripe', stripeRouter);
 app.use('/api/v1/payment', paymentRoutes);
+
+// 公开接口：支持渠道
+const { getPublicSupportChannels } = require('./controllers/adminController');
+const asyncHandlerPublic = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+app.get('/api/v1/support-channels', asyncHandlerPublic(getPublicSupportChannels));
 
 // Health check
 app.get('/health', (req, res) => {

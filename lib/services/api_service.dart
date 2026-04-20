@@ -494,11 +494,13 @@ class ApiService {
     required String channel,
     required Uint8List imageBytes,
     String fileName = 'proof.jpg',
+    String? userNote,
   }) async {
     final formData = FormData.fromMap({
       'proof': MultipartFile.fromBytes(imageBytes, filename: fileName),
       'plan_id': planId,
       'channel': channel,
+      if (userNote != null && userNote.trim().isNotEmpty) 'user_note': userNote.trim(),
     });
     final res = await _dio.post('/payment/qrcode/submit', data: formData);
     return Map<String, dynamic>.from(res.data);
@@ -508,6 +510,43 @@ class ApiService {
   Future<List<dynamic>> getMyOrders() async {
     final res = await _dio.get('/payment/orders');
     return res.data['orders'] as List? ?? [];
+  }
+
+  /// 申请退款（仅首次订阅 7 天内有效）
+  Future<Map<String, dynamic>> applyRefund({required String reason}) async {
+    final res = await _dio.post('/payment/refund/apply', data: {'reason': reason});
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  // ─── 消息通知 ─────────────────────────────────────────
+  Future<Map<String, dynamic>> getNotifications({int page = 1, int limit = 20, bool unreadOnly = false}) async {
+    final res = await _dio.get('/notifications', queryParameters: {
+      'page': page,
+      'limit': limit,
+      if (unreadOnly) 'unread_only': '1',
+    });
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  Future<int> getNotificationUnreadCount() async {
+    try {
+      final res = await _dio.get('/notifications/unread-count');
+      return (res.data['count'] as int?) ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<void> markNotificationRead(int id) async {
+    await _dio.post('/notifications/$id/read');
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    await _dio.post('/notifications/read-all');
+  }
+
+  Future<void> deleteNotification(int id) async {
+    await _dio.delete('/notifications/$id');
   }
 
   /// Stripe: 创建 Checkout Session，返回 { url, sessionId }

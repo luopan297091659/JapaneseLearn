@@ -180,12 +180,10 @@ footer { text-align: center; padding: 28px 16px; font-size: 12px; color: var(--t
   <div class="spacer"></div>
   <a class="nav-link" href="/">首页</a>
   <a class="nav-link active" href="/membership">会员</a>
-  <a class="nav-link" href="/forum">社区</a>
-  <a class="nav-link" href="/app">浏览器版</a>
+  <a class="nav-link active" href="/support">支持</a>
+  <a class="nav-link" href="/tools">工具箱</a>
   <div class="user-account" id="userAccount">
     <span class="user-badge" id="userBadge" onclick="showUserMenu()"></span>
-    <span class="user-sub" id="memberExpire"></span>
-    <span class="user-sub" id="userInviteCode" style="cursor:pointer;display:none;" onclick="copyInviteCode()"></span>
   </div>
   <a class="nav-link" id="loginBtn" href="javascript:void(0)" onclick="showAuthModal()">登录</a>
 </nav>
@@ -537,17 +535,30 @@ function showUserMenu() {
   if (confirm('确定退出登录？')) logout();
 }
 
+// ── Plan Rank（等级，越高越尊贵；同级或低级套餐对当前用户置灰）──
+const PLAN_RANK = { monthly: 1, yearly: 2, lifetime: 3 };
+function planRankOf(planId) { return PLAN_RANK[planId] || 0; }
+function currentUserRank() {
+  if (!currentUser || !currentUser.is_member) return 0;
+  // 体验会员（trial）视为无等级，可开通任意付费套餐
+  if (currentUser.is_trial || currentUser.membership_plan === 'trial') return 0;
+  return planRankOf(currentUser.membership_plan);
+}
+let _plansCache = [];
+
 // ── Load Plans ──
 async function loadPlans() {
   try {
     const data = await fetch(API + '/sync/membership-plans').then(r => r.json());
     const plans = (data.plans || []).filter(p => p.enabled);
+    _plansCache = plans;
     renderPlans(plans);
   } catch {
-    renderPlans([
+    _plansCache = [
       { id: 'monthly', name: '月度会员', price: 18, period: 'month', features: ['全功能解锁', '所有功能无限制使用', 'AI 对话 · 发音评测', '错题集 · 学习计划'], description: '按月订阅，灵活选择' },
       { id: 'yearly', name: '年度会员', price: 128, period: 'year', features: ['全功能解锁', '所有功能无限制使用', 'AI 对话 · 发音评测', '错题集 · 学习计划', '比月付节省 41%'], description: '年度订阅，最高性价比' },
-    ]);
+    ];
+    renderPlans(_plansCache);
   }
 }
 
@@ -555,35 +566,47 @@ function renderPlans(plans) {
   const grid = document.getElementById('plansGrid');
   grid.innerHTML = '';
   // free card
-  grid.innerHTML += `
-    <div class="plan-card">
-      <div class="plan-name">免费版</div>
-      <div class="plan-price">¥0</div>
-      <div class="plan-desc">基础学习功能，适合入门体验</div>
-      <ul class="plan-features">
-        <li>五十音学习</li>
-        <li>都道府县测验</li>
-        <li>部分功能有每日次数限制</li>
-        <li>AI·发音·Anki 等高级功能不可用</li>
-      </ul>
-      <button class="plan-btn plan-btn-secondary" disabled>当前使用中</button>
-    </div>
-  `;
+    // grid.innerHTML += `
+     //  <div class="plan-card">
+     //    <div class="plan-name">免费版</div>
+      //   <div class="plan-price">¥0</div>
+      //   <div class="plan-desc">基础学习功能，适合入门体验</div>
+       //  <ul class="plan-features">
+       //    <li>五十音学习</li>
+       //    <li>都道府县测验</li>
+        //   //   <li>部分功能有每日次数限制</li>
+         //  <li>AI·发音·Anki 等高级功能不可用</li>
+       //  </ul>
+       //  <button class="plan-btn plan-btn-secondary" disabled>当前使用中</button>
+     //  </div>
+    // `;
+  const userRank = currentUserRank();
+  const userPlanId = currentUser && currentUser.is_member ? currentUser.membership_plan : null;
   plans.forEach((p, i) => {
     const isPopular = p.id === 'yearly' || (plans.length === 1 && i === 0);
     const periodLabel = { month: '/月', year: '/年', forever: ' 终身' }[p.period] || '';
     const features = Array.isArray(p.features) && p.features.length
       ? p.features
       : ['全功能解锁', '所有功能无限制使用', 'AI 对话 · 发音评测', '错题集 · 学习计划'];
+    const pRank = planRankOf(p.id);
+    const isCurrent = userPlanId === p.id;
+    const isLowerOrEqual = userRank > 0 && pRank > 0 && pRank <= userRank;
+    const disabled = isLowerOrEqual;
+    let btnLabel = '立即开通';
+    if (isCurrent) btnLabel = '当前套餐';
+    else if (disabled) btnLabel = '已不可降级';
+    const btnHtml = disabled
+      ? `<button class="plan-btn plan-btn-primary" disabled style="opacity:.5;cursor:not-allowed;background:#9ca3af;">${btnLabel}</button>`
+      : `<button class="plan-btn plan-btn-primary" onclick="handleBuy('${esc(p.id)}')">${btnLabel}</button>`;
     grid.innerHTML += `
-      <div class="plan-card ${isPopular ? 'popular' : ''}">
+      <div class="plan-card ${isPopular ? 'popular' : ''} ${isCurrent ? 'current' : ''}">
         <div class="plan-name">${esc(p.name)}</div>
         <div class="plan-price">¥${p.price}<small>${periodLabel}</small></div>
         <div class="plan-desc">${esc(p.description || '')}</div>
         <ul class="plan-features">
           ${features.map(f => '<li>' + esc(String(f)) + '</li>').join('')}
         </ul>
-        <button class="plan-btn plan-btn-primary" onclick="handleBuy('${esc(p.id)}')">立即开通</button>
+        ${btnHtml}
       </div>
     `;
   });
@@ -652,8 +675,6 @@ function updateUI() {
   const loginBtn = document.getElementById('loginBtn');
   const badge = document.getElementById('userBadge');
   const account = document.getElementById('userAccount');
-  const subEl = document.getElementById('memberExpire');
-  const inviteEl = document.getElementById('userInviteCode');
 
   if (currentUser) {
     loginBtn.style.display = 'none';
@@ -661,26 +682,16 @@ function updateUI() {
     if (currentUser.is_member) {
       badge.classList.add('is-member');
       badge.innerHTML = '<span class="vip-icon">👑</span>' + esc(currentUser.username || currentUser.email);
-      const days = currentUser.membership_days_left;
-      subEl.textContent = days !== undefined ? `会员 · 剩余 ${days} 天` : '会员';
     } else {
       badge.classList.remove('is-member');
       badge.textContent = currentUser.username || currentUser.email;
-      subEl.textContent = '免费版';
-    }
-    // 显示邀请码
-    if (currentUser.invite_code) {
-      inviteEl.style.display = '';
-      const cnt = currentUser.invite_count || 0;
-      inviteEl.innerHTML = '🎁 邀请码: <b>' + esc(currentUser.invite_code) + '</b> · 已邀请 ' + cnt + ' 人 <span style="color:var(--primary);font-size:10px">(点击复制)</span>';
-    } else {
-      inviteEl.style.display = 'none';
     }
   } else {
     loginBtn.style.display = '';
     account.classList.remove('show');
-    inviteEl.style.display = 'none';
   }
+  // 用户状态变化后重渲染套餐按钮（控制可开通状态）
+  if (_plansCache && _plansCache.length) renderPlans(_plansCache);
 }
 
 function copyInviteCode() {

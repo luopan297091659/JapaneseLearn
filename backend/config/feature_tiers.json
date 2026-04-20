@@ -114,7 +114,7 @@
       "free_values": [10],
       "member_values": [10, 20, 30],
       "free_label": "仅10题",
-      "member_label": "10 / 20 / 30题"
+      "member_label": "无限制"
     },
     {
       "id": "kana_writing_modes",

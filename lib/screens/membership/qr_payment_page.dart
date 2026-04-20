@@ -115,7 +115,7 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
           icon: const Icon(Icons.arrow_back_ios_rounded),
           onPressed: () => context.pop(),
         ),
-        title: const Text('扫码支付'),
+        title: const Text('会员支付'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

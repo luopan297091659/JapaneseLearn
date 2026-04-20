@@ -16,7 +16,7 @@
       "period": "month",
       "description": "完整功能解锁，按月计费，随时取消",
       "features": ["发音训练", "错题集", "学习计划", "AI翻译"],
-      "apple_product_id": "kotabi.vip.monthly",
+      "apple_product_id": "kotabi.sub.monthly",
       "enabled": true
     },
     {
@@ -26,7 +26,7 @@
       "period": "year",
       "description": "全功能 + 年度优惠，比月付省22%",
       "features": ["无限练习题", "SRS 间隔复习", "听力课程", "离线下载"],
-      "apple_product_id": "kotabi.vip.yearly",
+      "apple_product_id": "kotabi.sub.yearly",
       "enabled": true
     },
     {

@@ -7,6 +7,7 @@ import '../../utils/tts_helper.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
+import 'nhk_webview_screen.dart';
 
 class NhkDetailScreen extends StatefulWidget {
   final String newsId;
@@ -323,17 +324,25 @@ class _NhkDetailScreenState extends State<NhkDetailScreen> {
                         ),
                       ),
                     ],
-                    // 查看原文按钮
+                    // 阅读全文按钮（在应用内打开 NHK 页面）
                     if (_articleLink.isNotEmpty) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
                       Center(
-                        child: OutlinedButton.icon(
-                          onPressed: () => launchUrl(Uri.parse(_articleLink), mode: LaunchMode.externalApplication),
-                          icon: const Icon(Icons.open_in_new, size: 16),
-                          label: const Text('查看原文'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF0077B6),
-                            side: const BorderSide(color: Color(0xFF0077B6), width: 0.8),
+                        child: FilledButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => NhkWebViewScreen(
+                                url: _articleLink,
+                                title: widget.article?.title ?? 'NHK ニュース',
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.article_outlined, size: 18),
+                          label: const Text('阅读全文'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF0077B6),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                           ),
                         ),
                       ),

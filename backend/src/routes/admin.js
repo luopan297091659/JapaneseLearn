@@ -26,6 +26,7 @@ const {
   generateSingleAudio,
   listOrders, reviewOrder, uploadQrCode,
   getEmailSettings, saveEmailSettings, testEmailSettings,
+  getSupportChannels, saveSupportChannel, deleteSupportChannel, uploadSupportQrCode,
 } = require('../controllers/adminController');
 const {
   adminListChannels, adminCreateChannel, adminUpdateChannel, adminDeleteChannel, adminRefreshChannel,
@@ -212,5 +213,11 @@ router.get('/kana/:id',                  permissionCheck('vocabulary'), asyncHan
 router.post('/kana',                     permissionCheck('vocabulary'), asyncHandler(createKanaItem));
 router.put('/kana/:id',                  permissionCheck('vocabulary'), asyncHandler(updateKanaItem));
 router.delete('/kana/:id',               permissionCheck('vocabulary'), asyncHandler(deleteKanaItem));
+
+// 支持渠道管理
+router.get('/support-channels',           superAdminAuth, asyncHandler(getSupportChannels));
+router.post('/support-channels',          superAdminAuth, asyncHandler(saveSupportChannel));
+router.delete('/support-channels/:id',    superAdminAuth, asyncHandler(deleteSupportChannel));
+router.post('/support-channels/upload-qr', superAdminAuth, imageUpload.single('qrcode'), asyncHandler(uploadSupportQrCode));
 
 module.exports = router;

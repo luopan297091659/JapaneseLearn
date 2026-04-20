@@ -20,6 +20,11 @@ const fs = require('fs');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const { sendOrderNotification } = require('../services/emailService');
+const { handleAppleNotification } = require('../services/appleNotifications');
+
+// ── Apple App Store Server Notifications V2 webhook ──────────────────────────
+// 必须无需鉴权，URL 在 App Store Connect 的 App Information 中配置
+router.post('/apple/notifications', asyncHandler(handleAppleNotification));
 
 // ── 配置读取 ─────────────────────────────────────────────────────────────────
 const PLANS_FILE = path.join(__dirname, '../../config/membership.json');
@@ -137,6 +142,7 @@ router.post('/apple/verify', authenticate, asyncHandler(async (req, res) => {
   }
 
   // 创建订单并激活
+  const expiresAtMs = matchedTx?.expires_date_ms ? Number(matchedTx.expires_date_ms) : null;
   const order = await MembershipOrder.create({
     user_id: req.user.id,
     plan_id: plan.id,
@@ -145,6 +151,9 @@ router.post('/apple/verify', authenticate, asyncHandler(async (req, res) => {
     channel: 'apple_iap',
     status: 'paid',
     apple_transaction_id: transaction_id || matchedTx?.transaction_id || null,
+    apple_original_transaction_id: matchedTx?.original_transaction_id || transaction_id || null,
+    apple_environment: verified.receipt?.environment || null,
+    apple_expires_at: expiresAtMs ? new Date(expiresAtMs) : null,
     apple_receipt: receipt_data.substring(0, 500), // 只存截断，避免存大量数据
     paid_at: new Date(),
   });
@@ -259,9 +268,9 @@ const proofUpload = multer({
 
 router.post('/qrcode/submit', authenticate, proofUpload.single('proof'), asyncHandler(async (req, res) => {
   if (!req.file) throw new HttpError(400, '请上传付款截图');
-  const { plan_id, channel } = req.body;
+  const { plan_id, channel, user_note } = req.body;
   if (!plan_id) throw new HttpError(400, '请选择套餐');
-  if (!['qrcode_alipay', 'qrcode_wechat'].includes(channel)) {
+  if (!['qrcode_alipay', 'qrcode_wechat', 'qrcode_bank', 'apple_iap_failed'].includes(channel)) {
     throw new HttpError(400, '无效的支付渠道');
   }
 
@@ -271,7 +280,7 @@ router.post('/qrcode/submit', authenticate, proofUpload.single('proof'), asyncHa
 
   // 检查是否有待审核订单
   const pendingCount = await MembershipOrder.count({
-    where: { user_id: req.user.id, status: 'pending', channel: ['qrcode_alipay', 'qrcode_wechat'] },
+    where: { user_id: req.user.id, status: 'pending', channel: ['qrcode_alipay', 'qrcode_wechat', 'qrcode_bank', 'apple_iap_failed'] },
   });
   if (pendingCount >= 3) throw new HttpError(400, '您有太多待审核订单，请等待管理员处理');
 
@@ -289,6 +298,7 @@ router.post('/qrcode/submit', authenticate, proofUpload.single('proof'), asyncHa
     channel,
     status: 'pending',
     proof_image_url: proofUrl,
+    user_note: (user_note || '').toString().slice(0, 1000) || null,
   });
 
   // 异步发送邮件通知，不阻塞响应
@@ -327,5 +337,63 @@ router.get('/orders', authenticate, asyncHandler(async (req, res) => {
   });
   res.json({ orders });
 }));
+// ── 退款申请（仅首次订阅 7 天内可申请） ─────────────────────────
+router.post('/refund/apply', authenticate, asyncHandler(async (req, res) => {
+  const { reason } = req.body || {};
+  if (!reason || !String(reason).trim()) throw new HttpError(400, '请填写退款原因');
 
+  // 取最近一笔 paid 订单
+  const lastPaid = await MembershipOrder.findOne({
+    where: { user_id: req.user.id, status: 'paid' },
+    order: [['paid_at', 'DESC']],
+  });
+  if (!lastPaid || !lastPaid.paid_at) throw new HttpError(400, '未找到可退款的订单');
+
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+  const elapsed = Date.now() - new Date(lastPaid.paid_at).getTime();
+  if (elapsed > sevenDaysMs) {
+    throw new HttpError(400, '超过 7 天退款期限，无法申请退款');
+  }
+
+  // 防重复：已有 pending 退款记录则拒绝
+  const dup = await MembershipOrder.findOne({
+    where: { user_id: req.user.id, channel: 'refund_request', status: 'pending' },
+  });
+  if (dup) throw new HttpError(400, '您已有退款申请在处理中');
+
+  // 创建一条 refund_request 工单（复用订单表）
+  const order = await MembershipOrder.create({
+    user_id: req.user.id,
+    plan_id: lastPaid.plan_id,
+    amount: lastPaid.amount,
+    currency: lastPaid.currency,
+    channel: 'refund_request',
+    status: 'pending',
+    admin_note: `[退款申请] 原订单=${lastPaid.id}\n原因：${String(reason).slice(0, 500)}`,
+  });
+
+  // 邮件通知管理员
+  try {
+    const cfg = readConfig();
+    const noti = cfg.notification || {};
+    if (noti.order_email_enabled && noti.order_email_recipients && noti.order_email_recipients.length) {
+      sendOrderNotification(noti.order_email_recipients, {
+        orderId: order.id,
+        userName: req.user.nickname || req.user.username || '未知',
+        userEmail: req.user.email || '',
+        planName: `退款申请：${lastPaid.plan_id}`,
+        amount: lastPaid.amount,
+        channel: 'refund_request',
+        createdAt: order.createdAt,
+        proofUrl: null,
+      }).catch(err => logger.error('发送退款邮件失败:', err));
+    }
+  } catch (e) { /* ignore */ }
+
+  res.json({
+    ok: true,
+    message: '退款申请已提交，我们将在 3 个工作日内处理',
+    order_id: order.id,
+  });
+}));
 module.exports = router;

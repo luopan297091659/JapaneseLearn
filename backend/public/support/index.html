@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>技术支持 & 社区 — 言旅 Kotabi</title>
+<link rel="icon" type="image/png" href="/app/favicon.png">
+<style>
+:root {
+  --primary: #4361ee;
+  --primary-dark: #2f4ac1;
+  --primary-light: #eef0fd;
+  --surface: #ffffff;
+  --surface2: #f8f9fc;
+  --border: #e5e7ef;
+  --text: #1a1c2e;
+  --text-sub: #6b7280;
+  --text-hint: #9ca3af;
+  --radius: 16px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 16px rgba(67,97,238,.08);
+  --shadow-md: 0 4px 24px rgba(67,97,238,.13);
+  --nav-h: 56px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { font-family: "Noto Sans CJK SC","PingFang SC","Microsoft YaHei",sans-serif; color: var(--text); background: var(--surface2); line-height: 1.6; }
+a { text-decoration: none; color: var(--primary); }
+a:hover { opacity: .85; }
+
+nav {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h);
+  background: rgba(255,255,255,.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border); display: flex; align-items: center;
+  padding: 0 clamp(12px,4vw,48px); gap: 8px; z-index: 100;
+}
+nav .logo { font-size: 20px; font-weight: 800; color: var(--primary); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+nav .logo img { width: 32px; height: 32px; border-radius: 8px; }
+nav .logo sub { font-size: 11px; font-weight: 400; color: var(--text-sub); margin-left: 2px; vertical-align: baseline; }
+nav .spacer { flex: 1; }
+nav .nav-link {
+  font-size: 13px; font-weight: 600; color: var(--text-sub); padding: 5px 10px;
+  border-radius: var(--radius-sm); transition: all .15s; white-space: nowrap;
+}
+nav .nav-link:hover { color: var(--primary); background: var(--primary-light); }
+nav .nav-link.active { color: var(--primary); }
+
+.page-header {
+  margin-top: var(--nav-h); padding: 48px clamp(16px,6vw,80px) 36px;
+  text-align: center;
+  background: linear-gradient(135deg, #0f0c29 0%, #1a1a4e 40%, #24243e 100%);
+  color: #fff;
+}
+.page-header h1 { font-size: clamp(22px,4vw,32px); font-weight: 900; margin-bottom: 8px; }
+.page-header p { font-size: 14px; color: rgba(255,255,255,.7); max-width: 520px; margin: 0 auto; }
+
+.channels-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px; max-width: 960px; margin: -20px auto 48px; padding: 0 clamp(12px,4vw,48px);
+  position: relative; z-index: 1;
+}
+@media (max-width: 480px) { .channels-grid { grid-template-columns: 1fr; } }
+
+.channel-card {
+  background: var(--surface); border-radius: var(--radius); padding: 24px 20px;
+  box-shadow: var(--shadow); transition: transform .2s, box-shadow .2s;
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;
+}
+.channel-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+.channel-card .platform-icon { font-size: 36px; }
+.channel-card .platform-tag {
+  display: inline-block; font-size: 11px; padding: 2px 10px; border-radius: 10px;
+  background: var(--primary-light); color: var(--primary); font-weight: 600;
+}
+.channel-card h3 { font-size: 16px; font-weight: 700; }
+.channel-card .qr-box {
+  width: 180px; height: 180px; border: 2px solid var(--border); border-radius: 12px;
+  overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center;
+}
+.channel-card .qr-box img { width: 100%; height: 100%; object-fit: contain; }
+.channel-card .join-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 9px 24px;
+  border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+  border: none; cursor: pointer; transition: all .15s;
+  background: var(--primary); color: #fff; text-decoration: none;
+}
+.channel-card .join-btn:hover { background: var(--primary-dark); color: #fff; opacity: 1; }
+
+.empty-state {
+  text-align: center; padding: 80px 20px; color: var(--text-hint);
+  max-width: 960px; margin: 0 auto;
+}
+.empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+/* ── Community Hero ── */
+.community-hero {
+  max-width: 960px; margin: 0 auto 32px; padding: 0 clamp(12px,4vw,48px);
+}
+.community-card {
+  background: linear-gradient(135deg, #4361ee 0%, #7c3aed 50%, #f472b6 100%);
+  border-radius: var(--radius); padding: 36px 32px; color: #fff;
+  display: flex; align-items: center; gap: 28px;
+  box-shadow: 0 8px 32px rgba(67,97,238,.25);
+  transition: transform .2s, box-shadow .2s; cursor: pointer;
+  text-decoration: none; position: relative; overflow: hidden;
+}
+.community-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(67,97,238,.35); color: #fff; opacity: 1; }
+.community-card::before {
+  content: ''; position: absolute; top: -50%; right: -20%; width: 300px; height: 300px;
+  background: rgba(255,255,255,.08); border-radius: 50%;
+}
+.community-card::after {
+  content: ''; position: absolute; bottom: -40%; left: -10%; width: 200px; height: 200px;
+  background: rgba(255,255,255,.05); border-radius: 50%;
+}
+.community-card .comm-icon { font-size: 56px; flex-shrink: 0; z-index: 1; }
+.community-card .comm-body { flex: 1; z-index: 1; }
+.community-card h2 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+.community-card p { font-size: 14px; opacity: .85; line-height: 1.6; margin-bottom: 12px; }
+.community-card .comm-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+.community-card .comm-tag {
+  padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  background: rgba(255,255,255,.2); backdrop-filter: blur(4px);
+}
+.community-card .comm-arrow { font-size: 24px; flex-shrink: 0; z-index: 1; opacity: .7; }
+@media (max-width: 600px) {
+  .community-card { flex-direction: column; text-align: center; padding: 28px 20px; }
+  .community-card .comm-arrow { display: none; }
+  .community-card .comm-tags { justify-content: center; }
+}
+
+.section-divider {
+  max-width: 960px; margin: 0 auto 28px; padding: 0 clamp(12px,4vw,48px);
+  display: flex; align-items: center; gap: 12px;
+}
+.section-divider h2 { font-size: 18px; font-weight: 800; white-space: nowrap; }
+.section-divider .line { flex: 1; height: 1px; background: var(--border); }
+
+.loading { text-align: center; padding: 80px 20px; color: var(--text-hint); max-width: 960px; margin: 0 auto; }
+.spinner { display: inline-block; width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+footer {
+  text-align: center; padding: 28px 16px; font-size: 12px; color: var(--text-hint);
+  border-top: 1px solid var(--border); margin-top: 48px;
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo" onclick="location.href='/'">
+    <img src="/home/app_icon.png" alt="言旅">
+    言旅<sub>Kotabi</sub>
+  </div>
+  <div class="spacer"></div>
+  <a class="nav-link" href="/">首页</a>
+  <a class="nav-link" href="/membership">会员</a>
+  <a class="nav-link active" href="/support">支持</a>
+  <a class="nav-link" href="/tools">工具箱</a>
+  <a class="nav-link" id="loginBtn" href="javascript:void(0)" onclick="showAuthModal()">登录</a>
+</nav>
+
+<section class="page-header">
+  <h1>🤝 技术支持 & 社区</h1>
+  <p>获取使用帮助、加入学习社区、反馈问题建议</p>
+</section>
+
+<!-- Community Hero -->
+<div class="community-hero" style="margin-top: -20px; position: relative; z-index: 1;">
+  <a class="community-card" href="/forum">
+    <div class="comm-icon">🌏</div>
+    <div class="comm-body">
+      <h2>加入言旅学习社区</h2>
+      <p>与数千名日语学习者一起交流！分享学习心得、互助答疑、每日打卡、参与话题讨论。
+        社区由言旅官方运营，定期举办学习活动和挑战赛。</p>
+      <div class="comm-tags">
+        <span class="comm-tag">📝 学习打卡</span>
+        <span class="comm-tag">💬 互助答疑</span>
+        <span class="comm-tag">🏆 活动挑战</span>
+        <span class="comm-tag">📚 资源分享</span>
+      </div>
+    </div>
+    <div class="comm-arrow">→</div>
+  </a>
+</div>
+
+<!-- Support Channels -->
+<div class="section-divider">
+  <h2>📱 交流群 & 技术支持</h2>
+  <div class="line"></div>
+</div>
+
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <p style="margin-top:12px">加载中…</p>
+</div>
+
+<div class="channels-grid" id="channelsGrid" style="display:none"></div>
+
+<div class="empty-state" id="emptyState" style="display:none">
+  <div class="icon">🏗️</div>
+  <p>支持渠道正在建设中，敬请期待</p>
+</div>
+
+<footer>© 2026 言旅 Kotabi — 让日语学习成为一段美好旅程<br><a href="/app/terms.html" style="color:#8B4513;text-decoration:none">用户协议</a> <span style="margin:0 4px;color:#9ca3af">·</span> <a href="/app/privacy.html" style="color:#8B4513;text-decoration:none">隐私政策</a> <span style="margin:0 4px;color:#9ca3af">·</span> <a href="/app/tokusho.html" style="color:#8B4513;text-decoration:none">特定商取引法</a></footer>
+
+<script>
+const PLATFORM_LABELS = {wechat:'微信群',dingtalk:'钉钉群',slack:'Slack',telegram:'Telegram',discord:'Discord',qq:'QQ群',line:'LINE',feishu:'飞书',other:'其他'};
+const PLATFORM_ICONS = {wechat:'💬',dingtalk:'🔔',slack:'💼',telegram:'✈️',discord:'🎮',qq:'🐧',line:'💚',feishu:'🪶',other:'🔗'};
+
+function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+async function loadChannels(){
+  try{
+    const res = await fetch('/api/v1/support-channels');
+    const data = await res.json();
+    const channels = data.channels || [];
+    document.getElementById('loading').style.display = 'none';
+
+    if(channels.length === 0){
+      document.getElementById('emptyState').style.display = '';
+      return;
+    }
+
+    const grid = document.getElementById('channelsGrid');
+    grid.style.display = '';
+    grid.innerHTML = channels.map(ch => {
+      const icon = PLATFORM_ICONS[ch.platform] || '🔗';
+      const label = PLATFORM_LABELS[ch.platform] || ch.platform;
+
+      let qrHtml = '';
+      if(ch.qr_code_url){
+        qrHtml = `<div class="qr-box"><img src="${esc(ch.qr_code_url)}" alt="扫码加入"></div>`;
+      }
+
+      let linkHtml = '';
+      if(ch.link){
+        linkHtml = `<a class="join-btn" href="${esc(ch.link)}" target="_blank" rel="noopener">加入 ${esc(label)} →</a>`;
+      }
+
+      return `
+        <div class="channel-card">
+          <div class="platform-icon">${icon}</div>
+          <span class="platform-tag">${esc(label)}</span>
+          <h3>${esc(ch.name)}</h3>
+          ${qrHtml}
+          ${linkHtml}
+        </div>`;
+    }).join('');
+  }catch(e){
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('emptyState').style.display = '';
+    console.error('加载支持渠道失败:', e);
+  }
+}
+
+loadChannels();
+</script>
+</body>
+</html>

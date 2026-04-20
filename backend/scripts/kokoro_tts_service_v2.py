@@ -61,7 +61,7 @@ CONFIG = {
     "enabled": True,
     "default_voice": "a",
     "default_emotion": "neutral",
-    "tts_engine": os.getenv("TTS_ENGINE", "edge-tts"),  # 可配置: edge-tts, gtts, google-tts, white-noise
+    "tts_engine": os.getenv("TTS_ENGINE", "edge-tts"),  # 可配置: edge-tts, gtts, google-tts, white-noise (gtts不支持多音色)
     "audio_format": os.getenv("AUDIO_FORMAT", "mp3"),  # 输出格式: mp3(默认,兼容性最好) 或 wav
     "voices": {
         "a": {"name": "女声优美", "lang": "ja_JP", "supported_emotions": ["neutral", "happy", "sad"]},
@@ -101,9 +101,9 @@ class RealTTS:
         
         # 映射Kokoro人声到各个TTS引擎
         self.edge_voice_map = {
-            "a": "ja-JP-NanamiNeural",      # 女声
-            "b": "ja-JP-NanamiNeural",      # 女声
-            "c": "ja-JP-KeitaNeural",       # 男声
+            "a": "ja-JP-NanamiNeural",      # 女声优美
+            "b": "ja-JP-ShioriNeural",      # 女声清晰
+            "c": "ja-JP-KeitaNeural",       # 男声深沉
         }
         self.google_voice_map = {
             "a": "ja-JP-Neural2-A",  # 女声

@@ -47,6 +47,7 @@ import '../screens/listening/immersion_screen.dart';
 import '../screens/membership/membership_comparison_page.dart';
 import '../screens/membership/qr_payment_page.dart';
 import '../screens/membership/stripe_checkout_page.dart';
+import '../screens/notifications/notifications_page.dart';
 import '../models/models.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -217,6 +218,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, state) => MembershipComparisonPage(
               isMember: (state.extra as bool?) ?? false,
             ),
+          ),
+          GoRoute(
+            path: '/notifications',
+            builder: (_, __) => const NotificationsPage(),
           ),
           GoRoute(
             path: '/qr-payment',

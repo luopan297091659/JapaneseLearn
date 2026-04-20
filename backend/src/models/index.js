@@ -408,12 +408,18 @@ const MembershipOrder = sequelize.define('MembershipOrder', {
   channel:         { type: DataTypes.STRING(30), allowNull: false, comment: 'apple_iap / stripe / qrcode_alipay / qrcode_wechat' },
   status:          { type: DataTypes.ENUM('pending', 'paid', 'rejected', 'expired', 'refunded'), defaultValue: 'pending' },
   // Apple IAP 字段
-  apple_transaction_id:  { type: DataTypes.STRING(200), allowNull: true },
-  apple_receipt:         { type: DataTypes.TEXT('medium'), allowNull: true },
+  apple_transaction_id:           { type: DataTypes.STRING(200), allowNull: true },
+  apple_original_transaction_id:  { type: DataTypes.STRING(200), allowNull: true, comment: '同一订阅跨续费共享' },
+  apple_environment:              { type: DataTypes.STRING(20), allowNull: true, comment: 'Production / Sandbox' },
+  apple_expires_at:               { type: DataTypes.DATE, allowNull: true, comment: 'Apple 返回的订阅到期时间' },
+  apple_auto_renew_status:        { type: DataTypes.BOOLEAN, allowNull: true },
+  apple_notification_type:        { type: DataTypes.STRING(60), allowNull: true, comment: '若来自服务端通知则记录' },
+  apple_receipt:                  { type: DataTypes.TEXT('medium'), allowNull: true },
   // Stripe 字段
   stripe_session_id:     { type: DataTypes.STRING(200), allowNull: true },
   // 二维码付款截图
   proof_image_url:       { type: DataTypes.STRING(500), allowNull: true, comment: '用户上传的付款截图' },
+  user_note:       { type: DataTypes.TEXT, allowNull: true, comment: '用户提交时的文字说明' },
   // 审核
   admin_note:      { type: DataTypes.TEXT, allowNull: true },
   reviewed_by:     { type: DataTypes.UUID, allowNull: true },
@@ -428,6 +434,7 @@ const MembershipOrder = sequelize.define('MembershipOrder', {
     { fields: ['status'] },
     { fields: ['channel'] },
     { fields: ['apple_transaction_id'] },
+    { fields: ['apple_original_transaction_id'] },
     { fields: ['stripe_session_id'] },
   ],
 });
