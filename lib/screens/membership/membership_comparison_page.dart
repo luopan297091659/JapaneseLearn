@@ -100,8 +100,6 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
     }
   }
 
-  String? _iapDiagnostic; // IAP 诊断消息（供用户感知）
-
   Future<void> _initIAP() async {
     await paymentService.init();
     final productIds = _plans
@@ -110,21 +108,6 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
         .toList();
     if (productIds.isNotEmpty) {
       await paymentService.loadProducts(productIds);
-      if (mounted) {
-        final err = paymentService.lastLoadError;
-        final loaded = productIds
-            .where((id) => paymentService.getLocalizedPrice(id) != null)
-            .length;
-        setState(() {
-          if (loaded == 0) {
-            _iapDiagnostic = err ?? 'App Store 产品未加载，请检查网络或 Apple ID 登录状态';
-          } else if (loaded < productIds.length) {
-            _iapDiagnostic = '部分产品未加载（$loaded/${productIds.length}）：$err';
-          } else {
-            _iapDiagnostic = null;
-          }
-        });
-      }
     }
 
     paymentService.onPurchaseResult = (planId, success, message) {
@@ -1240,30 +1223,6 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isIOS && _iapDiagnostic != null) ...[
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning_amber_rounded, size: 16, color: Color(0xFF92400E)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _iapDiagnostic!,
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF92400E)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
             SizedBox(
               width: double.infinity,
               height: 50,

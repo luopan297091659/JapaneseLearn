@@ -92,10 +92,9 @@ class PaymentService {
     }
     final product = _products[appleProductId];
     if (product == null) {
-      final hint = _lastLoadError != null ? '\n($_lastLoadError)' : '';
       return (
         started: false,
-        error: '产品未加载：$appleProductId\n请检查 App Store Connect 中此 IAP 是否已配置并通过审核$hint'
+        error: '暂时无法连接 App Store，请稍后重试',
       );
     }
     try {
