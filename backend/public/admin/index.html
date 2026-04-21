@@ -299,6 +299,7 @@ tbody tr:hover td{background:#f8faff}
       </select>
     </div>
     <div class="form-row"><label>套餐简介</label><input id="mp-desc" placeholder="适合入门用户的免费套餐" /></div>
+    <div class="form-row"><label>🍎 Apple 内购产品ID（App Store Connect 中配置的 Product ID）</label><input id="mp-apple-product-id" placeholder="kotabi.sub.monthly" /></div>
     <div class="form-row"><label>功能描述（每行一项，展示给用户看的文案）</label>
       <textarea id="mp-features" rows="3" placeholder="无限练习题&#10;SRS 间隔复习&#10;听力课程"></textarea>
     </div>
@@ -2895,6 +2896,7 @@ function _buildMembershipUI() {
       <td style="max-width:240px;color:#555">${(p.features||[]).map(f=>`<span style="display:inline-block;background:#f5f5f5;border-radius:10px;padding:1px 8px;margin:1px;font-size:11px">${esc(f)}</span>`).join(' ')}</td>
       <td style="max-width:200px">${(Array.isArray(p.bound_features)?p.bound_features:typeof p.bound_features==='string'?JSON.parse(p.bound_features||'[]'):[]).map(f=>`<span style="display:inline-block;background:#e0f2fe;border-radius:10px;padding:1px 8px;margin:1px;font-size:11px;color:#0369a1">${esc(f)}</span>`).join(' ')||'<span style="color:#aaa;font-size:11px">未绑定</span>'}</td>
       <td>${esc(p.description||'')}</td>
+      <td style="font-family:monospace;font-size:11px;color:${p.apple_product_id?'#0369a1':'#aaa'}">${esc(p.apple_product_id||'未配置')}</td>
       <td>
         <button class="btn btn-ghost btn-sm" onclick="editPlan(${i})">编辑</button>
         <button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="deletePlan(${i})">删除</button>
@@ -2937,9 +2939,9 @@ function _buildMembershipUI() {
     <div style="overflow-x:auto">
     <table>
       <thead><tr>
-        <th>状态</th><th>套餐</th><th>价格</th><th>周期</th><th>功能描述</th><th>绑定功能</th><th>简介</th><th>操作</th>
+        <th>状态</th><th>套餐</th><th>价格</th><th>周期</th><th>功能描述</th><th>绑定功能</th><th>简介</th><th>Apple产品ID</th><th>操作</th>
       </tr></thead>
-      <tbody id="mem-plans-body">${rows||'<tr><td colspan="8" style="text-align:center;color:#aaa">暂无套餐，请点击"添加套餐"</td></tr>'}</tbody>
+      <tbody id="mem-plans-body">${rows||'<tr><td colspan="9" style="text-align:center;color:#aaa">暂无套餐，请点击"添加套餐"</td></tr>'}</tbody>
     </table>
     </div>
   </div>
@@ -3046,7 +3048,7 @@ function toggleAllBoundFeatures() {
 async function addPlan() {
   await loadFeatureListForPlan();
   document.getElementById('mp-title').textContent = '添加套餐';
-  ['mp-idx','mp-id','mp-name','mp-price','mp-desc','mp-features'].forEach(id => {
+  ['mp-idx','mp-id','mp-name','mp-price','mp-desc','mp-features','mp-apple-product-id'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = id==='mp-idx' ? '-1' : '';
   });
@@ -3068,6 +3070,7 @@ async function editPlan(idx) {
   document.getElementById('mp-period').value= p.period||'month';
   document.getElementById('mp-desc').value  = p.description||'';
   document.getElementById('mp-features').value = (p.features||[]).join('\n');
+  document.getElementById('mp-apple-product-id').value = p.apple_product_id || '';
   document.getElementById('mp-enabled').checked = !!p.enabled;
   renderBoundFeatures(Array.isArray(p.bound_features)?p.bound_features:typeof p.bound_features==='string'?JSON.parse(p.bound_features||'[]'):[]);
   openModal('modal-plan');
@@ -3082,11 +3085,12 @@ async function savePlan() {
   const desc    = document.getElementById('mp-desc').value.trim();
   const feats   = document.getElementById('mp-features').value.split('\n').map(s=>s.trim()).filter(Boolean);
   const enabled = document.getElementById('mp-enabled').checked;
+  const appleProductId = document.getElementById('mp-apple-product-id').value.trim();
   const boundFeatures = Array.from(document.querySelectorAll('.mp-bf-chk:checked')).map(el=>el.value);
   if (!id || !name) { toast('请填写 ID 和套餐名称', true); return; }
   const dup = _memCfg.plans.findIndex((p,i)=>p.id===id && i!==idx);
   if (dup !== -1) { toast('套餐 ID 已存在', true); return; }
-  const plan = { id, name, price, period, description: desc, features: feats, enabled, bound_features: boundFeatures };
+  const plan = { id, name, price, period, description: desc, features: feats, enabled, bound_features: boundFeatures, apple_product_id: appleProductId || null };
   if (idx === -1) { _memCfg.plans.push(plan); }
   else            { _memCfg.plans[idx] = plan; }
   closeModal('modal-plan');

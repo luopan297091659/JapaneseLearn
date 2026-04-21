@@ -293,6 +293,7 @@ const MembershipPlan = sequelize.define('MembershipPlan', {
   description:     { type: DataTypes.TEXT, allowNull: true },
   features:        { type: DataTypes.JSON, allowNull: true, comment: '功能描述列表' },
   bound_features:  { type: DataTypes.JSON, allowNull: true, comment: '绑定的功能ID列表' },
+  apple_product_id:{ type: DataTypes.STRING(100), allowNull: true, comment: 'Apple IAP 产品ID' },
   enabled:         { type: DataTypes.BOOLEAN, defaultValue: true },
   sort_order:      { type: DataTypes.INTEGER, defaultValue: 0 },
 }, { tableName: 'membership_plans' });

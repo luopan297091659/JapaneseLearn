@@ -1985,6 +1985,7 @@ async function saveMembershipConfig(req, res) {
           description: String(p.description || ''),
           features: p.features || [],
           bound_features: p.bound_features || [],
+          apple_product_id: p.apple_product_id || null,
           enabled: !!p.enabled,
           sort_order: i,
         });

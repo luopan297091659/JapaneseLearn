@@ -76,7 +76,7 @@ router.get('/membership-plans', asyncHandler(async (req, res) => {
       plans: [
         { id: 'monthly', name: '月度会员', price: 18, period: 'month', enabled: true },
         { id: 'yearly', name: '年度会员', price: 128, period: 'year', enabled: true },
-        { id: 'lifetime', name: '终身会员', price: 398, period: 'forever', enabled: false },
+        { id: 'lifetime', name: '终身会员', price: 328, period: 'forever', enabled: false },
       ],
     };
   }
@@ -91,6 +91,7 @@ router.get('/membership-plans', asyncHandler(async (req, res) => {
       enabled: p.enabled !== false,
       features: p.features || [],
       description: p.description || '',
+      apple_product_id: p.apple_product_id || null,
     }));
   res.json({ ok: true, plans });
 }));
