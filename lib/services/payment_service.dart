@@ -20,9 +20,12 @@ class PaymentService {
   /// 回调：购买完成
   void Function(String planId, bool success, String message)? onPurchaseResult;
 
+  bool _initialized = false;
+
   // ── 初始化 ──────────────────────────────────────────────────────────────
   Future<void> init() async {
     if (!Platform.isIOS) return;
+    if (_initialized) return; // 防止重复订阅 purchaseStream
     _iapAvailable = await _iap.isAvailable();
     if (!_iapAvailable) return;
 
@@ -31,6 +34,7 @@ class PaymentService {
       onDone: () => _sub?.cancel(),
       onError: (_) {},
     );
+    _initialized = true;
   }
 
   void dispose() {

@@ -87,18 +87,20 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
           _trialEnabled = trialCfg['enabled'] == true;
           _trialDays = trialCfg['days'] as int? ?? 3;
           _trialDesc = trialCfg['description'] as String? ?? '';
-          _loading = false;
         });
       }
+      // iOS: 初始化 IAP 并加载产品价格（须在 _plans 赋值后、_loading=false 前完成）
+      if (Platform.isIOS) {
+        await _initIAP();
+      }
+      if (mounted) setState(() => _loading = false);
     } catch (_) {
+      if (Platform.isIOS) await _initIAP();
       if (mounted) setState(() => _loading = false);
     }
-
-    // iOS: 初始化 IAP 并加载产品价格
-    if (Platform.isIOS) {
-      await _initIAP();
-    }
   }
+
+  String? _iapDiagnostic; // IAP 诊断消息（供用户感知）
 
   Future<void> _initIAP() async {
     await paymentService.init();
@@ -108,7 +110,21 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
         .toList();
     if (productIds.isNotEmpty) {
       await paymentService.loadProducts(productIds);
-      if (mounted) setState(() {});
+      if (mounted) {
+        final err = paymentService.lastLoadError;
+        final loaded = productIds
+            .where((id) => paymentService.getLocalizedPrice(id) != null)
+            .length;
+        setState(() {
+          if (loaded == 0) {
+            _iapDiagnostic = err ?? 'App Store 产品未加载，请检查网络或 Apple ID 登录状态';
+          } else if (loaded < productIds.length) {
+            _iapDiagnostic = '部分产品未加载（$loaded/${productIds.length}）：$err';
+          } else {
+            _iapDiagnostic = null;
+          }
+        });
+      }
     }
 
     paymentService.onPurchaseResult = (planId, success, message) {
@@ -130,7 +146,18 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
 
   Future<void> _purchasePlan(Map<String, dynamic> plan) async {
     final appleProductId = plan['apple_product_id'] as String?;
-    if (appleProductId == null || appleProductId.isEmpty) return;
+    if (appleProductId == null || appleProductId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('此套餐暂未配置 Apple 内购产品，请联系客服'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+      return;
+    }
 
     // iOS 月度/年度自动续期订阅：购买前先让用户阅读并同意《自动续费协议》
     if (Platform.isIOS) {
@@ -1198,7 +1225,7 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         decoration: BoxDecoration(
           color: Theme.of(context).scaffoldBackgroundColor,
           border: Border(top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4))),
@@ -1210,21 +1237,50 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
             ),
           ],
         ),
-        child: SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: FilledButton(
-            onPressed: onPressed,
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFF59E0B),
-              disabledBackgroundColor: cs.outlineVariant,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isIOS && _iapDiagnostic != null) ...[
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, size: 16, color: Color(0xFF92400E)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _iapDiagnostic!,
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF92400E)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: FilledButton(
+                onPressed: onPressed,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFF59E0B),
+                  disabledBackgroundColor: cs.outlineVariant,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                ),
+                child: _purchasing
+                    ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                    : Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
             ),
-            child: _purchasing
-                ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
-                : Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ),
+          ],
         ),
       ),
     );
@@ -1285,9 +1341,7 @@ class _PlanCard extends StatelessWidget {
               color: bgColor,
             ),
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-            child: Stack(
-              children: [
-                Row(
+            child: Row(
                   children: [
                     // 选中圆点
                     Container(
@@ -1344,6 +1398,19 @@ class _PlanCard extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
+                        if (badge != null) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(badge!,
+                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                        ],
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
@@ -1369,25 +1436,9 @@ class _PlanCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (badge != null)
-                  Positioned(
-                    top: -2, right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(badge!,
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
-    );
+        );
   }
 }
