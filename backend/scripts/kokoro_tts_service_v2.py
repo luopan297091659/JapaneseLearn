@@ -64,9 +64,15 @@ CONFIG = {
     "tts_engine": os.getenv("TTS_ENGINE", "edge-tts"),  # 可配置: edge-tts, gtts, google-tts, white-noise (gtts不支持多音色)
     "audio_format": os.getenv("AUDIO_FORMAT", "mp3"),  # 输出格式: mp3(默认,兼容性最好) 或 wav
     "voices": {
-        "a": {"name": "女声优美", "lang": "ja_JP", "supported_emotions": ["neutral", "happy", "sad"]},
-        "b": {"name": "女声清晰", "lang": "ja_JP", "supported_emotions": ["neutral", "happy", "sad"]},
-        "c": {"name": "男声深沉", "lang": "ja_JP", "supported_emotions": ["neutral", "happy", "sad"]},
+        "a": {"name": "女声优美", "lang": "ja_JP", "lang_label": "🇯🇵 日语", "supported_emotions": ["neutral", "happy", "sad"]},
+        "b": {"name": "女声清晰", "lang": "ja_JP", "lang_label": "🇯🇵 日语", "supported_emotions": ["neutral", "happy", "sad"]},
+        "c": {"name": "男声深沉", "lang": "ja_JP", "lang_label": "🇯🇵 日语", "supported_emotions": ["neutral", "happy", "sad"]},
+        "d": {"name": "女声晓晓", "lang": "zh_CN", "lang_label": "🇨🇳 中文", "supported_emotions": ["neutral", "happy", "sad"]},
+        "e": {"name": "男声云希", "lang": "zh_CN", "lang_label": "🇨🇳 中文", "supported_emotions": ["neutral", "happy", "sad"]},
+        "f": {"name": "女声Jenny", "lang": "en_US", "lang_label": "🇺🇸 英语", "supported_emotions": ["neutral", "happy", "sad"]},
+        "g": {"name": "男声Guy", "lang": "en_US", "lang_label": "🇺🇸 英语", "supported_emotions": ["neutral", "happy", "sad"]},
+        "h": {"name": "女声SunHi", "lang": "ko_KR", "lang_label": "🇰🇷 韩语", "supported_emotions": ["neutral", "happy", "sad"]},
+        "i": {"name": "男声InJoon", "lang": "ko_KR", "lang_label": "🇰🇷 韩语", "supported_emotions": ["neutral", "happy", "sad"]},
     },
     "model_name": "kokoro-82m",
     "port": 8010,
@@ -104,6 +110,12 @@ class RealTTS:
             "a": "ja-JP-NanamiNeural",      # 女声优美
             "b": "ja-JP-ShioriNeural",      # 女声清晰
             "c": "ja-JP-KeitaNeural",       # 男声深沉
+            "d": "zh-CN-XiaoxiaoNeural",    # 中文女声
+            "e": "zh-CN-YunxiNeural",       # 中文男声
+            "f": "en-US-JennyNeural",       # 英语女声
+            "g": "en-US-GuyNeural",         # 英语男声
+            "h": "ko-KR-SunHiNeural",       # 韩语女声
+            "i": "ko-KR-InJoonNeural",      # 韩语男声
         }
         self.google_voice_map = {
             "a": "ja-JP-Neural2-A",  # 女声

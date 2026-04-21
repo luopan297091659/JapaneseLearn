@@ -1098,15 +1098,17 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
             ),
           ),
         ],
-        // ── 开通会员失败 → 上传支付截图（人工补单，所有平台显示） ──
-        const SizedBox(height: 4),
-        Center(
-          child: TextButton.icon(
-            onPressed: _showFailureUploadSheet,
-            icon: Icon(Icons.report_gmailerrorred_rounded, size: 18, color: cs.error),
-            label: Text('开通会员失败？上传支付截图', style: TextStyle(color: cs.error)),
+        // ── 开通会员失败 → 上传支付截图（人工补单，Android 显示） ──
+        if (!isIOS) ...[
+          const SizedBox(height: 4),
+          Center(
+            child: TextButton.icon(
+              onPressed: _showFailureUploadSheet,
+              icon: Icon(Icons.report_gmailerrorred_rounded, size: 18, color: cs.error),
+              label: Text('开通会员失败？上传支付截图', style: TextStyle(color: cs.error)),
+            ),
           ),
-        ),
+        ],
         const SizedBox(height: 8),
         Center(
           child: GestureDetector(
