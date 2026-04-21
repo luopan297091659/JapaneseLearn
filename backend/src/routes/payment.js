@@ -109,6 +109,10 @@ router.get('/plans', asyncHandler(async (req, res) => {
 // ── Apple IAP 收据验证 ───────────────────────────────────────────────────────
 router.post('/apple/verify', authenticate, asyncHandler(async (req, res) => {
   const { receipt_data, plan_id, transaction_id } = req.body;
+  console.log('[apple/verify] user=%s plan=%s tx=%s receiptLen=%s receiptHead=%s',
+    req.user?.id, plan_id, transaction_id,
+    receipt_data ? receipt_data.length : 0,
+    receipt_data ? String(receipt_data).substring(0, 24) : '');
   if (!receipt_data || !plan_id) throw new HttpError(400, '缺少收据或套餐信息');
 
   const plans = readPlans();
@@ -129,8 +133,15 @@ router.post('/apple/verify', authenticate, asyncHandler(async (req, res) => {
     }
   }
 
-  // 向 Apple 验证收据
-  const verified = await verifyAppleReceipt(receipt_data, payment.apple_shared_secret);
+  // 检测收据格式：StoreKit 2 (JWS, "eyJ..." 开头) 或 StoreKit 1 (base64 PKCS7, "MII..." 开头)
+  const isJws = typeof receipt_data === 'string' && receipt_data.startsWith('eyJ') && receipt_data.split('.').length === 3;
+  let verified;
+  if (isJws) {
+    console.log('[apple/verify] detected StoreKit 2 JWS receipt, parsing payload');
+    verified = parseJwsTransaction(receipt_data);
+  } else {
+    verified = await verifyAppleReceipt(receipt_data, payment.apple_shared_secret);
+  }
   if (!verified.valid) {
     throw new HttpError(400, verified.error || 'Apple 收据验证失败');
   }
@@ -202,14 +213,25 @@ async function verifyAppleReceipt(receiptData, sharedSecret) {
 
   // 先尝试生产环境
   let result = await postToApple('https://buy.itunes.apple.com/verifyReceipt', payload);
+  console.log('[apple/verify] production status=%s env=%s', result.status, result.environment || result.receipt?.environment);
 
   // status 21007 = sandbox receipt sent to production, retry with sandbox
-  if (result.status === 21007) {
-    result = await postToApple('https://sandbox.itunes.apple.com/verifyReceipt', payload);
+  // 部分沙箱账号生产端返回 21002，同样回退沙箱重试
+  if (result.status === 21007 || result.status === 21002 || result.status === 21008) {
+    console.log('[apple/verify] retrying sandbox endpoint due to status=%s', result.status);
+    const sandboxResult = await postToApple('https://sandbox.itunes.apple.com/verifyReceipt', payload);
+    console.log('[apple/verify] sandbox status=%s env=%s', sandboxResult.status, sandboxResult.environment || sandboxResult.receipt?.environment);
+    if (sandboxResult.status === 0) {
+      result = sandboxResult;
+    } else if (result.status === 21002) {
+      // 生产为 21002 且沙箱也失败，以沙箱错误为准
+      result = sandboxResult;
+    }
   }
 
   if (result.status !== 0) {
-    return { valid: false, error: `Apple verification failed: status ${result.status}` };
+    const desc = APPLE_STATUS_DESC[result.status] || '未知错误';
+    return { valid: false, error: `Apple 验证失败 status=${result.status}（${desc}）` };
   }
 
   // 获取最新交易
@@ -224,6 +246,47 @@ async function verifyAppleReceipt(receiptData, sharedSecret) {
     latestTransaction: latestTx,
     receipt: result.receipt,
   };
+}
+
+// Apple 验证状态码 https://developer.apple.com/documentation/appstorereceipts/status
+const APPLE_STATUS_DESC = {
+  21000: '请求不是 POST',
+  21002: '收据数据格式错误或已损坏',
+  21003: '收据未能验证',
+  21004: 'shared secret 与产品不匹配',
+  21005: 'Apple 收据服务器暂时不可用',
+  21006: '收据有效但订阅已过期',
+  21007: '沙箱收据发送到了生产环境',
+  21008: '生产收据发送到了沙箱环境',
+  21010: '收据无授权',
+};
+
+// 解析 StoreKit 2 JWS 收据（App Store Server JWS Signed Transaction）
+// JWS 由 Apple 服务器签发，结构 header.payload.signature，payload 是 base64url 编码的 JSON
+// 字段参考: https://developer.apple.com/documentation/appstoreserverapi/jwstransactiondecodedpayload
+function parseJwsTransaction(jws) {
+  try {
+    const parts = String(jws).split('.');
+    if (parts.length !== 3) return { valid: false, error: 'JWS 格式错误（非3段）' };
+    const payloadJson = Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+    const payload = JSON.parse(payloadJson);
+    console.log('[apple/verify] JWS payload productId=%s tx=%s origTx=%s env=%s expiresMs=%s',
+      payload.productId, payload.transactionId, payload.originalTransactionId, payload.environment, payload.expiresDate);
+    return {
+      valid: true,
+      latestTransaction: {
+        product_id: payload.productId,
+        transaction_id: payload.transactionId,
+        original_transaction_id: payload.originalTransactionId,
+        purchase_date_ms: payload.purchaseDate,
+        expires_date_ms: payload.expiresDate, // 非订阅可能没有
+      },
+      receipt: { environment: payload.environment },
+    };
+  } catch (e) {
+    console.error('[apple/verify] JWS parse error:', e.message);
+    return { valid: false, error: 'JWS 解析失败：' + e.message };
+  }
 }
 
 // ── 二维码收款配置 ───────────────────────────────────────────────────────────
