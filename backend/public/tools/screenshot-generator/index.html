@@ -819,6 +819,7 @@ async function generateAll() {
   document.getElementById('generateBtn').disabled = false;
   document.getElementById('downloadSection').style.display = '';
   showToast(`生成完成！共 ${count} 张截图`, 'success');
+  trackTool('generate');
 }
 
 // ============================================================
@@ -855,6 +856,7 @@ async function downloadAll() {
   link.href = URL.createObjectURL(content);
   link.click();
   URL.revokeObjectURL(link.href);
+  trackTool('export');
 }
 
 // ============================================================
@@ -903,7 +905,20 @@ async function checkAuth() {
     initDeviceChips();
     updatePreviewTabs();
     updateGenerateBtn();
+    trackTool('open', token);
   } catch { showGate(); }
+}
+
+function trackTool(action, tokenOpt) {
+  try {
+    const t = tokenOpt || localStorage.getItem('kotabi_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (t) headers['Authorization'] = 'Bearer ' + t;
+    fetch('/api/v1/tools/track', {
+      method: 'POST', headers, keepalive: true,
+      body: JSON.stringify({ tool_id: 'screenshot-generator', action: action || 'open' }),
+    }).catch(() => {});
+  } catch (_) {}
 }
 
 function showGate() {

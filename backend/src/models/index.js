@@ -250,6 +250,28 @@ const ApiLog = sequelize.define('ApiLog', {
   user_agent: { type: DataTypes.STRING(300), allowNull: true },
 }, { tableName: 'api_logs', timestamps: true, updatedAt: false });
 
+// ────────── Tool Usage Log（官网工具箱使用统计）──────────
+const ToolUsageLog = sequelize.define('ToolUsageLog', {
+  id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
+  tool_id: { type: DataTypes.STRING(60), allowNull: false, comment: 'screenshot-generator / kokoro-tts / ...' },
+  action: { type: DataTypes.STRING(40), allowNull: false, defaultValue: 'open', comment: 'open / generate / export / ...' },
+  user_id: { type: DataTypes.UUID, allowNull: true },
+  ip: { type: DataTypes.STRING(60), allowNull: true },
+  user_agent: { type: DataTypes.STRING(300), allowNull: true },
+  referer: { type: DataTypes.STRING(500), allowNull: true },
+  meta: { type: DataTypes.JSON, allowNull: true },
+}, {
+  tableName: 'tool_usage_logs',
+  timestamps: true,
+  updatedAt: false,
+  indexes: [
+    { fields: ['tool_id'] },
+    { fields: ['action'] },
+    { fields: ['user_id'] },
+    { fields: ['created_at'] },
+  ],
+});
+
 // ────────── NHK News Cache (缓存历史NHK新闻) ──────────
 const NhkNewsCache = sequelize.define('NhkNewsCache', {
   id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
@@ -459,6 +481,7 @@ module.exports = {
   StudyPlanCardState,
   ContentVersion,
   ApiLog,
+  ToolUsageLog,
   AppRelease,
   AppConfig,
   GameScore,

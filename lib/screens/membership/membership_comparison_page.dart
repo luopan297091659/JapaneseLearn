@@ -1034,13 +1034,17 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
     final isIOS = Platform.isIOS;
     // Use fetched plans if available, otherwise fallback to defaults
     final plans = _plans.where((p) => p['enabled'] != false && p['id'] != 'free').toList();
-    final usePlans = plans.isNotEmpty
+    final rawPlans = plans.isNotEmpty
         ? plans
         : [
             {'id': 'monthly', 'name': '月度会员', 'price': 18, 'period': 'month', 'apple_product_id': 'kotabi.sub.monthly'},
             {'id': 'yearly', 'name': '年度会员', 'price': 128, 'period': 'year', 'apple_product_id': 'kotabi.sub.yearly'},
             {'id': 'lifetime', 'name': '终身会员', 'price': 398, 'period': 'forever', 'apple_product_id': 'kotabi.vip.lifetime'},
           ];
+    // iOS 端在年度会员通过 App Store 审核前，先隐藏年度方案入口。
+    final usePlans = isIOS
+        ? rawPlans.where((p) => p['id'] != 'yearly').toList()
+        : rawPlans;
 
     // 默认选中：第一个可选套餐（推荐 yearly，否则首个未禁用）
     if (_selectedPlanIndex < 0 || _selectedPlanIndex >= usePlans.length) {
@@ -1169,13 +1173,17 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
   Widget _buildBottomCheckoutBar(ColorScheme cs) {
     final isIOS = Platform.isIOS;
     final plans = _plans.where((p) => p['enabled'] != false && p['id'] != 'free').toList();
-    final usePlans = plans.isNotEmpty
+    final rawPlans = plans.isNotEmpty
         ? plans
         : [
             {'id': 'monthly', 'name': '月度会员', 'price': 18, 'period': 'month', 'apple_product_id': 'kotabi.sub.monthly'},
             {'id': 'yearly', 'name': '年度会员', 'price': 128, 'period': 'year', 'apple_product_id': 'kotabi.sub.yearly'},
             {'id': 'lifetime', 'name': '终身会员', 'price': 398, 'period': 'forever', 'apple_product_id': 'kotabi.vip.lifetime'},
           ];
+    // iOS 端在年度会员通过 App Store 审核前，先隐藏年度方案入口。
+    final usePlans = isIOS
+        ? rawPlans.where((p) => p['id'] != 'yearly').toList()
+        : rawPlans;
     if (_selectedPlanIndex < 0 || _selectedPlanIndex >= usePlans.length) {
       return const SizedBox.shrink();
     }

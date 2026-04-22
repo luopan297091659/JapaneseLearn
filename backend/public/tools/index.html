@@ -245,7 +245,7 @@ footer a { color: var(--text-hint); }
       <div class="tool-card">
         <div class="tool-icon">🎙️</div>
         <h3>AI 语音合成</h3>
-        <p>基于 Kokoro 引擎的日语语音合成工具。支持多种音色、语速调节、情感控制，生成自然流畅的日语朗读音频。</p>
+        <p>基于 Kokoro 引擎的多种语音合成工具。支持多种音色、语速调节、情感控制，生成自然流畅的多语言朗读音频。</p>
         <div class="tool-tags">
           <span class="tool-tag tool-tag-free">免费额度</span>
           <span class="tool-tag tool-tag-member">会员无限</span>
@@ -495,7 +495,19 @@ function updateUI() {
 
 function goTool(path) {
   if (!currentUser) { showAuthModal(); return; }
+  trackToolUse(path.includes('screenshot') ? 'screenshot-generator' : (path.includes('kokoro') ? 'kokoro-tts' : 'tools-home'), 'click');
   location.href = path;
+}
+
+function trackToolUse(toolId, action) {
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+    fetch(API + '/tools/track', {
+      method: 'POST', headers, keepalive: true,
+      body: JSON.stringify({ tool_id: toolId, action: action || 'open' }),
+    }).catch(() => {});
+  } catch (_) {}
 }
 
 function showToast(msg, type = 'success') {
@@ -514,6 +526,7 @@ function showToast(msg, type = 'success') {
     } catch { logout(); }
   }
   updateUI();
+  trackToolUse('tools-home', 'open');
 })();
 </script>
 </body>

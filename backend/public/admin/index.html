@@ -252,6 +252,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item" onclick="nav('stat-users')"    id="nav-stat-users"><span class="icon">📈</span><span class="nav-label">用户统计</span></div>
   <div class="nav-item" onclick="nav('stat-traffic')"  id="nav-stat-traffic"><span class="icon">🌐</span><span class="nav-label">流量监控</span></div>
   <div class="nav-item" onclick="nav('stat-behavior')" id="nav-stat-behavior"><span class="icon">🧠</span><span class="nav-label">行为分析</span></div>
+  <div class="nav-item" onclick="nav('stat-tools')"    id="nav-stat-tools"><span class="icon">🧰</span><span class="nav-label">官网工具统计</span></div>
   <div class="sidebar-section">运营</div>
   <div class="nav-item" onclick="nav('membership')" id="nav-membership"><span class="icon">👑</span><span class="nav-label">会员配置</span></div>
   <div class="nav-item" onclick="nav('orders')" id="nav-orders"><span class="icon">💰</span><span class="nav-label">订单审核</span></div>
@@ -691,6 +692,7 @@ const PAGE_TITLES = {
   tracks:'听力管理', channels:'频道管理', users:'用户管理', reports:'问题反馈',
   'stat-users':'用户统计', 'stat-traffic':'流量监控',
   'stat-behavior':'行为分析',
+  'stat-tools':'官网工具统计',
   membership:'会员配置', orders:'订单审核', import:'内容导入', sync:'全局同步', 'feature-tiers':'功能分级',
   app:'App管理', 'feature-toggles':'功能开关', 'ai-settings':'AI设置', 'kokoro-settings':'Kokoro TTS设置',
   'email-settings':'邮件配置', 'support-channels':'支持渠道',
@@ -701,6 +703,7 @@ const PAGE_ICONS = {
   tracks:'🎧', channels:'📺', users:'👥', reports:'🐛',
   'stat-users':'📈', 'stat-traffic':'🌐',
   'stat-behavior':'🧠',
+  'stat-tools':'🧰',
   membership:'👑', orders:'💰', import:'📥', sync:'🔄', 'feature-tiers':'🎯',
   app:'📱', 'feature-toggles':'🔀', 'ai-settings':'🤖', 'kokoro-settings':'🎤',
   'email-settings':'✉️', 'support-channels':'🤝', 'admin-mgmt':'🔐'
@@ -710,6 +713,7 @@ const PAGE_DESCS = {
   tracks:'管理听力素材', channels:'管理YouTube/B站频道', users:'查看管理用户',
   'stat-users':'用户数据分析', 'stat-traffic':'API流量监控',
   'stat-behavior':'用户行为数据分析',
+  'stat-tools':'官网工具箱使用次数统计',
   membership:'会员套餐管理', orders:'审核用户付款订单', import:'Anki/CSV导入', sync:'内容版本发布', 'feature-tiers':'会员功能分级配置',
   app:'App上传下载', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量', 'kokoro-settings':'Kokoro TTS 合成参数配置',
   'email-settings':'SMTP 邮件发送配置', 'support-channels':'管理微信/钉钉/LINE/飞书等支持群组',
@@ -742,6 +746,7 @@ const PAGE_FNS = {
   tracks: renderTracks, channels: renderChannels, users: renderUsers,
   'stat-users': renderStatUsers, 'stat-traffic': renderStatTraffic,
   'stat-behavior': renderStatBehavior,
+  'stat-tools': renderStatTools,
   membership: renderMembership, orders: renderOrders, import: renderImport, sync: renderSync,
   app: renderAppManage, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings, 'kokoro-settings': renderKokoroSettings,
   'email-settings': renderEmailSettings,
@@ -2866,6 +2871,123 @@ async function loadBehaviorCharts(){
         `</tbody></table>`;
     } else if(uw) { uw.innerHTML='<p style="color:#aaa;text-align:center">暂无数据</p>'; }
 
+  } catch(e) { toast(e.message, true); }
+}
+
+/* ─────────────────────────── STAT: TOOLS（官网工具箱使用统计）──────────────── */
+async function renderStatTools(){
+  document.getElementById('content').innerHTML =
+    rangeBarHTML('tu','loadToolUsageCharts()') +
+    `<div class="cards-row" id="tu-cards"></div>
+    <div class="charts-grid">
+      <div class="chart-card" style="grid-column:1/-1"><h4>📊 各工具使用次数趋势</h4><canvas id="tu-trend-c" style="max-height:280px"></canvas></div>
+      <div class="chart-card"><h4>🧰 工具使用次数分布</h4><canvas id="tu-pie-c"></canvas></div>
+      <div class="chart-card"><h4>🔐 登录用户 vs 匿名访问</h4><canvas id="tu-usertype-c"></canvas></div>
+      <div class="chart-card"><h4>⏰ 使用时段分布（小时）</h4><canvas id="tu-hour-c"></canvas></div>
+      <div class="chart-card"><h4>⚙️ 动作分布（按工具）</h4><canvas id="tu-action-c"></canvas></div>
+      <div class="chart-card" style="grid-column:1/-1"><h4>🧾 工具汇总</h4>
+        <table class="top-table"><thead><tr><th>工具</th><th>总次数</th><th>独立用户</th><th>独立IP</th><th>打开</th><th>生成</th><th>导出</th><th>最近使用</th></tr></thead>
+        <tbody id="tu-summary-body"></tbody></table>
+      </div>
+      <div class="chart-card"><h4>👤 登录用户 Top20</h4><div id="tu-users-wrap" style="max-height:360px;overflow-y:auto"></div></div>
+      <div class="chart-card"><h4>🕒 最近 30 条访问</h4><div id="tu-recent-wrap" style="max-height:360px;overflow-y:auto"></div></div>
+    </div>`;
+  await loadToolUsageCharts();
+}
+
+function _tuLabel(map, id){ return (map && map[id]) ? map[id] : id; }
+
+async function loadToolUsageCharts(){
+  const r = getRange('tu');
+  try{
+    const d = await api('GET','/admin/stats/tool-usage' + qs(r));
+    const labels = d.toolLabels || {};
+    const summary = d.summary || [];
+
+    // 顶部卡片
+    const totalRange = summary.reduce((s,x)=>s + Number(x.usage_count||0), 0);
+    const totalUsers = summary.reduce((s,x)=>s + Number(x.unique_users||0), 0);
+    const totalIps   = summary.reduce((s,x)=>s + Number(x.unique_ips||0), 0);
+    const cards = document.getElementById('tu-cards');
+    if(cards) cards.innerHTML = `
+      <div class="stat-card"><div class="stat-icon c-indigo">🧰</div><div class="stat-body"><div class="stat-label">范围内总使用</div><div class="stat-value">${totalRange.toLocaleString()}</div></div></div>
+      <div class="stat-card"><div class="stat-icon c-emerald">👥</div><div class="stat-body"><div class="stat-label">登录用户数（去重合计）</div><div class="stat-value">${totalUsers.toLocaleString()}</div></div></div>
+      <div class="stat-card"><div class="stat-icon c-cyan">🌐</div><div class="stat-body"><div class="stat-label">独立 IP 数（合计）</div><div class="stat-value">${totalIps.toLocaleString()}</div></div></div>
+      <div class="stat-card"><div class="stat-icon c-amber">📚</div><div class="stat-body"><div class="stat-label">历史累计</div><div class="stat-value">${Number(d.totalAll||0).toLocaleString()}</div></div></div>`;
+
+    // 趋势：每个工具一条线
+    const periods = Array.from(new Set((d.trend||[]).map(x=>x.period))).sort();
+    const tools = Array.from(new Set((d.trend||[]).map(x=>x.tool_id)));
+    const trendMap = {};
+    (d.trend||[]).forEach(x=>{ trendMap[`${x.tool_id}|${x.period}`] = Number(x.count); });
+    const trendDatasets = tools.map(t => ({
+      label: _tuLabel(labels,t),
+      data: periods.map(p => trendMap[`${t}|${p}`] || 0),
+    }));
+    mkChart('tu-trend-c', lineCfg(periods, trendDatasets), 'tu-trend');
+
+    // 工具占比饼图
+    mkChart('tu-pie-c', pieCfg(
+      summary.map(x=>_tuLabel(labels,x.tool_id)),
+      summary.map(x=>Number(x.usage_count))
+    ), 'tu-pie');
+
+    // 登录 vs 匿名
+    const ut = d.userTypeDist || { logged_in:0, anonymous:0 };
+    mkChart('tu-usertype-c', pieCfg(['登录用户','匿名访问'], [Number(ut.logged_in||0), Number(ut.anonymous||0)]), 'tu-usertype');
+
+    // 小时分布
+    const hours = Array.from({length:24},(_,i)=>i);
+    const hourMap = {};
+    (d.hourlyDist||[]).forEach(x=>{ hourMap[x.hour]=Number(x.count); });
+    mkChart('tu-hour-c', barCfg(hours.map(h=>`${h}:00`), [{label:'使用次数', data:hours.map(h=>hourMap[h]||0)}]), 'tu-hour');
+
+    // 动作分布（堆叠条）— 每个工具的 open/generate/export
+    const actions = ['open','generate','export','play','click'];
+    const actionMap = {};
+    (d.actionDist||[]).forEach(x=>{ actionMap[`${x.tool_id}|${x.action}`] = Number(x.count); });
+    const toolIds = summary.map(x=>x.tool_id);
+    const actionDatasets = actions.map(a => ({
+      label: a,
+      data: toolIds.map(t => actionMap[`${t}|${a}`] || 0),
+    }));
+    mkChart('tu-action-c', barCfg(toolIds.map(t=>_tuLabel(labels,t)), actionDatasets), 'tu-action');
+
+    // 汇总表
+    const sumBody = document.getElementById('tu-summary-body');
+    if(sumBody) sumBody.innerHTML = summary.length ? summary.map(x => `
+      <tr>
+        <td>${esc(_tuLabel(labels,x.tool_id))} <span style="color:#94a3b8;font-size:11px">${esc(x.tool_id)}</span></td>
+        <td><b>${Number(x.usage_count).toLocaleString()}</b></td>
+        <td>${Number(x.unique_users||0).toLocaleString()}</td>
+        <td>${Number(x.unique_ips||0).toLocaleString()}</td>
+        <td>${Number(x.opens||0).toLocaleString()}</td>
+        <td>${Number(x.generates||0).toLocaleString()}</td>
+        <td>${Number(x.exports||0).toLocaleString()}</td>
+        <td>${x.last_used ? new Date(x.last_used).toLocaleString() : '-'}</td>
+      </tr>`).join('') : '<tr><td colspan="8" style="text-align:center;color:#aaa">暂无数据</td></tr>';
+
+    // 用户 Top
+    const uw = document.getElementById('tu-users-wrap');
+    if(uw){
+      const rows = (d.topUsers||[]);
+      uw.innerHTML = rows.length
+        ? `<table><thead><tr><th>用户</th><th>工具</th><th>次数</th><th>最后使用</th></tr></thead><tbody>`
+          + rows.map(r=>`<tr><td>${esc(r.username||'')}<br><span style="color:#94a3b8;font-size:11px">${esc(r.email||'')}</span></td><td>${esc(_tuLabel(labels,r.tool_id))}</td><td>${Number(r.cnt).toLocaleString()}</td><td>${r.last_used?new Date(r.last_used).toLocaleString():'-'}</td></tr>`).join('')
+          + `</tbody></table>`
+        : '<p style="color:#aaa;text-align:center">暂无登录用户记录</p>';
+    }
+
+    // 最近访问
+    const rw = document.getElementById('tu-recent-wrap');
+    if(rw){
+      const rows = d.recent || [];
+      rw.innerHTML = rows.length
+        ? `<table><thead><tr><th>时间</th><th>工具</th><th>动作</th><th>用户</th><th>IP</th></tr></thead><tbody>`
+          + rows.map(r=>`<tr><td>${new Date(r.created_at).toLocaleString()}</td><td>${esc(_tuLabel(labels,r.tool_id))}</td><td>${esc(r.action||'')}</td><td>${r.username?esc(r.username):'<span style="color:#94a3b8">匿名</span>'}</td><td>${esc(r.ip||'')}</td></tr>`).join('')
+          + `</tbody></table>`
+        : '<p style="color:#aaa;text-align:center">暂无访问记录</p>';
+    }
   } catch(e) { toast(e.message, true); }
 }
 

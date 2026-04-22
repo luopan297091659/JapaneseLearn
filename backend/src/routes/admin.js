@@ -13,6 +13,7 @@ const {
   listUsers, updateUser, updateUserMembership, resetUserPassword,
   getContentVersion, publishContent,
   getTrafficStats, getUserStats, getBehaviorStats, getFeatureUsage,
+  getToolUsage,
   listKana, batchGenerateKanaAudio, getKanaList, getKanaById, createKanaItem, updateKanaItem, deleteKanaItem, bulkDeleteKanaItems,  // ✅ 五十音CRUD
   getMembershipConfig, saveMembershipConfig,
   getFeatureToggles, saveFeatureToggles,
@@ -95,6 +96,7 @@ router.get('/stats/traffic',  permissionCheck('stats'), asyncHandler(getTrafficS
 router.get('/stats/users',    permissionCheck('stats'), asyncHandler(getUserStats));
 router.get('/stats/behavior', permissionCheck('stats'), asyncHandler(getBehaviorStats));
 router.get('/stats/feature-usage', permissionCheck('stats'), asyncHandler(getFeatureUsage));
+router.get('/stats/tool-usage',    permissionCheck('stats'), asyncHandler(getToolUsage));
 
 // 词汇管理
 router.get('/vocabulary',              permissionCheck('vocabulary'), asyncHandler(listVocab));

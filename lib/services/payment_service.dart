@@ -22,6 +22,11 @@ class PaymentService {
 
   bool _initialized = false;
 
+  /// 标记本次购买/恢复流程是否由用户主动触发。
+  /// 当 StoreKit 在 app 启动时回放遗留的未完成交易时，该值为 false，
+  /// 此时若后端返回 already_processed，不再向 UI 弹出“此交易已处理”提示。
+  bool _userInitiated = false;
+
   // ── 初始化 ──────────────────────────────────────────────────────────────
   Future<void> init() async {
     if (!Platform.isIOS) return;
@@ -98,6 +103,7 @@ class PaymentService {
       );
     }
     try {
+      _userInitiated = true;
       final purchaseParam = PurchaseParam(productDetails: product);
       final ok = await _iap.buyNonConsumable(purchaseParam: purchaseParam);
       if (!ok) {
@@ -125,6 +131,7 @@ class PaymentService {
       return false;
     }
     try {
+      _userInitiated = true;
       await _iap.restorePurchases();
       return true;
     } catch (e) {
@@ -169,13 +176,23 @@ class PaymentService {
       );
 
       final alreadyProcessed = result['already_processed'] == true;
+      // 仅当用户主动发起购买/恢复时，才向 UI 反馈“此交易已处理”，
+      // 避免 StoreKit 启动时回放遗留交易导致页面一进入就反复弹出该提示。
+      if (alreadyProcessed && !_userInitiated) {
+        return;
+      }
       onPurchaseResult?.call(
         planId,
         true,
         alreadyProcessed ? '此交易已处理' : (result['message'] ?? '会员已开通'),
       );
     } catch (e) {
-      onPurchaseResult?.call('', false, '验证失败：$e');
+      if (_userInitiated) {
+        onPurchaseResult?.call('', false, '验证失败：$e');
+      }
+    } finally {
+      // 一笔交易处理完毕后清除标记，等待用户下一次主动操作
+      _userInitiated = false;
     }
   }
 

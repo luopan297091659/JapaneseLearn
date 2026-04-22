@@ -196,6 +196,7 @@ app.use('/api/v1/kokoro-audio', kokoroAudioManagementRoutes);
 app.use('/api/v1/kana', kanaRoutes);
 app.use('/api/v1/stripe', stripeRouter);
 app.use('/api/v1/payment', paymentRoutes);
+app.use('/api/v1/tools', require('./routes/tools'));
 
 // 公开接口：支持渠道
 const { getPublicSupportChannels } = require('./controllers/adminController');

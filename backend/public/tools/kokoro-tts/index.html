@@ -343,7 +343,19 @@ async function checkAuth() {
     document.getElementById('mainContent').style.display = '';
     loadVoices();
     updateQuota();
+    trackTool('open');
   } catch { showGate(); }
+}
+
+function trackTool(action) {
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+    fetch('/api/v1/tools/track', {
+      method: 'POST', headers, keepalive: true,
+      body: JSON.stringify({ tool_id: 'kokoro-tts', action: action || 'open' }),
+    }).catch(() => {});
+  } catch (_) {}
 }
 
 function showGate() {
@@ -496,6 +508,7 @@ async function synthesize() {
 
     const data = await res.json();
     currentAudioUrl = data.audio_url;
+    trackTool('generate');
 
     // Show player
     const player = document.getElementById('audioPlayer');

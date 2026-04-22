@@ -15,6 +15,7 @@ const {
   QuizSession, SrsCard,
   AppRelease, AppConfig, MembershipPlan,
   StudyPlanDailyTask, StudyPlanCardState,
+  ToolUsageLog,
 } = require('../models');
 const {
   getUserPreferences,
@@ -1741,6 +1742,123 @@ async function getFeatureUsage(req, res) {
   }
 }
 
+// ─── 官网工具箱使用统计 ──────────────────────────────────────────────────────
+const TOOL_LABELS = {
+  'screenshot-generator': 'App Store 截图生成器',
+  'kokoro-tts': 'AI 语音合成 (Kokoro)',
+  'tools-home': '工具箱首页',
+};
+
+async function getToolUsage(req, res) {
+  try {
+    const { grain, start, end } = resolveRange(req.query);
+    const fmt = grainFormat(grain);
+
+    // 汇总：每个工具的总次数 / 独立用户数 / 独立 IP 数
+    const summary = await sequelize.query(
+      `SELECT tool_id,
+              COUNT(*) AS usage_count,
+              COUNT(DISTINCT user_id) AS unique_users,
+              COUNT(DISTINCT ip) AS unique_ips,
+              SUM(CASE WHEN action='open' THEN 1 ELSE 0 END) AS opens,
+              SUM(CASE WHEN action='generate' THEN 1 ELSE 0 END) AS generates,
+              SUM(CASE WHEN action='export' THEN 1 ELSE 0 END) AS exports,
+              MAX(created_at) AS last_used
+       FROM tool_usage_logs
+       WHERE created_at BETWEEN :start AND :end
+       GROUP BY tool_id
+       ORDER BY usage_count DESC`,
+      { replacements: { start, end }, type: sequelize.QueryTypes.SELECT }
+    );
+
+    // 每个工具按时间维度的趋势
+    const trend = await sequelize.query(
+      `SELECT DATE_FORMAT(created_at, :fmt) AS period,
+              tool_id,
+              COUNT(*) AS count
+       FROM tool_usage_logs
+       WHERE created_at BETWEEN :start AND :end
+       GROUP BY period, tool_id
+       ORDER BY period ASC`,
+      { replacements: { fmt, start, end }, type: sequelize.QueryTypes.SELECT }
+    );
+
+    // 动作分布
+    const actionDist = await sequelize.query(
+      `SELECT tool_id, action, COUNT(*) AS count
+       FROM tool_usage_logs
+       WHERE created_at BETWEEN :start AND :end
+       GROUP BY tool_id, action
+       ORDER BY count DESC`,
+      { replacements: { start, end }, type: sequelize.QueryTypes.SELECT }
+    );
+
+    // 时段分布（小时）
+    const hourlyDist = await sequelize.query(
+      `SELECT HOUR(created_at) AS hour, COUNT(*) AS count
+       FROM tool_usage_logs
+       WHERE created_at BETWEEN :start AND :end
+       GROUP BY hour
+       ORDER BY hour ASC`,
+      { replacements: { start, end }, type: sequelize.QueryTypes.SELECT }
+    );
+
+    // 登录用户 vs 匿名访问占比
+    const userTypeDist = await sequelize.query(
+      `SELECT
+         SUM(CASE WHEN user_id IS NOT NULL THEN 1 ELSE 0 END) AS logged_in,
+         SUM(CASE WHEN user_id IS NULL THEN 1 ELSE 0 END) AS anonymous
+       FROM tool_usage_logs
+       WHERE created_at BETWEEN :start AND :end`,
+      { replacements: { start, end }, type: sequelize.QueryTypes.SELECT }
+    );
+
+    // 用户使用 Top 20（仅登录用户）
+    const topUsers = await sequelize.query(
+      `SELECT u.username, u.email, t.tool_id, COUNT(*) AS cnt, MAX(t.created_at) AS last_used
+       FROM tool_usage_logs t
+       JOIN users u ON u.id = t.user_id
+       WHERE t.created_at BETWEEN :start AND :end AND t.user_id IS NOT NULL
+       GROUP BY u.username, u.email, t.tool_id
+       ORDER BY cnt DESC
+       LIMIT 20`,
+      { replacements: { start, end }, type: sequelize.QueryTypes.SELECT }
+    );
+
+    // 最近 30 条访问记录
+    const recent = await sequelize.query(
+      `SELECT t.id, t.tool_id, t.action, t.user_id, u.username, t.ip, t.user_agent, t.created_at
+       FROM tool_usage_logs t
+       LEFT JOIN users u ON u.id = t.user_id
+       WHERE t.created_at BETWEEN :start AND :end
+       ORDER BY t.created_at DESC
+       LIMIT 30`,
+      { replacements: { start, end }, type: sequelize.QueryTypes.SELECT }
+    );
+
+    // 全局总数（不限范围）
+    const totalAll = await sequelize.query(
+      `SELECT COUNT(*) AS total FROM tool_usage_logs`,
+      { type: sequelize.QueryTypes.SELECT }
+    );
+
+    res.json({
+      grain, start, end,
+      toolLabels: TOOL_LABELS,
+      summary,
+      trend,
+      actionDist,
+      hourlyDist,
+      userTypeDist: userTypeDist[0] || { logged_in: 0, anonymous: 0 },
+      topUsers,
+      recent,
+      totalAll: totalAll[0]?.total || 0,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 // ─── 会员套餐配置（存储于 backend/config/membership.json）────────────────────
 const PLANS_FILE = path.join(__dirname, '../../config/membership.json');
 // ─── 功能开关配置（存储于 backend/config/feature_toggles.json）────────────
@@ -3093,6 +3211,7 @@ module.exports = {
   listUsers, updateUser, updateUserMembership, resetUserPassword,
   getContentVersion, publishContent,
   getTrafficStats, getUserStats, getBehaviorStats, getFeatureUsage,
+  getToolUsage,
   getMembershipConfig, saveMembershipConfig,
   listKana, batchGenerateKanaAudio, getKanaList, getKanaById, createKanaItem, updateKanaItem, deleteKanaItem, bulkDeleteKanaItems,  // ✅ 五十音CRUD
   getFeatureToggles, saveFeatureToggles,
