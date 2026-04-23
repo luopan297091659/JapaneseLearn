@@ -202,8 +202,9 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
         title: const Text('复习完成！'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           Text('共复习 $_reviewed 张卡片', style: const TextStyle(fontSize: 16)),
-          Text('正确率 ${_reviewed > 0 ? (_correct / _reviewed * 100).round() : 0}%',
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green)),
+          const SizedBox(height: 8),
+          const Text('继续保持，明天见！',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
         ]),
         actions: [FilledButton(
           onPressed: () { 
