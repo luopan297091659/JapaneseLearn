@@ -1034,17 +1034,13 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
     final isIOS = Platform.isIOS;
     // Use fetched plans if available, otherwise fallback to defaults
     final plans = _plans.where((p) => p['enabled'] != false && p['id'] != 'free').toList();
-    final rawPlans = plans.isNotEmpty
+    final usePlans = plans.isNotEmpty
         ? plans
         : [
             {'id': 'monthly', 'name': '月度会员', 'price': 18, 'period': 'month', 'apple_product_id': 'kotabi.sub.monthly'},
-            {'id': 'yearly', 'name': '年度会员', 'price': 128, 'period': 'year', 'apple_product_id': 'kotabi.sub.yearly'},
+            {'id': 'yearly', 'name': '年度会员', 'price': 128, 'period': 'year', 'apple_product_id': 'kotabi.sub.yearly.price'},
             {'id': 'lifetime', 'name': '终身会员', 'price': 398, 'period': 'forever', 'apple_product_id': 'kotabi.vip.lifetime'},
           ];
-    // iOS 端在年度会员通过 App Store 审核前，先隐藏年度方案入口。
-    final usePlans = isIOS
-        ? rawPlans.where((p) => p['id'] != 'yearly').toList()
-        : rawPlans;
 
     // 默认选中：第一个可选套餐（推荐 yearly，否则首个未禁用）
     if (_selectedPlanIndex < 0 || _selectedPlanIndex >= usePlans.length) {
@@ -1155,6 +1151,41 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
               ),
             ),
           ),
+          // ── Apple 审核 3.1.2(c) 强制要求：订阅页展示 EULA + Privacy Policy 功能链接 ──
+          const SizedBox(height: 8),
+          Center(
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => LegalWebViewPage(
+                      title: '用户协议 (EULA)',
+                      url: '${AppConfig.serverRoot}/app/terms.html',
+                    ),
+                  )),
+                  child: Text(
+                    '《用户协议 (EULA)》',
+                    style: TextStyle(fontSize: 12, color: cs.primary, decoration: TextDecoration.underline),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => LegalWebViewPage(
+                      title: '隐私政策',
+                      url: '${AppConfig.serverRoot}/app/privacy.html',
+                    ),
+                  )),
+                  child: Text(
+                    '《隐私政策》',
+                    style: TextStyle(fontSize: 12, color: cs.primary, decoration: TextDecoration.underline),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ],
     );
@@ -1173,17 +1204,13 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
   Widget _buildBottomCheckoutBar(ColorScheme cs) {
     final isIOS = Platform.isIOS;
     final plans = _plans.where((p) => p['enabled'] != false && p['id'] != 'free').toList();
-    final rawPlans = plans.isNotEmpty
+    final usePlans = plans.isNotEmpty
         ? plans
         : [
             {'id': 'monthly', 'name': '月度会员', 'price': 18, 'period': 'month', 'apple_product_id': 'kotabi.sub.monthly'},
-            {'id': 'yearly', 'name': '年度会员', 'price': 128, 'period': 'year', 'apple_product_id': 'kotabi.sub.yearly'},
+            {'id': 'yearly', 'name': '年度会员', 'price': 128, 'period': 'year', 'apple_product_id': 'kotabi.sub.yearly.price'},
             {'id': 'lifetime', 'name': '终身会员', 'price': 398, 'period': 'forever', 'apple_product_id': 'kotabi.vip.lifetime'},
           ];
-    // iOS 端在年度会员通过 App Store 审核前，先隐藏年度方案入口。
-    final usePlans = isIOS
-        ? rawPlans.where((p) => p['id'] != 'yearly').toList()
-        : rawPlans;
     if (_selectedPlanIndex < 0 || _selectedPlanIndex >= usePlans.length) {
       return const SizedBox.shrink();
     }

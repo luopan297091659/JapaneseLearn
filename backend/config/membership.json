@@ -26,7 +26,7 @@
       "period": "year",
       "description": "全功能 + 年度优惠，比月付省22%",
       "features": ["无限练习题", "SRS 间隔复习", "听力课程", "离线下载"],
-      "apple_product_id": "kotabi.sub.yearly",
+      "apple_product_id": "kotabi.sub.yearly.price",
       "enabled": true
     },
     {

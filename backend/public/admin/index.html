@@ -3242,6 +3242,8 @@ async function saveAllMembership() {
     days: parseInt(document.getElementById('trial-days').value) || 3,
     description: document.getElementById('trial-desc').value.trim(),
   };
+  // 读取密码字段时，若浏览器因安全机制清空了字段，则保留缓存中的原有值
+  const _pv = (id, cached) => { const v = document.getElementById(id)?.value.trim(); return v || cached || ''; };
   _memCfg.payment = {
     alipay_enabled:    document.getElementById('pay-ali-enabled').checked,
     alipay_appid:      document.getElementById('pay-ali-appid').value.trim(),
@@ -3251,11 +3253,11 @@ async function saveAllMembership() {
     wechat_mchid:      document.getElementById('pay-wx-mchid').value.trim(),
     wechat_notify_url: document.getElementById('pay-wx-notify').value.trim(),
     stripe_enabled:       document.getElementById('pay-stripe-enabled').checked,
-    stripe_secret_key:    document.getElementById('pay-stripe-sk').value.trim(),
-    stripe_webhook_secret:document.getElementById('pay-stripe-whsec').value.trim(),
+    stripe_secret_key:    _pv('pay-stripe-sk',     _memCfg.payment?.stripe_secret_key),
+    stripe_webhook_secret:_pv('pay-stripe-whsec',  _memCfg.payment?.stripe_webhook_secret),
     stripe_currency:      document.getElementById('pay-stripe-currency').value.trim() || 'cny',
     apple_iap_enabled:    document.getElementById('pay-apple-enabled')?.checked || false,
-    apple_shared_secret:  document.getElementById('pay-apple-secret')?.value.trim() || '',
+    apple_shared_secret:  _pv('pay-apple-secret',  _memCfg.payment?.apple_shared_secret),
     alipay_qr_url: _memCfg.payment?.alipay_qr_url || '',
     wechat_qr_url: _memCfg.payment?.wechat_qr_url || '',
   };

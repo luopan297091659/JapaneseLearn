@@ -103,9 +103,46 @@ router.post('/create-checkout-session', authenticate, asyncHandler(async (req, r
   const unitAmount = Math.round(plan.price * 100);
   const { currency } = getStripeConfig();
 
-  const session = await stripe.checkout.sessions.create({
+  // ── 预填用户邮箱 + 默认国家=中国 ──
+  // Stripe Checkout 的国家下拉默认值由"附加到 Session 的 Customer"的 address.country 决定。
+  // 为确保两项预填都生效，优先创建 Customer 并附带 email + address.country='CN'。
+  // 仅在 Customer 创建失败时回退为 customer_email（届时国家会按 Stripe 后台/IP 推断）。
+  const userEmail = (user.email || '').trim();
+  let customerId = null;
+  try {
+    // 先尝试通过 email 复用已有 Customer，避免每次下单都新建
+    if (userEmail) {
+      const existing = await stripe.customers.list({ email: userEmail, limit: 1 });
+      if (existing && existing.data && existing.data.length > 0) {
+        customerId = existing.data[0].id;
+        // 更新地址国家为 CN，确保 Checkout 默认中国
+        try {
+          await stripe.customers.update(customerId, {
+            address: { country: 'CN' },
+            metadata: { user_id: String(user.id) },
+          });
+        } catch (e) {
+          logger.warn(`Stripe customer update failed: ${e.message}`);
+        }
+      }
+    }
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: userEmail || undefined,
+        address: { country: 'CN' },
+        metadata: { user_id: String(user.id) },
+      });
+      customerId = customer.id;
+    }
+  } catch (err) {
+    logger.warn(`Stripe customer create/list failed, fallback to customer_email: ${err.message}`);
+  }
+
+  const sessionParams = {
     payment_method_types: ['card'],
     mode: 'payment',
+    locale: 'zh',
+    billing_address_collection: 'required',
     line_items: [{
       price_data: {
         currency: currency,
@@ -124,7 +161,17 @@ router.post('/create-checkout-session', authenticate, asyncHandler(async (req, r
     },
     success_url: `${process.env.BASE_URL || req.protocol + '://' + req.get('host')}/membership?status=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${process.env.BASE_URL || req.protocol + '://' + req.get('host')}/membership?status=cancel`,
-  });
+  };
+
+  if (customerId) {
+    sessionParams.customer = customerId;
+    // 使用已存在 Customer 时不能再传 customer_email
+    sessionParams.customer_update = { address: 'auto', name: 'auto' };
+  } else if (userEmail) {
+    sessionParams.customer_email = userEmail;
+  }
+
+  const session = await stripe.checkout.sessions.create(sessionParams);
 
   res.json({ ok: true, url: session.url, sessionId: session.id });
 }));

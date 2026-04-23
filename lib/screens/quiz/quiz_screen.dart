@@ -98,6 +98,9 @@ class _QuizScreenState extends State<QuizScreen> {
     return RegExp(r'^[\u3040-\u30ff\u30fc\uff70ー々〆〇\s]+$').hasMatch(t);
   }
 
+  /// 去除振假名标注，保留汉字：噂[うわさ] → 噂
+  String _stripFurigana(String text) => text.replaceAll(RegExp(r'\[[^\]]*\]'), '').trim();
+
   bool _isValidReadingOption(String text) {
     final value = text.trim();
     if (value.isEmpty) return false;
@@ -166,7 +169,7 @@ class _QuizScreenState extends State<QuizScreen> {
         questions.add(QuizQuestionModel(
           id: word.id,
           questionType: 'vocabulary',
-          question: word.reading.isNotEmpty ? '${word.word}【${word.reading}】' : word.word,
+          question: word.reading.isNotEmpty ? '${_stripFurigana(word.word)}【${word.reading}】' : _stripFurigana(word.word),
           correctAnswer: correctDef,
           options: opts,
           explanation: '${word.word} → $correctDef',
@@ -188,7 +191,7 @@ class _QuizScreenState extends State<QuizScreen> {
         questions.add(QuizQuestionModel(
           id: word.id,
           questionType: 'reading',
-          question: word.word,
+          question: _stripFurigana(word.word),
           correctAnswer: correctReading,
           options: opts,
           explanation: '${word.word} 的读音是 $correctReading',

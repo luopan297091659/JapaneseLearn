@@ -82,7 +82,8 @@ $ConfigFiles = @(
     'ai_settings.json',
     'feature_tiers.json',
     'feature_toggles.json',
-    'membership.json'
+    'membership.json',
+    'kokoro_tts_settings.py'
 )
 
 foreach ($ConfigFile in $ConfigFiles) {
