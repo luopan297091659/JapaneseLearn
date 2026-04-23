@@ -107,6 +107,9 @@ router.get('/plans', asyncHandler(async (req, res) => {
 }));
 
 // ── Apple IAP 收据验证 ───────────────────────────────────────────────────────
+// 应用级锁：防止同一 transaction_id 并发进入导致重复写库
+const _processingTxIds = new Set();
+
 router.post('/apple/verify', authenticate, asyncHandler(async (req, res) => {
   const { receipt_data, plan_id, transaction_id } = req.body;
   console.log('[apple/verify] user=%s plan=%s tx=%s receiptLen=%s receiptHead=%s',
@@ -123,14 +126,18 @@ router.post('/apple/verify', authenticate, asyncHandler(async (req, res) => {
   const payment = config.payment || {};
   if (!payment.apple_iap_enabled) throw new HttpError(400, 'Apple IAP 未启用');
 
-  // 防止重复
+  // 防止重复：并发请求同一 transaction_id 时，后来者直接返回已处理
   if (transaction_id) {
+    if (_processingTxIds.has(transaction_id)) {
+      return res.json({ ok: true, message: '此交易已处理', already_processed: true });
+    }
     const existing = await MembershipOrder.findOne({
       where: { apple_transaction_id: transaction_id, status: 'paid' },
     });
     if (existing) {
       return res.json({ ok: true, message: '此交易已处理', already_processed: true });
     }
+    _processingTxIds.add(transaction_id);
   }
 
   // 检测收据格式：StoreKit 2 (JWS, "eyJ..." 开头) 或 StoreKit 1 (base64 PKCS7, "MII..." 开头)
@@ -154,22 +161,27 @@ router.post('/apple/verify', authenticate, asyncHandler(async (req, res) => {
 
   // 创建订单并激活
   const expiresAtMs = matchedTx?.expires_date_ms ? Number(matchedTx.expires_date_ms) : null;
-  const order = await MembershipOrder.create({
-    user_id: req.user.id,
-    plan_id: plan.id,
-    amount: plan.price,
-    currency: 'cny',
-    channel: 'apple_iap',
-    status: 'paid',
-    apple_transaction_id: transaction_id || matchedTx?.transaction_id || null,
-    apple_original_transaction_id: matchedTx?.original_transaction_id || transaction_id || null,
-    apple_environment: verified.receipt?.environment || null,
-    apple_expires_at: expiresAtMs ? new Date(expiresAtMs) : null,
-    apple_receipt: receipt_data.substring(0, 500), // 只存截断，避免存大量数据
-    paid_at: new Date(),
-  });
+  let order, expire;
+  try {
+    order = await MembershipOrder.create({
+      user_id: req.user.id,
+      plan_id: plan.id,
+      amount: plan.price,
+      currency: 'cny',
+      channel: 'apple_iap',
+      status: 'paid',
+      apple_transaction_id: transaction_id || matchedTx?.transaction_id || null,
+      apple_original_transaction_id: matchedTx?.original_transaction_id || transaction_id || null,
+      apple_environment: verified.receipt?.environment || null,
+      apple_expires_at: expiresAtMs ? new Date(expiresAtMs) : null,
+      apple_receipt: receipt_data.substring(0, 500), // 只存截断，避免存大量数据
+      paid_at: new Date(),
+    });
 
-  const expire = await activateMembership(req.user.id, plan.id, plan.period, order.id);
+    expire = await activateMembership(req.user.id, plan.id, plan.period, order.id);
+  } finally {
+    if (transaction_id) _processingTxIds.delete(transaction_id);
+  }
 
   res.json({
     ok: true,
