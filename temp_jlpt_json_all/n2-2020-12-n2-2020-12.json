@@ -1,0 +1,60 @@
+{
+  "level": "N2",
+  "year": 2020,
+  "session": "12",
+  "title": "N2 模拟测验 2020-12",
+  "slug": "n2-2020-12-n2-2020-12",
+  "source_label": "N2 2020年12月真题+答案+详解+听力原文_.pdf",
+  "description": "由 PDF 自动转换生成的草稿，请在后台人工校对后发布。",
+  "duration_minutes": null,
+  "is_published": false,
+  "sort_order": 0,
+  "tags": [
+    "auto-converted",
+    "N2"
+  ],
+  "parse_meta": {
+    "source_pdf": "D:\\JLPT\\N2\\N2 2020年12月真题+答案+详解+听力原文_.pdf",
+    "pages": 32,
+    "text_length": 501,
+    "detected_blocks": 0,
+    "requires_ocr": true
+  },
+  "questions": [
+    {
+      "section_type": "reading",
+      "section_title": "要人工整理",
+      "question_group": "导入草稿",
+      "question_no": "1",
+      "sort_order": 1,
+      "prompt": "-- 1 of 32 --\n\n-- 2 of 32 --\n\n-- 3 of 32 --\n\n-- 4 of 32 --\n\n-- 5 of 32 --\n\n-- 6 of 32 --\n\n-- 7 of 32 --\n\n-- 8 of 32 --\n\n-- 9 of 32 --\n\n-- 10 of 32 --\n\n-- 11 of 32 --\n\n-- 12 of 32 --\n\n-- 13 of 32 --\n\n-- 14 of 32 --\n\n-- 15 of 32 --\n\n-- 16 of 32 --\n\n-- 17 of 32 --\n\n-- 18 of 32 --\n\n-- 19 of 32 --\n\n-- 20 of 32 --\n\n-- 21 of 32 --\n\n-- 22 of 32 --\n\n-- 23 of 32 --\n\n-- 24 of 32 --\n\n-- 25 of 32 --\n\n-- 26 of 32 --\n\n-- 27 of 32 --\n\n-- 28 of 32 --\n\n-- 29 of 32 --\n\n-- 30 of 32 --\n\n-- 31 of 32 --\n\n-- 32 of 32 -",
+      "passage": "-- 1 of 32 --\n\n-- 2 of 32 --\n\n-- 3 of 32 --\n\n-- 4 of 32 --\n\n-- 5 of 32 --\n\n-- 6 of 32 --\n\n-- 7 of 32 --\n\n-- 8 of 32 --\n\n-- 9 of 32 --\n\n-- 10 of 32 --\n\n-- 11 of 32 --\n\n-- 12 of 32 --\n\n-- 13 of 32 --\n\n-- 14 of 32 --\n\n-- 15 of 32 --\n\n-- 16 of 32 --\n\n-- 17 of 32 --\n\n-- 18 of 32 --\n\n-- 19 of 32 --\n\n-- 20 of 32 --\n\n-- 21 of 32 --\n\n-- 22 of 32 --\n\n-- 23 of 32 --\n\n-- 24 of 32 --\n\n-- 25 of 32 --\n\n-- 26 of 32 --\n\n-- 27 of 32 --\n\n-- 28 of 32 --\n\n-- 29 of 32 --\n\n-- 30 of 32 --\n\n-- 31 of 32 --\n\n-- 32 of 32 --",
+      "transcript": "",
+      "options": [
+        {
+          "key": "1",
+          "text": "选项1（待人工整理）"
+        },
+        {
+          "key": "2",
+          "text": "选项2（待人工整理）"
+        },
+        {
+          "key": "3",
+          "text": "选项3（待人工整理）"
+        },
+        {
+          "key": "4",
+          "text": "选项4（待人工整理）"
+        }
+      ],
+      "answer": "1",
+      "explanation": "自动导入草稿，待人工补全。",
+      "explanation_zh": "自动导入草稿，待人工补全。",
+      "knowledge_points": [
+        "draft"
+      ],
+      "score": 1
+    }
+  ]
+}

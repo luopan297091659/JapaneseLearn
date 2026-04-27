@@ -8,6 +8,9 @@
     "dev": "nodemon src/app.js",
     "migrate": "node database/migrate.js",
     "seed": "node database/seed.js",
+    "seed:jlpt-mock": "node scripts/seedJlptMockExams.js",
+    "convert:jlpt-pdf": "node scripts/convertJlptPdfToJson.js",
+    "import:jlpt-json": "node scripts/importJlptJsonToDb.js",
     "lint": "eslint \"src/**/*.js\"",
     "format": "prettier --write 'src/**/*.js'"
   },
@@ -27,6 +30,7 @@
     "mysql2": "^3.6.5",
     "node-cron": "^3.0.3",
     "nodemailer": "^8.0.5",
+    "pdf-parse": "^2.4.5",
     "sax": "^1.4.1",
     "sequelize": "^6.35.2",
     "sql.js": "^1.14.0",

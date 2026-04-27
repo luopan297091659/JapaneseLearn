@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JLPT 模拟测验 - 言旅 Kotabi</title>
+<link rel="icon" type="image/png" href="/app/favicon.png">
+<style>
+:root {
+  --ink: #132238;
+  --sub: #5c6b7d;
+  --line: #d7dee8;
+  --paper: #f6f8fb;
+  --card: #ffffff;
+  --brand: #0f766e;
+  --brand-dark: #115e59;
+  --brand-soft: #dff5f2;
+  --accent: #d97706;
+  --danger: #dc2626;
+  --ok: #15803d;
+  --shadow: 0 18px 48px rgba(15, 35, 56, 0.12);
+  --radius: 18px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(15,118,110,.08), transparent 28%),
+    radial-gradient(circle at top right, rgba(217,119,6,.10), transparent 20%),
+    linear-gradient(180deg, #fcfdfd 0%, #f2f6f8 100%);
+}
+a { color: inherit; text-decoration: none; }
+button, select, input, textarea { font: inherit; }
+.shell { max-width: 1240px; margin: 0 auto; padding: 24px 18px 60px; }
+.topbar {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px;
+}
+.brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 20px; }
+.brand-mark {
+  width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--brand), #14b8a6); color: #fff; box-shadow: var(--shadow);
+}
+.top-actions { display: flex; gap: 10px; align-items: center; }
+.ghost, .solid {
+  border: 0; border-radius: 999px; padding: 10px 16px; cursor: pointer; font-weight: 700;
+}
+.ghost { background: #fff; color: var(--ink); box-shadow: 0 8px 24px rgba(15, 35, 56, 0.08); }
+.solid { background: var(--brand); color: #fff; }
+.solid:hover { background: var(--brand-dark); }
+.hero {
+  display: grid; grid-template-columns: 1.3fr .9fr; gap: 16px; margin-bottom: 18px;
+}
+.hero-card, .panel {
+  background: rgba(255,255,255,.88); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,.7);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.hero-card { padding: 28px; }
+.hero-title { margin: 0 0 8px; font-size: clamp(28px, 4vw, 44px); line-height: 1.08; }
+.hero-title span { color: var(--brand); }
+.hero-sub { color: var(--sub); font-size: 15px; max-width: 700px; }
+.hero-metrics {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px;
+}
+.metric { background: var(--paper); border-radius: 16px; padding: 14px; }
+.metric strong { display: block; font-size: 22px; margin-bottom: 4px; }
+.hero-side { padding: 24px; display: grid; gap: 12px; }
+.hero-side .tip { background: var(--paper); border-radius: 14px; padding: 14px; color: var(--sub); font-size: 14px; }
+.layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 14px; align-items: start; }
+.panel { padding: 18px; }
+.sidebar-title, .section-title { margin: 0 0 12px; font-size: 18px; }
+.paper-list { display: grid; gap: 10px; }
+.paper-card {
+  border: 1px solid var(--line); background: #fff; border-radius: 14px; padding: 10px; cursor: pointer;
+  transition: .18s ease; position: relative;
+}
+.paper-card:hover, .paper-card.active { border-color: var(--brand); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(15,118,110,.10); }
+.paper-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.tag { font-size: 11px; padding: 4px 9px; border-radius: 999px; font-weight: 700; }
+.tag.level { background: var(--brand-soft); color: var(--brand-dark); }
+.tag.session { background: #fff0db; color: #9a5b00; }
+.tag.status { background: #e8f7ed; color: var(--ok); }
+.paper-desc { color: var(--sub); font-size: 13px; line-height: 1.6; }
+.empty { color: var(--sub); text-align: center; padding: 28px 16px; }
+.toolbar { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+.toolbar select { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: #fff; }
+.exam-title { margin: 0; font-size: 24px; }
+.muted { color: var(--sub); font-size: 14px; }
+.section-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 16px; }
+.section-tab { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 8px 14px; cursor: pointer; font-weight: 800; color: var(--sub); }
+.section-tab.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+.question-block { border-top: 1px solid var(--line); padding: 20px 0; }
+.question-block:first-of-type { border-top: 0; padding-top: 0; }
+.question-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.qno { min-width: 44px; height: 44px; border-radius: 12px; background: var(--brand-soft); color: var(--brand-dark); display: grid; place-items: center; font-weight: 800; }
+.qgroup { font-size: 12px; color: var(--sub); }
+.passage {
+  background: var(--paper); border-left: 4px solid var(--brand); padding: 14px 16px; border-radius: 12px; margin: 12px 0 14px;
+  line-height: 1.9; white-space: pre-wrap;
+}
+.prompt { font-size: 16px; line-height: 1.75; white-space: pre-wrap; }
+.prompt-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.qno-inline {
+  min-width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.prompt-line .prompt {
+  margin: 0;
+  flex: 1;
+}
+.q-image {
+  margin-top: 10px;
+  max-width: min(620px, 100%);
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 20px rgba(15, 35, 56, 0.08);
+}
+.options { display: grid; gap: 10px; margin-top: 14px; }
+.option {
+  display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; cursor: pointer; background: #fff;
+}
+.option:hover { border-color: var(--brand); }
+.option input { margin-top: 3px; }
+.option-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.option-content {
+  flex: 1;
+  min-width: 0;
+}
+.option.correct {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+.option.wrong {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+.option-mark {
+  margin-left: 0;
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.option-mark.ok { color: #15803d; }
+.option-mark.bad { color: #dc2626; }
+.option-media {
+  margin-top: 8px;
+  max-width: min(360px, 100%);
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+.explain-link {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.explain-link:hover { border-color: var(--brand); color: var(--brand-dark); }
+.explain-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: none;
+  align-items: flex-start;
+  justify-content: flex-start;
+  z-index: 1000;
+  padding: 18px;
+}
+.explain-overlay.open { display: flex; }
+.explain-modal {
+  width: min(760px, 94vw);
+  max-height: 86vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.35);
+  padding: 18px;
+  position: fixed;
+  margin: 0;
+}
+.explain-modal h4 { margin: 0 0 10px; font-size: 20px; }
+.explain-modal .close-btn {
+  border: 0;
+  background: #e2e8f0;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+.score-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+.score-card { background: var(--paper); border-radius: 14px; padding: 14px; }
+.score-card strong { display: block; font-size: 22px; }
+.result-block { border-top: 1px solid var(--line); padding: 18px 0; }
+.result-block:first-of-type { border-top: 0; }
+.result-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; }
+.badge-ok, .badge-bad {
+  display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 800;
+}
+.badge-ok { background: #e8f7ed; color: var(--ok); }
+.badge-bad { background: #fee2e2; color: var(--danger); }
+.explain {
+  margin-top: 10px; background: #fffaf1; border: 1px solid #f8ddb5; border-radius: 14px; padding: 14px; line-height: 1.8;
+}
+.inline-explain {
+  margin-top: 10px;
+  background: #fff;
+  border: 1px solid #dbe3ee;
+  border-radius: 12px;
+  padding: 12px;
+}
+.loading { text-align: center; color: var(--sub); padding: 32px 0; }
+.gate {
+  padding: 30px 24px; text-align: center; background: linear-gradient(180deg, #ffffff 0%, #f6fbfa 100%);
+  border: 1px solid var(--line); border-radius: 20px;
+}
+.gate h3 { margin: 0 0 10px; font-size: 26px; }
+.gate p { margin: 0 auto 18px; max-width: 560px; color: var(--sub); line-height: 1.8; }
+.gate-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.result-bottom {
+  margin-top: 16px;
+  border: 1px solid #d3efe7;
+  background: #fcfffd;
+  border-radius: 14px;
+  padding: 14px;
+}
+@media (max-width: 980px) {
+  .hero, .layout { grid-template-columns: 1fr; }
+  .score-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 640px) {
+  .hero-card, .hero-side, .panel { padding: 16px; }
+  .hero-metrics, .score-grid { grid-template-columns: 1fr; }
+  .topbar { flex-direction: column; align-items: stretch; }
+  .top-actions { justify-content: space-between; }
+  .qno-inline { min-width: 38px; height: 38px; border-radius: 10px; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <a class="brand" href="/tools">
+      <div class="brand-mark">JL</div>
+      <div>
+        <div>JLPT 模拟测验</div>
+        <div style="font-size:12px;color:var(--sub);font-weight:600">言旅 Kotabi</div>
+      </div>
+    </a>
+    <div class="top-actions">
+      <button class="ghost" onclick="location.href='/tools'">返回工具箱</button>
+      <button class="solid" onclick="submitExam()">一键批改</button>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div class="hero-card">
+      <h1 class="hero-title">做完即判分，<span>逐题看详解</span></h1>
+      <div class="hero-sub">覆盖词汇语法、阅读理解、听解三大题型。提交后立即返回总分、分项得分、每题正误和后台维护的中文/日文解析。</div>
+      <div class="hero-metrics">
+        <div class="metric"><strong>3</strong><span>题型分区</span></div>
+        <div class="metric"><strong>1 次</strong><span>交卷即批改</span></div>
+        <div class="metric"><strong>逐题</strong><span>详解展示</span></div>
+      </div>
+    </div>
+    <div class="hero-card hero-side">
+      <div class="tip">题目和解析都来自后台可编辑题库，不是前端临时拼出来的，所以管理员可以随时修正文案、答案和说明。</div>
+      <div class="tip">如果没有选择试卷，左侧先选一套已发布试卷再开始作答。</div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="panel">
+      <div class="toolbar" style="margin-bottom:12px">
+        <h2 class="sidebar-title" style="margin:0">已发布试卷</h2>
+        <select id="levelFilter" onchange="loadPapers(this.value)">
+          <option value="">全部级别</option>
+          <option value="N5">N5</option>
+          <option value="N4">N4</option>
+          <option value="N3">N3</option>
+          <option value="N2">N2</option>
+          <option value="N1">N1</option>
+        </select>
+      </div>
+      <div id="paperList" class="paper-list"><div class="loading">加载中…</div></div>
+    </div>
+
+    <div class="panel">
+      <div id="examHost"><div class="empty">请选择左侧试卷开始作答。</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api/v1';
+let accessToken = localStorage.getItem('kotabi_token');
+let refreshTokenStr = localStorage.getItem('kotabi_refresh');
+let currentUser = null;
+let paperList = [];
+let currentPaper = null;
+let currentResult = null;
+let examStartedAt = null;
+let expandedExplainIds = new Set();
+let currentSectionFilter = '';
+
+function sectionLabel(sectionType) {
+  return { vocabulary_grammar: '語彙・文法', reading: '読解', listening: '聴解' }[sectionType] || sectionType || '';
+}
+
+function availablePaperSections() {
+  if (!currentPaper || !Array.isArray(currentPaper.questions)) return [];
+  return ['vocabulary_grammar', 'reading', 'listening'].filter(type => currentPaper.questions.some(q => q.section_type === type));
+}
+
+function visiblePaperQuestions() {
+  if (!currentPaper || !Array.isArray(currentPaper.questions)) return [];
+  return currentPaper.questions.filter(q => q.section_type === currentSectionFilter);
+}
+
+function esc(text) {
+  const div = document.createElement('div');
+  div.textContent = text == null ? '' : String(text);
+  return div.innerHTML;
+}
+
+function nl2br(text) {
+  return esc(text).replace(/\n/g, '<br>');
+}
+
+function richTextToHtml(text) {
+  const src = String(text == null ? '' : text);
+  const tokenOpen = '__JLPT_U_OPEN__';
+  const tokenClose = '__JLPT_U_CLOSE__';
+  const withTokens = src
+    .replace(/<\s*u\s*>/gi, tokenOpen)
+    .replace(/<\s*\/\s*u\s*>/gi, tokenClose);
+  return esc(withTokens)
+    .replace(/\n/g, '<br>')
+    .replace(new RegExp(tokenOpen, 'g'), '<u>')
+    .replace(new RegExp(tokenClose, 'g'), '</u>');
+}
+
+function isMemberUser(user) {
+  return !!(user && user.is_member);
+}
+
+function normalizeQuestionOptions(rawOptions) {
+  let options = rawOptions;
+  if (typeof options === 'string') {
+    try {
+      options = JSON.parse(options);
+    } catch (_) {
+      options = options.split(/\r?\n|[|｜]/).map(item => item.trim()).filter(Boolean);
+    }
+  }
+  if (options && !Array.isArray(options) && typeof options === 'object') {
+    options = Object.entries(options).map(([key, text]) => ({ key, text }));
+  }
+  return (Array.isArray(options) ? options : []).map((option, index) => {
+    if (typeof option === 'string') {
+      return { key: String(index + 1), text: option.trim(), image_url: '' };
+    }
+    return {
+      key: String(option && option.key != null ? option.key : index + 1).trim(),
+      text: String(option && option.text != null ? option.text : '').trim(),
+      image_url: String(option && option.image_url != null ? option.image_url : '').trim(),
+    };
+  }).filter(option => option.key && option.text);
+}
+
+function getSectionMaterial(sectionType) {
+  const materials = currentPaper && currentPaper.section_materials && typeof currentPaper.section_materials === 'object'
+    ? currentPaper.section_materials
+    : {};
+  if (sectionType === 'reading') return materials.reading || null;
+  if (sectionType === 'listening') return materials.listening || null;
+  return null;
+}
+
+function renderSectionMaterialBlock(sectionType) {
+  const material = getSectionMaterial(sectionType);
+  if (!material || (!material.text && !material.image_url)) return '';
+  const title = sectionType === 'reading' ? '読解文章' : (sectionType === 'listening' ? '聴解文章' : '分区素材');
+  return `
+    <div class="passage" style="border-left-color:${sectionType === 'listening' ? '#d97706' : '#0f766e'}">
+      <strong>${title}</strong>
+      ${material.text ? `<br>${nl2br(material.text)}` : ''}
+      ${sectionType === 'listening' && material.audio_url ? `<div style="margin-top:10px"><audio controls src="${esc(material.audio_url)}" style="width:100%"></audio></div>` : ''}
+    </div>
+    ${material.image_url ? `<img class="q-image" src="${esc(material.image_url)}" alt="${title}" loading="lazy">` : ''}
+  `;
+}
+
+function renderMembershipGate(message) {
+  const paperHost = document.getElementById('paperList');
+  const examHost = document.getElementById('examHost');
+  const loginNeeded = !currentUser;
+  const gateHtml = `
+    <div class="gate">
+      <h3>${loginNeeded ? '请先登录会员账号' : 'JLPT 模拟测验仅限会员使用'}</h3>
+      <p>${esc(message || (loginNeeded ? '登录后才能进入 JLPT 模拟测验；开通会员后可使用整套试卷、交卷批改与逐题详解。' : '当前账号还不是有效会员。开通会员后即可进入 JLPT 模拟测验，使用整套试卷、交卷批改与逐题详解。'))}</p>
+      <div class="gate-actions">
+        <button class="ghost" onclick="location.href='/tools'">${loginNeeded ? '去登录' : '返回工具箱'}</button>
+        <button class="solid" onclick="location.href='/membership'">开通会员</button>
+      </div>
+    </div>
+  `;
+  paperHost.innerHTML = gateHtml;
+  examHost.innerHTML = gateHtml;
+}
+
+async function apiCall(method, path, body) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (accessToken) headers.Authorization = 'Bearer ' + accessToken;
+  const opts = { method, headers };
+  if (body && method !== 'GET') opts.body = JSON.stringify(body);
+  let res = await fetch(API + path, opts);
+  if (res.status === 401 && refreshTokenStr) {
+    const rr = await fetch(API + '/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: refreshTokenStr })
+    });
+    if (rr.ok) {
+      const rd = await rr.json();
+      accessToken = rd.accessToken;
+      localStorage.setItem('kotabi_token', accessToken);
+      headers.Authorization = 'Bearer ' + accessToken;
+      res = await fetch(API + path, { method, headers, body: opts.body });
+    }
+  }
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && (data.error === 'LOGIN_REQUIRED' || data.error === 'Missing or invalid authorization header' || data.error === 'Invalid or expired token')) {
+    currentUser = null;
+    renderMembershipGate(data.message || '请先登录后再使用 JLPT 模拟测验');
+    throw new Error(data.message || '请先登录');
+  }
+  if (res.status === 403 && data.error === 'MEMBERSHIP_REQUIRED') {
+    renderMembershipGate(data.message || 'JLPT 模拟测验仅限会员使用');
+    throw new Error(data.message || '仅会员可用');
+  }
+  if (!res.ok) throw new Error(data.error || data.message || '请求失败');
+  return data;
+}
+
+async function bootstrapUser() {
+  if (!accessToken) return;
+  try {
+    const data = await apiCall('GET', '/auth/me');
+    currentUser = data.user;
+  } catch (_) {
+    currentUser = null;
+  }
+}
+
+function renderPaperList() {
+  const host = document.getElementById('paperList');
+  if (!paperList.length) {
+    host.innerHTML = '<div class="empty">当前没有已发布试卷。</div>';
+    return;
+  }
+  host.innerHTML = paperList.map(paper => `
+    <div class="paper-card ${currentPaper && currentPaper.slug === paper.slug ? 'active' : ''}" onclick="selectPaper('${paper.slug}')">
+      <div class="paper-meta">
+        <span class="tag level">${esc(paper.level)}</span>
+        <span class="tag session">${esc(paper.year)}-${esc(paper.session)}</span>
+      </div>
+      <div style="font-size:12px;color:var(--sub)">建议用时 ${paper.duration_minutes || '--'} 分钟</div>
+    </div>
+  `).join('');
+}
+
+async function loadPapers(level = '') {
+  if (!isMemberUser(currentUser)) {
+    renderMembershipGate();
+    return;
+  }
+  document.getElementById('paperList').innerHTML = '<div class="loading">加载中…</div>';
+  const query = level ? `?level=${encodeURIComponent(level)}` : '';
+  const res = await apiCall('GET', '/jlpt-exams/papers' + query);
+  paperList = res.data || [];
+  renderPaperList();
+  if (!currentPaper && paperList[0]) {
+    await selectPaper(paperList[0].slug);
+  }
+}
+
+async function selectPaper(slug) {
+  if (!isMemberUser(currentUser)) {
+    renderMembershipGate();
+    return;
+  }
+  const host = document.getElementById('examHost');
+  host.innerHTML = '<div class="loading">试卷加载中…</div>';
+  currentResult = null;
+  expandedExplainIds.clear();
+  currentPaper = await apiCall('GET', '/jlpt-exams/papers/' + encodeURIComponent(slug));
+  currentSectionFilter = availablePaperSections()[0] || '';
+  examStartedAt = Date.now();
+  renderPaperList();
+  renderExam();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderExam() {
+  if (!currentPaper) return;
+  const host = document.getElementById('examHost');
+  const sections = availablePaperSections();
+  if (!currentSectionFilter || !sections.includes(currentSectionFilter)) currentSectionFilter = sections[0] || '';
+  const questions = visiblePaperQuestions();
+  const detailMap = new Map((currentResult && Array.isArray(currentResult.details) ? currentResult.details : []).map(item => [String(item.id), item]));
+  const labelMap = {
+    vocabulary_grammar: '词汇语法',
+    reading: '阅读理解',
+    listening: '听解',
+  };
+  const summaryHtml = currentResult ? `
+    <div class="panel" style="margin:0 0 16px 0;background:#fcfffd;border-color:#d3efe7">
+      <div class="toolbar" style="margin-bottom:8px">
+        <div>
+          <h3 class="section-title" style="margin:0">批改结果</h3>
+          <div class="muted">点击每道题下方“查看答案详解”按钮查看弹窗解析。</div>
+        </div>
+        <div class="tag level" style="font-size:14px">正确 ${currentResult.correct_count} / ${currentResult.total_questions}</div>
+      </div>
+      <div class="score-grid" style="margin-bottom:0">
+        <div class="score-card"><strong>${currentResult.score_percent}%</strong><span>总分</span></div>
+        ${Object.keys(labelMap).map(key => `
+          <div class="score-card"><strong>${currentResult.breakdown && currentResult.breakdown[key] ? currentResult.breakdown[key].correct : 0}/${currentResult.breakdown && currentResult.breakdown[key] ? currentResult.breakdown[key].total : 0}</strong><span>${labelMap[key]}</span></div>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
+  const tabsHtml = `
+    <div class="section-tabs">
+      ${sections.map(section => `<button type="button" class="section-tab ${currentSectionFilter === section ? 'active' : ''}" onclick="setExamSection('${section}')">${sectionLabel(section)}（${currentPaper.questions.filter(q => q.section_type === section).length}）</button>`).join('')}
+    </div>
+  `;
+  const sectionIntro = renderSectionMaterialBlock(currentSectionFilter);
+  const questionHtml = questions.map(question => {
+    const options = normalizeQuestionOptions(question.options);
+    const detail = detailMap.get(String(question.id));
+    const isExpanded = detail && expandedExplainIds.has(String(question.id));
+    return `
+        <section class="question-block">
+          ${question.question_group ? `<div class="qgroup" style="margin-bottom:6px">${esc(question.question_group)}</div>` : ''}
+          ${question.passage ? `<div class="passage">${richTextToHtml(question.passage)}</div>` : ''}
+          ${question.passage_image_url ? `<img class="q-image" src="${esc(question.passage_image_url)}" alt="材料图片" loading="lazy">` : ''}
+          ${question.transcript ? `<div class="passage" style="border-left-color:#d97706"><strong>听力原文</strong><br>${richTextToHtml(question.transcript)}</div>` : ''}
+          <div class="prompt-line">
+            <div class="qno-inline">${esc(question.question_no)}</div>
+            <div class="prompt">${richTextToHtml(question.prompt)}</div>
+          </div>
+          ${question.prompt_image_url ? `<img class="q-image" src="${esc(question.prompt_image_url)}" alt="题干图片" loading="lazy">` : ''}
+          <div class="options">
+            ${options.map(opt => `
+              ${(() => {
+                const isCorrect = !!(detail && opt.key === detail.correct_answer);
+                const isWrongPick = !!(detail && detail.user_answer && opt.key === detail.user_answer && detail.user_answer !== detail.correct_answer);
+                const checked = detail ? (opt.key === (detail.user_answer || '')) : false;
+                const cls = isCorrect ? 'option correct' : (isWrongPick ? 'option wrong' : 'option');
+                const mark = isCorrect ? '<span class="option-mark ok">✅</span>' : (isWrongPick ? '<span class="option-mark bad">❌</span>' : '');
+                return `<label class="${cls}">
+                <input type="radio" name="q_${question.id}" value="${esc(opt.key)}" ${checked ? 'checked' : ''} ${detail ? 'disabled' : ''}>
+                <div class="option-main">
+                  <div class="option-content">
+                    <div><strong>${esc(opt.key)}.</strong> ${esc(opt.text)}</div>
+                    ${opt.image_url ? `<img class="option-media" src="${esc(opt.image_url)}" alt="选项图片" loading="lazy">` : ''}
+                  </div>
+                  ${mark}
+                </div>
+              </label>`;
+              })()}
+            `).join('')}
+          </div>
+          ${detail ? `<button type="button" class="explain-link" data-question-id="${esc(question.id)}">${isExpanded ? '隐藏详解' : '查看答案详解'}</button>` : ''}
+          ${isExpanded ? `
+            <div class="inline-explain">
+              <div style="margin-top:2px;color:var(--sub)">你的答案：${esc(detail.user_answer || '未作答')} ｜ 正确答案：${esc(detail.correct_answer)}</div>
+              ${detail.prompt ? `<div class="prompt" style="margin-top:10px">${richTextToHtml(detail.prompt)}</div>` : ''}
+              ${detail.prompt_image_url ? `<img class="q-image" src="${esc(detail.prompt_image_url)}" alt="题干图片" loading="lazy">` : ''}
+              ${detail.passage ? `<div class="passage" style="margin-top:10px">${richTextToHtml(detail.passage)}</div>` : ''}
+              ${detail.passage_image_url ? `<img class="q-image" src="${esc(detail.passage_image_url)}" alt="材料图片" loading="lazy">` : ''}
+              ${detail.transcript ? `<div class="passage" style="border-left-color:#d97706;margin-top:10px"><strong>听力原文</strong><br>${richTextToHtml(detail.transcript)}</div>` : ''}
+              <div class="explain" style="margin-top:10px">
+                <div><strong>中文详解：</strong>${detail.explanation_zh ? richTextToHtml(detail.explanation_zh) : '暂无'}</div>
+              </div>
+            </div>
+          ` : ''}
+        </section>
+      `;
+  }).join('');
+
+  host.innerHTML = `
+    <div class="toolbar">
+      <div>
+        <h2 class="exam-title">${esc(currentPaper.title)}</h2>
+        <div class="muted">${esc(currentPaper.level)} · ${esc(currentPaper.year)}-${esc(currentPaper.session)} · 建议用时 ${currentPaper.duration_minutes || '--'} 分钟</div>
+      </div>
+      <div class="muted">当前 ${sectionLabel(currentSectionFilter)} ${questions.length} 题</div>
+    </div>
+    <div class="muted" style="margin-bottom:16px">${esc(currentPaper.description || '交卷后会立即返回总分、分项得分和逐题详解。')}</div>
+    ${tabsHtml}
+    ${summaryHtml}
+    ${sectionIntro}
+    <form id="examForm">
+      ${questionHtml}
+    </form>
+    <div class="actions">
+      <button class="ghost" onclick="selectPaper('${esc(currentPaper.slug)}')">重新开始</button>
+      ${currentResult ? '<button class="solid" disabled style="opacity:.65;cursor:not-allowed">已完成批改</button>' : '<button class="solid" onclick="submitExam()">交卷并一键批改</button>'}
+    </div>
+    <div id="resultHost"></div>
+  `;
+
+  bindExplainButtons();
+}
+
+function setExamSection(sectionType) {
+  currentSectionFilter = sectionType;
+  currentResult = null;
+  expandedExplainIds.clear();
+  renderExam();
+}
+
+function bindExplainButtons() {
+  document.querySelectorAll('.explain-link[data-question-id]').forEach(btn => {
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      const keepY = window.scrollY;
+      const id = btn.getAttribute('data-question-id') || '';
+      if (!id) return;
+      if (expandedExplainIds.has(id)) expandedExplainIds.delete(id);
+      else expandedExplainIds.add(id);
+      renderExam();
+      window.scrollTo({ top: keepY });
+    });
+  });
+}
+
+async function submitExam() {
+  if (!currentPaper || !isMemberUser(currentUser)) {
+    renderMembershipGate();
+    return;
+  }
+  const questions = visiblePaperQuestions();
+  const answers = questions.map(question => {
+    const checked = document.querySelector(`input[name="q_${question.id}"]:checked`);
+    return { question_id: question.id, answer: checked ? checked.value : '' };
+  });
+  const answeredCount = answers.filter(item => item.answer).length;
+  if (!answeredCount) {
+    alert('请至少作答 1 题后再交卷。');
+    return;
+  }
+  const ok = confirm(`当前 ${sectionLabel(currentSectionFilter)} 已作答 ${answeredCount}/${questions.length} 题，确认现在批改吗？`);
+  if (!ok) return;
+
+  const result = await apiCall('POST', '/jlpt-exams/papers/' + encodeURIComponent(currentPaper.slug) + '/submit', {
+    answers,
+    section_type: currentSectionFilter,
+    time_spent_seconds: examStartedAt ? Math.max(1, Math.round((Date.now() - examStartedAt) / 1000)) : 0,
+  });
+  currentResult = result;
+  renderExam();
+  renderResult();
+  trackToolUse('jlpt-mock-exam', 'submit');
+}
+
+function renderResult() {
+  const host = document.getElementById('resultHost');
+  if (!host || !currentResult) {
+    if (host) host.innerHTML = '';
+    return;
+  }
+  const labelMap = {
+    vocabulary_grammar: '词汇语法',
+    reading: '阅读理解',
+    listening: '听解',
+  };
+  host.innerHTML = `
+    <div class="result-bottom">
+      <div class="toolbar" style="margin-bottom:8px">
+        <div style="font-weight:800">批改完成</div>
+        <div class="tag level" style="font-size:14px">正确 ${currentResult.correct_count} / ${currentResult.total_questions}</div>
+      </div>
+      <div class="score-grid" style="margin-bottom:0">
+        <div class="score-card"><strong>${currentResult.score_percent}%</strong><span>总分</span></div>
+        ${Object.keys(labelMap).map(key => `
+          <div class="score-card"><strong>${currentResult.breakdown && currentResult.breakdown[key] ? currentResult.breakdown[key].correct : 0}/${currentResult.breakdown && currentResult.breakdown[key] ? currentResult.breakdown[key].total : 0}</strong><span>${labelMap[key]}</span></div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function trackToolUse(toolId, action) {
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (accessToken) headers.Authorization = 'Bearer ' + accessToken;
+    fetch(API + '/tools/track', {
+      method: 'POST',
+      headers,
+      keepalive: true,
+      body: JSON.stringify({ tool_id: toolId, action: action || 'open' })
+    }).catch(() => {});
+  } catch (_) {}
+}
+
+(async function init() {
+  await bootstrapUser();
+  trackToolUse('jlpt-mock-exam', 'open');
+  if (!isMemberUser(currentUser)) {
+    renderMembershipGate();
+    return;
+  }
+  await loadPapers();
+})();
+</script>
+</body>
+</html>

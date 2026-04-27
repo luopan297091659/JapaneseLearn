@@ -124,6 +124,77 @@ const QuizSession = sequelize.define('QuizSession', {
   completed_at: { type: DataTypes.DATE, allowNull: true },
 }, { tableName: 'quiz_sessions' });
 
+// ────────── JLPT Mock Exam ──────────
+const JlptExamPaper = sequelize.define('JlptExamPaper', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  level: { type: DataTypes.ENUM('N5', 'N4', 'N3', 'N2', 'N1'), allowNull: false },
+  year: { type: DataTypes.INTEGER, allowNull: false },
+  session: { type: DataTypes.ENUM('07', '12', 'other'), allowNull: false, defaultValue: 'other' },
+  title: { type: DataTypes.STRING(200), allowNull: false },
+  slug: { type: DataTypes.STRING(120), allowNull: false, unique: true },
+  source_label: { type: DataTypes.STRING(200), allowNull: true, comment: '后台内部来源标识，不对前台展示' },
+  description: { type: DataTypes.TEXT, allowNull: true },
+  duration_minutes: { type: DataTypes.INTEGER, allowNull: true },
+  is_published: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  sort_order: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  tags: { type: DataTypes.JSON, allowNull: true },
+  meta_json: { type: DataTypes.JSON, allowNull: true },
+}, {
+  tableName: 'jlpt_exam_papers',
+  indexes: [
+    { fields: ['level', 'is_published'] },
+    { fields: ['level', 'year', 'session'] },
+  ],
+});
+
+const JlptExamQuestion = sequelize.define('JlptExamQuestion', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  paper_id: { type: DataTypes.UUID, allowNull: false },
+  section_type: { type: DataTypes.ENUM('vocabulary_grammar', 'reading', 'listening'), allowNull: false },
+  section_title: { type: DataTypes.STRING(100), allowNull: true },
+  question_group: { type: DataTypes.STRING(100), allowNull: true, comment: '如 問題1 / 問題2 / 内容理解' },
+  question_no: { type: DataTypes.STRING(30), allowNull: false },
+  sort_order: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  prompt: { type: DataTypes.TEXT('long'), allowNull: false },
+  passage: { type: DataTypes.TEXT('long'), allowNull: true, comment: '阅读材料或题干上下文，已整理为横排语义文本' },
+  transcript: { type: DataTypes.TEXT('long'), allowNull: true, comment: '听力原文，首期无音频时用于解析展示' },
+  options: { type: DataTypes.JSON, allowNull: false, comment: '选项数组 [{ key, text }]' },
+  answer: { type: DataTypes.STRING(20), allowNull: false, comment: '正确选项 key，如 1/A' },
+  explanation: { type: DataTypes.TEXT('long'), allowNull: true },
+  explanation_zh: { type: DataTypes.TEXT('long'), allowNull: true },
+  knowledge_points: { type: DataTypes.JSON, allowNull: true },
+  score: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 1 },
+  audio_url: { type: DataTypes.STRING(500), allowNull: true },
+  meta_json: { type: DataTypes.JSON, allowNull: true },
+}, {
+  tableName: 'jlpt_exam_questions',
+  indexes: [
+    { fields: ['paper_id', 'sort_order'] },
+    { fields: ['paper_id', 'section_type'] },
+  ],
+});
+
+const JlptExamAttempt = sequelize.define('JlptExamAttempt', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  user_id: { type: DataTypes.UUID, allowNull: true },
+  paper_id: { type: DataTypes.UUID, allowNull: false },
+  answers: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
+  score_percent: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 0 },
+  total_questions: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  correct_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  breakdown: { type: DataTypes.JSON, allowNull: true, comment: '按三类题型拆分得分' },
+  time_spent_seconds: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  submitted_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+}, {
+  tableName: 'jlpt_exam_attempts',
+  updatedAt: false,
+  indexes: [
+    { fields: ['paper_id'] },
+    { fields: ['user_id'] },
+    { fields: ['submitted_at'] },
+  ],
+});
+
 // ────────── News ──────────
 const NewsArticle = sequelize.define('NewsArticle', {
   id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
@@ -305,6 +376,10 @@ const NewsFavorite = sequelize.define('NewsFavorite', {
 // ────────── Associations ──────────
 GrammarLesson.hasMany(GrammarExample, { foreignKey: 'grammar_lesson_id', as: 'examples' });
 GrammarExample.belongsTo(GrammarLesson, { foreignKey: 'grammar_lesson_id' });
+JlptExamPaper.hasMany(JlptExamQuestion, { foreignKey: 'paper_id', as: 'questions', onDelete: 'CASCADE' });
+JlptExamQuestion.belongsTo(JlptExamPaper, { foreignKey: 'paper_id', as: 'paper' });
+JlptExamPaper.hasMany(JlptExamAttempt, { foreignKey: 'paper_id', as: 'attempts', onDelete: 'CASCADE' });
+JlptExamAttempt.belongsTo(JlptExamPaper, { foreignKey: 'paper_id', as: 'paper' });
 
 // ────────── MembershipPlan (会员套餐持久化) ──────────
 const MembershipPlan = sequelize.define('MembershipPlan', {
@@ -473,6 +548,9 @@ module.exports = {
   SrsCard,
   QuizQuestion,
   QuizSession,
+  JlptExamPaper,
+  JlptExamQuestion,
+  JlptExamAttempt,
   NewsArticle,
   NhkNewsCache,
   NewsFavorite,

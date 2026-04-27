@@ -1,0 +1,32 @@
+[
+  {
+    "slug": "n1-2019-07-n1-2019-7",
+    "level": "N1",
+    "year": 2019,
+    "session": "07",
+    "source_pdf": "D:\\JLPT\\N1\\N1 2019年7月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_ocr3\\n1-2019-07-n1-2019-7.json",
+    "questions": 35,
+    "ocr": true
+  },
+  {
+    "slug": "n2-2019-07-n2-2019-7",
+    "level": "N2",
+    "year": 2019,
+    "session": "07",
+    "source_pdf": "D:\\JLPT\\N2\\N2 2019年7月真题+答案+详解+听力原文_.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_ocr3\\n2-2019-07-n2-2019-7.json",
+    "questions": 35,
+    "ocr": true
+  },
+  {
+    "slug": "n3-2021-07-n3-2021-7",
+    "level": "N3",
+    "year": 2021,
+    "session": "07",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2021年7月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_ocr3\\n3-2021-07-n3-2021-7.json",
+    "questions": 35,
+    "ocr": true
+  }
+]

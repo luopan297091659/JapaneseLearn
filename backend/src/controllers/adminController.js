@@ -132,10 +132,10 @@ async function createVocab(req, res) {
     // 规范化例句格式
     const normalizedExamples = Array.isArray(example_sentences)
       ? example_sentences.map(ex => ({
-          jp: ex.jp || ex.sentence || '',
-          reading: ex.reading || '',
-          zh: ex.zh || ex.meaning_zh || '',
-          audio_url: ex.audio_url || null,
+          jp: String(ex.jp || ex.sentence || '').trim(),
+          reading: String(ex.reading || '').trim(),
+          zh: String(ex.zh || ex.meaning_zh || '').trim(),
+          audio_url: ex.audio_url ? String(ex.audio_url).trim() : null,
         })).filter(ex => ex.jp)
       : [];
     
@@ -168,10 +168,10 @@ async function updateVocab(req, res) {
     // 规范化例句格式
     const normalizedExamples = Array.isArray(example_sentences)
       ? example_sentences.map(ex => ({
-          jp: ex.jp || ex.sentence || '',
-          reading: ex.reading || '',
-          zh: ex.zh || ex.meaning_zh || '',
-          audio_url: ex.audio_url || null,
+          jp: String(ex.jp || ex.sentence || '').trim(),
+          reading: String(ex.reading || '').trim(),
+          zh: String(ex.zh || ex.meaning_zh || '').trim(),
+          audio_url: ex.audio_url ? String(ex.audio_url).trim() : null,
         })).filter(ex => ex.jp)
       : [];
     
@@ -2118,13 +2118,27 @@ async function saveMembershipConfig(req, res) {
 
 // ─── App 上传 ──────────────────────────────────────────────────────────────
 async function uploadApp(req, res) {
-  if (!req.file) return res.status(400).json({ error: '未上传文件' });
-  const { version, platform, changelog } = req.body;
-  if (!version || !platform) return res.status(400).json({ error: '缺少版本号或平台' });
-  // multer diskStorage 已自动保存文件，req.file.filename 即磁盘文件名
-  const fileUrl = `/uploads/app/${req.file.filename}`;
+  const platform = String(req.body.platform || '').trim().toLowerCase();
+  const version = String(req.body.version || '').trim();
+  const externalUrl = String(req.body.external_url || req.body.file_url || '').trim();
+  const changelog = req.body.changelog;
+  if (!platform) return res.status(400).json({ error: '缺少平台' });
+  if (!['android', 'ios'].includes(platform)) return res.status(400).json({ error: '平台仅支持 android / ios' });
+
+  let fileUrl = '';
+  let releaseVersion = version;
+  if (platform === 'ios' && externalUrl) {
+    if (!/^https?:\/\//i.test(externalUrl)) return res.status(400).json({ error: 'iOS 链接必须以 http:// 或 https:// 开头' });
+    fileUrl = externalUrl;
+    releaseVersion = version || 'iOS';
+  } else {
+    if (!req.file) return res.status(400).json({ error: '未上传文件' });
+    if (!version) return res.status(400).json({ error: '缺少版本号' });
+    fileUrl = `/uploads/app/${req.file.filename}`;
+  }
+
   const app = await AppRelease.create({
-    version,
+    version: releaseVersion,
     platform,
     file_url: fileUrl,
     changelog: changelog || null,
@@ -2189,7 +2203,6 @@ async function downloadApp(req, res) {
   if (!app) return res.status(404).json({ error: '未找到该版本' });
   app.download_count += 1;
   await app.save();
-  // 重定向到实际文件，浏览器/App 直接下载
   res.redirect(app.file_url);
 }
 
@@ -2199,7 +2212,7 @@ async function deleteAppRelease(req, res) {
     const app = await AppRelease.findByPk(req.params.id);
     if (!app) return res.status(404).json({ error: '未找到该版本' });
     // 删除磁盘文件
-    if (app.file_url) {
+    if (app.file_url && app.file_url.startsWith('/uploads/')) {
       const filePath = path.join(__dirname, '../../', app.file_url);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }

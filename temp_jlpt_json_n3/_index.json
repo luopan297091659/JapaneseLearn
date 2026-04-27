@@ -1,0 +1,212 @@
+[
+  {
+    "slug": "n3-2011-12-n3-2011-12",
+    "level": "N3",
+    "year": 2011,
+    "session": "12",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2011年12月真题+答案+详解+听力原文_.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2011-12-n3-2011-12.json",
+    "questions": 1,
+    "requires_ocr": false
+  },
+  {
+    "slug": "n3-2011-other-n3-2011-7",
+    "level": "N3",
+    "year": 2011,
+    "session": "other",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2011年7月真题+答案+详解+听力原文_.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2011-other-n3-2011-7.json",
+    "questions": 1,
+    "requires_ocr": false
+  },
+  {
+    "slug": "n3-2012-12-n3-2012-12",
+    "level": "N3",
+    "year": 2012,
+    "session": "12",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2012年12月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2012-12-n3-2012-12.json",
+    "questions": 1,
+    "requires_ocr": false
+  },
+  {
+    "slug": "n3-2012-12-n3-2012-7",
+    "level": "N3",
+    "year": 2012,
+    "session": "12",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2012年7月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2012-12-n3-2012-7.json",
+    "questions": 1,
+    "requires_ocr": false
+  },
+  {
+    "slug": "n3-2013-12-n3-2013-12",
+    "level": "N3",
+    "year": 2013,
+    "session": "12",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2013年12月真题+答案+详解+听力原文_.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2013-12-n3-2013-12.json",
+    "questions": 1,
+    "requires_ocr": false
+  },
+  {
+    "slug": "n3-2013-other-n3-2013-7",
+    "level": "N3",
+    "year": 2013,
+    "session": "other",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2013年7月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2013-other-n3-2013-7.json",
+    "questions": 1,
+    "requires_ocr": false
+  },
+  {
+    "slug": "n3-2014-12-n3-2014-12",
+    "level": "N3",
+    "year": 2014,
+    "session": "12",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2014年12月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2014-12-n3-2014-12.json",
+    "questions": 1,
+    "requires_ocr": false
+  },
+  {
+    "slug": "n3-2014-other-n3-2014-7",
+    "level": "N3",
+    "year": 2014,
+    "session": "other",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2014年7月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2014-other-n3-2014-7.json",
+    "questions": 1,
+    "requires_ocr": false
+  },
+  {
+    "slug": "n3-2015-12-n3-2015-12",
+    "level": "N3",
+    "year": 2015,
+    "session": "12",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2015年12月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2015-12-n3-2015-12.json",
+    "questions": 1,
+    "requires_ocr": true
+  },
+  {
+    "slug": "n3-2015-other-n3-2015-7",
+    "level": "N3",
+    "year": 2015,
+    "session": "other",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2015年7月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2015-other-n3-2015-7.json",
+    "questions": 1,
+    "requires_ocr": true
+  },
+  {
+    "slug": "n3-2016-12-n3-2016-12",
+    "level": "N3",
+    "year": 2016,
+    "session": "12",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2016年12月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2016-12-n3-2016-12.json",
+    "questions": 1,
+    "requires_ocr": true
+  },
+  {
+    "slug": "n3-2016-other-n3-2016-7",
+    "level": "N3",
+    "year": 2016,
+    "session": "other",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2016年7月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2016-other-n3-2016-7.json",
+    "questions": 1,
+    "requires_ocr": false
+  },
+  {
+    "slug": "n3-2017-12-n3-2017-12",
+    "level": "N3",
+    "year": 2017,
+    "session": "12",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2017年12月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2017-12-n3-2017-12.json",
+    "questions": 1,
+    "requires_ocr": true
+  },
+  {
+    "slug": "n3-2017-other-n3-2017-7",
+    "level": "N3",
+    "year": 2017,
+    "session": "other",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2017年7月真题+答案+详解+听力原文_.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2017-other-n3-2017-7.json",
+    "questions": 1,
+    "requires_ocr": true
+  },
+  {
+    "slug": "n3-2018-12-n3-2018-12",
+    "level": "N3",
+    "year": 2018,
+    "session": "12",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2018年12月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2018-12-n3-2018-12.json",
+    "questions": 1,
+    "requires_ocr": true
+  },
+  {
+    "slug": "n3-2018-other-n3-2018-7",
+    "level": "N3",
+    "year": 2018,
+    "session": "other",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2018年7月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2018-other-n3-2018-7.json",
+    "questions": 1,
+    "requires_ocr": true
+  },
+  {
+    "slug": "n3-2019-12-n3-2019-12",
+    "level": "N3",
+    "year": 2019,
+    "session": "12",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2019年12月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2019-12-n3-2019-12.json",
+    "questions": 1,
+    "requires_ocr": true
+  },
+  {
+    "slug": "n3-2019-other-n3-2019-7",
+    "level": "N3",
+    "year": 2019,
+    "session": "other",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2019年7月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2019-other-n3-2019-7.json",
+    "questions": 1,
+    "requires_ocr": true
+  },
+  {
+    "slug": "n3-2020-12-n3-2020-12",
+    "level": "N3",
+    "year": 2020,
+    "session": "12",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2020年12月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2020-12-n3-2020-12.json",
+    "questions": 1,
+    "requires_ocr": false
+  },
+  {
+    "slug": "n3-2021-12-n3-2021-12",
+    "level": "N3",
+    "year": 2021,
+    "session": "12",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2021年12月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2021-12-n3-2021-12.json",
+    "questions": 1,
+    "requires_ocr": true
+  },
+  {
+    "slug": "n3-2021-other-n3-2021-7",
+    "level": "N3",
+    "year": 2021,
+    "session": "other",
+    "source_pdf": "D:\\JLPT\\N3\\N3 2021年7月真题+答案+详解+听力原文.pdf",
+    "output_json": "D:\\PROJECT\\JapaneseLearn\\temp_jlpt_json_n3\\n3-2021-other-n3-2021-7.json",
+    "questions": 1,
+    "requires_ocr": false
+  }
+]

@@ -182,7 +182,9 @@ nav .nav-link.active { color: var(--primary); }
 }
 .dl-btn-android { background: var(--primary); color: #fff; }
 .dl-btn-android:hover { background: var(--primary-dark); }
-.dl-btn-ios { background: #e5e7ef; color: var(--text-sub); cursor: default; }
+.dl-btn-ios { background: #111827; color: #fff; }
+.dl-btn-ios:hover { background: #000; }
+.dl-btn-disabled { background: #e5e7ef; color: var(--text-sub); cursor: default; }
 
 /* ── spinner ── */
 .qr-loading { display: flex; flex-direction: column; align-items: center; gap: 6px; }
@@ -314,11 +316,13 @@ footer {
       <div class="version" id="androidVersion">检测中...</div>
       <button class="dl-btn dl-btn-android" id="androidBtn" onclick="downloadAndroid()">下载 APK</button>
     </div>
-    <div class="dl-card">
+    <div class="dl-card" id="iosCard">
       <div class="platform"><span class="os-icon">🍎</span>iOS</div>
-      <div class="qr-box"><div class="placeholder">🚧<br>即将上线<br>敬请期待</div></div>
-      <div class="version">待发布</div>
-      <button class="dl-btn dl-btn-ios" disabled>即将上线</button>
+      <div class="qr-box" id="iosQrBox">
+        <div class="qr-loading"><div class="spinner"></div><span style="font-size:11px;color:var(--text-hint)">加载中</span></div>
+      </div>
+      <div class="version" id="iosVersion">检测中...</div>
+      <button class="dl-btn dl-btn-ios" id="iosBtn" onclick="downloadIos()">前往下载</button>
     </div>
   </div>
 </section>
@@ -455,30 +459,59 @@ footer {
   document.querySelectorAll('.feat-card').forEach(el=>obs.observe(el));
 })();
 
-/* ── Android QR ── */
+/* ── App Download QR ── */
 let androidDownloadUrl = '';
-async function loadAndroidRelease() {
+let iosDownloadUrl = '';
+
+async function loadAppRelease(platform, options) {
+  const { versionId, buttonId, qrBoxId, buttonText, emptyButtonText, activeClass } = options;
   try {
-    const res = await fetch('/api/v1/admin/app/latest?platform=android');
+    const res = await fetch('/api/v1/admin/app/latest?platform=' + platform);
     if (!res.ok) throw new Error('not found');
     const { data } = await res.json();
     const dlPath = data.download_url || ('/api/v1/admin/downloadApp/' + data.id);
-    androidDownloadUrl = dlPath;
+    if (platform === 'ios') iosDownloadUrl = dlPath;
+    else androidDownloadUrl = dlPath;
     const fullUrl = location.origin + dlPath;
-    document.getElementById('androidVersion').textContent = 'v' + data.version + (data.published_at ? ' · ' + new Date(data.published_at).toLocaleDateString('zh-CN') : '');
-    const box = document.getElementById('androidQrBox');
-    box.innerHTML = '<canvas id="androidQr"></canvas>';
-    QRCode.toCanvas(document.getElementById('androidQr'), fullUrl, { width:140, margin:1, color:{dark:'#1a1c2e',light:'#ffffff'} });
+    document.getElementById(versionId).textContent = (platform === 'ios' && data.version === 'iOS' ? '已发布' : 'v' + data.version) + (data.published_at ? ' · ' + new Date(data.published_at).toLocaleDateString('zh-CN') : '');
+    const box = document.getElementById(qrBoxId);
+    const canvasId = platform + 'Qr';
+    box.innerHTML = '<canvas id="' + canvasId + '"></canvas>';
+    QRCode.toCanvas(document.getElementById(canvasId), fullUrl, { width:140, margin:1, color:{dark:'#1a1c2e',light:'#ffffff'} });
+    const btn = document.getElementById(buttonId);
+    btn.disabled = false;
+    btn.textContent = buttonText;
+    btn.classList.remove('dl-btn-disabled');
+    btn.classList.add(activeClass);
   } catch {
-    document.getElementById('androidVersion').textContent = '暂无发布版本';
-    document.getElementById('androidBtn').disabled = true;
-    document.getElementById('androidBtn').textContent = '暂无版本';
-    document.getElementById('androidBtn').classList.replace('dl-btn-android','dl-btn-ios');
-    document.getElementById('androidQrBox').innerHTML = '<div class="placeholder">请在管理后台<br>上传并发布版本</div>';
+    document.getElementById(versionId).textContent = '暂无发布版本';
+    const btn = document.getElementById(buttonId);
+    btn.disabled = true;
+    btn.textContent = emptyButtonText;
+    btn.classList.remove('dl-btn-android','dl-btn-ios');
+    btn.classList.add('dl-btn-disabled');
+    document.getElementById(qrBoxId).innerHTML = '<div class="placeholder">请在管理后台<br>配置并发布版本</div>';
   }
 }
+
+function loadAndroidRelease() {
+  return loadAppRelease('android', {
+    versionId: 'androidVersion', buttonId: 'androidBtn', qrBoxId: 'androidQrBox',
+    buttonText: '下载 APK', emptyButtonText: '暂无版本', activeClass: 'dl-btn-android'
+  });
+}
+
+function loadIosRelease() {
+  return loadAppRelease('ios', {
+    versionId: 'iosVersion', buttonId: 'iosBtn', qrBoxId: 'iosQrBox',
+    buttonText: '前往下载', emptyButtonText: '暂无版本', activeClass: 'dl-btn-ios'
+  });
+}
+
 function downloadAndroid() { if (androidDownloadUrl) window.open(androidDownloadUrl,'_blank'); }
+function downloadIos() { if (iosDownloadUrl) window.open(iosDownloadUrl,'_blank'); }
 loadAndroidRelease();
+loadIosRelease();
 
 /* ── Auth & User Badge ── */
 const API = '/api/v1';

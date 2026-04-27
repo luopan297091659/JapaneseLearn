@@ -32,6 +32,17 @@ const {
 const {
   adminListChannels, adminCreateChannel, adminUpdateChannel, adminDeleteChannel, adminRefreshChannel,
 } = require('../controllers/listeningChannelController');
+const {
+  adminListJlptPapers,
+  adminGetJlptPaper,
+  adminCreateJlptPaper,
+  adminUpdateJlptPaper,
+  adminImportJlptPaperFile,
+  adminParseJlptQuestionsFile,
+  adminBulkPublishJlptPapers,
+  adminBulkDeleteJlptPapers,
+  adminDeleteJlptPaper,
+} = require('../controllers/jlptExamController');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -75,6 +86,16 @@ const apkgUpload = multer({
     const ext = path.extname(file.originalname).toLowerCase();
     if (ext === '.apkg') return cb(null, true);
     cb(new Error('仅支持 .apkg 格式'));
+  },
+});
+
+const jlptUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (['.csv', '.json'].includes(ext)) return cb(null, true);
+    cb(new Error('仅支持 .csv / .json 格式'));
   },
 });
 
@@ -129,6 +150,17 @@ router.post('/grammar/bulk-delete', permissionCheck('grammar'), asyncHandler(bul
 router.post('/grammar/generate-kokoro-audio', permissionCheck('grammar'), asyncHandler(generateGrammarExamplesKokoroAudio));
 router.post('/grammar/import-apkg', permissionCheck('grammar'), apkgUpload.single('file'), asyncHandler(importGrammarApkg));
 router.post('/grammar/:lessonId/examples/:exId/generate-audio', permissionCheck('grammar'), asyncHandler(generateGrammarExampleAudio));
+
+// JLPT 模拟测验管理
+router.get('/jlpt-exams', permissionCheck('vocabulary'), asyncHandler(adminListJlptPapers));
+router.post('/jlpt-exams/bulk-publish', permissionCheck('vocabulary'), asyncHandler(adminBulkPublishJlptPapers));
+router.post('/jlpt-exams/bulk-delete', permissionCheck('vocabulary'), asyncHandler(adminBulkDeleteJlptPapers));
+router.post('/jlpt-exams/import-file', permissionCheck('vocabulary'), jlptUpload.single('file'), asyncHandler(adminImportJlptPaperFile));
+router.post('/jlpt-exams/import-section-file', permissionCheck('vocabulary'), jlptUpload.single('file'), asyncHandler(adminParseJlptQuestionsFile));
+router.get('/jlpt-exams/:id', permissionCheck('vocabulary'), asyncHandler(adminGetJlptPaper));
+router.post('/jlpt-exams', permissionCheck('vocabulary'), asyncHandler(adminCreateJlptPaper));
+router.put('/jlpt-exams/:id', permissionCheck('vocabulary'), asyncHandler(adminUpdateJlptPaper));
+router.delete('/jlpt-exams/:id', permissionCheck('vocabulary'), asyncHandler(adminDeleteJlptPaper));
 
 // 听力管理
 router.get('/tracks',        permissionCheck('tracks'), asyncHandler(listTracks));

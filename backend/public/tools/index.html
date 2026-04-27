@@ -245,12 +245,23 @@ footer a { color: var(--text-hint); }
       <div class="tool-card">
         <div class="tool-icon">🎙️</div>
         <h3>AI 语音合成</h3>
-        <p>基于 Kokoro 引擎的多种语音合成工具。支持多种音色、语速调节、情感控制，生成自然流畅的多语言朗读音频。</p>
+        <p>多种语言的音频合成工具。支持多种音色、语速调节、情感控制，生成自然流畅的多语言朗读音频。</p>
         <div class="tool-tags">
           <span class="tool-tag tool-tag-free">免费额度</span>
           <span class="tool-tag tool-tag-member">会员无限</span>
         </div>
         <button class="tool-btn" onclick="goTool('/tools/kokoro-tts/')">打开工具 →</button>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-icon">📝</div>
+        <h3>JLPT 模拟测试</h3>
+        <p>在线完成 JLPT 三大题型模拟测验，交卷后一键批改，立即查看分项得分与逐题详解。</p>
+        <div class="tool-tags">
+          <span class="tool-tag tool-tag-free">免费</span>
+          <span class="tool-tag tool-tag-new">NEW</span>
+        </div>
+        <button class="tool-btn" onclick="goTool('/tools/jlpt-mock-exam')">开始测验 →</button>
       </div>
 
       <!-- Coming soon -->
@@ -263,16 +274,7 @@ footer a { color: var(--text-hint); }
         </div>
         <button class="tool-btn" disabled>敬请期待</button>
       </div>
-
-      <div class="tool-card coming-soon">
-        <div class="tool-icon">📝</div>
-        <h3>JLPT 模拟测试</h3>
-        <p>在线模拟 JLPT N5–N1 真题，自动评分与解析，追踪备考进度。即将上线。</p>
-        <div class="tool-tags">
-          <span class="tool-tag tool-tag-beta">即将上线</span>
-        </div>
-        <button class="tool-btn" disabled>敬请期待</button>
-      </div>
+      
     </div>
   </div>
 
@@ -495,7 +497,11 @@ function updateUI() {
 
 function goTool(path) {
   if (!currentUser) { showAuthModal(); return; }
-  trackToolUse(path.includes('screenshot') ? 'screenshot-generator' : (path.includes('kokoro') ? 'kokoro-tts' : 'tools-home'), 'click');
+  trackToolUse(
+    path.includes('screenshot') ? 'screenshot-generator' :
+    (path.includes('kokoro') ? 'kokoro-tts' : (path.includes('jlpt-mock-exam') ? 'jlpt-mock-exam' : 'tools-home')),
+    'click'
+  );
   location.href = path;
 }
 

@@ -44,6 +44,7 @@ const kanaRoutes = require('./routes/kana');
 const stripeRoutes = require('./routes/stripe');
 const { router: stripeRouter, stripeWebhook } = stripeRoutes;
 const paymentRoutes = require('./routes/payment');
+const jlptExamRoutes = require('./routes/jlptExam');
 
 const app = express();
 
@@ -168,6 +169,7 @@ app.use('/tools', express.static(path.join(__dirname, '../public/tools')));
 app.get('/tools', (req, res) => res.sendFile(path.join(__dirname, '../public/tools/index.html')));
 app.get('/tools/screenshot-generator', (req, res) => res.sendFile(path.join(__dirname, '../public/tools/screenshot-generator/index.html')));
 app.get('/tools/kokoro-tts', (req, res) => res.sendFile(path.join(__dirname, '../public/tools/kokoro-tts/index.html')));
+app.get('/tools/jlpt-mock-exam', (req, res) => res.sendFile(path.join(__dirname, '../public/tools/jlpt-mock-exam/index.html')));
 
 // API Routes
 app.use('/api/v1/auth', authRoutes);
@@ -196,6 +198,7 @@ app.use('/api/v1/kokoro-audio', kokoroAudioManagementRoutes);
 app.use('/api/v1/kana', kanaRoutes);
 app.use('/api/v1/stripe', stripeRouter);
 app.use('/api/v1/payment', paymentRoutes);
+app.use('/api/v1/jlpt-exams', jlptExamRoutes);
 app.use('/api/v1/tools', require('./routes/tools'));
 
 // 公开接口：支持渠道

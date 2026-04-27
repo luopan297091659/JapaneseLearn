@@ -6,6 +6,7 @@ const { ToolUsageLog } = require('../models');
 const ALLOWED_TOOLS = new Set([
   'screenshot-generator',
   'kokoro-tts',
+  'jlpt-mock-exam',
   'tools-home',
 ]);
 const ALLOWED_ACTIONS = new Set(['open', 'generate', 'export', 'play', 'click']);

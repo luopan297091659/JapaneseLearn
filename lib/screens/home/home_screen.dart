@@ -44,7 +44,7 @@ const _featureTierMap = <String, String>{
 const _allFeatures = <String, ({IconData icon, String label, String sub, String path, Color color})>{
   'gojuon':        (icon: Icons.grid_view_rounded,      label: '五十音',     sub: '基础入门', path: '/gojuon',          color: Color(0xFFE91E63)),
   'vocabulary':    (icon: Icons.menu_book_rounded,      label: '单词学习',   sub: '词汇积累', path: '/vocabulary',      color: Color(0xFF4CAF50)),
-  'grammar':       (icon: Icons.school_rounded,         label: '（）',   sub: '规则掌握', path: '/grammar',         color: Color(0xFF2196F3)),
+  'grammar':       (icon: Icons.school_rounded,         label: '语法学习',   sub: '规则掌握', path: '/grammar',         color: Color(0xFF2196F3)),
   'listening':     (icon: Icons.headphones_rounded,     label: '听力练习',   sub: '提升听力', path: '/listening',       color: Color(0xFF9C27B0)),
   'pronunciation': (icon: Icons.mic_rounded,            label: '发音训练',   sub: 'AI智能纠正', path: '/pronunciation',  color: Color(0xFF00BCD4)),
   'srs':           (icon: Icons.layers_rounded,         label: 'SRS复习',    sub: '间隔记忆', path: '/srs-review',     color: Color(0xFFFF9800)),

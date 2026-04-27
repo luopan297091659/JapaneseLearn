@@ -243,6 +243,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="sidebar-section">内容管理</div>
   <div class="nav-item" onclick="nav('vocab')"   id="nav-vocab"><span class="icon">📚</span><span class="nav-label">词汇管理</span></div>
   <div class="nav-item" onclick="nav('grammar')" id="nav-grammar"><span class="icon">📖</span><span class="nav-label">语法管理</span></div>
+  <div class="nav-item" onclick="nav('jlpt-exams')" id="nav-jlpt-exams"><span class="icon">📝</span><span class="nav-label">JLPT模拟题</span></div>
   <div class="nav-item" onclick="nav('kana')"    id="nav-kana"><span class="icon">🔤</span><span class="nav-label">五十音管理</span></div>
   <div class="nav-item" onclick="nav('tracks')"  id="nav-tracks"><span class="icon">🎧</span><span class="nav-label">听力管理</span></div>
   <div class="nav-item" onclick="nav('channels')" id="nav-channels"><span class="icon">📺</span><span class="nav-label">频道管理</span></div>
@@ -666,7 +667,7 @@ function showApp(){
 function applySidebarPermissions(){
   const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-ai-settings','nav-kokoro-settings','nav-email-settings','nav-support-channels','nav-admin-mgmt'];
   const permNavMap = {
-    'nav-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-kana': 'vocabulary', 'nav-tracks': 'tracks',
+    'nav-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-jlpt-exams': 'vocabulary', 'nav-kana': 'vocabulary', 'nav-tracks': 'tracks',
     'nav-channels': 'tracks', 'nav-users': 'users', 'nav-reports': 'reports',
     'nav-stat-users': 'stats', 'nav-stat-traffic': 'stats', 'nav-stat-behavior': 'stats',
     'nav-membership': 'membership', 'nav-sync': 'sync', 'nav-import': 'vocabulary',
@@ -689,6 +690,7 @@ function applySidebarPermissions(){
 /* ───────────────────────────────── NAV ───────────────────────────────────── */
 const PAGE_TITLES = {
   dashboard:'仪表板', vocab:'词汇管理', grammar:'语法管理', kana:'五十音管理',
+  'jlpt-exams':'JLPT模拟题',
   tracks:'听力管理', channels:'频道管理', users:'用户管理', reports:'问题反馈',
   'stat-users':'用户统计', 'stat-traffic':'流量监控',
   'stat-behavior':'行为分析',
@@ -700,6 +702,7 @@ const PAGE_TITLES = {
 };
 const PAGE_ICONS = {
   dashboard:'📊', vocab:'📚', grammar:'📖', kana:'🔤',
+  'jlpt-exams':'📝',
   tracks:'🎧', channels:'📺', users:'👥', reports:'🐛',
   'stat-users':'📈', 'stat-traffic':'🌐',
   'stat-behavior':'🧠',
@@ -710,6 +713,7 @@ const PAGE_ICONS = {
 };
 const PAGE_DESCS = {
   vocab:'管理词汇条目', grammar:'管理语法条目', kana:'管理五十音数据', reports:'查看用户反馈的问题',
+  'jlpt-exams':'管理官网 JLPT 模拟测验题库与详解',
   tracks:'管理听力素材', channels:'管理YouTube/B站频道', users:'查看管理用户',
   'stat-users':'用户数据分析', 'stat-traffic':'API流量监控',
   'stat-behavior':'用户行为数据分析',
@@ -743,6 +747,7 @@ function getFrequentNav(limit){
 }
 const PAGE_FNS = {
   dashboard: renderDashboard, vocab: renderVocab, grammar: renderGrammar, kana: renderKana,
+  'jlpt-exams': renderJlptExams,
   tracks: renderTracks, channels: renderChannels, users: renderUsers,
   'stat-users': renderStatUsers, 'stat-traffic': renderStatTraffic,
   'stat-behavior': renderStatBehavior,
@@ -753,6 +758,1031 @@ const PAGE_FNS = {
   'support-channels': renderSupportChannels,
   'admin-mgmt': renderAdminMgmt, reports: renderReports,
 };
+
+let _jlptPaperList = [];
+let _jlptCurrentPaper = null;
+let _jlptLevelFilter = '';
+let _jlptSelectedIds = new Set();
+let _jlptEditorQuestions = [];
+let _jlptSectionImportTargetPaperId = '';
+let _jlptQuestionSectionFilter = '';
+let _jlptQuestionPage = 1;
+let _jlptQuestionPageSize = 20;
+let _jlptSelectedQuestionIndex = 0;
+let _jlptReadingBlocks = [];
+
+function ensureJlptConfirmDialog() {
+  let dlg = document.getElementById('jlpt-confirm-dialog');
+  if (dlg) return dlg;
+  dlg = document.createElement('div');
+  dlg.id = 'jlpt-confirm-dialog';
+  dlg.style.cssText = 'position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.42);backdrop-filter:blur(2px);z-index:20000';
+  dlg.innerHTML = `
+    <div style="width:min(520px,92vw);background:#fff;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.25);padding:20px 20px 16px">
+      <div id="jlpt-confirm-title" style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:10px">确认操作</div>
+      <div id="jlpt-confirm-message" style="font-size:14px;line-height:1.7;color:#334155"></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">
+        <button id="jlpt-confirm-cancel" class="btn btn-ghost">取消</button>
+        <button id="jlpt-confirm-ok" class="btn btn-danger">确定</button>
+      </div>
+    </div>`;
+  document.body.appendChild(dlg);
+  return dlg;
+}
+
+function jlptConfirm(message, { title = '确认操作', danger = true, okText = '确定' } = {}) {
+  return new Promise(resolve => {
+    const dlg = ensureJlptConfirmDialog();
+    const titleEl = document.getElementById('jlpt-confirm-title');
+    const msgEl = document.getElementById('jlpt-confirm-message');
+    const cancelBtn = document.getElementById('jlpt-confirm-cancel');
+    const okBtn = document.getElementById('jlpt-confirm-ok');
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    okBtn.textContent = okText;
+    okBtn.className = danger ? 'btn btn-danger' : 'btn btn-primary';
+    dlg.style.display = 'flex';
+
+    const close = (result) => {
+      dlg.style.display = 'none';
+      cancelBtn.onclick = null;
+      okBtn.onclick = null;
+      dlg.onclick = null;
+      resolve(result);
+    };
+
+    cancelBtn.onclick = () => close(false);
+    okBtn.onclick = () => close(true);
+    dlg.onclick = (e) => { if (e.target === dlg) close(false); };
+  });
+}
+
+function defaultJlptQuestionsTemplate() {
+  return [
+    {
+      section_type: 'vocabulary_grammar',
+      section_title: '文字・語彙',
+      question_group: '問題1',
+      question_no: '1',
+      sort_order: 1,
+      prompt: '問題文',
+      prompt_image_url: '',
+      passage: '',
+      passage_image_url: '',
+      transcript: '',
+      options: [
+        { key: '1', text: '选项1', image_url: '' },
+        { key: '2', text: '选项2', image_url: '' },
+        { key: '3', text: '选项3', image_url: '' },
+        { key: '4', text: '选项4', image_url: '' }
+      ],
+      answer: '1',
+      explanation: '日文解析',
+      explanation_zh: '中文详解',
+      knowledge_points: ['词汇', '语法'],
+      score: 1
+    }
+  ];
+}
+
+async function renderJlptExams() {
+  document.getElementById('content').innerHTML = '<p style="color:#aaa;padding:40px;text-align:center">加载中…</p>';
+  try {
+    const query = _jlptLevelFilter ? `?level=${encodeURIComponent(_jlptLevelFilter)}` : '';
+    const res = await api('GET', `/admin/jlpt-exams${query}`);
+    _jlptPaperList = res.data || [];
+    _jlptSelectedIds = new Set([..._jlptSelectedIds].filter(id => _jlptPaperList.some(item => item.id === id)));
+    buildJlptExamAdmin();
+  } catch (e) {
+    document.getElementById('content').innerHTML = `<div class="panel"><p style="color:#e74c3c">加载失败: ${esc(e.message)}</p></div>`;
+  }
+}
+
+function buildJlptExamAdmin() {
+  const rows = _jlptPaperList.map(item => `
+    <tr style="border-bottom:1px solid #f1f5f9">
+      <td style="padding:10px 8px"><input type="checkbox" class="jlpt-paper-cb" value="${item.id}" ${_jlptSelectedIds.has(item.id) ? 'checked' : ''} onchange="toggleJlptPaperSelection('${item.id}', this.checked)" /></td>
+      <td style="padding:10px 8px;font-weight:600">${esc(item.title)}</td>
+      <td style="padding:10px 8px">${esc(item.level)}</td>
+      <td style="padding:10px 8px">${esc(item.year)}-${esc(item.session)}</td>
+      <td style="padding:10px 8px">${item.question_count || 0}</td>
+      <td style="padding:10px 8px">${item.is_published ? '<span style="color:#16a34a;font-weight:700">已发布</span>' : '<span style="color:#f59e0b;font-weight:700">草稿</span>'}</td>
+      <td style="padding:10px 8px">${esc(item.slug)}</td>
+      <td style="padding:10px 8px;text-align:right">
+        <div style="display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+          <button class="btn btn-ghost btn-sm" onclick="triggerJlptSectionImport('vocabulary_grammar', '${item.id}')">語彙・文法</button>
+          <button class="btn btn-ghost btn-sm" onclick="triggerJlptSectionImport('reading', '${item.id}')">読解</button>
+          <button class="btn btn-ghost btn-sm" onclick="triggerJlptSectionImport('listening', '${item.id}')">聴解</button>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;white-space:nowrap">
+        <button class="btn btn-primary btn-sm" onclick="editJlptPaper('${item.id}')">编辑题目</button>
+        <button class="btn btn-ghost btn-sm" onclick="deleteJlptPaper('${item.id}')" style="color:#dc2626">删除</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  document.getElementById('content').innerHTML = `
+    <div class="panel" style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:20px;font-weight:800;color:#0f172a">JLPT 模拟测验</div>
+          <div style="font-size:13px;color:#64748b;margin-top:4px">支持试卷管理、题目 JSON 编辑、发布到官网、交卷后一键批改与详解。</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select id="jlpt-list-level" onchange="jlptFilterByLevel()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;background:#fff">
+            <option value="">全部级别</option>
+            <option value="N5" ${_jlptLevelFilter === 'N5' ? 'selected' : ''}>N5</option>
+            <option value="N4" ${_jlptLevelFilter === 'N4' ? 'selected' : ''}>N4</option>
+            <option value="N3" ${_jlptLevelFilter === 'N3' ? 'selected' : ''}>N3</option>
+            <option value="N2" ${_jlptLevelFilter === 'N2' ? 'selected' : ''}>N2</option>
+            <option value="N1" ${_jlptLevelFilter === 'N1' ? 'selected' : ''}>N1</option>
+          </select>
+          <button class="btn btn-success" onclick="bulkPublishJlptPapers(true)">批量发布</button>
+          <button class="btn btn-ghost" onclick="bulkPublishJlptPapers(false)">批量取消发布</button>
+          <button class="btn btn-danger" onclick="bulkDeleteJlptPapers()">批量删除</button>
+          <button class="btn btn-ghost" onclick="triggerJlptSectionImport('vocabulary_grammar')">上传語彙・文法</button>
+          <button class="btn btn-ghost" onclick="triggerJlptSectionImport('reading')">上传読解</button>
+          <button class="btn btn-ghost" onclick="triggerJlptSectionImport('listening')">上传聴解</button>
+          <button class="btn btn-ghost" onclick="triggerJlptImportFile()">上传CSV/JSON导入</button>
+          <button class="btn btn-ghost" onclick="renderJlptExams()">刷新</button>
+          <button class="btn btn-primary" onclick="newJlptPaper()">新建试卷</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 style="margin:0">试卷列表</h3>
+          <div style="font-size:12px;color:#64748b">共 ${_jlptPaperList.length} 套，已选 ${_jlptSelectedIds.size} 套</div>
+        </div>
+        <div style="overflow:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr style="text-align:left;border-bottom:1px solid #e2e8f0;color:#64748b">
+                <th style="padding:8px"><input type="checkbox" ${_jlptPaperList.length && _jlptSelectedIds.size === _jlptPaperList.length ? 'checked' : ''} onchange="toggleAllJlptPapers(this.checked)" /></th><th style="padding:8px">标题</th><th style="padding:8px">级别</th><th style="padding:8px">场次</th><th style="padding:8px">题数</th><th style="padding:8px">状态</th><th style="padding:8px">Slug</th><th style="padding:8px;text-align:right">操作</th>
+              </tr>
+            </thead>
+            <tbody>${rows || '<tr><td colspan="8" style="padding:20px;text-align:center;color:#94a3b8">暂无试卷</td></tr>'}</tbody>
+          </table>
+        </div>
+    </div>`;
+
+  ensureJlptImportInputs();
+}
+
+function ensureJlptImportInputs() {
+  if (!document.getElementById('jlpt-import-file')) {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.id = 'jlpt-import-file';
+    fileInput.accept = '.csv,.json';
+    fileInput.style.display = 'none';
+    fileInput.onchange = () => {
+      if (fileInput.files && fileInput.files[0]) importJlptPaperFile(fileInput.files[0]);
+      fileInput.value = '';
+    };
+    document.body.appendChild(fileInput);
+  }
+
+  if (!document.getElementById('jlpt-section-import-file')) {
+    const sectionFileInput = document.createElement('input');
+    sectionFileInput.type = 'file';
+    sectionFileInput.id = 'jlpt-section-import-file';
+    sectionFileInput.accept = '.csv,.json';
+    sectionFileInput.style.display = 'none';
+    sectionFileInput.onchange = () => {
+      const sectionType = sectionFileInput.dataset.sectionType || '';
+      const targetPaperId = sectionFileInput.dataset.paperId || '';
+      if (sectionFileInput.files && sectionFileInput.files[0] && sectionType) {
+        importJlptSectionFile(sectionType, sectionFileInput.files[0], targetPaperId);
+      }
+      sectionFileInput.value = '';
+      sectionFileInput.dataset.sectionType = '';
+      sectionFileInput.dataset.paperId = '';
+    };
+    document.body.appendChild(sectionFileInput);
+  }
+}
+
+function renderJlptPaperEditorPage(paper) {
+  ensureJlptImportInputs();
+  document.getElementById('content').innerHTML = `
+    <div class="panel" style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+        <div>
+          <button class="btn btn-ghost btn-sm" onclick="renderJlptExams()">返回试卷列表</button>
+          <span id="jlpt-editor-title" style="font-size:20px;font-weight:800;color:#0f172a;margin-left:10px">编辑试卷</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="triggerJlptSectionImport('vocabulary_grammar', document.getElementById('jlpt-paper-id')?.value || '')">上传語彙・文法</button>
+          <button class="btn btn-ghost" onclick="triggerJlptSectionImport('reading', document.getElementById('jlpt-paper-id')?.value || '')">上传読解</button>
+          <button class="btn btn-ghost" onclick="triggerJlptSectionImport('listening', document.getElementById('jlpt-paper-id')?.value || '')">上传聴解</button>
+          <button class="btn btn-primary" onclick="saveJlptPaper()">保存试卷</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap">
+          <h3 style="margin:0">试卷信息</h3>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="fillJlptTemplate()">填充示例</button>
+            <button class="btn btn-ghost btn-sm" onclick="syncJlptQuestionsFromJsonToEditor()">JSON -> 可视化</button>
+            <button class="btn btn-ghost btn-sm" onclick="syncJlptQuestionsFromEditorToJson()">可视化 -> JSON</button>
+          </div>
+        </div>
+        <input type="hidden" id="jlpt-paper-id" />
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-row"><label>标题 *</label><input id="jlpt-title" placeholder="N3 模拟测验 A 卷" /></div>
+          <div class="form-row"><label>Slug *</label><input id="jlpt-slug" placeholder="n3-mock-a" /></div>
+          <div class="form-row"><label>级别 *</label><select id="jlpt-level"><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option></select></div>
+          <div class="form-row"><label>年份 *</label><input id="jlpt-year" type="number" min="2000" max="2100" value="2021" /></div>
+          <div class="form-row"><label>场次</label><select id="jlpt-session"><option value="07">07</option><option value="12">12</option><option value="other">other</option></select></div>
+          <div class="form-row"><label>时长（分钟）</label><input id="jlpt-duration" type="number" min="1" placeholder="120" /></div>
+          <div class="form-row"><label>来源标识</label><input id="jlpt-source-label" placeholder="仅后台内部记录" /></div>
+          <div class="form-row"><label>排序</label><input id="jlpt-sort-order" type="number" value="0" /></div>
+        </div>
+        <div class="form-row"><label>简介</label><textarea id="jlpt-description" rows="2" placeholder="官网展示用简介"></textarea></div>
+        <div class="form-row"><label>标签</label><input id="jlpt-tags" placeholder="阅读, 高频词, 2021" /></div>
+        <div class="form-row" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="jlpt-published" style="width:auto" /><label style="margin:0">保存后直接发布到官网</label></div>
+        <div class="form-row">
+          <label>読解分区文章（可选）</label>
+          <textarea id="jlpt-reading-material-text" rows="3" placeholder="読解部分通用文章内容（可选）"></textarea>
+          <input id="jlpt-reading-material-image" placeholder="読解文章图片 URL（可选）" style="margin-top:6px" />
+        </div>
+        <div class="form-row">
+          <label>聴解分区文章（可选）</label>
+          <textarea id="jlpt-listening-material-text" rows="3" placeholder="聴解部分通用文章/说明内容（可选）"></textarea>
+          <input id="jlpt-listening-material-image" placeholder="聴解文章图片 URL（可选）" style="margin-top:6px" />
+          <input id="jlpt-listening-material-audio" placeholder="聴解音频 URL（1个音频对应所有听力题，可选）" style="margin-top:6px" />
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="form-row">
+          <label>题目列表与分页编辑</label>
+          <div id="jlpt-questions-editor" style="display:flex;flex-direction:column;gap:10px"></div>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="addJlptQuestion()">+ 新增题目</button>
+            <button class="btn btn-ghost btn-sm" onclick="syncJlptQuestionsFromEditorToJson()">同步到 JSON</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>题目 JSON *</label>
+          <textarea id="jlpt-questions-json" rows="22" spellcheck="false" style="font-family:Consolas,monospace" placeholder='[ { "section_type": "reading", "question_no": "1", ... } ]'></textarea>
+          <div style="font-size:12px;color:#64748b;margin-top:6px">語彙・文法需要题干；読解题干可为空并通过文章块关联；聴解题干可为空，音频在聴解分区统一维护。</div>
+        </div>
+    </div>`;
+
+  applyJlptPaperToForm(paper);
+}
+
+function newJlptPaper(silent = false) {
+  _jlptCurrentPaper = null;
+  const defaults = {
+    id: '', title: '', slug: '', level: 'N3', year: new Date().getFullYear(), session: 'other',
+    duration_minutes: '', source_label: '', sort_order: 0, description: '', tags: [], is_published: false,
+    section_materials: {},
+    questions: defaultJlptQuestionsTemplate(),
+  };
+  _jlptQuestionSectionFilter = '';
+  _jlptQuestionPage = 1;
+  _jlptSelectedQuestionIndex = 0;
+  renderJlptPaperEditorPage(defaults);
+  const titleEl = document.getElementById('jlpt-editor-title');
+  if (titleEl) titleEl.textContent = '新建试卷';
+  const titleInput = document.getElementById('jlpt-title');
+  if (titleInput) titleInput.focus();
+  if (!silent) {
+    toast('已切换到新建试卷，可直接填写并保存');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+function fillJlptTemplate() {
+  const el = document.getElementById('jlpt-questions-json');
+  if (el && !el.value.trim()) {
+    el.value = JSON.stringify(defaultJlptQuestionsTemplate(), null, 2);
+    syncJlptQuestionsFromJsonToEditor();
+  }
+}
+
+function triggerJlptImportFile() {
+  const input = document.getElementById('jlpt-import-file');
+  if (input) input.click();
+}
+
+function triggerJlptSectionImport(sectionType, paperId = '') {
+  const input = document.getElementById('jlpt-section-import-file');
+  if (!input) return;
+  input.dataset.sectionType = sectionType;
+  input.dataset.paperId = paperId || '';
+  _jlptSectionImportTargetPaperId = paperId || '';
+  input.click();
+}
+
+async function ensureJlptPaperLoadedForSectionImport(paperId) {
+  const normalizedPaperId = String(paperId || '').trim();
+  if (!normalizedPaperId) return;
+
+  if (_jlptCurrentPaper && String(_jlptCurrentPaper.id) === normalizedPaperId) {
+    return;
+  }
+
+  const paper = await api('GET', `/admin/jlpt-exams/${normalizedPaperId}`);
+  _jlptCurrentPaper = paper;
+  renderJlptPaperEditorPage(paper);
+}
+
+function getCurrentJlptQuestionsForMerge() {
+  syncJlptQuestionsFromEditorToJson(true);
+  const raw = document.getElementById('jlpt-questions-json')?.value || '[]';
+  let parsed = [];
+  try {
+    parsed = JSON.parse(raw);
+  } catch (_) {
+    parsed = [];
+  }
+  return normalizeJlptQuestionsForSave(parsed);
+}
+
+function applySectionMaterialsToForm(sectionType, sectionMaterials) {
+  if (!sectionMaterials || typeof sectionMaterials !== 'object') return;
+  if (sectionType === 'reading') {
+    const item = sectionMaterials.reading || sectionMaterials[sectionType] || null;
+    if (item) {
+      if (document.getElementById('jlpt-reading-material-text')) document.getElementById('jlpt-reading-material-text').value = item.text || '';
+      if (document.getElementById('jlpt-reading-material-image')) document.getElementById('jlpt-reading-material-image').value = item.image_url || '';
+    }
+  }
+  if (sectionType === 'listening') {
+    const item = sectionMaterials.listening || sectionMaterials[sectionType] || null;
+    if (item) {
+      if (document.getElementById('jlpt-listening-material-text')) document.getElementById('jlpt-listening-material-text').value = item.text || '';
+      if (document.getElementById('jlpt-listening-material-image')) document.getElementById('jlpt-listening-material-image').value = item.image_url || '';
+      if (document.getElementById('jlpt-listening-material-audio')) document.getElementById('jlpt-listening-material-audio').value = item.audio_url || '';
+    }
+  }
+}
+
+function mergeSectionQuestions(sectionType, importedQuestions) {
+  const current = getCurrentJlptQuestionsForMerge();
+  const filtered = current.filter(question => String(question.section_type || '') !== sectionType);
+  const normalizedImported = normalizeJlptQuestionsForSave((importedQuestions || []).map((q, idx) => ({
+    ...q,
+    section_type: sectionType,
+    sort_order: idx + 1,
+  })));
+
+  const merged = [...filtered, ...normalizedImported].map((q, idx) => ({ ...q, sort_order: idx + 1 }));
+  _jlptEditorQuestions = merged;
+  document.getElementById('jlpt-questions-json').value = JSON.stringify(merged, null, 2);
+  renderJlptQuestionsEditor();
+}
+
+async function importJlptSectionFile(sectionType, file, paperId = '') {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (!['csv', 'json'].includes(ext)) {
+    toast('仅支持 .csv / .json 文件', true);
+    return;
+  }
+
+  const normalizedPaperId = String(paperId || _jlptSectionImportTargetPaperId || '').trim();
+
+  if (normalizedPaperId) {
+    await ensureJlptPaperLoadedForSectionImport(normalizedPaperId);
+  } else if (!document.getElementById('jlpt-questions-json')) {
+    newJlptPaper(true);
+  }
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('section_type', sectionType);
+
+  try {
+    const result = await api('POST', '/admin/jlpt-exams/import-section-file', fd, true);
+    mergeSectionQuestions(sectionType, result.questions || []);
+    applySectionMaterialsToForm(sectionType, result.section_materials || {});
+    const skippedText = result.skipped ? `，忽略描述行 ${result.skipped} 条` : '';
+    if (normalizedPaperId && document.getElementById('jlpt-paper-id')?.value) {
+      await saveJlptPaper();
+      toast(`已导入并保存 ${result.count || 0} 题（${sectionType}）${skippedText}`);
+    } else {
+      toast(`已导入 ${result.count || 0} 题（${sectionType}）${skippedText}`);
+    }
+  } catch (e) {
+    toast(`分区导入失败：${e.message}`, true);
+  } finally {
+    _jlptSectionImportTargetPaperId = '';
+  }
+}
+
+async function importJlptPaperFile(file) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (!['csv', 'json'].includes(ext)) {
+    toast('仅支持 .csv / .json 文件', true);
+    return;
+  }
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  const publishNow = confirm('导入后是否立即发布到官网？');
+  if (publishNow) fd.append('publish', 'true');
+
+  try {
+    const result = await api('POST', '/admin/jlpt-exams/import-file', fd, true);
+    toast(`导入成功：${result.slug}（${result.action}）`);
+    await renderJlptExams();
+  } catch (e) {
+    toast(`导入失败：${e.message}。请检查 CSV 标题/题干/选项列名。`, true);
+  }
+}
+
+function jlptFilterByLevel() {
+  _jlptLevelFilter = document.getElementById('jlpt-list-level')?.value || '';
+  _jlptSelectedIds.clear();
+  renderJlptExams();
+}
+
+function toggleJlptPaperSelection(id, checked) {
+  if (checked) _jlptSelectedIds.add(id);
+  else _jlptSelectedIds.delete(id);
+  buildJlptExamAdmin();
+}
+
+function toggleAllJlptPapers(checked) {
+  if (checked) {
+    _jlptPaperList.forEach(item => _jlptSelectedIds.add(item.id));
+  } else {
+    _jlptPaperList.forEach(item => _jlptSelectedIds.delete(item.id));
+  }
+  buildJlptExamAdmin();
+}
+
+function normalizeJlptQuestionOptions(options, answer) {
+  const seen = new Set();
+  const normalized = (Array.isArray(options) ? options : [])
+    .map((option, index) => {
+      if (typeof option === 'string') {
+        return { key: String(index + 1), text: option.trim() };
+      }
+      return {
+        key: String(option?.key || index + 1).trim(),
+        text: String(option?.text || '').trim(),
+        image_url: String(option?.image_url || '').trim(),
+      };
+    })
+    .filter(option => option.key && option.text && !seen.has(option.key) && seen.add(option.key));
+
+  if (answer && !normalized.some(option => option.key === answer)) {
+    normalized.push({ key: answer, text: `选项${answer}（待校对）`, image_url: '' });
+  }
+
+  while (normalized.length < 2) {
+    const nextKey = String(normalized.length + 1);
+    if (!normalized.some(option => option.key === nextKey)) {
+      normalized.push({ key: nextKey, text: `选项${nextKey}（待校对）`, image_url: '' });
+    } else {
+      break;
+    }
+  }
+
+  return normalized;
+}
+
+function normalizeJlptQuestionsForSave(questions) {
+  return (Array.isArray(questions) ? questions : []).map((question, index) => {
+    const answer = String(question?.answer || '1').trim() || '1';
+    const sectionType = String(question?.section_type || 'reading').trim();
+    return {
+      ...question,
+      question_no: String(question?.question_no || index + 1).trim() || String(index + 1),
+      sort_order: index + 1,
+      prompt: String(question?.prompt || '').trim(),
+      section_type: sectionType,
+      prompt_image_url: String(question?.prompt_image_url || '').trim(),
+      passage_image_url: String(question?.passage_image_url || '').trim(),
+      options: normalizeJlptQuestionOptions(question?.options, answer),
+      answer,
+    };
+  });
+}
+
+function jlptRichPreviewHtml(text) {
+  const src = String(text == null ? '' : text);
+  const tokenOpen = '__JLPT_U_OPEN__';
+  const tokenClose = '__JLPT_U_CLOSE__';
+  const withTokens = src
+    .replace(/<\s*u\s*>/gi, tokenOpen)
+    .replace(/<\s*\/\s*u\s*>/gi, tokenClose);
+  return esc(withTokens)
+    .replace(/\n/g, '<br>')
+    .replace(new RegExp(tokenOpen, 'g'), '<u>')
+    .replace(new RegExp(tokenClose, 'g'), '</u>');
+}
+
+function readJlptQuestionsFromJsonEditor() {
+  const raw = document.getElementById('jlpt-questions-json')?.value || '[]';
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (_) {
+    throw new Error('题目 JSON 解析失败，请检查格式');
+  }
+  return normalizeJlptQuestionsForSave(parsed);
+}
+
+function jlptSectionLabel(sectionType) {
+  return { vocabulary_grammar: '語彙・文法', reading: '読解', listening: '聴解' }[sectionType] || sectionType || '未分区';
+}
+
+function jlptQuestionTemplate(sectionType = 'reading') {
+  return {
+    section_type: sectionType,
+    section_title: jlptSectionLabel(sectionType),
+    question_group: '',
+    question_no: String(_jlptEditorQuestions.length + 1),
+    sort_order: _jlptEditorQuestions.length + 1,
+    prompt: '',
+    prompt_image_url: '',
+    passage: '',
+    passage_image_url: '',
+    transcript: '',
+    options: [{ key: '1', text: '' }, { key: '2', text: '' }, { key: '3', text: '' }, { key: '4', text: '' }],
+    answer: '1',
+    explanation: '',
+    explanation_zh: '',
+    knowledge_points: [],
+    score: 1,
+  };
+}
+
+function resequenceJlptQuestions() {
+  _jlptEditorQuestions = _jlptEditorQuestions.map((q, idx) => ({ ...q, sort_order: idx + 1 }));
+}
+
+function filteredJlptQuestionIndexes() {
+  return _jlptEditorQuestions
+    .map((q, idx) => ({ q, idx }))
+    .filter(item => !_jlptQuestionSectionFilter || item.q.section_type === _jlptQuestionSectionFilter)
+    .map(item => item.idx);
+}
+
+function persistSelectedJlptQuestionFromEditor() {
+  const root = document.getElementById('jlpt-question-detail-editor');
+  if (!root) return;
+  const qi = Number(root.dataset.qi);
+  if (!Number.isInteger(qi) || !_jlptEditorQuestions[qi]) return;
+  const val = (name) => (root.querySelector(`[data-jlpt="${name}"]`)?.value || '').trim();
+  const optRows = Array.from(root.querySelectorAll('[data-jlpt="opt_key"]')).map((keyEl, oi) => ({
+    key: (keyEl.value || '').trim(),
+    text: (root.querySelector(`[data-jlpt="opt_text"][data-oi="${oi}"]`)?.value || '').trim(),
+    image_url: (root.querySelector(`[data-jlpt="opt_image_url"][data-oi="${oi}"]`)?.value || '').trim(),
+  })).filter(item => item.key && item.text);
+  _jlptEditorQuestions[qi] = {
+    ..._jlptEditorQuestions[qi],
+    section_type: val('section_type') || 'reading',
+    section_title: val('section_title'),
+    question_group: val('question_group'),
+    question_no: val('question_no') || String(qi + 1),
+    prompt: val('prompt'),
+    prompt_image_url: val('prompt_image_url'),
+    passage: val('passage'),
+    passage_image_url: val('passage_image_url'),
+    transcript: val('transcript'),
+    options: optRows,
+    answer: val('answer') || (optRows[0] ? optRows[0].key : '1'),
+    explanation: val('explanation'),
+    explanation_zh: val('explanation_zh'),
+    knowledge_points: val('knowledge_points').split(/[，,]/).map(s => s.trim()).filter(Boolean),
+    score: Number(val('score') || 1),
+  };
+  resequenceJlptQuestions();
+}
+
+function buildReadingPassageBlocks() {
+  const map = new Map();
+  _jlptEditorQuestions.forEach((q, idx) => {
+    if (q.section_type !== 'reading') return;
+    const key = String(q.passage || '').trim() || '（无文章）';
+    if (!map.has(key)) map.set(key, { passage: q.passage || '', indexes: [] });
+    map.get(key).indexes.push(idx);
+  });
+  _jlptReadingBlocks = Array.from(map.values());
+}
+
+function renderReadingPassageBlocks() {
+  if (_jlptQuestionSectionFilter && _jlptQuestionSectionFilter !== 'reading') return '';
+  buildReadingPassageBlocks();
+  const blocks = _jlptReadingBlocks.filter(block => block.passage);
+  if (!blocks.length) return '';
+  return `
+    <div style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:10px;padding:10px;margin-bottom:10px">
+      <div style="font-weight:800;margin-bottom:8px;color:#166534">読解文章块</div>
+      ${blocks.map((block, bi) => `
+        <div style="background:#fff;border:1px solid #dcfce7;border-radius:8px;padding:8px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">
+            <div style="font-size:12px;color:#64748b">已关联 ${block.indexes.map(i => _jlptEditorQuestions[i]?.question_no || i + 1).join('、')}</div>
+            <button class="btn btn-ghost btn-sm" onclick="bindReadingPassageToChecked(${bi})">绑定到勾选题</button>
+          </div>
+          <div style="margin-top:6px;font-size:13px;line-height:1.7;max-height:72px;overflow:auto;white-space:pre-wrap">${jlptRichPreviewHtml(block.passage)}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderQuestionDetailEditor(qi) {
+  const q = _jlptEditorQuestions[qi];
+  if (!q) return '<div style="padding:12px;color:#64748b">请选择一道题进行编辑。</div>';
+  const options = Array.isArray(q.options) && q.options.length ? q.options : [{ key: '1', text: '' }, { key: '2', text: '' }];
+  const sType = q.section_type || 'reading';
+  const isVG = sType === 'vocabulary_grammar';
+  const isRD = sType === 'reading';
+  const isLS = sType === 'listening';
+  return `
+    <div id="jlpt-question-detail-editor" data-qi="${qi}" style="border:1px solid #e2e8f0;border-radius:10px;padding:12px;background:#fff">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <strong>编辑第 ${qi + 1} 题 · ${jlptSectionLabel(sType)}</strong>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="insertJlptQuestion(${qi}, 0)">前插</button>
+          <button class="btn btn-ghost btn-sm" onclick="insertJlptQuestion(${qi}, 1)">后插</button>
+          <button class="btn btn-danger btn-sm" onclick="removeJlptQuestion(${qi})">删除</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:8px">
+        <select data-jlpt="section_type" onchange="onJlptSectionTypeChange()" style="padding:6px 8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;background:#fff">
+          <option value="vocabulary_grammar" ${isVG ? 'selected' : ''}>語彙・文法</option>
+          <option value="reading" ${isRD ? 'selected' : ''}>読解</option>
+          <option value="listening" ${isLS ? 'selected' : ''}>聴解</option>
+        </select>
+        <input data-jlpt="question_no" value="${esc(q.question_no || String(qi + 1))}" placeholder="题号" />
+        <input data-jlpt="section_title" value="${esc(q.section_title || '')}" placeholder="分区标题" />
+        <input data-jlpt="question_group" value="${esc(q.question_group || '')}" placeholder="题组" />
+      </div>
+      ${!isLS ? `
+        <textarea data-jlpt="prompt" rows="2" placeholder="${isRD ? '题干（可为空）' : '题干'}" style="margin-top:8px">${esc(q.prompt || '')}</textarea>
+        <input data-jlpt="prompt_image_url" value="${esc(q.prompt_image_url || '')}" placeholder="题干图片URL（可选）" style="margin-top:6px" />
+      ` : `<input type="hidden" data-jlpt="prompt" value="" /><input type="hidden" data-jlpt="prompt_image_url" value="" />`}
+      ${isRD ? `
+        <textarea data-jlpt="passage" rows="4" placeholder="对应読解文章。相同文章会自动形成文章块，可批量绑定。" style="margin-top:8px">${esc(q.passage || '')}</textarea>
+        <input data-jlpt="passage_image_url" value="${esc(q.passage_image_url || '')}" placeholder="文章图片URL（可选）" style="margin-top:6px" />
+      ` : `<input type="hidden" data-jlpt="passage" value="" /><input type="hidden" data-jlpt="passage_image_url" value="" />`}
+      ${isLS ? `
+        <textarea data-jlpt="transcript" rows="3" placeholder="听力音频原文（可选，统一音频在上方聴解分区维护）" style="margin-top:8px">${esc(q.transcript || '')}</textarea>
+      ` : `<input type="hidden" data-jlpt="transcript" value="" />`}
+      <div style="margin-top:8px;padding:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+        <div style="font-size:12px;color:#64748b;margin-bottom:6px">选项</div>
+        ${options.map((opt, oi) => `
+          <div style="display:grid;grid-template-columns:72px 1fr 1fr auto;gap:6px;margin-bottom:6px">
+            <input data-jlpt="opt_key" data-oi="${oi}" value="${esc(opt.key || String(oi + 1))}" placeholder="key" />
+            <input data-jlpt="opt_text" data-oi="${oi}" value="${esc(opt.text || '')}" placeholder="选项文本" />
+            <input data-jlpt="opt_image_url" data-oi="${oi}" value="${esc(opt.image_url || '')}" placeholder="选项图片URL（可选）" />
+            <button class="btn btn-ghost btn-sm" onclick="removeJlptOption(${qi}, ${oi})">删</button>
+          </div>
+        `).join('')}
+        <button class="btn btn-ghost btn-sm" onclick="addJlptOption(${qi})">+ 新增选项</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:8px;margin-top:8px">
+        <input data-jlpt="answer" value="${esc(q.answer || '1')}" placeholder="正确答案key" />
+        <input data-jlpt="score" value="${esc(String(q.score || 1))}" placeholder="分值" />
+        <input data-jlpt="knowledge_points" value="${esc(Array.isArray(q.knowledge_points) ? q.knowledge_points.join(', ') : '')}" placeholder="知识点（逗号分隔）" />
+      </div>
+      <textarea data-jlpt="explanation" rows="2" placeholder="日文解析" style="margin-top:8px">${esc(q.explanation || '')}</textarea>
+      <textarea data-jlpt="explanation_zh" rows="2" placeholder="中文详解" style="margin-top:8px">${esc(q.explanation_zh || '')}</textarea>
+    </div>
+  `;
+}
+
+function renderJlptQuestionsEditor() {
+  const host = document.getElementById('jlpt-questions-editor');
+  if (!host) return;
+  if (!_jlptEditorQuestions.length) {
+    host.innerHTML = '<div style="padding:12px;border:1px dashed #cbd5e1;border-radius:10px;color:#64748b">暂无题目，请点击“新增题目”</div>';
+    return;
+  }
+
+  const indexes = filteredJlptQuestionIndexes();
+  if (!indexes.includes(_jlptSelectedQuestionIndex)) _jlptSelectedQuestionIndex = indexes[0] ?? 0;
+  const totalPages = Math.max(1, Math.ceil(indexes.length / _jlptQuestionPageSize));
+  _jlptQuestionPage = Math.min(Math.max(1, _jlptQuestionPage), totalPages);
+  const pageIndexes = indexes.slice((_jlptQuestionPage - 1) * _jlptQuestionPageSize, _jlptQuestionPage * _jlptQuestionPageSize);
+  const counts = ['vocabulary_grammar', 'reading', 'listening'].reduce((acc, key) => {
+    acc[key] = _jlptEditorQuestions.filter(q => q.section_type === key).length;
+    return acc;
+  }, {});
+
+  host.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="jlpt-question-section-filter" onchange="setJlptQuestionSectionFilter(this.value)" style="padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff">
+          <option value="" ${!_jlptQuestionSectionFilter ? 'selected' : ''}>全部题目（${_jlptEditorQuestions.length}）</option>
+          <option value="vocabulary_grammar" ${_jlptQuestionSectionFilter === 'vocabulary_grammar' ? 'selected' : ''}>語彙・文法（${counts.vocabulary_grammar}）</option>
+          <option value="reading" ${_jlptQuestionSectionFilter === 'reading' ? 'selected' : ''}>読解（${counts.reading}）</option>
+          <option value="listening" ${_jlptQuestionSectionFilter === 'listening' ? 'selected' : ''}>聴解（${counts.listening}）</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="addJlptQuestion(_jlptQuestionSectionFilter || 'reading')">新增当前类型</button>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-ghost btn-sm" onclick="changeJlptQuestionPage(-1)">上一页</button>
+        <span style="font-size:12px;color:#64748b">${_jlptQuestionPage}/${totalPages}</span>
+        <button class="btn btn-ghost btn-sm" onclick="changeJlptQuestionPage(1)">下一页</button>
+      </div>
+    </div>
+    ${renderReadingPassageBlocks()}
+    <div style="display:grid;grid-template-columns:minmax(320px,.9fr) minmax(420px,1.1fr);gap:12px;align-items:start">
+      <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:auto;background:#fff">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="text-align:left;background:#f8fafc;color:#64748b"><th style="padding:8px">选</th><th style="padding:8px">序</th><th style="padding:8px">题号</th><th style="padding:8px">类型</th><th style="padding:8px">题干/文章</th><th style="padding:8px;text-align:right">操作</th></tr></thead>
+          <tbody>${pageIndexes.map(qi => {
+            const q = _jlptEditorQuestions[qi];
+            const active = qi === _jlptSelectedQuestionIndex;
+            return `<tr onclick="selectJlptQuestion(${qi})" style="border-top:1px solid #f1f5f9;cursor:pointer;background:${active ? '#eff6ff' : '#fff'}">
+              <td style="padding:8px"><input type="checkbox" class="jlpt-reading-bind-cb" value="${qi}" onclick="event.stopPropagation()" ${q.section_type === 'reading' ? '' : 'disabled'} /></td>
+              <td style="padding:8px;font-weight:700">${qi + 1}</td>
+              <td style="padding:8px">${esc(q.question_no || '')}</td>
+              <td style="padding:8px">${jlptSectionLabel(q.section_type)}</td>
+              <td style="padding:8px;max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(q.prompt || q.passage || q.transcript || '（空）')}</td>
+              <td style="padding:8px;text-align:right;white-space:nowrap">
+                <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();insertJlptQuestion(${qi},0)">前插</button>
+                <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();insertJlptQuestion(${qi},1)">后插</button>
+                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeJlptQuestion(${qi})">删</button>
+              </td>
+            </tr>`;
+          }).join('') || '<tr><td colspan="6" style="padding:16px;text-align:center;color:#94a3b8">当前筛选无题目</td></tr>'}</tbody>
+        </table>
+      </div>
+      ${renderQuestionDetailEditor(_jlptSelectedQuestionIndex)}
+    </div>
+  `;
+}
+
+function onJlptSectionTypeChange() {
+  persistSelectedJlptQuestionFromEditor();
+  renderJlptQuestionsEditor();
+}
+
+function setJlptQuestionSectionFilter(value) {
+  persistSelectedJlptQuestionFromEditor();
+  _jlptQuestionSectionFilter = value || '';
+  _jlptQuestionPage = 1;
+  renderJlptQuestionsEditor();
+}
+
+function changeJlptQuestionPage(delta) {
+  persistSelectedJlptQuestionFromEditor();
+  _jlptQuestionPage += delta;
+  renderJlptQuestionsEditor();
+}
+
+function selectJlptQuestion(index) {
+  persistSelectedJlptQuestionFromEditor();
+  _jlptSelectedQuestionIndex = index;
+  renderJlptQuestionsEditor();
+}
+
+function syncJlptQuestionsFromJsonToEditor() {
+  try {
+    _jlptEditorQuestions = readJlptQuestionsFromJsonEditor();
+    renderJlptQuestionsEditor();
+    toast('已从 JSON 同步到可视化编辑区');
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+function collectJlptQuestionsFromVisualEditor() {
+  persistSelectedJlptQuestionFromEditor();
+  resequenceJlptQuestions();
+  return _jlptEditorQuestions;
+}
+
+function syncJlptQuestionsFromEditorToJson(silent = false) {
+  try {
+    const parsed = collectJlptQuestionsFromVisualEditor();
+    const normalized = normalizeJlptQuestionsForSave(parsed);
+    _jlptEditorQuestions = normalized;
+    document.getElementById('jlpt-questions-json').value = JSON.stringify(normalized, null, 2);
+    if (!silent) toast('已从可视化编辑区同步到 JSON');
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+function addJlptQuestion(sectionType = 'reading') {
+  persistSelectedJlptQuestionFromEditor();
+  _jlptEditorQuestions.push(jlptQuestionTemplate(sectionType || 'reading'));
+  resequenceJlptQuestions();
+  _jlptSelectedQuestionIndex = _jlptEditorQuestions.length - 1;
+  renderJlptQuestionsEditor();
+}
+
+function insertJlptQuestion(index, after = 1) {
+  persistSelectedJlptQuestionFromEditor();
+  const base = _jlptEditorQuestions[index] || {};
+  const insertAt = Math.max(0, Math.min(_jlptEditorQuestions.length, index + after));
+  _jlptEditorQuestions.splice(insertAt, 0, jlptQuestionTemplate(base.section_type || _jlptQuestionSectionFilter || 'reading'));
+  resequenceJlptQuestions();
+  _jlptSelectedQuestionIndex = insertAt;
+  renderJlptQuestionsEditor();
+}
+
+function removeJlptQuestion(index) {
+  persistSelectedJlptQuestionFromEditor();
+  _jlptEditorQuestions.splice(index, 1);
+  resequenceJlptQuestions();
+  _jlptSelectedQuestionIndex = Math.max(0, Math.min(index, _jlptEditorQuestions.length - 1));
+  renderJlptQuestionsEditor();
+}
+
+function addJlptOption(qi) {
+  persistSelectedJlptQuestionFromEditor();
+  const q = _jlptEditorQuestions[qi];
+  if (!q) return;
+  const next = String((q.options?.length || 0) + 1);
+  if (!Array.isArray(q.options)) q.options = [];
+  q.options.push({ key: next, text: '', image_url: '' });
+  renderJlptQuestionsEditor();
+}
+
+function removeJlptOption(qi, oi) {
+  persistSelectedJlptQuestionFromEditor();
+  const q = _jlptEditorQuestions[qi];
+  if (!q || !Array.isArray(q.options)) return;
+  q.options.splice(oi, 1);
+  renderJlptQuestionsEditor();
+}
+
+function bindReadingPassageToChecked(blockIndex) {
+  persistSelectedJlptQuestionFromEditor();
+  const block = _jlptReadingBlocks[blockIndex];
+  if (!block || !block.passage) return;
+  const checked = Array.from(document.querySelectorAll('.jlpt-reading-bind-cb:checked')).map(el => Number(el.value)).filter(Number.isInteger);
+  if (!checked.length) {
+    toast('请先勾选要绑定文章的読解题', true);
+    return;
+  }
+  checked.forEach(index => {
+    if (_jlptEditorQuestions[index] && _jlptEditorQuestions[index].section_type === 'reading') {
+      _jlptEditorQuestions[index].passage = block.passage;
+    }
+  });
+  toast(`已绑定 ${checked.length} 道読解题`);
+  renderJlptQuestionsEditor();
+}
+
+function applyJlptPaperToForm(paper) {
+  document.getElementById('jlpt-paper-id').value = paper.id || '';
+  document.getElementById('jlpt-title').value = paper.title || '';
+  document.getElementById('jlpt-slug').value = paper.slug || '';
+  document.getElementById('jlpt-level').value = paper.level || 'N3';
+  document.getElementById('jlpt-year').value = paper.year || new Date().getFullYear();
+  document.getElementById('jlpt-session').value = paper.session || 'other';
+  document.getElementById('jlpt-duration').value = paper.duration_minutes || '';
+  document.getElementById('jlpt-source-label').value = paper.source_label || '';
+  document.getElementById('jlpt-sort-order').value = paper.sort_order || 0;
+  document.getElementById('jlpt-description').value = paper.description || '';
+  document.getElementById('jlpt-tags').value = Array.isArray(paper.tags) ? paper.tags.join(', ') : '';
+  document.getElementById('jlpt-published').checked = !!paper.is_published;
+  const sectionMaterials = paper.section_materials || (paper.meta_json && paper.meta_json.section_materials) || {};
+  const readingMaterial = sectionMaterials.reading || {};
+  const listeningMaterial = sectionMaterials.listening || {};
+  if (document.getElementById('jlpt-reading-material-text')) document.getElementById('jlpt-reading-material-text').value = readingMaterial.text || '';
+  if (document.getElementById('jlpt-reading-material-image')) document.getElementById('jlpt-reading-material-image').value = readingMaterial.image_url || '';
+  if (document.getElementById('jlpt-listening-material-text')) document.getElementById('jlpt-listening-material-text').value = listeningMaterial.text || '';
+  if (document.getElementById('jlpt-listening-material-image')) document.getElementById('jlpt-listening-material-image').value = listeningMaterial.image_url || '';
+  if (document.getElementById('jlpt-listening-material-audio')) document.getElementById('jlpt-listening-material-audio').value = listeningMaterial.audio_url || '';
+  document.getElementById('jlpt-questions-json').value = JSON.stringify(paper.questions || defaultJlptQuestionsTemplate(), null, 2);
+  _jlptEditorQuestions = normalizeJlptQuestionsForSave(paper.questions || defaultJlptQuestionsTemplate());
+  renderJlptQuestionsEditor();
+  const titleEl = document.getElementById('jlpt-editor-title');
+  if (titleEl) titleEl.textContent = paper.id ? `编辑试卷 · ${paper.title || ''}` : '新建试卷';
+}
+
+async function editJlptPaper(id) {
+  try {
+    const paper = await api('GET', `/admin/jlpt-exams/${id}`);
+    _jlptCurrentPaper = paper;
+    _jlptQuestionSectionFilter = '';
+    _jlptQuestionPage = 1;
+    _jlptSelectedQuestionIndex = 0;
+    renderJlptPaperEditorPage(paper);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+function collectJlptPaperPayload() {
+  syncJlptQuestionsFromEditorToJson(true);
+  let questions;
+  try {
+    questions = JSON.parse(document.getElementById('jlpt-questions-json').value || '[]');
+  } catch (_) {
+    throw new Error('题目 JSON 解析失败，请检查格式');
+  }
+
+  questions = normalizeJlptQuestionsForSave(questions);
+  document.getElementById('jlpt-questions-json').value = JSON.stringify(questions, null, 2);
+
+  const readingMaterial = {
+    text: document.getElementById('jlpt-reading-material-text')?.value?.trim() || '',
+    image_url: document.getElementById('jlpt-reading-material-image')?.value?.trim() || '',
+  };
+  const listeningMaterial = {
+    text: document.getElementById('jlpt-listening-material-text')?.value?.trim() || '',
+    image_url: document.getElementById('jlpt-listening-material-image')?.value?.trim() || '',
+    audio_url: document.getElementById('jlpt-listening-material-audio')?.value?.trim() || '',
+  };
+  const sectionMaterials = {};
+  if (readingMaterial.text || readingMaterial.image_url) sectionMaterials.reading = readingMaterial;
+  if (listeningMaterial.text || listeningMaterial.image_url || listeningMaterial.audio_url) sectionMaterials.listening = listeningMaterial;
+
+  return {
+    title: document.getElementById('jlpt-title').value.trim(),
+    slug: document.getElementById('jlpt-slug').value.trim(),
+    level: document.getElementById('jlpt-level').value,
+    year: Number(document.getElementById('jlpt-year').value),
+    session: document.getElementById('jlpt-session').value,
+    duration_minutes: Number(document.getElementById('jlpt-duration').value || 0) || null,
+    source_label: document.getElementById('jlpt-source-label').value.trim(),
+    sort_order: Number(document.getElementById('jlpt-sort-order').value || 0),
+    description: document.getElementById('jlpt-description').value.trim(),
+    tags: document.getElementById('jlpt-tags').value.split(/[，,\n]/).map(s => s.trim()).filter(Boolean),
+    is_published: document.getElementById('jlpt-published').checked,
+    section_materials: sectionMaterials,
+    questions,
+  };
+}
+
+async function saveJlptPaper() {
+  try {
+    const id = document.getElementById('jlpt-paper-id').value;
+    const payload = collectJlptPaperPayload();
+    if (id) await api('PUT', `/admin/jlpt-exams/${id}`, payload);
+    else {
+      const created = await api('POST', '/admin/jlpt-exams', payload);
+      _jlptCurrentPaper = { ...payload, id: created.id };
+    }
+    toast('试卷已保存');
+    await renderJlptExams();
+    const targetId = id || (_jlptCurrentPaper && _jlptCurrentPaper.id);
+    if (targetId) await editJlptPaper(targetId);
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function bulkPublishJlptPapers(isPublished) {
+  const ids = Array.from(_jlptSelectedIds);
+  if (!ids.length) {
+    toast('请先勾选试卷', true);
+    return;
+  }
+  const actionText = isPublished ? '发布' : '取消发布';
+  if (!(await jlptConfirm(`确认批量${actionText}选中的 ${ids.length} 套试卷？`, { title: `批量${actionText}`, danger: false, okText: `确认${actionText}` }))) return;
+  try {
+    await api('POST', '/admin/jlpt-exams/bulk-publish', { ids, is_published: isPublished });
+    toast(`已批量${actionText}`);
+    await renderJlptExams();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function bulkDeleteJlptPapers() {
+  const ids = Array.from(_jlptSelectedIds);
+  if (!ids.length) {
+    toast('请先勾选试卷', true);
+    return;
+  }
+  if (!(await jlptConfirm(`确认批量删除选中的 ${ids.length} 套试卷？删除后题目与作答记录都会受影响。`, { title: '批量删除确认', danger: true, okText: '确认删除' }))) return;
+
+  try {
+    await api('POST', '/admin/jlpt-exams/bulk-delete', { ids });
+    _jlptSelectedIds.clear();
+    if (_jlptCurrentPaper && ids.includes(String(_jlptCurrentPaper.id))) {
+      _jlptCurrentPaper = null;
+    }
+    toast('已批量删除');
+    await renderJlptExams();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function deleteJlptPaper(id) {
+  if (!(await jlptConfirm('删除后题目与作答记录都会受影响，确定继续？', { title: '删除试卷', danger: true, okText: '确认删除' }))) return;
+  try {
+    await api('DELETE', `/admin/jlpt-exams/${id}`);
+    if (_jlptCurrentPaper && _jlptCurrentPaper.id === id) _jlptCurrentPaper = null;
+    toast('已删除');
+    await renderJlptExams();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
 /* ─────────────────────────── 功能分级（会员权益）───────────────────────────── */
 let _tierData = [];
 async function renderFeatureTiers() {
@@ -995,12 +2025,16 @@ async function renderAppManage() {
             </select>
           </div>
           <div class="form-row" style="flex:1;min-width:160px">
-            <label>版本号</label>
-            <input id="app-version" name="version" placeholder="如 1.0.0" required />
+            <label>版本号 <span id="app-version-tip" style="font-weight:400;color:#94a3b8">Android 必填</span></label>
+            <input id="app-version" name="version" placeholder="如 1.0.0" />
           </div>
-          <div class="form-row" style="flex:2;min-width:220px">
+          <div class="form-row" id="app-file-row" style="flex:2;min-width:220px">
             <label>选择文件 <span id="app-file-name" style="font-weight:400;color:#64748b;font-size:12px"></span></label>
             <input id="app-file" name="file" type="file" accept=".apk,.ipa,.aab" required style="cursor:pointer" />
+          </div>
+          <div class="form-row" id="app-link-row" style="display:none;flex:2;min-width:260px">
+            <label>iOS 下载链接</label>
+            <input id="app-external-url" name="external_url" type="url" placeholder="https://apps.apple.com/..." />
           </div>
           <button id="app-upload-btn" class="btn btn-primary" type="submit" style="height:38px;min-width:88px">上 传</button>
         </div>
@@ -1028,8 +2062,30 @@ async function renderAppManage() {
     </div>
   `;
 
+  const platformSelect = document.getElementById('app-platform');
+  const versionInput = document.getElementById('app-version');
+  const versionTip = document.getElementById('app-version-tip');
+  const fileRow = document.getElementById('app-file-row');
+  const fileInput = document.getElementById('app-file');
+  const linkRow = document.getElementById('app-link-row');
+  const linkInput = document.getElementById('app-external-url');
+
+  function syncAppFormMode() {
+    const isIos = platformSelect.value === 'ios';
+    fileRow.style.display = isIos ? 'none' : '';
+    linkRow.style.display = isIos ? '' : 'none';
+    fileInput.required = !isIos;
+    linkInput.required = isIos;
+    versionInput.required = !isIos;
+    versionInput.placeholder = isIos ? '可留空' : '如 1.0.0';
+    versionTip.textContent = isIos ? 'iOS 可留空' : 'Android 必填';
+  }
+
+  platformSelect.addEventListener('change', syncAppFormMode);
+  syncAppFormMode();
+
   // 显示选中的文件名
-  document.getElementById('app-file').addEventListener('change', function() {
+  fileInput.addEventListener('change', function() {
     const name = this.files[0] ? this.files[0].name : '';
     const size = this.files[0] ? (this.files[0].size / 1024 / 1024).toFixed(1) + ' MB' : '';
     document.getElementById('app-file-name').textContent = name ? `${name}（${size}）` : '';
@@ -1077,6 +2133,7 @@ async function renderAppManage() {
         toast('上传成功');
         form.reset();
         document.getElementById('app-file-name').textContent = '';
+        syncAppFormMode();
         setTimeout(() => { wrap.style.display = 'none'; }, 3000);
         loadAppList();
       } else {
@@ -1372,14 +2429,28 @@ function updateDelBtn(){ document.getElementById('v-del-btn').style.display=docu
 function toggleAllVocab(cb){ document.querySelectorAll('.v-cb').forEach(c=>c.checked=cb.checked); updateDelBtn(); }
 
 // 初始化例句行
+function normalizeExampleSentences(raw){
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch(_) {
+      return [];
+    }
+  }
+  return [];
+}
+
 function initializeExampleRows(v=null){
   const container = document.getElementById('mv-examples-container');
   container.innerHTML = '';
   let exIndex = 0;
   
   // 优先使用新格式 example_sentences
-  if(v?.example_sentences && Array.isArray(v.example_sentences)){
-    v.example_sentences.forEach((ex,i)=>{
+  const examples = normalizeExampleSentences(v?.example_sentences);
+  if(examples.length){
+    examples.forEach((ex,i)=>{
       addExampleRow(ex.jp, ex.reading, ex.zh, ex.audio_url);
       exIndex = i + 1;
     });

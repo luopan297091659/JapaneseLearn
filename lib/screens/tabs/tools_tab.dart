@@ -159,18 +159,18 @@ class _ToolsTabState extends State<ToolsTab> {
             },
           ),
           // 磨耳朵暂时隐藏
-          // const SizedBox(height: 12),
-          // _ToolCard(
-          //   icon: Icons.headphones_rounded,
-          //   title: '磨耳朵',
-          //   subtitle: '沉浸式听力 · 日语频道视频',
-          //   color: const Color(0xFFE65100),
-          //   blocked: _isBlocked('immersion_daily'),
-          //   onTap: () {
-          //     if (_isBlocked('immersion_daily')) { _showMemberDialog('磨耳朵'); return; }
-          //     context.push('/immersion');
-          //   },
-          // ),
+          const SizedBox(height: 12),
+          _ToolCard(
+            icon: Icons.headphones_rounded,
+            title: '磨耳朵',
+            subtitle: '沉浸式听力 · 日语频道视频',
+            color: const Color(0xFFE65100),
+            blocked: _isBlocked('immersion_daily'),
+            onTap: () {
+              if (_isBlocked('immersion_daily')) { _showMemberDialog('磨耳朵'); return; }
+              context.push('/immersion');
+            },
+          ),
           const SizedBox(height: 12),
           _ToolCard(
             icon: Icons.newspaper_rounded,
