@@ -1,6 +1,6 @@
 name: Kotabi
 description: 言旅 Kotabi — 日语学习助手
-version: 1.1.20
+version: 1.2.0
 publish_to: none
 
 environment:

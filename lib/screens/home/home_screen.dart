@@ -22,55 +22,211 @@ import '../../widgets/mode_background.dart';
 // ── 首页功能 ID → 分级 tier ID 映射 ──
 const _featureTierMap = <String, String>{
   'pronunciation': 'pronunciation',
-  'translate':     'ai_features',
-  'grammar-quiz':  'quiz_meaning_daily',
-  'flashcard':     'flashcard_levels',
-  'grammar':       'grammar_lessons',
-  'srs':           'srs_daily',
-  'dictionary':    'dictionary_daily',
-  'news':          'news_limit',
-  'quiz':          'quiz_meaning_daily',
-  'game':          'game_levels',
-  'localvocab':    'anki_quiz',
-  'listening':     'listening_daily',
+  'translate': 'ai_features',
+  'grammar-quiz': 'quiz_meaning_daily',
+  'flashcard': 'flashcard_levels',
+  'grammar': 'grammar_lessons',
+  'srs': 'srs_daily',
+  'dictionary': 'dictionary_daily',
+  'news': 'news_limit',
+  'quiz': 'quiz_meaning_daily',
+  'game': 'game_levels',
+  'localvocab': 'anki_quiz',
+  'listening': 'listening_daily',
   'listening-exercise': 'listening_exercise_daily',
-  'immersion':     'immersion_daily',
+  'immersion': 'immersion_daily',
   'kana-writing-test': 'kana_writing_modes',
   'wrong-answers': 'wrong_answers',
-  'study-plan':    'study_plan_daily',
+  'study-plan': 'study_plan_daily',
 };
 
 // ── 全部可选功能（ID → 元数据） ──
-const _allFeatures = <String, ({IconData icon, String label, String sub, String path, Color color})>{
-  'gojuon':        (icon: Icons.grid_view_rounded,      label: '五十音',     sub: '基础入门', path: '/gojuon',          color: Color(0xFFE91E63)),
-  'vocabulary':    (icon: Icons.menu_book_rounded,      label: '单词学习',   sub: '词汇积累', path: '/vocabulary',      color: Color(0xFF4CAF50)),
-  'grammar':       (icon: Icons.school_rounded,         label: '语法学习',   sub: '规则掌握', path: '/grammar',         color: Color(0xFF2196F3)),
-  'listening':     (icon: Icons.headphones_rounded,     label: '听力练习',   sub: '提升听力', path: '/listening',       color: Color(0xFF9C27B0)),
-  'pronunciation': (icon: Icons.mic_rounded,            label: '发音训练',   sub: 'AI智能纠正', path: '/pronunciation',  color: Color(0xFF00BCD4)),
-  'srs':           (icon: Icons.layers_rounded,         label: 'SRS复习',    sub: '间隔记忆', path: '/srs-review',     color: Color(0xFFFF9800)),
-  'study-plan':    (icon: Icons.calendar_month_rounded, label: '学习计划',   sub: '每日学习', path: '/study-plan',     color: Color(0xFF5C6BC0)),
-  'dictionary':    (icon: Icons.manage_search_rounded,  label: '辞书检索',   sub: '词典查询', path: '/dictionary',     color: Color(0xFF607D8B)),
-  'translate':     (icon: Icons.translate_rounded,      label: '翻译解析',   sub: 'AI句子分析', path: '/translate',    color: Color(0xFF3949AB)),
-  'quiz':          (icon: Icons.quiz_rounded,           label: '单词测验',   sub: '检验水平', path: '/quiz',           color: Color(0xFFFF5722)),
-  'news':          (icon: Icons.article_rounded,        label: 'NHK新闻',   sub: '阅读训练', path: '/news',           color: Color(0xFF00897B)),
-  'game':          (icon: Icons.sports_esports_rounded, label: '闯关游戏',   sub: '趣味闯关', path: '/game',           color: Color(0xFFE91E63)),
-  'todofuken':     (icon: Icons.map_rounded,            label: '都道府県',   sub: '地理测验', path: '/todofuken-quiz', color: Color(0xFFE65100)),
-  'wrong-answers': (icon: Icons.assignment_late_rounded, label: '错题集',    sub: '错题复习', path: '/wrong-answers', color: Color(0xFFE53935)),
-  'localvocab':    (icon: Icons.folder_copy_rounded,    label: 'Anki词库',  sub: '本地浏览', path: '/local-vocab',    color: Color(0xFF00897B)),
-  'grammar-quiz':  (icon: Icons.menu_book_rounded,      label: '语法测验',  sub: '语法检验', path: '/grammar-quiz',   color: Color(0xFF1565C0)),
-  'flashcard':     (icon: Icons.style_rounded,          label: '单词卡片',  sub: '翻转记忆', path: '/flashcard',      color: Color(0xFFAD1457)),
-  'listening-exercise': (icon: Icons.hearing_rounded,   label: '听力测验',  sub: '听力检测', path: '/listening-exercise', color: Color(0xFF7B1FA2)),
-  'immersion':     (icon: Icons.ondemand_video_rounded, label: '磨耳朵',    sub: '沉浸式听力', path: '/immersion',   color: Color(0xFF00695C)),
-  'kana-writing-test': (icon: Icons.draw_rounded,       label: '假名书写',  sub: '手写测试', path: '/kana-writing-test', color: Color(0xFFC62828)),
+const _allFeatures = <String,
+    ({IconData icon, String label, String sub, String path, Color color})>{
+  'gojuon': (
+    icon: Icons.grid_view_rounded,
+    label: '五十音',
+    sub: '基础入门',
+    path: '/gojuon',
+    color: Color(0xFFE91E63)
+  ),
+  'vocabulary': (
+    icon: Icons.menu_book_rounded,
+    label: '单词学习',
+    sub: '词汇积累',
+    path: '/vocabulary',
+    color: Color(0xFF4CAF50)
+  ),
+  'grammar': (
+    icon: Icons.school_rounded,
+    label: '语法学习',
+    sub: '规则掌握',
+    path: '/grammar',
+    color: Color(0xFF2196F3)
+  ),
+  'listening': (
+    icon: Icons.headphones_rounded,
+    label: '听力练习',
+    sub: '提升听力',
+    path: '/listening',
+    color: Color(0xFF9C27B0)
+  ),
+  'pronunciation': (
+    icon: Icons.mic_rounded,
+    label: '发音训练',
+    sub: 'AI智能纠正',
+    path: '/pronunciation',
+    color: Color(0xFF00BCD4)
+  ),
+  'srs': (
+    icon: Icons.layers_rounded,
+    label: 'SRS复习',
+    sub: '间隔记忆',
+    path: '/srs-review',
+    color: Color(0xFFFF9800)
+  ),
+  'study-plan': (
+    icon: Icons.calendar_month_rounded,
+    label: '学习计划',
+    sub: '每日学习',
+    path: '/study-plan',
+    color: Color(0xFF5C6BC0)
+  ),
+  'dictionary': (
+    icon: Icons.manage_search_rounded,
+    label: '辞书检索',
+    sub: '词典查询',
+    path: '/dictionary',
+    color: Color(0xFF607D8B)
+  ),
+  'translate': (
+    icon: Icons.translate_rounded,
+    label: '翻译解析',
+    sub: 'AI句子分析',
+    path: '/translate',
+    color: Color(0xFF3949AB)
+  ),
+  'quiz': (
+    icon: Icons.quiz_rounded,
+    label: '单词测验',
+    sub: '检验水平',
+    path: '/quiz',
+    color: Color(0xFFFF5722)
+  ),
+  'news': (
+    icon: Icons.article_rounded,
+    label: 'NHK新闻',
+    sub: '阅读训练',
+    path: '/news',
+    color: Color(0xFF00897B)
+  ),
+  'game': (
+    icon: Icons.sports_esports_rounded,
+    label: '闯关游戏',
+    sub: '趣味闯关',
+    path: '/game',
+    color: Color(0xFFE91E63)
+  ),
+  'todofuken': (
+    icon: Icons.map_rounded,
+    label: '都道府県',
+    sub: '地理测验',
+    path: '/todofuken-quiz',
+    color: Color(0xFFE65100)
+  ),
+  'wrong-answers': (
+    icon: Icons.assignment_late_rounded,
+    label: '错题集',
+    sub: '错题复习',
+    path: '/wrong-answers',
+    color: Color(0xFFE53935)
+  ),
+  'localvocab': (
+    icon: Icons.folder_copy_rounded,
+    label: 'Anki词库',
+    sub: '本地浏览',
+    path: '/local-vocab',
+    color: Color(0xFF00897B)
+  ),
+  'grammar-quiz': (
+    icon: Icons.menu_book_rounded,
+    label: '语法测验',
+    sub: '语法检验',
+    path: '/grammar-quiz',
+    color: Color(0xFF1565C0)
+  ),
+  'flashcard': (
+    icon: Icons.style_rounded,
+    label: '单词卡片',
+    sub: '翻转记忆',
+    path: '/flashcard',
+    color: Color(0xFFAD1457)
+  ),
+  'listening-exercise': (
+    icon: Icons.hearing_rounded,
+    label: '听力测验',
+    sub: '听力检测',
+    path: '/listening-exercise',
+    color: Color(0xFF7B1FA2)
+  ),
+  'immersion': (
+    icon: Icons.ondemand_video_rounded,
+    label: '磨耳朵',
+    sub: '沉浸式听力',
+    path: '/immersion',
+    color: Color(0xFF00695C)
+  ),
+  'kana-writing-test': (
+    icon: Icons.draw_rounded,
+    label: '假名书写',
+    sub: '手写测试',
+    path: '/kana-writing-test',
+    color: Color(0xFFC62828)
+  ),
 };
-const _defaultFeatureIds = ['vocabulary', 'grammar', 'srs', 'listening', 'dictionary', 'quiz'];
+const _defaultFeatureIds = [
+  'vocabulary',
+  'grammar',
+  'srs',
+  'listening',
+  'dictionary',
+  'quiz'
+];
 
 const _purposeRecommendFeatures = <String, List<String>>{
-  'exam': ['vocabulary', 'grammar', 'quiz', 'listening-exercise', 'wrong-answers', 'study-plan'],
-  'anime': ['listening', 'immersion', 'translate', 'dictionary', 'pronunciation', 'news'],
+  'exam': [
+    'vocabulary',
+    'grammar',
+    'quiz',
+    'listening-exercise',
+    'wrong-answers',
+    'study-plan'
+  ],
+  'anime': [
+    'listening',
+    'immersion',
+    'translate',
+    'dictionary',
+    'pronunciation',
+    'news'
+  ],
   'work': ['study-plan', 'dictionary', 'translate', 'news', 'listening', 'srs'],
-  'travel': ['gojuon', 'listening', 'pronunciation', 'dictionary', 'translate', 'quiz'],
-  'daily': ['gojuon', 'vocabulary', 'listening', 'dictionary', 'translate', 'srs'],
+  'travel': [
+    'gojuon',
+    'listening',
+    'pronunciation',
+    'dictionary',
+    'translate',
+    'quiz'
+  ],
+  'daily': [
+    'gojuon',
+    'vocabulary',
+    'listening',
+    'dictionary',
+    'translate',
+    'srs'
+  ],
 };
 
 class HomeScreen extends StatefulWidget {
@@ -87,10 +243,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _wordIndex = 0;
 
   // 各区域独立加载状态，不再阻塞整页显示
-  bool _srsLoading    = true;
-  bool _wordLoading   = true;
-  bool _goalsLoading  = true;
-  bool _wordRevealed  = false;
+  bool _srsLoading = true;
+  bool _wordLoading = true;
+  bool _goalsLoading = true;
+  bool _wordRevealed = false;
   List<Map<String, dynamic>> _activePlans = [];
 
   // 是否正在刷新（下拉刷新时用）
@@ -110,7 +266,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _unreadNotifCount = 0;
 
   // 可用功能（经服务端开关过滤后）
-  Map<String, ({IconData icon, String label, String sub, String path, Color color})> _enabledFeatures = Map.fromEntries(
+  Map<String,
+          ({IconData icon, String label, String sub, String path, Color color})>
+      _enabledFeatures = Map.fromEntries(
     _allFeatures.entries.where((e) => !Platform.isIOS || e.key != 'immersion'),
   );
 
@@ -137,7 +295,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _userLoading = false;
         _checkedInToday = cached.lastStudyDate == today;
       });
-      membershipService.updateCache(isMember: cached.isMember, avatarUrl: cached.avatarUrl);
+      membershipService.updateCache(
+          isMember: cached.isMember, avatarUrl: cached.avatarUrl);
     }
   }
 
@@ -162,7 +321,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (guestService.isGuest) return;
     try {
       final c = await apiService.getNotificationUnreadCount();
-      if (mounted && c != _unreadNotifCount) setState(() => _unreadNotifCount = c);
+      if (mounted && c != _unreadNotifCount)
+        setState(() => _unreadNotifCount = c);
     } catch (_) {}
   }
 
@@ -207,9 +367,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _userLoading = false;
           _checkedInToday = lastStudy == today;
         });
-        membershipService.updateCache(isMember: user.isMember, avatarUrl: user.avatarUrl);
+        membershipService.updateCache(
+            isMember: user.isMember, avatarUrl: user.avatarUrl);
         // Check if trial just expired
-        if (user.trialActivated && !user.isMember && user.membershipPlan == 'trial') {
+        if (user.trialActivated &&
+            !user.isMember &&
+            user.membershipPlan == 'trial') {
           _maybeShowTrialExpiredDialog(user);
         }
         _maybeShowFirstLoginGuide(user);
@@ -243,9 +406,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           SizedBox(width: 8),
           Expanded(child: Text('\u4f53\u9a8c\u5df2\u7ed3\u675f')),
         ]),
-        content: const Text('\u60a8\u7684\u4f1a\u5458\u4f53\u9a8c\u5df2\u5230\u671f\uff0c\u5df2\u6062\u590d\u4e3a\u514d\u8d39\u7528\u6237\u3002\n\u5347\u7ea7\u4f1a\u5458\u53ef\u7ee7\u7eed\u4eab\u53d7\u5168\u90e8\u529f\u80fd\uff01'),
+        content: const Text(
+            '\u60a8\u7684\u4f1a\u5458\u4f53\u9a8c\u5df2\u5230\u671f\uff0c\u5df2\u6062\u590d\u4e3a\u514d\u8d39\u7528\u6237\u3002\n\u5347\u7ea7\u4f1a\u5458\u53ef\u7ee7\u7eed\u4eab\u53d7\u5168\u90e8\u529f\u80fd\uff01'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('\u77e5\u9053\u4e86')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('\u77e5\u9053\u4e86')),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
@@ -262,7 +428,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     setState(() => _srsLoading = true);
     try {
       final stats = await apiService.getSrsStats();
-      if (mounted) setState(() { _srsStats = stats; _srsLoading = false; });
+      if (mounted)
+        setState(() {
+          _srsStats = stats;
+          _srsLoading = false;
+        });
     } catch (_) {
       if (mounted) setState(() => _srsLoading = false);
     }
@@ -272,7 +442,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     setState(() => _goalsLoading = true);
     try {
       final data = await apiService.getDailyGoals();
-      if (mounted) setState(() { _dailyGoals = data; _goalsLoading = false; });
+      if (mounted)
+        setState(() {
+          _dailyGoals = data;
+          _goalsLoading = false;
+        });
     } catch (_) {
       if (mounted) setState(() => _goalsLoading = false);
     }
@@ -283,7 +457,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString('study_plans_v1') ?? '[]';
       final plans = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
-      final active = plans.where((p) => (p['status'] ?? '') == 'in_progress').toList();
+      final active =
+          plans.where((p) => (p['status'] ?? '') == 'in_progress').toList();
       if (mounted) setState(() => _activePlans = active);
     } catch (_) {}
   }
@@ -293,7 +468,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       // 使用用户的 JLPT 等级过滤单词
       final level = _user?.level ?? 'N5';
-      final res = await apiService.getVocabulary(level: level, limit: 20, page: 1);
+      final res =
+          await apiService.getVocabulary(level: level, limit: 20, page: 1);
       final words = res['data'] as List<VocabularyModel>;
       if (words.isNotEmpty) {
         final prefs = await SharedPreferences.getInstance();
@@ -318,11 +494,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         }
         if (mounted) {
           setState(() {
-          _wordPool  = words;
-          _wordIndex = startIdx;
-          _wordRevealed = false;
-          _wordLoading = false;
-        });
+            _wordPool = words;
+            _wordIndex = startIdx;
+            _wordRevealed = false;
+            _wordLoading = false;
+          });
         }
       } else {
         if (mounted) setState(() => _wordLoading = false);
@@ -340,9 +516,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await prefs.setInt('wod_index', newIdx);
     if (mounted) {
       setState(() {
-      _wordIndex = newIdx;
-      _wordRevealed = false;
-    });
+        _wordIndex = newIdx;
+        _wordRevealed = false;
+      });
     }
   }
 
@@ -351,7 +527,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final p = await SharedPreferences.getInstance();
     final saved = p.getStringList('home_fav_features');
     if (saved != null && saved.isNotEmpty) {
-      setState(() => _favFeatureIds = saved.where((id) => _allFeatures.containsKey(id)).toList());
+      setState(() => _favFeatureIds =
+          saved.where((id) => _allFeatures.containsKey(id)).toList());
     }
   }
 
@@ -372,7 +549,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _enabledFeatures.remove('immersion');
       }
       // 移除被关闭的收藏功能
-      _favFeatureIds = _favFeatureIds.where((id) => _enabledFeatures.containsKey(id)).toList();
+      _favFeatureIds = _favFeatureIds
+          .where((id) => _enabledFeatures.containsKey(id))
+          .toList();
     });
   }
 
@@ -406,7 +585,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('欢迎使用言旅', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                const Text('欢迎使用言旅',
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 6),
                 Text(
                   '选择你的学日语目的，我会推荐更适合你的功能，并自动加入常用功能。',
@@ -427,7 +608,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     return ChoiceChip(
                       label: Text(item.$2),
                       selected: on,
-                      onSelected: (_) => setSheetState(() => selected = item.$1),
+                      onSelected: (_) =>
+                          setSheetState(() => selected = item.$1),
                     );
                   }).toList(),
                 ),
@@ -454,13 +636,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           .toList();
 
       setState(() {
-        _favFeatureIds = picks.isNotEmpty ? picks : List<String>.from(_defaultFeatureIds);
+        _favFeatureIds =
+            picks.isNotEmpty ? picks : List<String>.from(_defaultFeatureIds);
       });
       await _saveFavFeatures();
       await prefs.setString('home_learning_purpose_${user.id}', selected);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已根据你的学习目的推荐常用功能')), 
+          const SnackBar(content: Text('已根据你的学习目的推荐常用功能')),
         );
       }
     }
@@ -472,34 +655,49 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
           return Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               Row(children: [
-                const Text('编辑常用功能', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Text('编辑常用功能',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const Spacer(),
-                Text('${selected.length}/6', style: TextStyle(fontSize: 13, color: selected.length > 6 ? Colors.red : Colors.grey)),
+                Text('${selected.length}/6',
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: selected.length > 6 ? Colors.red : Colors.grey)),
               ]),
               const SizedBox(height: 4),
-              const Text('点击添加或移除，最多保留 6 个', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Text('点击添加或移除，最多保留 6 个',
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
               const SizedBox(height: 12),
               Wrap(
-                spacing: 10, runSpacing: 10,
+                spacing: 10,
+                runSpacing: 10,
                 children: _enabledFeatures.entries.map((e) {
                   final on = selected.contains(e.key);
                   return FilterChip(
-                    avatar: Icon(e.value.icon, size: 18, color: on ? Colors.white : e.value.color),
+                    avatar: Icon(e.value.icon,
+                        size: 18, color: on ? Colors.white : e.value.color),
                     label: Text(e.value.label),
                     selected: on,
                     selectedColor: e.value.color,
-                    labelStyle: TextStyle(color: on ? Colors.white : null, fontWeight: FontWeight.w600, fontSize: 12),
+                    labelStyle: TextStyle(
+                        color: on ? Colors.white : null,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12),
                     onSelected: (v) {
                       setSheetState(() {
-                        if (v) { if (selected.length < 6) selected.add(e.key); }
-                        else { selected.remove(e.key); }
+                        if (v) {
+                          if (selected.length < 6) selected.add(e.key);
+                        } else {
+                          selected.remove(e.key);
+                        }
                       });
                     },
                   );
@@ -507,12 +705,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 16),
               Row(children: [
-                Expanded(child: OutlinedButton(
+                Expanded(
+                    child: OutlinedButton(
                   onPressed: () => Navigator.pop(ctx),
                   child: const Text('取消'),
                 )),
                 const SizedBox(width: 12),
-                Expanded(child: FilledButton(
+                Expanded(
+                    child: FilledButton(
                   onPressed: () {
                     setState(() => _favFeatureIds = selected);
                     _saveFavFeatures();
@@ -530,7 +730,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   String _greeting() {
     final h = DateTime.now().hour;
-    if (h < 6)  return 'こんばんは 🌙';
+    if (h < 6) return 'こんばんは 🌙';
     if (h < 12) return 'おはようございます ☀️';
     if (h < 18) return 'こんにちは 🌤️';
     return 'こんばんは 🌙';
@@ -544,7 +744,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     // Build set of checked-in dates based on streak
     final checkedDates = <DateTime>{};
-    if (_checkedInToday || lastStudy == today.toIso8601String().split('T').first) {
+    if (_checkedInToday ||
+        lastStudy == today.toIso8601String().split('T').first) {
       for (int i = 0; i < streakDays; i++) {
         checkedDates.add(today.subtract(Duration(days: i)));
       }
@@ -552,7 +753,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final last = DateTime.tryParse(lastStudy);
       if (last != null) {
         for (int i = 0; i < streakDays; i++) {
-          checkedDates.add(DateTime(last.year, last.month, last.day).subtract(Duration(days: i)));
+          checkedDates.add(DateTime(last.year, last.month, last.day)
+              .subtract(Duration(days: i)));
         }
       }
     }
@@ -568,24 +770,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         return StatefulBuilder(
           builder: (ctx, setDialog) {
             final firstDay = DateTime(displayMonth.year, displayMonth.month, 1);
-            final daysInMonth = DateTime(displayMonth.year, displayMonth.month + 1, 0).day;
+            final daysInMonth =
+                DateTime(displayMonth.year, displayMonth.month + 1, 0).day;
             final weekdayOffset = (firstDay.weekday % 7);
-            final isCurrentMonth = displayMonth.year == now.year && displayMonth.month == now.month;
+            final isCurrentMonth = displayMonth.year == now.year &&
+                displayMonth.month == now.month;
             final monthLabel = '${displayMonth.year}年${displayMonth.month}月';
             final cs = Theme.of(context).colorScheme;
 
             return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
               titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
               contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               title: Column(
                 children: [
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    const Icon(Icons.local_fire_department_rounded, color: Colors.orange, size: 22),
+                    const Icon(Icons.local_fire_department_rounded,
+                        color: Colors.orange, size: 22),
                     const SizedBox(width: 6),
                     Text(
                       '连续签到 $localStreak 天',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.w800),
                     ),
                   ]),
                   const SizedBox(height: 12),
@@ -595,15 +802,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       IconButton(
                         icon: const Icon(Icons.chevron_left_rounded),
                         onPressed: () => setDialog(() {
-                          displayMonth = DateTime(displayMonth.year, displayMonth.month - 1);
+                          displayMonth = DateTime(
+                              displayMonth.year, displayMonth.month - 1);
                         }),
                       ),
-                      Text(monthLabel, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                      Text(monthLabel,
+                          style: const TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w700)),
                       IconButton(
                         icon: const Icon(Icons.chevron_right_rounded),
-                        onPressed: isCurrentMonth ? null : () => setDialog(() {
-                          displayMonth = DateTime(displayMonth.year, displayMonth.month + 1);
-                        }),
+                        onPressed: isCurrentMonth
+                            ? null
+                            : () => setDialog(() {
+                                  displayMonth = DateTime(displayMonth.year,
+                                      displayMonth.month + 1);
+                                }),
                       ),
                     ],
                   ),
@@ -618,7 +831,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       children: ['一', '二', '三', '四', '五', '六', '日']
                           .map((d) => Expanded(
                                 child: Center(
-                                  child: Text(d, style: TextStyle(fontSize: 12, color: cs.outline, fontWeight: FontWeight.w600)),
+                                  child: Text(d,
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: cs.outline,
+                                          fontWeight: FontWeight.w600)),
                                 ),
                               ))
                           .toList(),
@@ -627,16 +844,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     GridView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 7,
                         mainAxisSpacing: 2,
                         crossAxisSpacing: 2,
                       ),
                       itemCount: weekdayOffset + daysInMonth,
                       itemBuilder: (_, index) {
-                        if (index < weekdayOffset) return const SizedBox.shrink();
+                        if (index < weekdayOffset)
+                          return const SizedBox.shrink();
                         final day = index - weekdayOffset + 1;
-                        final date = DateTime(displayMonth.year, displayMonth.month, day);
+                        final date = DateTime(
+                            displayMonth.year, displayMonth.month, day);
                         final isToday = date == today;
                         final isChecked = localCheckedDates.contains(date);
                         final isFuture = date.isAfter(today);
@@ -649,7 +869,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                   setState(() => _checkingIn = true);
                                   try {
                                     final res = await apiService.checkin();
-                                    final newStreak = res['streak_days'] as int? ?? 0;
+                                    final newStreak =
+                                        res['streak_days'] as int? ?? 0;
                                     if (mounted) {
                                       setState(() {
                                         _checkedInToday = true;
@@ -660,9 +881,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                         localStreak = newStreak;
                                         localCheckedDates.add(today);
                                       });
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         SnackBar(
-                                          content: Text('签到成功！连续 $newStreak 天 🔥 +5XP'),
+                                          content: Text(
+                                              '签到成功！连续 $newStreak 天 🔥 +5XP'),
                                           behavior: SnackBarBehavior.floating,
                                           duration: const Duration(seconds: 2),
                                         ),
@@ -673,8 +896,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                   } catch (_) {
                                     if (mounted) {
                                       setState(() => _checkingIn = false);
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('签到失败，请检查网络'), behavior: SnackBarBehavior.floating),
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text('签到失败，请检查网络'),
+                                            behavior:
+                                                SnackBarBehavior.floating),
                                       );
                                     }
                                   }
@@ -688,11 +915,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                       ? cs.primary.withValues(alpha: 0.08)
                                       : null,
                               shape: BoxShape.circle,
-                              border: canCheckin ? Border.all(color: cs.primary, width: 1.5) : null,
+                              border: canCheckin
+                                  ? Border.all(color: cs.primary, width: 1.5)
+                                  : null,
                             ),
                             child: Center(
                               child: isChecked
-                                  ? Icon(Icons.check_circle_rounded, size: 20, color: cs.primary)
+                                  ? Icon(Icons.check_circle_rounded,
+                                      size: 20, color: cs.primary)
                                   : canCheckin
                                       ? Text(
                                           '签',
@@ -706,8 +936,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                           '$day',
                                           style: TextStyle(
                                             fontSize: 13,
-                                            fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
-                                            color: isFuture ? cs.outline.withValues(alpha: 0.3) : cs.onSurface,
+                                            fontWeight: isToday
+                                                ? FontWeight.w800
+                                                : FontWeight.w500,
+                                            color: isFuture
+                                                ? cs.outline
+                                                    .withValues(alpha: 0.3)
+                                                : cs.onSurface,
                                           ),
                                         ),
                             ),
@@ -718,7 +953,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     if (!localCheckedIn)
                       Padding(
                         padding: const EdgeInsets.only(top: 12),
-                        child: Text('点击今日日期即可签到', style: TextStyle(fontSize: 12, color: cs.outline)),
+                        child: Text('点击今日日期即可签到',
+                            style: TextStyle(fontSize: 12, color: cs.outline)),
                       ),
                   ],
                 ),
@@ -733,7 +969,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final animeVisual = Theme.of(context).extension<AppVisualTheme>()?.animeBackground ?? false;
+    final animeVisual =
+        Theme.of(context).extension<AppVisualTheme>()?.animeBackground ?? false;
 
     // 从 dailyGoals 提取数据
     final totalXp = _dailyGoals?['total_xp'] ?? 0;
@@ -743,7 +980,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     Map<String, dynamic>? adjustedGoals;
     if (goals != null) {
       adjustedGoals = Map<String, dynamic>.from(goals);
-      final lessonGoal = Map<String, dynamic>.from((goals['lessons'] as Map<String, dynamic>?) ?? const {});
+      final lessonGoal = Map<String, dynamic>.from(
+          (goals['lessons'] as Map<String, dynamic>?) ?? const {});
       final current = (lessonGoal['current'] as int?) ?? 0;
       final target = (lessonGoal['target'] as int?) ?? 0;
       final activePlanCount = _activePlans.length;
@@ -753,88 +991,113 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
 
     Widget body = RefreshIndicator(
-        onRefresh: () => _loadAll(fromCache: false),
-        child: CustomScrollView(
-          slivers: [
-            // ── App Bar ────────────────────────────────────────────
-            _buildSliverHeader(cs, totalXp, streakDays, todayXp),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  const SizedBox(height: 16),
-                  // ── 游客登录提示横幅 ──────────────────────────────
-                  if (guestService.isGuest) ...[
-                    _GuestBanner(onLogin: () {
-                      guestService.disableGuestMode();
-                      context.go('/login');
-                    }),
-                    const SizedBox(height: 12),
-                  ],
-                  // ── 今日目标（游客隐藏）───────────────────────────
-                  if (!guestService.isGuest && !_goalsLoading && adjustedGoals != null) ...[
-                    _SectionTitle(title: '今日目标', icon: Icons.flag_rounded),
-                    const SizedBox(height: 10),
-                    _DailyGoalsCard(goals: adjustedGoals),
-                    const SizedBox(height: 20),
-                  ],
-                  // ── 辞书検索 ──────────────────────────────────────
-                  _SectionTitle(title: '辞书検索', icon: Icons.manage_search_rounded),
+      onRefresh: () => _loadAll(fromCache: false),
+      child: CustomScrollView(
+        slivers: [
+          // ── App Bar ────────────────────────────────────────────
+          _buildSliverHeader(cs, totalXp, streakDays, todayXp),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                const SizedBox(height: 16),
+                // ── 游客登录提示横幅 ──────────────────────────────
+                if (guestService.isGuest) ...[
+                  _GuestBanner(onLogin: () {
+                    guestService.disableGuestMode();
+                    context.go('/login');
+                  }),
+                  const SizedBox(height: 12),
+                ],
+                // ── 今日目标（游客隐藏）───────────────────────────
+                if (!guestService.isGuest &&
+                    !_goalsLoading &&
+                    adjustedGoals != null) ...[
+                  _SectionTitle(title: '今日目标', icon: Icons.flag_rounded),
                   const SizedBox(height: 10),
-                  _SearchBar(),
+                  _DailyGoalsCard(goals: adjustedGoals),
                   const SizedBox(height: 20),
-                  // ── SRS 提醒（加载完才判断）──────────────────────
-                  if (!guestService.isGuest && !_srsLoading && (_srsStats?['due_today'] ?? 0) > 0) ...[
-                    _SrsReviewBanner(dueCount: _srsStats!['due_today']),
-                    const SizedBox(height: 20),
-                  ],
-                  // ── 进行中的学习计划 ──────────────────────────
-                  if (!guestService.isGuest && _activePlans.isNotEmpty) ...[
-                    _StudyPlanBanner(plans: _activePlans),
-                    const SizedBox(height: 20),
-                  ],
-                  // ── 会员体验提示 ──────────────────────────────
-                  if (!guestService.isGuest && _user != null && !_user!.isMember && !_user!.trialActivated)
-                    _TrialPromptBanner(onTap: () => context.push('/membership', extra: false)),
-                  // ── 今日一词 ────────────────────────────────────
-                  _SectionTitle(title: '今日一词', icon: Icons.auto_awesome_rounded),
-                  const SizedBox(height: 10),
-                  if (_wordLoading)
-                    _WordOfDayShimmer(cs: cs)
-                  else if (_wordPool.isNotEmpty)
-                    _WordOfDayCard(
-                      word: _wordPool[_wordIndex],
-                      revealed: _wordRevealed,
-                      onReveal: () => setState(() => _wordRevealed = true),
-                      onNext: _nextWord,
-                    ),
-                  const SizedBox(height: 16),
-                  // ── 常用功能（可自定义，最多6个）────────────────
-                  Row(children: [
-                    const Expanded(child: _SectionTitle(title: '常用功能', icon: Icons.apps_rounded)),
-                    GestureDetector(
-                      onTap: _editFavFeatures,
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.edit_rounded, size: 14, color: Theme.of(context).colorScheme.primary),
-                        const SizedBox(width: 2),
-                        Text('编辑', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600)),
-                      ]),
-                    ),
-                  ]),
-                  const SizedBox(height: 2),
-                  _CategoryGrid(
-                      isMember: _user?.isMember ?? false,
-                      items: _favFeatureIds
-                      .where((id) => _enabledFeatures.containsKey(id))
-                      .map((id) { final f = _enabledFeatures[id]!; return (icon: f.icon, label: f.label, sub: f.sub, path: f.path, color: f.color, tierId: _featureTierMap[id]); })
-                      .toList()),
-                  const SizedBox(height: 8),
+                ],
+                // ── 辞书検索 ──────────────────────────────────────
+                _SectionTitle(title: '辞书検索', icon: Icons.manage_search_rounded),
+                const SizedBox(height: 10),
+                _SearchBar(),
+                const SizedBox(height: 20),
+                // ── SRS 提醒（加载完才判断）──────────────────────
+                if (!guestService.isGuest &&
+                    !_srsLoading &&
+                    (_srsStats?['due_today'] ?? 0) > 0) ...[
+                  _SrsReviewBanner(dueCount: _srsStats!['due_today']),
+                  const SizedBox(height: 20),
+                ],
+                // ── 进行中的学习计划 ──────────────────────────
+                if (!guestService.isGuest && _activePlans.isNotEmpty) ...[
+                  _StudyPlanBanner(plans: _activePlans),
+                  const SizedBox(height: 20),
+                ],
+                // ── 会员体验提示 ──────────────────────────────
+                if (!guestService.isGuest &&
+                    _user != null &&
+                    !_user!.isMember &&
+                    !_user!.trialActivated)
+                  _TrialPromptBanner(
+                      onTap: () => context.push('/membership', extra: false)),
+                // ── 今日一词 ────────────────────────────────────
+                _SectionTitle(title: '今日一词', icon: Icons.auto_awesome_rounded),
+                const SizedBox(height: 10),
+                if (_wordLoading)
+                  _WordOfDayShimmer(cs: cs)
+                else if (_wordPool.isNotEmpty)
+                  _WordOfDayCard(
+                    word: _wordPool[_wordIndex],
+                    revealed: _wordRevealed,
+                    onReveal: () => setState(() => _wordRevealed = true),
+                    onNext: _nextWord,
+                  ),
+                const SizedBox(height: 16),
+                // ── 常用功能（可自定义，最多6个）────────────────
+                Row(children: [
+                  const Expanded(
+                      child: _SectionTitle(
+                          title: '常用功能', icon: Icons.apps_rounded)),
+                  GestureDetector(
+                    onTap: _editFavFeatures,
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.edit_rounded,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.primary),
+                      const SizedBox(width: 2),
+                      Text('编辑',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w600)),
+                    ]),
+                  ),
                 ]),
-              ),
+                const SizedBox(height: 2),
+                _CategoryGrid(
+                    isMember: _user?.isMember ?? false,
+                    items: _favFeatureIds
+                        .where((id) => _enabledFeatures.containsKey(id))
+                        .map((id) {
+                      final f = _enabledFeatures[id]!;
+                      return (
+                        icon: f.icon,
+                        label: f.label,
+                        sub: f.sub,
+                        path: f.path,
+                        color: f.color,
+                        tierId: _featureTierMap[id]
+                      );
+                    }).toList()),
+                const SizedBox(height: 8),
+              ]),
             ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
 
     if (animeVisual) {
       body = AnimeModeBackground(child: body);
@@ -847,18 +1110,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   // ── Sliver App Bar ─────────────────────────────────────────────────────────
-  Widget _buildSliverHeader(ColorScheme cs, int totalXp, int streakDays, int todayXp) {
+  Widget _buildSliverHeader(
+      ColorScheme cs, int totalXp, int streakDays, int todayXp) {
     final isGuestMode = guestService.isGuest;
     final isMember = _user?.isMember ?? false;
     final isTrial = _user?.isTrial ?? false;
     final daysLeft = _user?.membershipDaysLeft;
-    final memberLabel = isGuestMode ? '游客' : isTrial && daysLeft != null ? '体验$daysLeft天' : isMember ? '会员' : '免费';
+    final memberLabel = isGuestMode
+        ? '游客'
+        : isTrial && daysLeft != null
+            ? '体验$daysLeft天'
+            : isMember
+                ? '会员'
+                : '免费';
     final rawAvatar = _user?.avatarUrl;
     final avatarUrl = rawAvatar == null || rawAvatar.isEmpty
-      ? null
-      : (rawAvatar.startsWith('http://') || rawAvatar.startsWith('https://')
-        ? rawAvatar
-        : '${AppConfig.serverRoot}$rawAvatar');
+        ? null
+        : (rawAvatar.startsWith('http://') || rawAvatar.startsWith('https://')
+            ? rawAvatar
+            : '${AppConfig.serverRoot}$rawAvatar');
     return SliverAppBar(
       expandedHeight: 120,
       floating: false,
@@ -898,16 +1168,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         height: 30,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.4),
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.7),
+                              width: 1.4),
                         ),
                         child: ClipOval(
                           child: (!isGuestMode && avatarUrl != null)
                               ? Image.network(
                                   avatarUrl,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.person_outline,
+                                      color: Colors.white,
+                                      size: 20),
                                 )
-                              : const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                              : const Icon(Icons.person_outline,
+                                  color: Colors.white, size: 20),
                         ),
                       ),
                       if (!isGuestMode && _unreadNotifCount > 0)
@@ -915,17 +1191,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           right: -4,
                           top: -4,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 1),
+                            constraints: const BoxConstraints(
+                                minWidth: 16, minHeight: 16),
                             decoration: BoxDecoration(
                               color: const Color(0xFFEF4444),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white, width: 1.2),
+                              border:
+                                  Border.all(color: Colors.white, width: 1.2),
                             ),
                             child: Text(
-                              _unreadNotifCount > 99 ? '99+' : '$_unreadNotifCount',
+                              _unreadNotifCount > 99
+                                  ? '99+'
+                                  : '$_unreadNotifCount',
                               textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, height: 1.1),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.1),
                             ),
                           ),
                         ),
@@ -941,26 +1226,36 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       }
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 1),
                       decoration: BoxDecoration(
                         color: isGuestMode
                             ? Colors.white.withValues(alpha: 0.18)
                             : isMember
-                                ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                                ? const Color(0xFFF59E0B)
+                                    .withValues(alpha: 0.35)
                                 : Colors.white.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
                         Icon(
-                          isGuestMode ? Icons.person_outline : isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
+                          isGuestMode
+                              ? Icons.person_outline
+                              : isMember
+                                  ? Icons.workspace_premium
+                                  : Icons.lock_open_rounded,
                           size: 10,
-                          color: isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                          color: isMember
+                              ? const Color(0xFFFCD34D)
+                              : Colors.white70,
                         ),
                         const SizedBox(width: 2),
                         Text(
                           memberLabel,
                           style: TextStyle(
-                            color: isMember ? const Color(0xFFFCD34D) : Colors.white70,
+                            color: isMember
+                                ? const Color(0xFFFCD34D)
+                                : Colors.white70,
                             fontSize: 9,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1010,31 +1305,46 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   // 统计数据行（紧凑）
                   if (!isGuestMode)
                     Row(children: [
-                      _StatBadge(icon: Icons.star, color: Colors.amber, label: _user?.level ?? 'N5'),
+                      _StatBadge(
+                          icon: Icons.star,
+                          color: Colors.amber,
+                          label: _user?.level ?? 'N5'),
                       const SizedBox(width: 8),
-                      _StatBadge(icon: Icons.diamond_rounded, color: Colors.amberAccent, label: '${totalXp}XP'),
+                      _StatBadge(
+                          icon: Icons.diamond_rounded,
+                          color: Colors.amberAccent,
+                          label: '${totalXp}XP'),
                       const SizedBox(width: 8),
-                      _StatBadge(icon: Icons.trending_up_rounded, color: Colors.greenAccent, label: '+$todayXp'),
+                      _StatBadge(
+                          icon: Icons.trending_up_rounded,
+                          color: Colors.greenAccent,
+                          label: '+$todayXp'),
                       const SizedBox(width: 8),
                       GestureDetector(
                         onTap: _showCheckinCalendar,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: _checkedInToday
                                 ? const Color(0xFF4CAF50).withValues(alpha: 0.5)
-                                : const Color(0xFFFF6B6B).withValues(alpha: 0.55),
+                                : const Color(0xFFFF6B6B)
+                                    .withValues(alpha: 0.55),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: _checkedInToday
-                                  ? const Color(0xFF81C784).withValues(alpha: 0.6)
-                                  : const Color(0xFFFF8A80).withValues(alpha: 0.6),
+                                  ? const Color(0xFF81C784)
+                                      .withValues(alpha: 0.6)
+                                  : const Color(0xFFFF8A80)
+                                      .withValues(alpha: 0.6),
                               width: 1,
                             ),
                           ),
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             Icon(
-                              _checkedInToday ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                              _checkedInToday
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked_rounded,
                               size: 13,
                               color: Colors.white,
                             ),
@@ -1073,8 +1383,10 @@ class _WordOfDayShimmer extends StatelessWidget {
       height: 160,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [cs.primaryContainer.withValues(alpha: 0.4),
-                   cs.secondaryContainer.withValues(alpha: 0.4)],
+          colors: [
+            cs.primaryContainer.withValues(alpha: 0.4),
+            cs.secondaryContainer.withValues(alpha: 0.4)
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -1118,7 +1430,8 @@ class _StatBadge extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String label;
-  const _StatBadge({required this.icon, required this.color, required this.label});
+  const _StatBadge(
+      {required this.icon, required this.color, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -1157,12 +1470,17 @@ class _GuestBanner extends StatelessWidget {
         const Icon(Icons.waving_hand_rounded, color: Colors.white, size: 28),
         const SizedBox(width: 14),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-            Text('欢迎体验言旅',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-            Text('登录后可同步学习进度、使用SRS复习等更多功能',
-                style: TextStyle(color: Colors.white70, fontSize: 12)),
-          ]),
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text('欢迎体验言旅',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15)),
+                Text('登录后可同步学习进度、使用SRS复习等更多功能',
+                    style: TextStyle(color: Colors.white70, fontSize: 12)),
+              ]),
         ),
         GestureDetector(
           onTap: onLogin,
@@ -1173,7 +1491,10 @@ class _GuestBanner extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Text('登录',
-                style: TextStyle(color: Color(0xFF3B82F6), fontWeight: FontWeight.bold, fontSize: 13)),
+                style: TextStyle(
+                    color: Color(0xFF3B82F6),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13)),
           ),
         ),
       ]),
@@ -1189,7 +1510,6 @@ class _SearchBar extends StatefulWidget {
 }
 
 class _SearchBarState extends State<_SearchBar> {
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -1199,12 +1519,16 @@ class _SearchBarState extends State<_SearchBar> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [cs.primary.withValues(alpha: 0.08), cs.primary.withValues(alpha: 0.03)],
+            colors: [
+              cs.primary.withValues(alpha: 0.08),
+              cs.primary.withValues(alpha: 0.03)
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: cs.primary.withValues(alpha: 0.2), width: 1),
+          border:
+              Border.all(color: cs.primary.withValues(alpha: 0.2), width: 1),
         ),
         child: Row(children: [
           Container(
@@ -1221,15 +1545,16 @@ class _SearchBarState extends State<_SearchBar> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('输入日语、中文或罗马字搜索…',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+                    style: TextStyle(color: Colors.grey[500], fontSize: 14)),
                 const SizedBox(height: 2),
                 Text('支持假名・汉字・中文释义・JLPT筛选',
-                  style: TextStyle(color: Colors.grey[400], fontSize: 11)),
+                    style: TextStyle(color: Colors.grey[400], fontSize: 11)),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          Icon(Icons.arrow_forward_ios_rounded, color: cs.primary.withValues(alpha: 0.5), size: 16),
+          Icon(Icons.arrow_forward_ios_rounded,
+              color: cs.primary.withValues(alpha: 0.5), size: 16),
         ]),
       ),
     );
@@ -1258,9 +1583,13 @@ class _SrsReviewBanner extends StatelessWidget {
           const Icon(Icons.layers_rounded, color: Colors.white, size: 32),
           const SizedBox(width: 14),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('$dueCount 张卡片待复习',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16)),
               const Text('趁热打铁，强化记忆！',
                   style: TextStyle(color: Colors.white70, fontSize: 12)),
             ]),
@@ -1272,7 +1601,10 @@ class _SrsReviewBanner extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text('开始复习',
-                style: TextStyle(color: Colors.orange.shade700, fontWeight: FontWeight.bold, fontSize: 13)),
+                style: TextStyle(
+                    color: Colors.orange.shade700,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13)),
           ),
         ]),
       ),
@@ -1311,9 +1643,13 @@ class _StudyPlanBanner extends StatelessWidget {
           const Icon(Icons.route_rounded, color: Colors.white, size: 32),
           const SizedBox(width: 14),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(name,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16)),
               Text('$typeLabel · 每日$dailyTarget张',
                   style: const TextStyle(color: Colors.white70, fontSize: 12)),
             ]),
@@ -1325,7 +1661,10 @@ class _StudyPlanBanner extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text('继续学习',
-                style: TextStyle(color: const Color(0xFF6D28D9), fontWeight: FontWeight.bold, fontSize: 13)),
+                style: TextStyle(
+                    color: const Color(0xFF6D28D9),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13)),
           ),
         ]),
       ),
@@ -1357,12 +1696,17 @@ class _TrialPromptBanner extends StatelessWidget {
             const Text('🎁', style: TextStyle(fontSize: 28)),
             const SizedBox(width: 14),
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-                Text('免费体验全部会员功能',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-                Text('限时体验，每个账号仅限一次',
-                    style: TextStyle(color: Colors.white70, fontSize: 12)),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text('免费体验全部会员功能',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15)),
+                    Text('限时体验，每个账号仅限一次',
+                        style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  ]),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
@@ -1371,7 +1715,10 @@ class _TrialPromptBanner extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Text('立即体验',
-                  style: TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 13)),
+                  style: TextStyle(
+                      color: Color(0xFF6366F1),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13)),
             ),
           ]),
         ),
@@ -1385,7 +1732,11 @@ class _WordOfDayCard extends StatefulWidget {
   final bool revealed;
   final VoidCallback onReveal;
   final VoidCallback onNext;
-  const _WordOfDayCard({required this.word, required this.revealed, required this.onReveal, required this.onNext});
+  const _WordOfDayCard(
+      {required this.word,
+      required this.revealed,
+      required this.onReveal,
+      required this.onNext});
 
   @override
   State<_WordOfDayCard> createState() => _WordOfDayCardState();
@@ -1495,7 +1846,10 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(word.jlptLevel,
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold)),
             ),
             const SizedBox(width: 8),
             Container(
@@ -1504,8 +1858,14 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
                 color: cs.tertiary.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(word.partOfSpeechRaw != null ? _formatPosRaw(word.partOfSpeechRaw!) : _posLabel(word.partOfSpeech),
-                  style: TextStyle(color: cs.tertiary, fontSize: 11, fontWeight: FontWeight.bold)),
+              child: Text(
+                  word.partOfSpeechRaw != null
+                      ? _formatPosRaw(word.partOfSpeechRaw!)
+                      : _posLabel(word.partOfSpeech),
+                  style: TextStyle(
+                      color: cs.tertiary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold)),
             ),
             const Spacer(),
             GestureDetector(
@@ -1517,7 +1877,8 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
                 });
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: cs.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(16),
@@ -1525,7 +1886,11 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.refresh_rounded, size: 14, color: cs.primary),
                   const SizedBox(width: 4),
-                  Text('换一词', style: TextStyle(color: cs.primary, fontSize: 12, fontWeight: FontWeight.w500)),
+                  Text('换一词',
+                      style: TextStyle(
+                          color: cs.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500)),
                 ]),
               ),
             ),
@@ -1538,12 +1903,16 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    FuriganaText(text: word.word, fontSize: 36, color: cs.primary),
-                    if (word.reading.isNotEmpty && cleanReading(word.reading) != cleanWord(word.word))
+                    FuriganaText(
+                        text: word.word, fontSize: 36, color: cs.primary),
+                    if (word.reading.isNotEmpty &&
+                        cleanReading(word.reading) != cleanWord(word.word))
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(cleanReading(word.reading),
-                            style: TextStyle(fontSize: 16, color: cs.primary.withValues(alpha: 0.7))),
+                            style: TextStyle(
+                                fontSize: 16,
+                                color: cs.primary.withValues(alpha: 0.7))),
                       ),
                   ],
                 ),
@@ -1558,8 +1927,11 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    _playing ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
-                    size: 24, color: cs.primary,
+                    _playing
+                        ? Icons.volume_up_rounded
+                        : Icons.play_circle_outline_rounded,
+                    size: 24,
+                    color: cs.primary,
                   ),
                 ),
               ),
@@ -1586,24 +1958,38 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
                   ? Container(
                       key: const ValueKey('revealed'),
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 2),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 2),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(children: [
-                            Icon(Icons.translate_rounded, size: 18, color: cs.primary),
+                            Icon(Icons.translate_rounded,
+                                size: 18, color: cs.primary),
                             const SizedBox(width: 6),
-                            Text('释义', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: cs.onSurfaceVariant)),
+                            Text('释义',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    color: cs.onSurfaceVariant)),
                           ]),
                           const SizedBox(height: 8),
                           Text(word.meaningZh,
-                              style: TextStyle(fontSize: 16, color: cs.onSurface, fontWeight: FontWeight.w500)),
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  color: cs.onSurface,
+                                  fontWeight: FontWeight.w500)),
                           if (word.exampleSentence != null) ...[
                             const SizedBox(height: 16),
                             Row(children: [
-                              Icon(Icons.format_quote_rounded, size: 18, color: cs.primary),
+                              Icon(Icons.format_quote_rounded,
+                                  size: 18, color: cs.primary),
                               const SizedBox(width: 6),
-                              Text('例文', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: cs.onSurfaceVariant)),
+                              Text('例文',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: cs.onSurfaceVariant)),
                             ]),
                             const SizedBox(height: 8),
                             Row(
@@ -1611,23 +1997,32 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
                               children: [
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      if (word.exampleReading != null && hasFurigana(word.exampleReading!))
+                                      if (word.exampleReading != null &&
+                                          hasFurigana(word.exampleReading!))
                                         FuriganaText(
                                           text: word.exampleReading!,
                                           fontSize: 14,
                                           color: cs.onSurfaceVariant,
-                                fontWeight: FontWeight.normal,
-                                textAlign: TextAlign.start,
-                              )
-                            else
-                              Text(word.exampleSentence!,
-                                  style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant, height: 1.5)),
+                                          fontWeight: FontWeight.normal,
+                                          textAlign: TextAlign.start,
+                                        )
+                                      else
+                                        Text(word.exampleSentence!,
+                                            style: TextStyle(
+                                                fontSize: 14,
+                                                color: cs.onSurfaceVariant,
+                                                height: 1.5)),
                                       if (word.exampleMeaningZh != null) ...[
                                         const SizedBox(height: 4),
                                         Text(word.exampleMeaningZh!,
-                                            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant.withValues(alpha: 0.7), height: 1.4)),
+                                            style: TextStyle(
+                                                fontSize: 13,
+                                                color: cs.onSurfaceVariant
+                                                    .withValues(alpha: 0.7),
+                                                height: 1.4)),
                                       ],
                                     ],
                                   ),
@@ -1642,8 +2037,11 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
-                                      _playingExample ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
-                                      size: 24, color: cs.primary,
+                                      _playingExample
+                                          ? Icons.volume_up_rounded
+                                          : Icons.play_circle_outline_rounded,
+                                      size: 24,
+                                      color: cs.primary,
                                     ),
                                   ),
                                 ),
@@ -1663,10 +2061,12 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
                       ),
                       child: Center(
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(Icons.visibility_off_rounded, size: 16, color: cs.primary),
+                          Icon(Icons.visibility_off_rounded,
+                              size: 16, color: cs.primary),
                           const SizedBox(width: 6),
                           Text('点击查看释义',
-                              style: TextStyle(color: cs.primary, fontSize: 13)),
+                              style:
+                                  TextStyle(color: cs.primary, fontSize: 13)),
                         ]),
                       ),
                     ),
@@ -1713,7 +2113,8 @@ class _SectionTitle extends StatelessWidget {
       Icon(icon, size: 18, color: cs.primary),
       const SizedBox(width: 6),
       Text(title,
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: cs.onSurface)),
+          style: TextStyle(
+              fontSize: 16, fontWeight: FontWeight.bold, color: cs.onSurface)),
     ]);
   }
 }
@@ -1770,16 +2171,23 @@ class _DailyGoalsCard extends StatelessWidget {
         color: cs.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: cs.outlineVariant),
-        boxShadow: [BoxShadow(color: cs.shadow.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: cs.shadow.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Row(
         children: [
           for (int i = 0; i < items.length; i++) ...[
-            if (i > 0) Container(
-              width: 1, height: 36,
-              margin: const EdgeInsets.symmetric(horizontal: 8),
-              color: cs.outlineVariant,
-            ),
+            if (i > 0)
+              Container(
+                width: 1,
+                height: 36,
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                color: cs.outlineVariant,
+              ),
             Expanded(child: items[i]),
           ],
         ],
@@ -1794,7 +2202,13 @@ class _CompactGoalItem extends StatelessWidget {
   final String label;
   final int current, target;
   final String unit;
-  const _CompactGoalItem({required this.icon, required this.color, required this.label, required this.current, required this.target, required this.unit});
+  const _CompactGoalItem(
+      {required this.icon,
+      required this.color,
+      required this.label,
+      required this.current,
+      required this.target,
+      required this.unit});
 
   @override
   Widget build(BuildContext context) {
@@ -1802,13 +2216,23 @@ class _CompactGoalItem extends StatelessWidget {
     final progress = target > 0 ? (current / target).clamp(0.0, 1.0) : 0.0;
     final done = progress >= 1.0;
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
-        Icon(done ? Icons.check_circle_rounded : icon, size: 14, color: done ? const Color(0xFF059669) : color),
-        const SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant, fontWeight: FontWeight.w500)),
-      ]),
+      Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(done ? Icons.check_circle_rounded : icon,
+                size: 14, color: done ? const Color(0xFF059669) : color),
+            const SizedBox(width: 4),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 11,
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w500)),
+          ]),
       const SizedBox(height: 4),
-      Text('$current/$target$unit', style: TextStyle(fontSize: 13, color: cs.onSurface, fontWeight: FontWeight.bold)),
+      Text('$current/$target$unit',
+          style: TextStyle(
+              fontSize: 13, color: cs.onSurface, fontWeight: FontWeight.bold)),
       const SizedBox(height: 4),
       SizedBox(
         width: 60,
@@ -1858,7 +2282,11 @@ class _QuizBreakdownCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('📝 今日测验', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: cs.onSurface)),
+          Text('📝 今日测验',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface)),
           const SizedBox(height: 6),
           ...entries.map((e) {
             final label = _labels[e.key] ?? e.key;
@@ -1868,8 +2296,14 @@ class _QuizBreakdownCard extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(label, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-                  Text('$count 次', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: cs.onSurface)),
+                  Text(label,
+                      style:
+                          TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                  Text('$count 次',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: cs.onSurface)),
                 ],
               ),
             );
@@ -1889,14 +2323,16 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(children: [
-      Expanded(child: _QuickActionBtn(
+      Expanded(
+          child: _QuickActionBtn(
         icon: Icons.layers_rounded,
         label: 'SRS复习${srsCount > 0 ? ' ($srsCount)' : ''}',
         color: const Color(0xFFFF9800),
         onTap: () => context.push('/srs-review?from=home'),
       )),
       const SizedBox(width: 10),
-      Expanded(child: _QuickActionBtn(
+      Expanded(
+          child: _QuickActionBtn(
         icon: Icons.menu_book_rounded,
         label: '单词学习',
         color: const Color(0xFF4CAF50),
@@ -1911,7 +2347,11 @@ class _QuickActionBtn extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
-  const _QuickActionBtn({required this.icon, required this.label, required this.color, required this.onTap});
+  const _QuickActionBtn(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1927,13 +2367,23 @@ class _QuickActionBtn extends StatelessWidget {
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: color.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 3))],
+          boxShadow: [
+            BoxShadow(
+                color: color.withOpacity(0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 3))
+          ],
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, color: Colors.white, size: 24),
           const SizedBox(height: 6),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-              textAlign: TextAlign.center, overflow: TextOverflow.ellipsis),
+          Text(label,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis),
         ]),
       ),
     );
@@ -1942,7 +2392,14 @@ class _QuickActionBtn extends StatelessWidget {
 
 // ─── Category Grid (可复用的 3 列宫格) ──────────────────────────────────────────
 
-typedef _CatItem = ({IconData icon, String label, String sub, String path, Color color, String? tierId});
+typedef _CatItem = ({
+  IconData icon,
+  String label,
+  String sub,
+  String path,
+  Color color,
+  String? tierId
+});
 
 class _CategoryGrid extends StatelessWidget {
   final List<_CatItem> items;
@@ -1964,9 +2421,13 @@ class _CategoryGrid extends StatelessWidget {
       itemBuilder: (context, i) {
         final f = items[i];
         return _FeatureTile(
-          icon: f.icon, label: f.label, sub: f.sub,
-          path: f.path, color: f.color,
-          tierId: f.tierId, isMember: isMember,
+          icon: f.icon,
+          label: f.label,
+          sub: f.sub,
+          path: f.path,
+          color: f.color,
+          tierId: f.tierId,
+          isMember: isMember,
         );
       },
     );
@@ -1980,19 +2441,19 @@ class _GameBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(children: [
       _GameCard(
-        title: '助词方块',
-        subtitle: '趣味闯关 · 助词填空',
-        icon: Icons.extension_rounded,
-        color: const Color(0xFFE91E63),
-        onTap: () => context.push('/game', extra: 'particles'),
-      ),
-      const SizedBox(height: 12),
-      _GameCard(
         title: '动词方块',
         subtitle: '趣味闯关 · 动词变形',
         icon: Icons.translate_rounded,
         color: const Color(0xFF9C27B0),
         onTap: () => context.push('/game', extra: 'verbs'),
+      ),
+      const SizedBox(height: 12),
+      _GameCard(
+        title: '助词方块',
+        subtitle: '趣味闯关 · 助词填空',
+        icon: Icons.extension_rounded,
+        color: const Color(0xFFE91E63),
+        onTap: () => context.push('/game', extra: 'particles'),
       ),
     ]);
   }
@@ -2022,7 +2483,7 @@ class _GameCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [color, color.withOpacity(0.7)],
+            colors: [color, color.withValues(alpha: 0.7)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -2047,12 +2508,18 @@ class _GameCard extends StatelessWidget {
           ),
           const SizedBox(width: 14),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16)),
               const SizedBox(height: 3),
               Text(subtitle,
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12)),
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: 12)),
             ]),
           ),
           Container(
@@ -2062,7 +2529,8 @@ class _GameCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text('开始',
-                style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
+                style: TextStyle(
+                    color: color, fontWeight: FontWeight.bold, fontSize: 13)),
           ),
         ]),
       ),
@@ -2078,11 +2546,20 @@ class _FeatureTile extends StatelessWidget {
   final Color color;
   final String? tierId;
   final bool isMember;
-  const _FeatureTile({required this.icon, required this.label, required this.sub, required this.path, required this.color, this.tierId, this.isMember = false});
+  const _FeatureTile(
+      {required this.icon,
+      required this.label,
+      required this.sub,
+      required this.path,
+      required this.color,
+      this.tierId,
+      this.isMember = false});
 
   @override
   Widget build(BuildContext context) {
-    final blocked = tierId != null && !isMember && membershipService.isBlocked(tierId!, isMember: isMember);
+    final blocked = tierId != null &&
+        !isMember &&
+        membershipService.isBlocked(tierId!, isMember: isMember);
     return InkWell(
       onTap: () {
         // 游客模式：拦截需要登录的功能
@@ -2091,7 +2568,8 @@ class _FeatureTile extends StatelessWidget {
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
               contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -2105,15 +2583,19 @@ class _FeatureTile extends StatelessWidget {
                       ),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Center(child: Text('👑', style: TextStyle(fontSize: 28))),
+                    child: const Center(
+                        child: Text('👑', style: TextStyle(fontSize: 28))),
                   ),
                   const SizedBox(height: 14),
-                  Text('$label 仅限会员使用',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  Text(
+                    '$label 仅限会员使用',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
-                  Text('升级会员即可解锁全部功能',
+                  Text(
+                    '升级会员即可解锁全部功能',
                     style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                     textAlign: TextAlign.center,
                   ),
@@ -2130,7 +2612,8 @@ class _FeatureTile extends StatelessWidget {
                     Navigator.of(ctx).pop();
                     context.push('/membership', extra: false);
                   },
-                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFFF59E0B)),
+                  style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFF59E0B)),
                   child: const Text('查看权益'),
                 ),
               ],
@@ -2149,7 +2632,8 @@ class _FeatureTile extends StatelessWidget {
           decoration: BoxDecoration(
             color: color.withValues(alpha: blocked ? 0.05 : 0.10),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: blocked ? 0.12 : 0.22)),
+            border: Border.all(
+                color: color.withValues(alpha: blocked ? 0.12 : 0.22)),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -2164,7 +2648,9 @@ class _FeatureTile extends StatelessWidget {
                       color: color.withValues(alpha: blocked ? 0.08 : 0.18),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(icon, color: blocked ? color.withValues(alpha: 0.4) : color, size: 26),
+                    child: Icon(icon,
+                        color: blocked ? color.withValues(alpha: 0.4) : color,
+                        size: 26),
                   ),
                   if (blocked)
                     Positioned(
@@ -2178,7 +2664,8 @@ class _FeatureTile extends StatelessWidget {
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 1.5),
                         ),
-                        child: const Icon(Icons.workspace_premium, size: 11, color: Colors.white),
+                        child: const Icon(Icons.workspace_premium,
+                            size: 11, color: Colors.white),
                       ),
                     ),
                 ],
@@ -2211,5 +2698,3 @@ class _FeatureTile extends StatelessWidget {
     );
   }
 }
-
-

@@ -4,6 +4,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../utils/tts_helper.dart';
+import '../../utils/audio_manager.dart';
 import '../../widgets/whiteboard_widget.dart';
 
 class SrsReviewScreen extends StatefulWidget {
@@ -31,6 +32,9 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
   bool _examplePlaying = false;
   bool _exampleLoading = false;
 
+  SrsCardModel? get _currentCard =>
+      _current >= 0 && _current < _cards.length ? _cards[_current] : null;
+
   String get _backTarget {
     switch (widget.from) {
       case 'study':
@@ -52,8 +56,23 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
 
   @override
   void dispose() {
+    AudioManager.instance.stopAll();
     _tts?.stop();
     super.dispose();
+  }
+
+  void _autoPlayCurrentCard() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final card = _currentCard;
+      if (card == null) return;
+      final content = card.content;
+      if (content is VocabularyModel) {
+        _speakWord(content.word, audioUrl: content.audioUrl);
+      } else if (content is GrammarLessonModel) {
+        _speakWord(content.pattern);
+      }
+    });
   }
 
   /// 获取或初始化 TTS 实例
@@ -66,13 +85,19 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
   }
 
   /// 朗读单词：系统音频优先，TTS兜底
-  Future<void> _speakWord(String text, {String? audioUrl, bool slow = false}) async {
+  Future<void> _speakWord(String text,
+      {String? audioUrl, bool slow = false}) async {
     if (!mounted) return;
     setState(() => _wordLoading = true);
     try {
       final tts = await _getOrInitTts();
       await tts.stop();
-      if (mounted) setState(() { _wordLoading = false; _wordPlaying = true; });
+      if (mounted) {
+        setState(() {
+          _wordLoading = false;
+          _wordPlaying = true;
+        });
+      }
       await TtsHelper.playJapaneseSmart(
         audioUrl: audioUrl,
         text: text,
@@ -83,7 +108,12 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
         },
       );
     } catch (e) {
-      if (mounted) setState(() { _wordLoading = false; _wordPlaying = false; });
+      if (mounted) {
+        setState(() {
+          _wordLoading = false;
+          _wordPlaying = false;
+        });
+      }
     }
   }
 
@@ -94,7 +124,12 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
     try {
       final tts = await _getOrInitTts();
       await tts.stop();
-      if (mounted) setState(() { _exampleLoading = false; _examplePlaying = true; });
+      if (mounted) {
+        setState(() {
+          _exampleLoading = false;
+          _examplePlaying = true;
+        });
+      }
       await TtsHelper.playJapaneseSmart(
         audioUrl: audioUrl,
         text: text,
@@ -104,7 +139,12 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
         },
       );
     } catch (e) {
-      if (mounted) setState(() { _exampleLoading = false; _examplePlaying = false; });
+      if (mounted) {
+        setState(() {
+          _exampleLoading = false;
+          _examplePlaying = false;
+        });
+      }
     }
   }
 
@@ -114,7 +154,11 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
       final cards = res['cards'] as List<SrsCardModel>;
       // Backend now filters orphaned cards; just use cards with content
       final enriched = cards.where((c) => c.content != null).toList();
-      setState(() { _cards = enriched; _loading = false; });
+      setState(() {
+        _cards = enriched;
+        _loading = false;
+      });
+      _autoPlayCurrentCard();
       // 后台预缓存所有词汇卡音频
       final audioUrls = enriched
           .where((c) => c.content is VocabularyModel)
@@ -123,7 +167,10 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
           .cast<String>();
       TtsHelper.precacheAudioUrls(audioUrls);
     } catch (_) {
-      setState(() { _loading = false; _loadError = true; });
+      setState(() {
+        _loading = false;
+        _loadError = true;
+      });
     }
   }
 
@@ -146,7 +193,13 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
       }
     }
     if (mounted) {
-      final label = quality == 0 ? '重来' : quality <= 3 ? '困难' : quality == 4 ? '良好' : '简单';
+      final label = quality == 0
+          ? '重来'
+          : quality <= 3
+              ? '困难'
+              : quality == 4
+                  ? '良好'
+                  : '简单';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('已标记为「$label」，已更新复习计划'),
@@ -159,7 +212,15 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
     if (_current + 1 >= _cards.length) {
       _finishSession();
     } else {
-      setState(() { _current++; _showAnswer = false; });
+      setState(() {
+        _current++;
+        _showAnswer = false;
+        _wordPlaying = false;
+        _wordLoading = false;
+        _examplePlaying = false;
+        _exampleLoading = false;
+      });
+      _autoPlayCurrentCard();
     }
   }
 
@@ -167,8 +228,9 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
   int _calcNextInterval(int quality) {
     final card = _cards[_current];
     if (quality < 3) return 0;
-    double ease = (card.easeFactor + 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
-        .clamp(1.3, 4.0);
+    double ease =
+        (card.easeFactor + 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
+            .clamp(1.3, 4.0);
     if (card.repetitions == 0) return 1;
     if (card.repetitions == 1) return 6;
     return (card.intervalDays * ease).round().clamp(1, 36500);
@@ -181,12 +243,33 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
     return '${(days / 365).round()}年';
   }
 
-  List<({String label, Color color, String interval, int quality})> _buildSrsIntervals() => [
-    (label: '重来', color: Colors.red.shade400,    interval: '<10分',                         quality: 0),
-    (label: '困难', color: Colors.orange.shade400, interval: _fmtDays(_calcNextInterval(3)),  quality: 3),
-    (label: '良好', color: Colors.blue.shade400,   interval: _fmtDays(_calcNextInterval(4)),  quality: 4),
-    (label: '简单', color: Colors.green.shade400,  interval: _fmtDays(_calcNextInterval(5)),  quality: 5),
-  ];
+  List<({String label, Color color, String interval, int quality})>
+      _buildSrsIntervals() => [
+            (
+              label: '重来',
+              color: Colors.red.shade400,
+              interval: '<10分',
+              quality: 0
+            ),
+            (
+              label: '困难',
+              color: Colors.orange.shade400,
+              interval: _fmtDays(_calcNextInterval(3)),
+              quality: 3
+            ),
+            (
+              label: '良好',
+              color: Colors.blue.shade400,
+              interval: _fmtDays(_calcNextInterval(4)),
+              quality: 4
+            ),
+            (
+              label: '简单',
+              color: Colors.green.shade400,
+              interval: _fmtDays(_calcNextInterval(5)),
+              quality: 5
+            ),
+          ];
 
   void _finishSession() {
     final duration = DateTime.now().difference(_startTime).inSeconds;
@@ -204,24 +287,34 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
           Text('共复习 $_reviewed 张卡片', style: const TextStyle(fontSize: 16)),
           const SizedBox(height: 8),
           const Text('继续保持，明天见！',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green)),
         ]),
-        actions: [FilledButton(
-          onPressed: () { 
-            Navigator.pop(dialogContext);
-            if (mounted) context.go(_backTarget); 
-          }, 
-          child: const Text('返回')
-        )],
+        actions: [
+          FilledButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                if (mounted) context.go(_backTarget);
+              },
+              child: const Text('返回'))
+        ],
       ),
     );
   }
 
-  void _showWhiteboard(ColorScheme cs, {VocabularyModel? vocab, GrammarLessonModel? grammar}) {
+  void _showWhiteboard(ColorScheme cs,
+      {VocabularyModel? vocab, GrammarLessonModel? grammar}) {
     final refChar = vocab?.word ?? grammar?.pattern;
     final title = vocab?.word ?? grammar?.pattern ?? '';
-    final subtitle = vocab != null ? vocab.reading : (grammar?.titleZh ?? grammar?.title ?? '');
-    final meaning = vocab?.meaningZh ?? grammar?.explanationZh ?? grammar?.explanation ?? '';
+    final subtitle = vocab != null
+        ? vocab.reading
+        : (grammar?.titleZh ?? grammar?.title ?? '');
+    final meaning = vocab?.meaningZh ??
+        grammar?.explanationZh ??
+        grammar?.explanation ??
+        '';
     showDialog(
       context: context,
       useSafeArea: false,
@@ -236,9 +329,15 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
               if (subtitle.isNotEmpty)
-                Text(subtitle, style: TextStyle(fontSize: 12, color: cs.primary, fontWeight: FontWeight.w400)),
+                Text(subtitle,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: cs.primary,
+                        fontWeight: FontWeight.w400)),
             ],
           ),
         ),
@@ -249,13 +348,17 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
               if (meaning.isNotEmpty)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
                   margin: const EdgeInsets.only(bottom: 10),
                   decoration: BoxDecoration(
                     color: cs.primaryContainer.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(meaning, style: TextStyle(fontSize: 14, color: cs.onPrimaryContainer), textAlign: TextAlign.center),
+                  child: Text(meaning,
+                      style:
+                          TextStyle(fontSize: 14, color: cs.onPrimaryContainer),
+                      textAlign: TextAlign.center),
                 ),
               Expanded(child: WhiteboardWidget(referenceChar: refChar)),
             ],
@@ -272,7 +375,9 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
         title: const Text('清除所有SRS记录'),
         content: const Text('将删除你的所有间隔复习卡片和进度，此操作不可撤销。\n\n确定要清除吗？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
@@ -286,14 +391,21 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
       final count = await apiService.resetSrsCards();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已清除 $count 条SRS记录'), behavior: SnackBarBehavior.floating),
+          SnackBar(
+              content: Text('已清除 $count 条SRS记录'),
+              behavior: SnackBarBehavior.floating),
         );
-        setState(() { _cards = []; _loading = false; _loadError = false; });
+        setState(() {
+          _cards = [];
+          _loading = false;
+          _loadError = false;
+        });
       }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('清除失败，请检查网络'), behavior: SnackBarBehavior.floating),
+          const SnackBar(
+              content: Text('清除失败，请检查网络'), behavior: SnackBarBehavior.floating),
         );
       }
     }
@@ -302,7 +414,9 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     if (_loadError) {
       return Scaffold(
         appBar: AppBar(
@@ -324,13 +438,17 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             Icon(Icons.cloud_off_rounded, color: cs.error, size: 64),
             const SizedBox(height: 16),
-            const Text('加载复习卡片失败', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('加载复习卡片失败',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             Text('请检查网络连接后重试', style: TextStyle(color: cs.outline)),
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: () {
-                setState(() { _loading = true; _loadError = false; });
+                setState(() {
+                  _loading = true;
+                  _loadError = false;
+                });
                 _loadCards();
               },
               icon: const Icon(Icons.refresh),
@@ -352,20 +470,28 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
         ),
         body: Center(
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.check_circle_outline, color: Colors.green, size: 80),
+            const Icon(Icons.check_circle_outline,
+                color: Colors.green, size: 80),
             const SizedBox(height: 16),
-            const Text('今日复习已完成！', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text('今日复习已完成！',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const Text('明日再来继续学习'),
             const SizedBox(height: 24),
-            FilledButton(onPressed: () => context.go(_backTarget), child: const Text('返回')),
+            FilledButton(
+                onPressed: () => context.go(_backTarget),
+                child: const Text('返回')),
           ]),
         ),
       );
     }
 
     final card = _cards[_current];
-    final vocab = card.content is VocabularyModel ? card.content as VocabularyModel : null;
-    final grammar = card.content is GrammarLessonModel ? card.content as GrammarLessonModel : null;
+    final vocab = card.content is VocabularyModel
+        ? card.content as VocabularyModel
+        : null;
+    final grammar = card.content is GrammarLessonModel
+        ? card.content as GrammarLessonModel
+        : null;
     final hasContent = vocab != null || grammar != null;
 
     return Scaffold(
@@ -380,10 +506,13 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
           IconButton(
             icon: const Icon(Icons.draw_rounded),
             tooltip: '白板',
-            onPressed: () => _showWhiteboard(cs, vocab: vocab, grammar: grammar),
+            onPressed: () =>
+                _showWhiteboard(cs, vocab: vocab, grammar: grammar),
           ),
           PopupMenuButton<String>(
-            onSelected: (v) { if (v == 'reset') _confirmResetSrs(); },
+            onSelected: (v) {
+              if (v == 'reset') _confirmResetSrs();
+            },
             itemBuilder: (_) => [
               const PopupMenuItem(value: 'reset', child: Text('清除所有SRS记录')),
             ],
@@ -407,9 +536,12 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
                       ? Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.error_outline_rounded, size: 48, color: cs.outline),
+                            Icon(Icons.error_outline_rounded,
+                                size: 48, color: cs.outline),
                             const SizedBox(height: 12),
-                            Text('内容不可用', style: TextStyle(fontSize: 18, color: cs.outline)),
+                            Text('内容不可用',
+                                style:
+                                    TextStyle(fontSize: 18, color: cs.outline)),
                             const SizedBox(height: 16),
                             OutlinedButton(
                               onPressed: () => _submitReview(3),
@@ -430,30 +562,43 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
                   onPressed: () => setState(() => _showAnswer = true),
                   icon: const Icon(Icons.visibility_rounded),
                   label: const Text('显示答案'),
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                  style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48)),
                 ),
               ] else ...[
-                const Text('你记住了吗？', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('你记住了吗？',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Row(children: _buildSrsIntervals().map((item) => Expanded(
-                    child: GestureDetector(
-                      onTap: () => _submitReview(item.quality),
-                      child: Container(
-                        color: item.color,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(item.interval, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                            const SizedBox(height: 2),
-                            Text(item.label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )).toList()),
+                  child: Row(
+                      children: _buildSrsIntervals()
+                          .map((item) => Expanded(
+                                child: GestureDetector(
+                                  onTap: () => _submitReview(item.quality),
+                                  child: Container(
+                                    color: item.color,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 10),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(item.interval,
+                                            style: const TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 12)),
+                                        const SizedBox(height: 2),
+                                        Text(item.label,
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 15)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ))
+                          .toList()),
                 ),
               ],
             ],
@@ -477,26 +622,37 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
               Flexible(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(vocab.word, style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
+                  child: Text(vocab.word,
+                      style: const TextStyle(
+                          fontSize: 48, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 12),
               GestureDetector(
-                onTap: _wordLoading ? null : () => _speakWord(vocab.word, audioUrl: vocab.audioUrl),
+                onTap: _wordLoading
+                    ? null
+                    : () => _speakWord(vocab.word, audioUrl: vocab.audioUrl),
                 child: Container(
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _wordPlaying ? cs.primary.withValues(alpha: 0.15) : Colors.transparent,
+                    color: _wordPlaying
+                        ? cs.primary.withValues(alpha: 0.15)
+                        : Colors.transparent,
                   ),
                   child: _wordLoading
-                      ? Center(child: SizedBox(
-                          width: 18, height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+                      ? Center(
+                          child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: cs.primary),
                         ))
                       : Icon(
-                          _wordPlaying ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+                          _wordPlaying
+                              ? Icons.volume_up_rounded
+                              : Icons.play_circle_outline_rounded,
                           color: cs.primary,
                           size: 28,
                         ),
@@ -507,9 +663,13 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
           const SizedBox(height: 12),
           if (_showAnswer) ...[
             // ── 假名 ──────────────────────────────────────────────────
-            Text(vocab.reading, style: TextStyle(fontSize: 22, color: cs.primary, fontWeight: FontWeight.w500)),
+            Text(vocab.reading,
+                style: TextStyle(
+                    fontSize: 22,
+                    color: cs.primary,
+                    fontWeight: FontWeight.w500)),
             const SizedBox(height: 16),
-            
+
             // ── 释义 ──────────────────────────────────────────────────
             Container(
               width: double.infinity,
@@ -520,10 +680,15 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
                   Row(children: [
                     Icon(Icons.translate_rounded, size: 18, color: cs.primary),
                     const SizedBox(width: 6),
-                    Text('释义', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: cs.onSurfaceVariant)),
+                    Text('释义',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: cs.onSurfaceVariant)),
                   ]),
                   const SizedBox(height: 8),
-                  Text(vocab.meaningZh, style: const TextStyle(fontSize: 18, height: 1.6)),
+                  Text(vocab.meaningZh,
+                      style: const TextStyle(fontSize: 18, height: 1.6)),
                 ],
               ),
             ),
@@ -533,14 +698,20 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
             if (vocab.exampleSentence != null)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      Icon(Icons.format_quote_rounded, size: 18, color: cs.primary),
+                      Icon(Icons.format_quote_rounded,
+                          size: 18, color: cs.primary),
                       const SizedBox(width: 6),
-                      Text('例文', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: cs.onSurfaceVariant)),
+                      Text('例文',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: cs.onSurfaceVariant)),
                     ]),
                     const SizedBox(height: 8),
                     Row(
@@ -550,10 +721,15 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(vocab.exampleSentence!, textAlign: TextAlign.start, style: const TextStyle(fontSize: 16, height: 1.6)),
+                              Text(vocab.exampleSentence!,
+                                  textAlign: TextAlign.start,
+                                  style: const TextStyle(
+                                      fontSize: 16, height: 1.6)),
                               if (vocab.exampleMeaningZh != null) ...[
                                 const SizedBox(height: 4),
-                                Text(vocab.exampleMeaningZh!, style: TextStyle(color: cs.outline, fontSize: 14)),
+                                Text(vocab.exampleMeaningZh!,
+                                    style: TextStyle(
+                                        color: cs.outline, fontSize: 14)),
                               ],
                             ],
                           ),
@@ -562,21 +738,31 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
                         Padding(
                           padding: const EdgeInsets.only(top: 2),
                           child: GestureDetector(
-                            onTap: _exampleLoading ? null : () => _speakExample(vocab.exampleSentence!, audioUrl: vocab.exampleAudioUrl),
+                            onTap: _exampleLoading
+                                ? null
+                                : () => _speakExample(vocab.exampleSentence!,
+                                    audioUrl: vocab.exampleAudioUrl),
                             child: Container(
                               width: 34,
                               height: 34,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: _examplePlaying ? cs.primary.withValues(alpha: 0.15) : Colors.transparent,
+                                color: _examplePlaying
+                                    ? cs.primary.withValues(alpha: 0.15)
+                                    : Colors.transparent,
                               ),
                               child: _exampleLoading
-                                  ? Center(child: SizedBox(
-                                      width: 18, height: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+                                  ? Center(
+                                      child: SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: cs.primary),
                                     ))
                                   : Icon(
-                                      _examplePlaying ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+                                      _examplePlaying
+                                          ? Icons.volume_up_rounded
+                                          : Icons.play_circle_outline_rounded,
                                       color: cs.primary,
                                       size: 24,
                                     ),
@@ -590,7 +776,8 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
               ),
           ] else ...[
             const SizedBox(height: 12),
-            Text('点击"显示答案"查看释义和例文', style: TextStyle(color: cs.outline, fontSize: 16)),
+            Text('点击"显示答案"查看释义和例文',
+                style: TextStyle(color: cs.outline, fontSize: 16)),
           ],
         ],
       ),
@@ -601,37 +788,41 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
     final title = (grammar.titleZh ?? grammar.title).trim();
     return SingleChildScrollView(
       child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(grammar.pattern, style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        if (_showAnswer) ...[
-          if (title.isNotEmpty)
-            Text(title, style: TextStyle(fontSize: 18, color: cs.primary)),
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(grammar.pattern,
+              style:
+                  const TextStyle(fontSize: 36, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(grammar.explanationZh ?? grammar.explanation ?? '',
-              style: const TextStyle(fontSize: 15, height: 1.5), textAlign: TextAlign.center),
-          const SizedBox(height: 12),
-          if (grammar.examples.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
+          if (_showAnswer) ...[
+            if (title.isNotEmpty)
+              Text(title, style: TextStyle(fontSize: 18, color: cs.primary)),
+            const SizedBox(height: 8),
+            Text(grammar.explanationZh ?? grammar.explanation ?? '',
+                style: const TextStyle(fontSize: 15, height: 1.5),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            if (grammar.examples.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: [
+                    Text(grammar.examples.first.sentence,
+                        textAlign: TextAlign.center),
+                    Text(grammar.examples.first.meaningZh,
+                        style: TextStyle(color: cs.outline, fontSize: 12)),
+                  ],
+                ),
               ),
-              child: Column(
-                children: [
-                  Text(grammar.examples.first.sentence, textAlign: TextAlign.center),
-                  Text(grammar.examples.first.meaningZh,
-                      style: TextStyle(color: cs.outline, fontSize: 12)),
-                ],
-              ),
-            ),
-        ] else ...[
-          const SizedBox(height: 8),
-          Text('点击"显示答案"查看释义', style: TextStyle(color: cs.outline)),
+          ] else ...[
+            const SizedBox(height: 8),
+            Text('点击"显示答案"查看释义', style: TextStyle(color: cs.outline)),
+          ],
         ],
-      ],
       ),
     );
   }

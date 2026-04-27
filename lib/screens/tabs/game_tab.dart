@@ -26,9 +26,9 @@ class _GameTabState extends State<GameTab> {
     final vc = (p.getInt('g_unlocked_to_verbs') ?? 1) - 1;
     if (mounted) {
       setState(() {
-      _particlesCleared = pc.clamp(0, 999);
-      _verbsCleared = vc.clamp(0, 999);
-    });
+        _particlesCleared = pc.clamp(0, 999);
+        _verbsCleared = vc.clamp(0, 999);
+      });
     }
   }
 
@@ -54,18 +54,7 @@ class _GameTabState extends State<GameTab> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (showParticles) ...[
-            _GameCard(
-              icon: Icons.extension_rounded,
-              title: '助词方块',
-              subtitle: '趣味闯关 · 助词填空',
-              progress: '已过 $_particlesCleared 关',
-              gradient: const [Color(0xFFE91E63), Color(0xFFFF5252)],
-              onTap: () => context.push('/game', extra: 'particles'),
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (showVerbs)
+          if (showVerbs) ...[
             _GameCard(
               icon: Icons.translate_rounded,
               title: '动词方块',
@@ -74,11 +63,23 @@ class _GameTabState extends State<GameTab> {
               gradient: const [Color(0xFF9C27B0), Color(0xFF7E57C2)],
               onTap: () => context.push('/game', extra: 'verbs'),
             ),
+            if (showParticles) const SizedBox(height: 12),
+          ],
+          if (showParticles)
+            _GameCard(
+              icon: Icons.extension_rounded,
+              title: '助词方块',
+              subtitle: '趣味闯关 · 助词填空',
+              progress: '已过 $_particlesCleared 关',
+              gradient: const [Color(0xFFE91E63), Color(0xFFFF5252)],
+              onTap: () => context.push('/game', extra: 'particles'),
+            ),
           if (!showParticles && !showVerbs)
             Center(
               child: Padding(
                 padding: const EdgeInsets.only(top: 60),
-                child: Text('暂无可用游戏', style: TextStyle(color: cs.outline, fontSize: 15)),
+                child: Text('暂无可用游戏',
+                    style: TextStyle(color: cs.outline, fontSize: 15)),
               ),
             ),
         ],
@@ -141,12 +142,23 @@ class _GameCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                Text(title,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18)),
                 const SizedBox(height: 4),
-                Text(subtitle, style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13)),
+                Text(subtitle,
+                    style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontSize: 13)),
                 if (progress != null) ...[
                   const SizedBox(height: 4),
-                  Text(progress!, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12, fontWeight: FontWeight.w600)),
+                  Text(progress!,
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600)),
                 ],
               ],
             ),
@@ -157,7 +169,11 @@ class _GameCard extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text('开始', style: TextStyle(color: gradient[0], fontWeight: FontWeight.bold, fontSize: 14)),
+            child: Text('开始',
+                style: TextStyle(
+                    color: gradient[0],
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14)),
           ),
         ]),
       ),

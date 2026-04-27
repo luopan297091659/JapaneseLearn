@@ -68,8 +68,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
       final isAuth = token != null;
       final isGuest = guestService.isGuest;
-      final isOnAuthPage =
-          state.matchedLocation == '/login' || state.matchedLocation == '/register' || state.matchedLocation == '/forgot-password';
+      final isOnAuthPage = state.matchedLocation == '/login' ||
+          state.matchedLocation == '/register' ||
+          state.matchedLocation == '/forgot-password';
 
       // 游客模式：允许访问非账户功能，拦截需要登录的路径
       if (!isAuth && isGuest) {
@@ -85,7 +86,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
-      GoRoute(path: '/forgot-password', builder: (_, __) => const ForgotPasswordScreen()),
+      GoRoute(
+          path: '/forgot-password',
+          builder: (_, __) => const ForgotPasswordScreen()),
       ShellRoute(
         builder: (context, state, child) => MainShell(
           location: state.uri.path,
@@ -108,7 +111,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/vocabulary/:id',
             builder: (_, state) {
               final ids = state.extra as List<String>?;
-              return VocabularyDetailScreen(id: state.pathParameters['id']!, wordIds: ids);
+              return VocabularyDetailScreen(
+                  id: state.pathParameters['id']!, wordIds: ids);
             },
           ),
           GoRoute(
@@ -123,17 +127,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/grammar/:id',
             builder: (_, state) {
               final ids = state.extra as List<String>?;
-              return GrammarDetailScreen(id: state.pathParameters['id']!, lessonIds: ids);
+              return GrammarDetailScreen(
+                  id: state.pathParameters['id']!, lessonIds: ids);
             },
           ),
-          GoRoute(path: '/listening', builder: (_, __) => const ListeningScreen()),
-          GoRoute(path: '/listening-exercise', builder: (_, __) => const ListeningExerciseScreen()),
+          GoRoute(
+              path: '/listening', builder: (_, __) => const ListeningScreen()),
+          GoRoute(
+              path: '/listening-exercise',
+              builder: (_, __) => const ListeningExerciseScreen()),
           GoRoute(path: '/quiz', builder: (_, __) => const QuizScreen()),
           GoRoute(
             path: '/grammar-quiz',
             builder: (_, state) => GrammarQuizScreen(
               initialLevel: state.uri.queryParameters['level'],
-              initialCount: int.tryParse(state.uri.queryParameters['count'] ?? ''),
+              initialCount:
+                  int.tryParse(state.uri.queryParameters['count'] ?? ''),
               autoStart: state.uri.queryParameters['autostart'] == '1',
             ),
           ),
@@ -156,12 +165,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               initialQuery: state.uri.queryParameters['q'],
             ),
           ),
-          GoRoute(path: '/anki-import', builder: (_, __) => const AnkiImportScreen()),
+          GoRoute(
+              path: '/anki-import',
+              builder: (_, __) => const AnkiImportScreen()),
           GoRoute(
             path: '/local-vocab',
             builder: (_, state) => LocalVocabScreen(
               initialDeckRoot: state.uri.queryParameters['deck'],
-              initialStage: int.tryParse(state.uri.queryParameters['stage'] ?? ''),
+              initialStage:
+                  int.tryParse(state.uri.queryParameters['stage'] ?? ''),
               planId: state.uri.queryParameters['planId'],
             ),
           ),
@@ -175,17 +187,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/game',
             builder: (_, state) => TetrisGrammarGame(
-              gameType: (state.extra as String?) ?? 'particles',
+              gameType: (state.extra as String?) ?? 'verbs',
             ),
           ),
-
-          GoRoute(path: '/flashcard', builder: (_, __) => const FlashcardScreen()),
+          GoRoute(
+              path: '/flashcard', builder: (_, __) => const FlashcardScreen()),
           GoRoute(path: '/gojuon', builder: (_, __) => const GojuonScreen()),
-          GoRoute(path: '/pronunciation', builder: (_, __) => const PronunciationScreen()),
+          GoRoute(
+              path: '/pronunciation',
+              builder: (_, __) => const PronunciationScreen()),
           GoRoute(path: '/news', builder: (_, __) => const NewsListScreen()),
           GoRoute(
             path: '/news/:id',
-            builder: (_, state) => NewsDetailScreen(id: state.pathParameters['id']!),
+            builder: (_, state) =>
+                NewsDetailScreen(id: state.pathParameters['id']!),
           ),
           GoRoute(
             path: '/nhk-news/:id',
@@ -194,9 +209,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               article: state.extra as NewsArticleModel?,
             ),
           ),
-          GoRoute(path: '/todofuken-quiz', builder: (_, __) => const TodofukenQuizScreen()),
-          GoRoute(path: '/translate', builder: (_, __) => const TranslateScreen()),
-          GoRoute(path: '/study-plan', builder: (_, __) => const StudyPlanScreen()),
+          GoRoute(
+              path: '/todofuken-quiz',
+              builder: (_, __) => const TodofukenQuizScreen()),
+          GoRoute(
+              path: '/translate', builder: (_, __) => const TranslateScreen()),
+          GoRoute(
+              path: '/study-plan', builder: (_, __) => const StudyPlanScreen()),
           GoRoute(
             path: '/study-plan/:id',
             builder: (_, state) => StudyPlanDetailScreen(
@@ -210,9 +229,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               stage: state.uri.queryParameters['stage'],
             ),
           ),
-          GoRoute(path: '/kana-writing-test', builder: (_, __) => const KanaWritingTestScreen()),
-          GoRoute(path: '/wrong-answers', builder: (_, __) => const WrongAnswersScreen()),
-          GoRoute(path: '/immersion', builder: (_, __) => const ImmersionScreen()),
+          GoRoute(
+              path: '/kana-writing-test',
+              builder: (_, __) => const KanaWritingTestScreen()),
+          GoRoute(
+              path: '/wrong-answers',
+              builder: (_, __) => const WrongAnswersScreen()),
+          GoRoute(
+              path: '/immersion', builder: (_, __) => const ImmersionScreen()),
           GoRoute(
             path: '/membership',
             builder: (_, state) => MembershipComparisonPage(
@@ -336,10 +360,22 @@ class _MainShellState extends State<MainShell> {
         height: 72,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined, size: 28), selectedIcon: Icon(Icons.home_rounded, size: 30), label: '主页'),
-          NavigationDestination(icon: Icon(Icons.menu_book_outlined, size: 28), selectedIcon: Icon(Icons.menu_book_rounded, size: 30), label: '学习'),
-          NavigationDestination(icon: Icon(Icons.assignment_outlined, size: 28), selectedIcon: Icon(Icons.assignment_rounded, size: 30), label: '测试'),
-          NavigationDestination(icon: Icon(Icons.build_outlined, size: 28), selectedIcon: Icon(Icons.build_rounded, size: 30), label: '工具'),
+          NavigationDestination(
+              icon: Icon(Icons.home_outlined, size: 28),
+              selectedIcon: Icon(Icons.home_rounded, size: 30),
+              label: '主页'),
+          NavigationDestination(
+              icon: Icon(Icons.menu_book_outlined, size: 28),
+              selectedIcon: Icon(Icons.menu_book_rounded, size: 30),
+              label: '学习'),
+          NavigationDestination(
+              icon: Icon(Icons.assignment_outlined, size: 28),
+              selectedIcon: Icon(Icons.assignment_rounded, size: 30),
+              label: '测试'),
+          NavigationDestination(
+              icon: Icon(Icons.build_outlined, size: 28),
+              selectedIcon: Icon(Icons.build_rounded, size: 30),
+              label: '工具'),
         ],
       ),
     );
