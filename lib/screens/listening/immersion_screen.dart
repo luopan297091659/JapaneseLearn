@@ -402,7 +402,7 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
                       ],
                     ))
                   : _videos.isEmpty
-                      ? const Center(child: Text('暂无可用视频', style: TextStyle(fontSize: 16, color: Colors.grey)))
+                      ? const Center(child: Text('暂无可用视频，可在右上角添加自定义频道', style: TextStyle(fontSize: 16, color: Colors.grey)))
                       : RefreshIndicator(
                           onRefresh: _onRefresh,
                           child: GridView.builder(
