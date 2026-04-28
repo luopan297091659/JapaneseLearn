@@ -89,6 +89,7 @@ const SharedVocabDeck = sequelize.define('SharedVocabDeck', {
 const SharedVocabCard = sequelize.define('SharedVocabCard', {
   id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
   deck_id: { type: DataTypes.UUID, allowNull: false },
+  deck_name: { type: DataTypes.STRING(300), allowNull: true },
   word: { type: DataTypes.STRING(100), allowNull: false },
   reading: { type: DataTypes.STRING(200), allowNull: true },
   meaning_zh: { type: DataTypes.TEXT, allowNull: false },
@@ -105,6 +106,7 @@ const SharedVocabCard = sequelize.define('SharedVocabCard', {
   tableName: 'shared_vocab_cards',
   indexes: [
     { fields: ['deck_id', 'sort_order'] },
+    { fields: ['deck_name'] },
     { fields: ['word'] },
     { fields: ['jlpt_level'] },
   ],

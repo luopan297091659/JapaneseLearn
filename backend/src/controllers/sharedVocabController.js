@@ -63,6 +63,7 @@ function normalizeCards(cards) {
     const meaningZh = clampText(card.meaning_zh || card.meaningZh, 2000);
     if (!word || !meaningZh) return null;
     return {
+      deck_name: clampText(card.deck_name || card.deckName, 300) || null,
       word,
       reading: clampText(card.reading, 200, word),
       meaning_zh: meaningZh,

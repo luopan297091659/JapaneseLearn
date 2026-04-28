@@ -104,7 +104,12 @@ class _SharedVocabScreenState extends State<SharedVocabScreen> {
 
       const uuid = Uuid();
       final deckName = (remoteDeck['title'] ?? deck['title'] ?? '共享词库').toString();
-      final rows = cards.map((card) => {
+      final rows = cards.map((card) {
+        final sharedDeckName = card['deck_name']?.toString().trim();
+        final localDeckName = sharedDeckName == null || sharedDeckName.isEmpty
+            ? deckName
+            : sharedDeckName;
+        return {
             'id': uuid.v4(),
             'word': (card['word'] ?? '').toString(),
             'reading': (card['reading'] ?? card['word'] ?? '').toString(),
@@ -116,19 +121,26 @@ class _SharedVocabScreenState extends State<SharedVocabScreen> {
             'audio_url': card['audio_url'],
             'part_of_speech': (card['part_of_speech'] ?? 'other').toString(),
             'jlpt_level': (card['jlpt_level'] ?? remoteDeck['jlpt_level'] ?? 'N3').toString(),
-            'deck_name': deckName,
+            'deck_name': localDeckName,
             'synced': 1,
-          }).toList();
+          };
+      }).toList();
 
       final imported = await localDb.insertCards(rows);
       final coverPath = await _downloadCover(remoteDeck['cover_url']?.toString());
-      await localDb.upsertDeckMeta(
-        deckName: deckName,
-        displayName: deckName,
-        coverImagePath: coverPath,
-        description: remoteDeck['description']?.toString(),
-        sourceType: 'shared',
-      );
+      final importedDeckNames = rows
+          .map((row) => row['deck_name']?.toString() ?? deckName)
+          .where((name) => name.isNotEmpty)
+          .toSet();
+      for (final importedDeckName in importedDeckNames) {
+        await localDb.upsertDeckMeta(
+          deckName: importedDeckName,
+          displayName: importedDeckName.split('::').last,
+          coverImagePath: importedDeckName == deckName ? coverPath : null,
+          description: remoteDeck['description']?.toString(),
+          sourceType: 'shared',
+        );
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

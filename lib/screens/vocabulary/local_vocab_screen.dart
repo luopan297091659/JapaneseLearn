@@ -370,6 +370,7 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
         jlptLevel: cards.first.jlptLevel,
         cards: cards.map((card) => {
           'word': card.word,
+          if (card.deckName != null && card.deckName!.isNotEmpty) 'deck_name': card.deckName,
           'reading': card.reading,
           'meaning_zh': card.meaningZh,
           if (card.meaningEn != null) 'meaning_en': card.meaningEn,
