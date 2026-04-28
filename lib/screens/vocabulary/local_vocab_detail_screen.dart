@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
@@ -18,9 +20,11 @@ bool _localHasKana(String s) => RegExp(r'[\u3040-\u30ff]').hasMatch(s);
 bool _localIsSwapped(LocalVocabModel c) =>
     !_localHasKana(c.word) && _localFuriganaRe.hasMatch(c.reading);
 
-String _localDisplayWord(LocalVocabModel c) => _localIsSwapped(c) ? c.reading : c.word;
+String _localDisplayWord(LocalVocabModel c) =>
+    _localIsSwapped(c) ? c.reading : c.word;
 
-String _localDisplayReading(LocalVocabModel c) => _localIsSwapped(c) ? c.word : c.reading;
+String _localDisplayReading(LocalVocabModel c) =>
+    _localIsSwapped(c) ? c.word : c.reading;
 
 class LocalVocabDetailArgs {
   final LocalVocabModel? initialCard;
@@ -86,7 +90,9 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
       return;
     }
 
-    if (_cards.isNotEmpty && _currentIndex >= 0 && _currentIndex < _cards.length) {
+    if (_cards.isNotEmpty &&
+        _currentIndex >= 0 &&
+        _currentIndex < _cards.length) {
       setState(() {
         _card = _cards[_currentIndex];
         _loading = false;
@@ -123,9 +129,10 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
     });
   }
 
-  Future<void> _playTts(String text, {required bool isExample, bool slow = false}) async {
-    if (text.trim().isEmpty) return;
-    if (!mounted) return;
+  Future<bool> _playTts(String text,
+      {required bool isExample, bool slow = false}) async {
+    if (text.trim().isEmpty) return false;
+    if (!mounted) return false;
     setState(() {
       if (isExample) {
         _exampleLoading = true;
@@ -165,9 +172,10 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
           }
         });
       });
-      await TtsHelper.speakJapanese(tts, text);
-    } catch (_) {
-      if (!mounted) return;
+      return TtsHelper.speakJapanese(tts, text);
+    } catch (e) {
+      debugPrint('本地词库 TTS 播放失败: $e');
+      if (!mounted) return false;
       setState(() {
         if (isExample) {
           _exampleLoading = false;
@@ -177,17 +185,25 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
           _wordPlaying = false;
         }
       });
+      return false;
     }
   }
 
   Future<String> _resolveAudioPath(String url) async {
-    if (url.startsWith('/uploads/')) {
+    if (url.startsWith('/uploads/') || url.startsWith('/audio/')) {
       return apiService.downloadToTempFile(AppConfig.serverRoot + url);
     }
     if (url.startsWith('file://')) {
-      return url.substring(7);
+      final path = url.substring(7);
+      if (!await File(path).exists()) {
+        throw Exception('本地音频文件不存在');
+      }
+      return path;
     }
     if (RegExp(r'^[A-Za-z]:[\\/]').hasMatch(url) || url.startsWith('/')) {
+      if (!await File(url).exists()) {
+        throw Exception('本地音频文件不存在');
+      }
       return url;
     }
     if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -207,6 +223,7 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
     required String fallbackText,
     required bool isExample,
     bool slow = false,
+    bool notifyOnFallback = false,
   }) async {
     if (audioUrl == null || audioUrl.trim().isEmpty) {
       await _playTts(fallbackText, isExample: isExample, slow: slow);
@@ -261,11 +278,16 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
         }
       });
     } catch (e) {
-      await _playTts(fallbackText, isExample: isExample, slow: slow);
+      debugPrint('本地词库音频播放失败，切换 TTS: $e');
+      final fallbackOk =
+          await _playTts(fallbackText, isExample: isExample, slow: slow);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('音频播放失败，已切换 TTS：$e')),
-      );
+      if (notifyOnFallback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(fallbackOk ? '音频不可用，已使用 TTS' : '音频和 TTS 暂时都不可用')),
+        );
+      }
     }
   }
 
@@ -280,7 +302,8 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
   }
 
   Future<void> _promoteCurrentCard() async {
-    if (_cards.isEmpty || _currentIndex < 0 || _currentIndex >= _cards.length) return;
+    if (_cards.isEmpty || _currentIndex < 0 || _currentIndex >= _cards.length)
+      return;
     final current = _cards[_currentIndex];
     int nextStage = current.learningStage;
     if (current.learningStage == 0) {
@@ -310,8 +333,12 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
           title: const Text('进入最后一张'),
           content: Text('即将进入第 ${_cards.length} 张，是否继续？'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('继续')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('取消')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('继续')),
           ],
         ),
       );
@@ -345,8 +372,12 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
         title: const Text('完成本轮学习'),
         content: const Text('当前已是最后一张，确认完成本轮学习吗？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('继续学习')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('确认完成')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('继续学习')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('确认完成')),
         ],
       ),
     );
@@ -401,7 +432,8 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
                   children: [
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 28, horizontal: 24),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [cs.primaryContainer, cs.secondaryContainer],
@@ -435,30 +467,39 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              _MetaChip(label: card.jlptLevel, color: cs.primary),
+                              _MetaChip(
+                                  label: card.jlptLevel, color: cs.primary),
                               if (card.partOfSpeech.isNotEmpty) ...[
                                 const SizedBox(width: 8),
-                                _MetaChip(label: card.partOfSpeech, color: cs.secondary),
+                                _MetaChip(
+                                    label: card.partOfSpeech,
+                                    color: cs.secondary),
                               ],
                               const SizedBox(width: 12),
                               _WordAudioButton(
                                 loading: _wordLoading,
                                 playing: _wordPlaying,
-                                onTap: _wordLoading ? null : () => _playAudio(
-                                  audioUrl: card.audioUrl,
-                                  fallbackText: _localDisplayWord(card),
-                                  isExample: false,
-                                ),
+                                onTap: _wordLoading
+                                    ? null
+                                    : () => _playAudio(
+                                          audioUrl: card.audioUrl,
+                                          fallbackText: _localDisplayWord(card),
+                                          isExample: false,
+                                          notifyOnFallback: true,
+                                        ),
                                 color: cs.primary,
                               ),
                               const SizedBox(width: 6),
                               _WordSlowButton(
-                                onTap: _wordLoading ? null : () => _playAudio(
-                                  audioUrl: card.audioUrl,
-                                  fallbackText: _localDisplayWord(card),
-                                  isExample: false,
-                                  slow: true,
-                                ),
+                                onTap: _wordLoading
+                                    ? null
+                                    : () => _playAudio(
+                                          audioUrl: card.audioUrl,
+                                          fallbackText: _localDisplayWord(card),
+                                          isExample: false,
+                                          slow: true,
+                                          notifyOnFallback: true,
+                                        ),
                               ),
                             ],
                           ),
@@ -479,17 +520,20 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
                               color: cs.onSurface,
                             ),
                           ),
-                          if (card.meaningEn != null && card.meaningEn!.isNotEmpty) ...[
+                          if (card.meaningEn != null &&
+                              card.meaningEn!.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Text(
                               card.meaningEn!,
-                              style: TextStyle(fontSize: 15, color: cs.onSurfaceVariant),
+                              style: TextStyle(
+                                  fontSize: 15, color: cs.onSurfaceVariant),
                             ),
                           ],
                         ],
                       ),
                     ),
-                    if (card.exampleSentence != null && card.exampleSentence!.isNotEmpty) ...[
+                    if (card.exampleSentence != null &&
+                        card.exampleSentence!.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       _InfoSection(
                         title: '例句',
@@ -513,32 +557,41 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
                                 _InlineExampleAudioButton(
                                   loading: _exampleLoading,
                                   playing: _examplePlaying,
-                                  onTap: _exampleLoading ? null : () => _playAudio(
-                                    audioUrl: card.exampleAudioUrl,
-                                    fallbackText: card.exampleSentence!,
-                                    isExample: true,
-                                  ),
+                                  onTap: _exampleLoading
+                                      ? null
+                                      : () => _playAudio(
+                                            audioUrl: card.exampleAudioUrl,
+                                            fallbackText: card.exampleSentence!,
+                                            isExample: true,
+                                            notifyOnFallback: true,
+                                          ),
                                   color: cs.primary,
                                 ),
                                 const SizedBox(width: 2),
                                 _InlineSlowButton(
-                                  onTap: _exampleLoading ? null : () => _playAudio(
-                                    audioUrl: card.exampleAudioUrl,
-                                    fallbackText: card.exampleSentence!,
-                                    isExample: true,
-                                    slow: true,
-                                  ),
+                                  onTap: _exampleLoading
+                                      ? null
+                                      : () => _playAudio(
+                                            audioUrl: card.exampleAudioUrl,
+                                            fallbackText: card.exampleSentence!,
+                                            isExample: true,
+                                            slow: true,
+                                            notifyOnFallback: true,
+                                          ),
                                 ),
                               ],
                             ),
-                            if (card.exampleReading != null && card.exampleReading!.isNotEmpty) ...[
+                            if (card.exampleReading != null &&
+                                card.exampleReading!.isNotEmpty) ...[
                               const SizedBox(height: 10),
                               Text(
                                 card.exampleReading!,
-                                style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
+                                style: TextStyle(
+                                    fontSize: 14, color: cs.onSurfaceVariant),
                               ),
                             ],
-                            if (card.exampleMeaningZh != null && card.exampleMeaningZh!.isNotEmpty) ...[
+                            if (card.exampleMeaningZh != null &&
+                                card.exampleMeaningZh!.isNotEmpty) ...[
                               const SizedBox(height: 10),
                               Text(
                                 card.exampleMeaningZh!,
@@ -564,19 +617,27 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
                 child: Row(
                   children: [
                     OutlinedButton.icon(
-                      onPressed: hasPrev ? () => _goTo(_currentIndex - 1) : null,
+                      onPressed:
+                          hasPrev ? () => _goTo(_currentIndex - 1) : null,
                       icon: const Icon(Icons.arrow_back_ios_rounded, size: 16),
                       label: const Text('上一个'),
                     ),
                     const Spacer(),
                     Text(
                       '${_currentIndex + 1} / ${_cards.length}',
-                      style: TextStyle(color: cs.outline, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                          color: cs.outline, fontWeight: FontWeight.w600),
                     ),
                     const Spacer(),
                     OutlinedButton.icon(
-                      onPressed: hasNext ? () => _goToWithPromote(_currentIndex + 1) : _finishCurrentSession,
-                      icon: Icon(hasNext ? Icons.arrow_forward_ios_rounded : Icons.check_rounded, size: 16),
+                      onPressed: hasNext
+                          ? () => _goToWithPromote(_currentIndex + 1)
+                          : _finishCurrentSession,
+                      icon: Icon(
+                          hasNext
+                              ? Icons.arrow_forward_ios_rounded
+                              : Icons.check_rounded,
+                          size: 16),
                       label: Text(hasNext ? '下一个' : '完成'),
                     ),
                   ],
@@ -677,18 +738,23 @@ class _InlineExampleAudioButton extends StatelessWidget {
         height: 30,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: playing && !loading ? color.withValues(alpha: 0.15) : Colors.transparent,
+          color: playing && !loading
+              ? color.withValues(alpha: 0.15)
+              : Colors.transparent,
         ),
         child: loading
             ? Center(
                 child: SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: color),
+                  child:
+                      CircularProgressIndicator(strokeWidth: 2, color: color),
                 ),
               )
             : Icon(
-                playing ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+                playing
+                    ? Icons.volume_up_rounded
+                    : Icons.play_circle_outline_rounded,
                 size: 20,
                 color: color,
               ),
@@ -750,11 +816,14 @@ class _WordAudioButton extends StatelessWidget {
                 child: SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: color),
+                  child:
+                      CircularProgressIndicator(strokeWidth: 2, color: color),
                 ),
               )
             : Icon(
-                playing ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+                playing
+                    ? Icons.volume_up_rounded
+                    : Icons.play_circle_outline_rounded,
                 color: color,
                 size: 28,
               ),

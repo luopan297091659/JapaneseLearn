@@ -8,6 +8,7 @@ import 'dart:io';
 import 'dart:convert';
 import '../config/app_config.dart';
 import 'audio_manager.dart';
+import 'japanese_text_utils.dart';
 
 /// 创建支持自签名证书的 Dio 实例
 Dio _createTrustingDio() {
@@ -104,7 +105,7 @@ class TtsHelper {
       ttsInst.setCompletionHandler(() {
         if (onComplete != null) onComplete();
       });
-      final result = await ttsInst.speak(text);
+      final result = await ttsInst.speak(normalizeJapaneseTtsText(text));
       if (result == 1) return;
     } catch (e) {
       debugPrint('本地TTS失败: $e');
@@ -127,7 +128,8 @@ class TtsHelper {
         fullUrl = AppConfig.serverRoot + audioUrl;
       }
       final dio = _createTrustingDio();
-      final resp = await dio.get(fullUrl, options: Options(responseType: ResponseType.bytes));
+      final resp = await dio.get(fullUrl,
+          options: Options(responseType: ResponseType.bytes));
       if ((resp.data as List<int>).isNotEmpty) {
         await File(localPath).writeAsBytes(resp.data);
       }
@@ -174,8 +176,10 @@ class TtsHelper {
       // 1. 检查可用引擎
       try {
         final engines = await _tts!.getEngines;
-        final engineList = engines is List ? engines.cast<String>() : <String>[];
-        diag.writeln('TTS引擎: ${engineList.isEmpty ? "无" : engineList.join(", ")}');
+        final engineList =
+            engines is List ? engines.cast<String>() : <String>[];
+        diag.writeln(
+            'TTS引擎: ${engineList.isEmpty ? "无" : engineList.join(", ")}');
         _engineAvailable = engineList.isNotEmpty;
 
         // 如果有 Google TTS，优先使用
@@ -222,7 +226,6 @@ class TtsHelper {
       await _tts!.setSpeechRate(0.45);
       await _tts!.setVolume(1.0);
       await _tts!.setPitch(1.0);
-
     } catch (e) {
       diag.writeln('初始化异常: $e');
     }
@@ -240,7 +243,8 @@ class TtsHelper {
       // 尝试设置 Google TTS 引擎
       try {
         final engines = await tts.getEngines;
-        final engineList = engines is List ? engines.cast<String>() : <String>[];
+        final engineList =
+            engines is List ? engines.cast<String>() : <String>[];
         final google = engineList.where((e) => e.toString().contains('google'));
         if (google.isNotEmpty) {
           await tts.setEngine(google.first);
@@ -292,10 +296,12 @@ class TtsHelper {
   /// 安全地朗读文本，返回是否成功
   static Future<bool> speakJapanese(FlutterTts tts, String text) async {
     try {
+      final ttsText = normalizeJapaneseTtsText(text);
+      if (ttsText.isEmpty) return false;
       // 每次 speak 前重新设置语言（Android TTS 有时会丢失设置）
       await setJapaneseVoice(tts);
       await tts.setVolume(1.0);
-      final result = await tts.speak(text);
+      final result = await tts.speak(ttsText);
       return result == 1;
     } catch (e) {
       debugPrint('TTS speak failed: $e');
