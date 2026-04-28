@@ -45,6 +45,7 @@ const stripeRoutes = require('./routes/stripe');
 const { router: stripeRouter, stripeWebhook } = stripeRoutes;
 const paymentRoutes = require('./routes/payment');
 const jlptExamRoutes = require('./routes/jlptExam');
+const sharedVocabRoutes = require('./routes/sharedVocab');
 
 const app = express();
 
@@ -134,6 +135,7 @@ app.use(apiLogger);
 // Static files (audio, images)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/audio', express.static(path.join(__dirname, '../uploads/audio')));
+app.use('/uploads/shared-vocab-covers', express.static(path.join(__dirname, '../uploads/shared-vocab-covers')));
 // Root-level static files (meta.json etc)
 app.use(express.static(path.join(__dirname, '../public'), { index: false }));
 // Admin panel static files
@@ -200,6 +202,7 @@ app.use('/api/v1/stripe', stripeRouter);
 app.use('/api/v1/payment', paymentRoutes);
 app.use('/api/v1/jlpt-exams', jlptExamRoutes);
 app.use('/api/v1/tools', require('./routes/tools'));
+app.use('/api/v1/shared-vocab', sharedVocabRoutes);
 
 // 公开接口：支持渠道
 const { getPublicSupportChannels } = require('./controllers/adminController');

@@ -159,6 +159,19 @@ class _StudyTabState extends State<StudyTab> {
         ),
         const SizedBox(height: 12),
         _StudyCard(
+          icon: Icons.folder_copy_rounded,
+          title: '我的词库',
+          subtitle: '个人词库 · Anki/CSV/TXT 导入浏览',
+          color: const Color(0xFF00897B),
+          blocked: _isBlocked('anki_quiz'),
+          onTap: () {
+            if (GuestService.guardRoute(context, '/local-vocab')) return;
+            if (_isBlocked('anki_quiz')) { _showMemberDialog('我的词库'); return; }
+            context.push('/local-vocab');
+          },
+        ),
+        const SizedBox(height: 12),
+        _StudyCard(
           icon: Icons.layers_rounded,
           title: 'SRS 复习',
           subtitle: '间隔记忆 · 科学记忆曲线',

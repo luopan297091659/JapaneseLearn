@@ -383,8 +383,8 @@ class _StudyPlanScreenState extends State<StudyPlanScreen> {
                     selectedType = v ?? 'anki';
                     if (ankiDeckRoot.isEmpty) ankiDeckRoot = '__all__';
                   }),
-                  title: const Text('Anki词牌'),
-                  subtitle: const Text('使用已导入的 Anki 牌组学习'),
+                  title: const Text('我的词库'),
+                  subtitle: const Text('使用已导入的词库学习'),
                 ),
                 if (selectedType == 'anki')
                   _ankiDeckRoots.isEmpty

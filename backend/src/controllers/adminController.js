@@ -16,6 +16,7 @@ const {
   AppRelease, AppConfig, MembershipPlan,
   StudyPlanDailyTask, StudyPlanCardState,
   ToolUsageLog,
+  SharedVocabDeck,
 } = require('../models');
 const {
   getUserPreferences,
@@ -3215,6 +3216,46 @@ async function getPublicSupportChannels(req, res) {
   res.json({ channels: visible });
 }
 
+async function listSharedVocabDecksAdmin(req, res) {
+  const { q, status = '', page = 1, limit = 20 } = req.query;
+  const lim = Math.min(parseInt(limit, 10) || 20, 100);
+  const offset = (Math.max(parseInt(page, 10) || 1, 1) - 1) * lim;
+  const where = {};
+  if (status) where.status = status;
+  else where.status = { [Op.ne]: 'archived' };
+  if (q) {
+    where[Op.or] = [
+      { title: { [Op.like]: `%${q}%` } },
+      { description: { [Op.like]: `%${q}%` } },
+    ];
+  }
+
+  const { count, rows } = await SharedVocabDeck.findAndCountAll({
+    where,
+    order: [['created_at', 'DESC']],
+    limit: lim,
+    offset,
+  });
+  const ownerIds = [...new Set(rows.map(row => row.owner_user_id).filter(Boolean))];
+  const owners = ownerIds.length
+    ? await User.findAll({ where: { id: { [Op.in]: ownerIds } }, attributes: ['id', 'username', 'email'] })
+    : [];
+  const ownerMap = new Map(owners.map(owner => [owner.id, owner.toJSON()]));
+  res.json({
+    total: count,
+    page: parseInt(page, 10) || 1,
+    limit: lim,
+    data: rows.map(row => ({ ...row.toJSON(), owner: ownerMap.get(row.owner_user_id) || null })),
+  });
+}
+
+async function unshareSharedVocabDeckAdmin(req, res) {
+  const deck = await SharedVocabDeck.findByPk(req.params.id);
+  if (!deck || deck.status === 'archived') return res.status(404).json({ error: '词库不存在或已下架' });
+  await deck.update({ status: 'archived', visibility: 'private' });
+  res.json({ success: true });
+}
+
 module.exports = {
   getDashboard,
   listVocab, createVocab, updateVocab, deleteVocab, bulkDeleteVocab, generateVocabExamplesKokoroAudio, deduplicateVocab, fixVocabReadings,
@@ -3244,4 +3285,5 @@ module.exports = {
   listOrders, reviewOrder, uploadQrCode,
   getEmailSettings, saveEmailSettings, testEmailSettings,
   getSupportChannels, saveSupportChannel, deleteSupportChannel, uploadSupportQrCode, getPublicSupportChannels,
+  listSharedVocabDecksAdmin, unshareSharedVocabDeckAdmin,
 };

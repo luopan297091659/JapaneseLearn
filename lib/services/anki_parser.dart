@@ -615,7 +615,11 @@ class AnkiParser {
   static Future<(List<String> fields, List<List<String>> rows)> _readTxtFile(
       String filePath, String ext) async {
     final text = await File(filePath).readAsString();
-    final sep = ext == '.csv' ? ',' : '\t';
+    final sep = ext == '.csv'
+      ? ','
+      : ext == '.bar'
+        ? '｜'
+        : '\t';
     final allLines = text
         .split('\n')
         .where((l) => l.trim().isNotEmpty && !l.startsWith('#'))

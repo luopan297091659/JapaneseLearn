@@ -183,15 +183,15 @@ class S {
   String get word            => isZh ? '单词' : 'Word';
 
   // ── Anki Import ──────────────────────────────────────────────────────────
-  String get ankiImport         => isZh ? '导入 Anki 词库' : 'Import Anki Deck';
+  String get ankiImport         => isZh ? '导入词库' : 'Import Vocab';
   String get ankiImportSubtitle => isZh ? '从 .apkg / .txt / .csv 文件导入词汇' : 'Import from .apkg / .txt / .csv';
-  String get ankiImportHint     => isZh ? '将您的 Anki 词库导入到本地词汇表，支持 Anki 标准导出格式' : 'Import your Anki vocabulary cards into the local word list';
+  String get ankiImportHint     => isZh ? '将个人词库导入到本地词汇表，支持 Anki、CSV、TXT/TSV 格式' : 'Import personal vocabulary from Anki, CSV, TXT, or TSV';
   String get apkgDesc           => isZh ? 'Anki 牌组导出包（推荐）' : 'Anki deck export package (recommended)';
   String get tsvDesc            => isZh ? 'Anki 文本导出（制表符分隔）' : 'Anki text export (tab-separated)';
   String get csvDesc            => isZh ? 'CSV 格式文件' : 'CSV format file';
-  String get selectFile         => isZh ? '选择 Anki 文件' : 'Select Anki File';
+  String get selectFile         => isZh ? '选择词库文件' : 'Select Vocab File';
   String get fieldMapping       => isZh ? '字段映射' : 'Field Mapping';
-  String get fieldMappingHint   => isZh ? '将 Anki 字段对应到词汇字段（* 表示必填）' : 'Map Anki fields to vocabulary fields (* required)';
+  String get fieldMappingHint   => isZh ? '将导入字段对应到词汇字段（* 表示必填）' : 'Map imported fields to vocabulary fields (* required)';
   String get notMapped          => isZh ? '— 不导入 —' : '— Skip —';
   String get importSettings     => isZh ? '导入设置' : 'Import Settings';
   String get deckName           => isZh ? '牌组名称' : 'Deck Name';
@@ -215,8 +215,8 @@ class S {
   String get syncing            => isZh ? '同步中...' : 'Syncing...';
   String get syncSuccess        => isZh ? '同步成功' : 'Sync successful';
   String get syncFailed         => isZh ? '同步失败，请检查网络后重试' : 'Sync failed, retry when online';
-  String get viewLocalVocab     => isZh ? '查看本地词汇' : 'View Local Vocab';
-  String get localVocab         => isZh ? '本地词汇（Anki）' : 'Local Vocab (Anki)';
+  String get viewLocalVocab     => isZh ? '查看我的词库' : 'View My Vocab';
+  String get localVocab         => isZh ? '我的词库' : 'My Vocab';
   String get localOnly          => isZh ? '仅本地' : 'Local only';
   String get pendingCards       => isZh ? '待同步卡片' : 'Pending cards';
   String get allSynced          => isZh ? '全部已同步' : 'All synced';

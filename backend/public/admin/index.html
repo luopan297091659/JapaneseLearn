@@ -242,6 +242,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item active" onclick="nav('dashboard')" id="nav-dashboard"><span class="icon">📊</span><span class="nav-label">仪表板</span></div>
   <div class="sidebar-section">内容管理</div>
   <div class="nav-item" onclick="nav('vocab')"   id="nav-vocab"><span class="icon">📚</span><span class="nav-label">词汇管理</span></div>
+  <div class="nav-item" onclick="nav('shared-vocab')" id="nav-shared-vocab"><span class="icon">📦</span><span class="nav-label">我的词库管理</span></div>
   <div class="nav-item" onclick="nav('grammar')" id="nav-grammar"><span class="icon">📖</span><span class="nav-label">语法管理</span></div>
   <div class="nav-item" onclick="nav('jlpt-exams')" id="nav-jlpt-exams"><span class="icon">📝</span><span class="nav-label">JLPT模拟题</span></div>
   <div class="nav-item" onclick="nav('kana')"    id="nav-kana"><span class="icon">🔤</span><span class="nav-label">五十音管理</span></div>
@@ -667,7 +668,7 @@ function showApp(){
 function applySidebarPermissions(){
   const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-ai-settings','nav-kokoro-settings','nav-email-settings','nav-support-channels','nav-admin-mgmt'];
   const permNavMap = {
-    'nav-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-jlpt-exams': 'vocabulary', 'nav-kana': 'vocabulary', 'nav-tracks': 'tracks',
+    'nav-vocab': 'vocabulary', 'nav-shared-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-jlpt-exams': 'vocabulary', 'nav-kana': 'vocabulary', 'nav-tracks': 'tracks',
     'nav-channels': 'tracks', 'nav-users': 'users', 'nav-reports': 'reports',
     'nav-stat-users': 'stats', 'nav-stat-traffic': 'stats', 'nav-stat-behavior': 'stats',
     'nav-membership': 'membership', 'nav-sync': 'sync', 'nav-import': 'vocabulary',
@@ -689,7 +690,7 @@ function applySidebarPermissions(){
 
 /* ───────────────────────────────── NAV ───────────────────────────────────── */
 const PAGE_TITLES = {
-  dashboard:'仪表板', vocab:'词汇管理', grammar:'语法管理', kana:'五十音管理',
+  dashboard:'仪表板', vocab:'词汇管理', 'shared-vocab':'我的词库管理', grammar:'语法管理', kana:'五十音管理',
   'jlpt-exams':'JLPT模拟题',
   tracks:'听力管理', channels:'频道管理', users:'用户管理', reports:'问题反馈',
   'stat-users':'用户统计', 'stat-traffic':'流量监控',
@@ -701,7 +702,7 @@ const PAGE_TITLES = {
   'admin-mgmt':'权限管理'
 };
 const PAGE_ICONS = {
-  dashboard:'📊', vocab:'📚', grammar:'📖', kana:'🔤',
+  dashboard:'📊', vocab:'📚', 'shared-vocab':'📦', grammar:'📖', kana:'🔤',
   'jlpt-exams':'📝',
   tracks:'🎧', channels:'📺', users:'👥', reports:'🐛',
   'stat-users':'📈', 'stat-traffic':'🌐',
@@ -712,7 +713,7 @@ const PAGE_ICONS = {
   'email-settings':'✉️', 'support-channels':'🤝', 'admin-mgmt':'🔐'
 };
 const PAGE_DESCS = {
-  vocab:'管理词汇条目', grammar:'管理语法条目', kana:'管理五十音数据', reports:'查看用户反馈的问题',
+  vocab:'管理词汇条目', 'shared-vocab':'查看和下架用户分享的个人词库', grammar:'管理语法条目', kana:'管理五十音数据', reports:'查看用户反馈的问题',
   'jlpt-exams':'管理官网 JLPT 模拟测验题库与详解',
   tracks:'管理听力素材', channels:'管理YouTube/B站频道', users:'查看管理用户',
   'stat-users':'用户数据分析', 'stat-traffic':'API流量监控',
@@ -746,7 +747,7 @@ function getFrequentNav(limit){
   try{ return JSON.parse(localStorage.getItem('admin_recent_nav')||'[]').sort((a,b)=>(b.count||1)-(a.count||1)).slice(0,limit); }catch(_){ return []; }
 }
 const PAGE_FNS = {
-  dashboard: renderDashboard, vocab: renderVocab, grammar: renderGrammar, kana: renderKana,
+  dashboard: renderDashboard, vocab: renderVocab, 'shared-vocab': renderSharedVocab, grammar: renderGrammar, kana: renderKana,
   'jlpt-exams': renderJlptExams,
   tracks: renderTracks, channels: renderChannels, users: renderUsers,
   'stat-users': renderStatUsers, 'stat-traffic': renderStatTraffic,
@@ -2245,7 +2246,7 @@ function renderPager(containerId, page, total, onPage, state){
   }
   el.innerHTML = `<div class="pagination">${btns.join('')}<span class="page-info"> 共 ${total} 页${sizeSelect}</span>${rangeInfo}</div>`;
 }
-const _pagerMap = {'v-pager':{s:()=>vState,fn:()=>loadVocab()}, 'gr-pager':{s:()=>gState,fn:()=>loadGrammar()}, 'tr-pager':{s:()=>tState,fn:()=>loadTracks()}, 'us-pager':{s:()=>uState,fn:()=>loadUsers()}, 'rp-pager':{s:()=>rpState,fn:()=>loadReports()}, 'k-pager':{s:()=>kState,fn:()=>loadKana()}};
+const _pagerMap = {'v-pager':{s:()=>vState,fn:()=>loadVocab()}, 'sv-pager':{s:()=>svState,fn:()=>loadSharedVocab()}, 'gr-pager':{s:()=>gState,fn:()=>loadGrammar()}, 'tr-pager':{s:()=>tState,fn:()=>loadTracks()}, 'us-pager':{s:()=>uState,fn:()=>loadUsers()}, 'rp-pager':{s:()=>rpState,fn:()=>loadReports()}, 'k-pager':{s:()=>kState,fn:()=>loadKana()}};
 function pageSizeChange(cid,v){ const m=_pagerMap[cid]; if(!m)return; const s=m.s(); s.limit=parseInt(v); s.page=1; m.fn(); }
 
 /* ───────────────────────────────── DASHBOARD ─────────────────────────────── */
@@ -2427,6 +2428,70 @@ async function dedupVocab(){ if(!confirm('确认对词汇数据去重？（按 w
 async function fixReadings(){ if(!confirm('修复读音=单词的词汇？（从单词中提取[假名]作为读音）'))return; try{ const d=await api('POST','/admin/vocabulary/fix-readings'); toast(d.message); loadVocab(); }catch(e){ toast(e.message,true); } }
 function updateDelBtn(){ document.getElementById('v-del-btn').style.display=document.querySelectorAll('.v-cb:checked').length>0?'':'none'; }
 function toggleAllVocab(cb){ document.querySelectorAll('.v-cb').forEach(c=>c.checked=cb.checked); updateDelBtn(); }
+
+/* ───────────────────────────── SHARED VOCAB ─────────────────────────────── */
+let svState = {page:1, limit:20, search:'', status:'published', total:0};
+async function renderSharedVocab(){
+  document.getElementById('content').innerHTML = `
+  <div class="toolbar">
+    <input type="text" id="sv-search" placeholder="搜索词库名称/介绍…" value="${esc(svState.search)}" onkeydown="if(event.key==='Enter')sharedVocabSearch()" />
+    <select id="sv-status" onchange="sharedVocabFilterStatus()" style="padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;background:#fff">
+      <option value="" ${svState.status===''?'selected':''}>全部未下架</option>
+      <option value="published" ${svState.status==='published'?'selected':''}>公开中</option>
+      <option value="draft" ${svState.status==='draft'?'selected':''}>草稿/私有</option>
+      <option value="archived" ${svState.status==='archived'?'selected':''}>已下架</option>
+    </select>
+    <button class="btn btn-primary" onclick="sharedVocabSearch()">搜索</button>
+    <button class="btn btn-ghost" onclick="loadSharedVocab()">刷新</button>
+  </div>
+  <div class="panel" style="padding:0">
+    <table><thead><tr>
+      <th>词库</th><th>发布者</th><th>卡片</th><th>级别</th><th>来源</th><th>导入</th><th>状态</th><th>发布时间</th><th>操作</th>
+    </tr></thead><tbody id="sv-body"></tbody></table>
+    <div style="padding:12px 16px" id="sv-pager"></div>
+  </div>`;
+  await loadSharedVocab();
+}
+async function loadSharedVocab(){
+  try{
+    const statusParam = svState.status ? `&status=${encodeURIComponent(svState.status)}` : '';
+    const d = await api('GET', `/admin/shared-vocab/decks?page=${svState.page}&limit=${svState.limit}&q=${encodeURIComponent(svState.search)}${statusParam}`);
+    svState.total = d.total || 0;
+    const rows = d.data || [];
+    svState._pageCount = rows.length;
+    const body = document.getElementById('sv-body'); if(!body) return;
+    body.innerHTML = rows.map(deck => {
+      const owner = deck.owner || {};
+      const statusBadge = deck.status === 'published'
+        ? '<span class="badge badge-green">公开中</span>'
+        : deck.status === 'archived'
+          ? '<span class="badge badge-red">已下架</span>'
+          : '<span class="badge badge-orange">草稿</span>';
+      const created = deck.createdAt ? new Date(deck.createdAt).toLocaleString('zh-CN') : '';
+      return `<tr>
+        <td>
+          <div style="font-weight:700">${esc(deck.title)}</div>
+          <div style="max-width:280px;color:#64748b;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(deck.description||'')}">${esc(deck.description||'')}</div>
+        </td>
+        <td>${esc(owner.username || owner.email || deck.owner_user_id || '—')}</td>
+        <td>${deck.card_count || 0}</td>
+        <td>${deck.jlpt_level ? `<span class="badge badge-blue">${esc(deck.jlpt_level)}</span>` : '—'}</td>
+        <td>${esc(deck.source_type || 'manual')}</td>
+        <td>${deck.import_count || 0}</td>
+        <td>${statusBadge}</td>
+        <td>${esc(created)}</td>
+        <td>${deck.status !== 'archived' ? `<button class="btn btn-danger btn-sm" onclick="adminUnshareDeck('${esc(String(deck.id))}')">取消分享</button>` : '<span style="color:#94a3b8;font-size:12px">—</span>'}</td>
+      </tr>`;
+    }).join('');
+    renderPager('sv-pager', svState.page, Math.ceil(svState.total/svState.limit), p=>{ svState.page=p; loadSharedVocab(); }, svState);
+  }catch(e){ toast(e.message,true) }
+}
+function sharedVocabSearch(){ svState.page=1; svState.search=document.getElementById('sv-search').value; loadSharedVocab(); }
+function sharedVocabFilterStatus(){ svState.page=1; svState.status=document.getElementById('sv-status').value; loadSharedVocab(); }
+async function adminUnshareDeck(id){
+  if(!confirm('确定取消该词库分享？取消后用户将无法从共享词库继续导入。')) return;
+  try{ await api('DELETE', `/admin/shared-vocab/decks/${id}`); toast('已取消分享'); loadSharedVocab(); }catch(e){ toast(e.message,true) }
+}
 
 // 初始化例句行
 function normalizeExampleSentences(raw){

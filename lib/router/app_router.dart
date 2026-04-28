@@ -25,6 +25,7 @@ import '../screens/vocabulary/dictionary_screen.dart';
 import '../screens/vocabulary/anki_import_screen.dart';
 import '../screens/vocabulary/local_vocab_screen.dart';
 import '../screens/vocabulary/local_vocab_detail_screen.dart';
+import '../screens/vocabulary/shared_vocab_screen.dart';
 import '../screens/game/tetris_grammar_game.dart';
 import '../screens/game/flashcard_screen.dart';
 import '../screens/tabs/study_tab.dart';
@@ -167,7 +168,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
               path: '/anki-import',
-              builder: (_, __) => const AnkiImportScreen()),
+              builder: (_, state) => AnkiImportScreen(
+                    pasteMode: state.uri.queryParameters['mode'] == 'paste',
+                  )),
           GoRoute(
             path: '/local-vocab',
             builder: (_, state) => LocalVocabScreen(
@@ -176,6 +179,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   int.tryParse(state.uri.queryParameters['stage'] ?? ''),
               planId: state.uri.queryParameters['planId'],
             ),
+          ),
+          GoRoute(
+            path: '/shared-vocab',
+            builder: (_, __) => const SharedVocabScreen(),
           ),
           GoRoute(
             path: '/local-vocab/:id',

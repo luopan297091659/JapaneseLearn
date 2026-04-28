@@ -47,6 +47,69 @@ const UserVocabulary = sequelize.define('UserVocabulary', {
   tags: { type: DataTypes.JSON, allowNull: true },
 }, { tableName: 'user_vocabulary' });
 
+// ────────── Shared Vocabulary Decks（用户共享词库）──────────
+const SharedVocabDeck = sequelize.define('SharedVocabDeck', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  owner_user_id: { type: DataTypes.UUID, allowNull: false, comment: '发布者用户ID' },
+  title: { type: DataTypes.STRING(120), allowNull: false },
+  description: { type: DataTypes.TEXT, allowNull: true },
+  cover_url: { type: DataTypes.STRING(500), allowNull: true },
+  source_type: {
+    type: DataTypes.ENUM('manual', 'apkg', 'csv', 'txt', 'tsv', 'paste', 'legacy'),
+    allowNull: false,
+    defaultValue: 'manual',
+  },
+  jlpt_level: { type: DataTypes.STRING(10), allowNull: true, comment: '主等级，如 N2；混合词库可为空' },
+  tags: { type: DataTypes.JSON, allowNull: true },
+  card_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  visibility: {
+    type: DataTypes.ENUM('private', 'public', 'unlisted'),
+    allowNull: false,
+    defaultValue: 'public',
+  },
+  status: {
+    type: DataTypes.ENUM('draft', 'published', 'archived'),
+    allowNull: false,
+    defaultValue: 'published',
+  },
+  import_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  like_count: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  meta_json: { type: DataTypes.JSON, allowNull: true },
+}, {
+  tableName: 'shared_vocab_decks',
+  indexes: [
+    { fields: ['owner_user_id'] },
+    { fields: ['visibility', 'status'] },
+    { fields: ['jlpt_level'] },
+    { fields: ['source_type'] },
+    { fields: ['created_at'] },
+  ],
+});
+
+const SharedVocabCard = sequelize.define('SharedVocabCard', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  deck_id: { type: DataTypes.UUID, allowNull: false },
+  word: { type: DataTypes.STRING(100), allowNull: false },
+  reading: { type: DataTypes.STRING(200), allowNull: true },
+  meaning_zh: { type: DataTypes.TEXT, allowNull: false },
+  meaning_en: { type: DataTypes.TEXT, allowNull: true },
+  example_sentence: { type: DataTypes.TEXT, allowNull: true },
+  example_reading: { type: DataTypes.TEXT, allowNull: true },
+  example_meaning_zh: { type: DataTypes.TEXT, allowNull: true },
+  audio_url: { type: DataTypes.STRING(500), allowNull: true },
+  part_of_speech: { type: DataTypes.STRING(50), allowNull: false, defaultValue: 'other' },
+  jlpt_level: { type: DataTypes.STRING(10), allowNull: true },
+  sort_order: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  meta_json: { type: DataTypes.JSON, allowNull: true },
+}, {
+  tableName: 'shared_vocab_cards',
+  indexes: [
+    { fields: ['deck_id', 'sort_order'] },
+    { fields: ['word'] },
+    { fields: ['jlpt_level'] },
+  ],
+});
+
 // ────────── Grammar ──────────
 const GrammarLesson = sequelize.define('GrammarLesson', {
   id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
@@ -380,6 +443,8 @@ JlptExamPaper.hasMany(JlptExamQuestion, { foreignKey: 'paper_id', as: 'questions
 JlptExamQuestion.belongsTo(JlptExamPaper, { foreignKey: 'paper_id', as: 'paper' });
 JlptExamPaper.hasMany(JlptExamAttempt, { foreignKey: 'paper_id', as: 'attempts', onDelete: 'CASCADE' });
 JlptExamAttempt.belongsTo(JlptExamPaper, { foreignKey: 'paper_id', as: 'paper' });
+SharedVocabDeck.hasMany(SharedVocabCard, { foreignKey: 'deck_id', as: 'cards', onDelete: 'CASCADE' });
+SharedVocabCard.belongsTo(SharedVocabDeck, { foreignKey: 'deck_id', as: 'deck' });
 
 // ────────── MembershipPlan (会员套餐持久化) ──────────
 const MembershipPlan = sequelize.define('MembershipPlan', {
@@ -542,6 +607,8 @@ const AppRelease = require('./AppRelease');
 module.exports = {
   Vocabulary,
   UserVocabulary,
+  SharedVocabDeck,
+  SharedVocabCard,
   GrammarLesson,
   GrammarExample,
   ListeningTrack,

@@ -1142,6 +1142,54 @@ class ApiService {
     return (res.data as List).cast<Map<String, dynamic>>();
   }
 
+  // ─── Shared Vocab Decks ─────────────────────────────────────────────────
+  Future<Map<String, dynamic>> listSharedVocabDecks({
+    String? query,
+    String? level,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final res = await _dio.get('/shared-vocab/decks', queryParameters: {
+      'page': page,
+      'limit': limit,
+      if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+      if (level != null && level.isNotEmpty) 'level': level,
+    });
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Map<String, dynamic>> createSharedVocabDeck({
+    required String title,
+    String? description,
+    String? coverBase64,
+    String sourceType = 'manual',
+    String visibility = 'public',
+    String? jlptLevel,
+    List<String> tags = const [],
+    required List<Map<String, dynamic>> cards,
+  }) async {
+    final res = await _dio.post('/shared-vocab/decks', data: {
+      'title': title,
+      if (description != null && description.trim().isNotEmpty) 'description': description.trim(),
+      if (coverBase64 != null && coverBase64.isNotEmpty) 'cover_image_base64': coverBase64,
+      'source_type': sourceType,
+      'visibility': visibility,
+      if (jlptLevel != null && jlptLevel.isNotEmpty) 'jlpt_level': jlptLevel,
+      if (tags.isNotEmpty) 'tags': tags,
+      'cards': cards,
+    });
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Map<String, dynamic>> importSharedVocabDeck(String deckId) async {
+    final res = await _dio.post('/shared-vocab/decks/$deckId/import');
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<void> deleteSharedVocabDeck(String deckId) async {
+    await _dio.delete('/shared-vocab/decks/$deckId');
+  }
+
   // ─── Progress ─────────────────────────────────────────────────────────────
   Future<void> logActivity({
     required String activityType,

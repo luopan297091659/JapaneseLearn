@@ -143,7 +143,7 @@ const _allFeatures = <String,
   ),
   'localvocab': (
     icon: Icons.folder_copy_rounded,
-    label: 'Anki词库',
+    label: '我的词库',
     sub: '本地浏览',
     path: '/local-vocab',
     color: Color(0xFF00897B)
@@ -187,10 +187,10 @@ const _allFeatures = <String,
 const _defaultFeatureIds = [
   'vocabulary',
   'grammar',
+  'localvocab',
   'srs',
   'listening',
-  'dictionary',
-  'quiz'
+  'dictionary'
 ];
 
 const _purposeRecommendFeatures = <String, List<String>>{
@@ -1018,11 +1018,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   _DailyGoalsCard(goals: adjustedGoals),
                   const SizedBox(height: 20),
                 ],
-                // ── 辞书検索 ──────────────────────────────────────
-                _SectionTitle(title: '辞书検索', icon: Icons.manage_search_rounded),
-                const SizedBox(height: 10),
-                _SearchBar(),
-                const SizedBox(height: 20),
                 // ── SRS 提醒（加载完才判断）──────────────────────
                 if (!guestService.isGuest &&
                     !_srsLoading &&
@@ -1055,6 +1050,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     onNext: _nextWord,
                   ),
                 const SizedBox(height: 16),
+                // ── 辞书検索 ──────────────────────────────────────
+                _SectionTitle(title: '辞书検索', icon: Icons.manage_search_rounded),
+                const SizedBox(height: 10),
+                _SearchBar(),
+                const SizedBox(height: 20),
                 // ── 常用功能（可自定义，最多6个）────────────────
                 Row(children: [
                   const Expanded(

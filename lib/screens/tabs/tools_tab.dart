@@ -121,7 +121,7 @@ class _ToolsTabState extends State<ToolsTab> {
         _ToolCard(
           icon: Icons.route_rounded,
           title: '学习计划',
-          subtitle: '自定义组合：单词/语法/Anki词库',
+          subtitle: '自定义组合：单词/语法复习',
           color: const Color(0xFF6D28D9),
           blocked: _isBlocked('study_plan_daily'),
           onTap: () {
@@ -161,22 +161,6 @@ class _ToolsTabState extends State<ToolsTab> {
               return;
             }
             context.push('/translate');
-          },
-        ),
-        const SizedBox(height: 12),
-        _ToolCard(
-          icon: Icons.folder_copy_rounded,
-          title: 'Anki 词库',
-          subtitle: '本地卡片 · 离线浏览复习',
-          color: const Color(0xFF00897B),
-          blocked: _isBlocked('anki_quiz'),
-          onTap: () {
-            if (GuestService.guardRoute(context, '/local-vocab')) return;
-            if (_isBlocked('anki_quiz')) {
-              _showMemberDialog('Anki 词库');
-              return;
-            }
-            context.push('/local-vocab');
           },
         ),
         // 磨耳朵暂时隐藏

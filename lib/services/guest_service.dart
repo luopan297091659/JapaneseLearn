@@ -41,6 +41,7 @@ class GuestService {
     '/profile',
     '/anki-import',
     '/local-vocab',
+    '/shared-vocab',
     '/membership',
     '/qr-payment',
     '/stripe-checkout',

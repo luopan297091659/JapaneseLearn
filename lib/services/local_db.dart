@@ -15,9 +15,10 @@ class LocalDb {
   Database? _db;
 
   static const _dbName    = 'japanese_learn_local.db';
-  static const _dbVersion = 7;
+  static const _dbVersion = 9;
 
   static const tableVocab = 'local_vocabulary';
+  static const tableLocalDecks = 'local_decks';
   static const tableCachedVocab = 'cached_vocabulary';
   static const tableCachedGrammar = 'cached_grammar';
   static const tableTranslateHistory = 'translate_history';
@@ -67,6 +68,9 @@ class LocalDb {
     await db.execute('CREATE INDEX idx_level ON $tableVocab (jlpt_level)');
     await db.execute('CREATE INDEX idx_synced ON $tableVocab (synced)');
 
+    // ─── 个人词库元数据表（封面、介绍、共享状态等）────────────────────────
+    await _createLocalDecksTable(db);
+
     // ─── 离线缓存表 ─────────────────────────────────────────────────────
     await _createCacheTables(db);
 
@@ -100,6 +104,67 @@ class LocalDb {
     if (oldVersion < 7) {
       await _createDictHistoryTable(db);
     }
+    if (oldVersion < 8) {
+      await _createLocalDecksTable(db);
+      await _seedLocalDecksFromVocab(db);
+    }
+    if (oldVersion < 9) {
+      await _ensureLocalDeckShareColumns(db);
+    }
+  }
+
+  Future<void> _ensureLocalDeckShareColumns(Database db) async {
+    final columns = await db.rawQuery('PRAGMA table_info($tableLocalDecks)');
+    final names = columns.map((row) => row['name']?.toString()).toSet();
+    if (!names.contains('shared_deck_id')) {
+      await db.execute('ALTER TABLE $tableLocalDecks ADD COLUMN shared_deck_id TEXT');
+    }
+  }
+
+  Future<void> _createLocalDecksTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $tableLocalDecks (
+        deck_name        TEXT    PRIMARY KEY,
+        display_name     TEXT    NOT NULL,
+        cover_image_path TEXT,
+        description      TEXT,
+        source_type      TEXT    NOT NULL DEFAULT 'manual',
+        is_shared        INTEGER NOT NULL DEFAULT 0,
+        shared_deck_id   TEXT,
+        created_at       INTEGER NOT NULL,
+        updated_at       INTEGER NOT NULL
+      )
+    ''');
+    await _ensureLocalDeckShareColumns(db);
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_ld_source ON $tableLocalDecks (source_type)');
+  }
+
+  Future<void> _seedLocalDecksFromVocab(Database db) async {
+    final rows = await db.rawQuery('''
+      SELECT deck_name, MIN(created_at) AS created_at
+      FROM $tableVocab
+      WHERE deck_name IS NOT NULL AND deck_name <> ''
+      GROUP BY deck_name
+    ''');
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final batch = db.batch();
+    for (final row in rows) {
+      final deckName = row['deck_name']?.toString();
+      if (deckName == null || deckName.isEmpty) continue;
+      batch.insert(
+        tableLocalDecks,
+        {
+          'deck_name': deckName,
+          'display_name': deckName.split('::').last,
+          'source_type': 'legacy',
+          'is_shared': 0,
+          'created_at': row['created_at'] as int? ?? now,
+          'updated_at': now,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+    await batch.commit(noResult: true);
   }
 
   Future<void> _createCacheTables(Database db) async {
@@ -181,6 +246,85 @@ class LocalDb {
     }
     await batch.commit(noResult: true);
     return inserted;
+  }
+
+  Future<void> upsertDeckMeta({
+    required String deckName,
+    String? displayName,
+    String? coverImagePath,
+    String? description,
+    String sourceType = 'manual',
+    bool? isShared,
+    String? sharedDeckId,
+  }) async {
+    final database = await db;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final existing = await database.query(
+      tableLocalDecks,
+      where: 'deck_name = ?',
+      whereArgs: [deckName],
+      limit: 1,
+    );
+    final old = existing.isNotEmpty ? existing.first : null;
+    await database.insert(
+      tableLocalDecks,
+      {
+        'deck_name': deckName,
+        'display_name': (displayName == null || displayName.trim().isEmpty)
+            ? deckName.split('::').last
+            : displayName.trim(),
+        'cover_image_path': coverImagePath,
+        'description': description?.trim(),
+        'source_type': sourceType,
+        'is_shared': isShared == null ? (old?['is_shared'] as int? ?? 0) : (isShared ? 1 : 0),
+        'shared_deck_id': sharedDeckId ?? old?['shared_deck_id'],
+        'created_at': old?['created_at'] as int? ?? now,
+        'updated_at': now,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> setDeckShared({
+    required String deckName,
+    required bool isShared,
+    String? sharedDeckId,
+  }) async {
+    final database = await db;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final count = await database.update(
+      tableLocalDecks,
+      {
+        'is_shared': isShared ? 1 : 0,
+        'shared_deck_id': isShared ? sharedDeckId : null,
+        'updated_at': now,
+      },
+      where: 'deck_name = ?',
+      whereArgs: [deckName],
+    );
+    if (count == 0) {
+      await database.insert(
+        tableLocalDecks,
+        {
+          'deck_name': deckName,
+          'display_name': deckName.split('::').last,
+          'source_type': 'manual',
+          'is_shared': isShared ? 1 : 0,
+          'shared_deck_id': isShared ? sharedDeckId : null,
+          'created_at': now,
+          'updated_at': now,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  Future<Map<String, LocalDeckMeta>> deckMetas() async {
+    final database = await db;
+    final rows = await database.query(tableLocalDecks);
+    return {
+      for (final row in rows) LocalDeckMeta.fromMap(row).deckName: LocalDeckMeta.fromMap(row),
+    };
   }
 
   /// 将一批卡片 id 标记为已同步
@@ -409,11 +553,17 @@ class LocalDb {
   Future<int> deleteDeck(String deckName) async {
     final database = await db;
     // 删除精确匹配 + 所有子牌组（deck_name LIKE 'deckName::%'）
-    return database.delete(
+    final count = await database.delete(
       tableVocab,
       where: 'deck_name = ? OR deck_name LIKE ?',
       whereArgs: [deckName, '$deckName::%'],
     );
+    await database.delete(
+      tableLocalDecks,
+      where: 'deck_name = ? OR deck_name LIKE ?',
+      whereArgs: [deckName, '$deckName::%'],
+    );
+    return count;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -821,6 +971,42 @@ class LocalDb {
     await _db?.close();
     _db = null;
   }
+}
+
+class LocalDeckMeta {
+  final String deckName;
+  final String displayName;
+  final String? coverImagePath;
+  final String? description;
+  final String sourceType;
+  final bool isShared;
+  final String? sharedDeckId;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const LocalDeckMeta({
+    required this.deckName,
+    required this.displayName,
+    this.coverImagePath,
+    this.description,
+    required this.sourceType,
+    required this.isShared,
+    this.sharedDeckId,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory LocalDeckMeta.fromMap(Map<String, dynamic> m) => LocalDeckMeta(
+        deckName: m['deck_name'] as String,
+        displayName: m['display_name'] as String? ?? (m['deck_name'] as String).split('::').last,
+        coverImagePath: m['cover_image_path'] as String?,
+        description: m['description'] as String?,
+        sourceType: m['source_type'] as String? ?? 'manual',
+        isShared: (m['is_shared'] as int? ?? 0) == 1,
+        sharedDeckId: m['shared_deck_id'] as String?,
+        createdAt: DateTime.fromMillisecondsSinceEpoch(m['created_at'] as int? ?? 0),
+        updatedAt: DateTime.fromMillisecondsSinceEpoch(m['updated_at'] as int? ?? 0),
+      );
 }
 
 // ─── 本地词汇模型 ─────────────────────────────────────────────────────────────

@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/anki_parser.dart';
@@ -12,7 +14,9 @@ import '../../widgets/membership_gate.dart';
 enum _Step { pick, parsing, preview, importing, done, error }
 
 class AnkiImportScreen extends StatefulWidget {
-  const AnkiImportScreen({super.key});
+  final bool pasteMode;
+
+  const AnkiImportScreen({super.key, this.pasteMode = false});
   @override
   State<AnkiImportScreen> createState() => _AnkiImportScreenState();
 }
@@ -26,7 +30,10 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
 
   // 导入配置
   final _deckNameCtrl = TextEditingController(text: 'Anki Import');
-  String _jlptLevel = 'N3';
+  final _deckDescCtrl = TextEditingController();
+  final _pasteCtrl = TextEditingController();
+  bool _pasteMode = false;
+  String? _coverImagePath;
   String _partOfSpeech = 'all';
 
   // 字段映射选择（字段名称 index，null = 不导入）
@@ -48,6 +55,10 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
   @override
   void initState() {
     super.initState();
+    _pasteMode = widget.pasteMode;
+    if (_pasteMode) {
+      _deckNameCtrl.text = '我的词库';
+    }
     _checkMembership();
   }
 
@@ -61,8 +72,15 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
   @override
   void dispose() {
     _deckNameCtrl.dispose();
+    _deckDescCtrl.dispose();
+    _pasteCtrl.dispose();
     super.dispose();
   }
+
+  static const _templateText = '''单词｜读音｜释义｜例句｜例句读音｜例句释义
+傲慢｜ごうまん｜傲慢；骄傲｜傲慢な態度を改めるべきだ。／彼の傲慢な発言に驚いた。｜ごうまんなたいどをあらためるべきだ。／かれのごうまんなはつげんにおどろいた。｜应该改掉傲慢的态度。／我对他傲慢的发言感到惊讶。
+偏見｜へんけん｜偏见；成见｜偏見を持たずに話を聞く。／偏見で人を判断してはいけない。｜へんけんをもたずにはなしをきく。／へんけんでひとをはんだんしてはいけない。｜不带偏见地听别人说话。／不能带着偏见判断别人。
+見送る｜みおくる｜送行；暂缓｜駅まで友人を見送った。／計画を見送る。｜えきまでゆうじんをみおくった。／けいかくをみおくる。｜送朋友到车站。／暂缓计划。''';
 
   // ─── 步骤 1：选文件 ──────────────────────────────────────────────────────
   Future<void> _pickFile() async {
@@ -100,13 +118,59 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
     await _runPreview(file.path!);
   }
 
+  Future<void> _importPastedText() async {
+    final text = _pasteCtrl.text.trim();
+    if (text.isEmpty) {
+      _showSnack('请先粘贴词库内容');
+      return;
+    }
+    final ext = text.contains('｜') ? '.bar' : (text.contains('\t') ? '.tsv' : '.csv');
+    final dir = await getTemporaryDirectory();
+    final fileName = 'pasted_vocab_${DateTime.now().millisecondsSinceEpoch}$ext';
+    final file = File(p.join(dir.path, fileName));
+    await file.writeAsString(text);
+    setState(() {
+      _filePath = file.path;
+      _fileName = fileName;
+      _step = _Step.parsing;
+      _errorMsg = '';
+    });
+    await _runPreview(file.path);
+  }
+
+  Future<void> _pickCoverImage() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final path = result.files.first.path;
+    if (path == null) return;
+    final docsDir = await getApplicationDocumentsDirectory();
+    final coverDir = Directory(p.join(docsDir.path, 'vocab_covers'));
+    await coverDir.create(recursive: true);
+    final ext = p.extension(path).isEmpty ? '.jpg' : p.extension(path);
+    final dest = p.join(coverDir.path, 'cover_${DateTime.now().millisecondsSinceEpoch}$ext');
+    await File(path).copy(dest);
+    if (mounted) setState(() => _coverImagePath = dest);
+  }
+
+  void _fillTemplate() {
+    setState(() {
+      _pasteMode = true;
+      _pasteCtrl.text = _templateText;
+    });
+  }
+
   // ─── 步骤 2：客户端本地解析预览 ─────────────────────────────────────────
   Future<void> _runPreview(String filePath) async {
     try {
       final preview = await AnkiParser.preview(filePath);
       final m = preview.autoMapping;
       final exampleDefaults = _resolveExampleDefaultMappings(preview, m);
-      _deckNameCtrl.text = p.basenameWithoutExtension(_fileName ?? 'Anki Import');
+      if (!_pasteMode) {
+        _deckNameCtrl.text = p.basenameWithoutExtension(_fileName ?? '我的词库');
+      }
       setState(() {
         _preview      = preview;
         _mapWord      = m['word'];
@@ -203,7 +267,7 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
       if (cards.isEmpty) throw Exception('未解析到有效卡片，请检查字段映射');
 
       final deckName = _deckNameCtrl.text.trim().isEmpty
-          ? 'Anki Import'
+          ? '我的词库'
           : _deckNameCtrl.text.trim();
       const uuid = Uuid();
 
@@ -219,12 +283,29 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
           'id':             json['id'] as String? ?? uuid.v4(),
           // all 表示不按词性筛选导入，统一保留为 other 以兼容后端字段
           'part_of_speech': _partOfSpeech == 'all' ? 'other' : _partOfSpeech,
-          'jlpt_level':     _jlptLevel,
           'deck_name':      cardDeckName,
         };
       }).toList();
 
       final localCount = await localDb.insertCards(rows);
+      final sourceType = _pasteMode
+          ? 'paste'
+          : (p.extension(_fileName ?? '').toLowerCase().replaceFirst('.', '').isEmpty
+              ? 'manual'
+              : p.extension(_fileName ?? '').toLowerCase().replaceFirst('.', ''));
+      final importedDeckNames = rows
+          .map((row) => row['deck_name']?.toString() ?? deckName)
+          .where((name) => name.isNotEmpty)
+          .toSet();
+      for (final importedDeckName in importedDeckNames) {
+        await localDb.upsertDeckMeta(
+          deckName: importedDeckName,
+          displayName: importedDeckName.split('::').last,
+          coverImagePath: _coverImagePath,
+          description: _deckDescCtrl.text,
+          sourceType: sourceType,
+        );
+      }
       _savedLocally = true;
 
       setState(() {
@@ -250,6 +331,9 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
         _errorMsg = '';
         _filePath = null;
         _fileName = null;
+        _coverImagePath = null;
+        _deckDescCtrl.clear();
+        _pasteCtrl.clear();
         _savedLocally   = false;
         _mapExampleReading = null;
         _mapExampleMeaningZh = null;
@@ -291,11 +375,35 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
 
   // ── 选择文件 ──────────────────────────────────────────────────────────────
   Widget _buildPickStep(ColorScheme cs, S s) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: 24),
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, icon: Icon(Icons.folder_open_rounded), label: Text('文件')),
+                ButtonSegment(value: true, icon: Icon(Icons.content_paste_rounded), label: Text('粘贴')),
+              ],
+              selected: {_pasteMode},
+              onSelectionChanged: (v) => setState(() => _pasteMode = v.first),
+            ),
+            const SizedBox(height: 28),
+            if (!_pasteMode)
+              _buildFileImportPane(cs, s)
+            else
+              _buildPasteImportPane(cs),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFileImportPane(ColorScheme cs, S s) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Column(
           children: [
             Container(
               width: 100, height: 100,
@@ -306,10 +414,10 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
               child: Icon(Icons.upload_file_rounded, size: 52, color: cs.primary),
             ),
             const SizedBox(height: 24),
-            Text(s.ankiImport, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+            Text('导入我的词库', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(
-              s.ankiImportHint,
+              '支持 Anki、CSV、TXT/TSV 文件，导入后会保存为本地个人词库。',
               textAlign: TextAlign.center,
               style: TextStyle(color: cs.outline, height: 1.5),
             ),
@@ -335,15 +443,77 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
             FilledButton.icon(
               onPressed: _pickFile,
               icon: const Icon(Icons.folder_open_rounded),
-              label: Text(s.selectFile),
+              label: const Text('选择文件'),
               style: FilledButton.styleFrom(
                 minimumSize: const Size(double.infinity, 52),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
+            const SizedBox(height: 10),
+            TextButton.icon(
+              onPressed: _fillTemplate,
+              icon: const Icon(Icons.article_rounded),
+              label: const Text('查看导入模板示例'),
+            ),
           ],
         ),
-      ),
+    );
+  }
+
+  Widget _buildPasteImportPane(ColorScheme cs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('文字导入',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Text('从网页、表格、备忘录复制 CSV 或制表符分隔内容，粘贴后会先进入字段映射预览。',
+            style: TextStyle(color: cs.outline, height: 1.5)),
+        const SizedBox(height: 14),
+        TextField(
+          controller: _pasteCtrl,
+          minLines: 10,
+          maxLines: 16,
+          textInputAction: TextInputAction.newline,
+          decoration: InputDecoration(
+            hintText: _templateText,
+            alignLabelWithHint: true,
+            labelText: '粘贴词库内容',
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Text(
+            '模板列统一用「｜」分隔：单词｜读音（可不填）｜释义｜例句｜例句读音｜例句释义。多个例句可在同一列内用「／」分隔。',
+            style: TextStyle(fontSize: 12),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _fillTemplate,
+              icon: const Icon(Icons.article_rounded),
+              label: const Text('填入示例'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: _importPastedText,
+              icon: const Icon(Icons.preview_rounded),
+              label: const Text('预览导入'),
+            ),
+          ),
+        ]),
+      ],
     );
   }
 
@@ -487,13 +657,57 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: _jlptLevel,
-                  decoration: InputDecoration(labelText: s.jlptLevel, border: const OutlineInputBorder()),
-                  items: ['N5', 'N4', 'N3', 'N2', 'N1']
-                      .map((l) => DropdownMenuItem(value: l, child: Text(l)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _jlptLevel = v!),
+                TextField(
+                  controller: _deckDescCtrl,
+                  minLines: 2,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: '词库介绍',
+                    hintText: '例如：N2 高频词、小说常见表达、商务日语词库',
+                    prefixIcon: Icon(Icons.notes_rounded),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: _pickCoverImage,
+                  child: Container(
+                    height: 92,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(children: [
+                      const SizedBox(width: 12),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          width: 58,
+                          height: 72,
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          child: _coverImagePath == null
+                              ? const Icon(Icons.image_rounded)
+                              : Image.file(File(_coverImagePath!), fit: BoxFit.cover),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('词库封面', style: TextStyle(fontWeight: FontWeight.w700)),
+                            const SizedBox(height: 4),
+                            Text(_coverImagePath == null ? '可选，用于书架展示和后续共享' : '已选择封面图片',
+                                style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline)),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded),
+                      const SizedBox(width: 8),
+                    ]),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(

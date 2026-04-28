@@ -367,7 +367,7 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
     return Scaffold(
       backgroundColor: cs.surfaceContainerLowest,
       appBar: AppBar(
-        title: const Text('Anki 词库详情'),
+        title: const Text('我的词库详情'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
           onPressed: () => context.pop(),
@@ -460,21 +460,6 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
                                   slow: true,
                                 ),
                               ),
-                              if ((card.exampleSentence?.trim().isNotEmpty ?? false) ||
-                                  (card.exampleAudioUrl?.trim().isNotEmpty ?? false)) ...[
-                                const SizedBox(width: 8),
-                                _AudioCircleButton(
-                                  loading: _exampleLoading,
-                                  playing: _examplePlaying,
-                                  icon: const Icon(Icons.record_voice_over_rounded, size: 18),
-                                  onTap: () => _playAudio(
-                                    audioUrl: card.exampleAudioUrl,
-                                    fallbackText: card.exampleSentence ?? _localDisplayWord(card),
-                                    isExample: true,
-                                  ),
-                                  color: cs.tertiary,
-                                ),
-                              ],
                             ],
                           ),
                         ],
@@ -511,13 +496,40 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              card.exampleSentence!,
-                              style: TextStyle(
-                                fontSize: 16,
-                                height: 1.7,
-                                color: cs.onSurface,
-                              ),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    card.exampleSentence!,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      height: 1.7,
+                                      color: cs.onSurface,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                _InlineExampleAudioButton(
+                                  loading: _exampleLoading,
+                                  playing: _examplePlaying,
+                                  onTap: _exampleLoading ? null : () => _playAudio(
+                                    audioUrl: card.exampleAudioUrl,
+                                    fallbackText: card.exampleSentence!,
+                                    isExample: true,
+                                  ),
+                                  color: cs.primary,
+                                ),
+                                const SizedBox(width: 2),
+                                _InlineSlowButton(
+                                  onTap: _exampleLoading ? null : () => _playAudio(
+                                    audioUrl: card.exampleAudioUrl,
+                                    fallbackText: card.exampleSentence!,
+                                    isExample: true,
+                                    slow: true,
+                                  ),
+                                ),
+                              ],
                             ),
                             if (card.exampleReading != null && card.exampleReading!.isNotEmpty) ...[
                               const SizedBox(height: 10),
@@ -643,45 +655,66 @@ class _MetaChip extends StatelessWidget {
   }
 }
 
-class _AudioCircleButton extends StatelessWidget {
+class _InlineExampleAudioButton extends StatelessWidget {
   final bool loading;
   final bool playing;
-  final Widget icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Color color;
 
-  const _AudioCircleButton({
+  const _InlineExampleAudioButton({
     required this.loading,
     required this.playing,
-    required this.icon,
     required this.onTap,
     required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: loading ? null : onTap,
-      borderRadius: BorderRadius.circular(999),
+    return GestureDetector(
+      onTap: onTap,
       child: Container(
-        width: 34,
-        height: 34,
+        width: 30,
+        height: 30,
         decoration: BoxDecoration(
-          color: playing ? color.withValues(alpha: 0.2) : color.withValues(alpha: 0.15),
           shape: BoxShape.circle,
-          border: Border.all(color: color.withValues(alpha: 0.35)),
+          color: playing && !loading ? color.withValues(alpha: 0.15) : Colors.transparent,
         ),
-        child: Center(
-          child: loading
-              ? SizedBox(
-                  width: 14,
-                  height: 14,
+        child: loading
+            ? Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2, color: color),
-                )
-              : IconTheme(
-                  data: IconThemeData(color: color, size: 18),
-                  child: icon,
                 ),
+              )
+            : Icon(
+                playing ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+                size: 20,
+                color: color,
+              ),
+      ),
+    );
+  }
+}
+
+class _InlineSlowButton extends StatelessWidget {
+  final VoidCallback? onTap;
+
+  const _InlineSlowButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.orange.withValues(alpha: 0.1),
+        ),
+        child: const Center(
+          child: Text('🐌', style: TextStyle(fontSize: 14, height: 1.0)),
         ),
       ),
     );

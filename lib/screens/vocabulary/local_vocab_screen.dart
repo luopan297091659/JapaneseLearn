@@ -1,5 +1,10 @@
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/local_db.dart';
 import '../../services/api_service.dart';
@@ -43,10 +48,12 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   static const _pageSize = 200;
 
   List<({String deckName, int total, int pending})> _decks = [];
+  Map<String, LocalDeckMeta> _deckMetas = const {};
   bool _loading = true;
 
   // 当前展开的牌组
   String? _selectedDeck;
+  String? _deckFilterRoot;
   List<LocalVocabModel> _cards = [];
   bool _loadingCards = false;
   int _cardTotal = 0;
@@ -108,6 +115,7 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   Future<void> _loadDecks() async {
     setState(() => _loading = true);
     final decks   = await localDb.listDecks();
+    final deckMetas = await localDb.deckMetas();
     if (!mounted) return;
     String? toOpenDeck;
     final initialDeck = widget.initialDeckRoot;
@@ -126,6 +134,7 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     }
     setState(() {
       _decks        = decks;
+      _deckMetas    = deckMetas;
       _loading      = false;
     });
     if (toOpenDeck != null) {
@@ -136,11 +145,45 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   Future<void> _openDeck(String deckName) async {
     setState(() {
       _selectedDeck = deckName;
+      _deckFilterRoot = deckName;
       _cardPage     = 1;
       _cards        = [];
       _loadingCards = true;
     });
     await _fetchCards(reset: true);
+  }
+
+  Future<void> _selectDeckFilter(String deckName) async {
+    if (_selectedDeck == deckName) return;
+    setState(() {
+      _selectedDeck = deckName;
+      _cardPage = 1;
+      _cards = [];
+    });
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
+    await _fetchCards(reset: true);
+  }
+
+  List<_DeckFilterOption> _deckFilterOptions() {
+    final root = _deckFilterRoot ?? _selectedDeck;
+    if (root == null) return const [];
+    final options = <_DeckFilterOption>[
+      _DeckFilterOption(path: root, label: '全部'),
+    ];
+    final prefix = '$root::';
+    final childDecks = _decks
+        .map((deck) => deck.deckName)
+        .where((name) => name.startsWith(prefix))
+        .toSet()
+        .toList()
+      ..sort();
+    for (final deckName in childDecks) {
+      final label = deckName.substring(prefix.length).replaceAll('::', ' > ');
+      options.add(_DeckFilterOption(path: deckName, label: label));
+    }
+    return options;
   }
 
   Future<void> _fetchCards({bool reset = false}) async {
@@ -214,6 +257,251 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     }
   }
 
+  Future<String?> _copyCoverToLocal(String sourcePath) async {
+    final docsDir = await getApplicationDocumentsDirectory();
+    final coverDir = Directory(p.join(docsDir.path, 'vocab_covers'));
+    await coverDir.create(recursive: true);
+    final ext = p.extension(sourcePath).isEmpty ? '.jpg' : p.extension(sourcePath);
+    final dest = p.join(coverDir.path, 'cover_${DateTime.now().millisecondsSinceEpoch}$ext');
+    return File(sourcePath).copy(dest).then((file) => file.path);
+  }
+
+  Future<void> _showDeckActions(_DeckTreeNode node) async {
+    final meta = _deckMetas[node.fullPath];
+    final isShared = meta?.isShared == true && (meta?.sharedDeckId?.isNotEmpty ?? false);
+    final importedFromShared = meta?.sourceType == 'shared';
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_rounded),
+              title: const Text('编辑词库信息'),
+              subtitle: const Text('名称、封面、介绍'),
+              onTap: () => Navigator.pop(ctx, 'edit'),
+            ),
+            if (!importedFromShared)
+              ListTile(
+                leading: Icon(isShared ? Icons.undo_rounded : Icons.ios_share_rounded),
+                title: Text(isShared ? '撤回分享' : '共享词库'),
+                subtitle: Text(isShared ? '下架后其他用户将无法继续导入' : '发布给其他用户导入使用'),
+                onTap: () => Navigator.pop(ctx, isShared ? 'unshare' : 'share'),
+              ),
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded, color: Colors.red.shade400),
+              title: Text('删除词库', style: TextStyle(color: Colors.red.shade400)),
+              onTap: () => Navigator.pop(ctx, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == 'edit') {
+      await _editDeckMeta(node);
+    } else if (action == 'share') {
+      await _publishDeck(node);
+    } else if (action == 'unshare') {
+      await _unshareDeck(node);
+    } else if (action == 'delete') {
+      await _deleteDeck(node.fullPath);
+    }
+  }
+
+  Future<String?> _coverAsBase64(String? path) async {
+    if (path == null || path.isEmpty) return null;
+    final file = File(path);
+    if (!await file.exists()) return null;
+    final ext = p.extension(path).toLowerCase();
+    final mime = ext == '.png'
+        ? 'image/png'
+        : ext == '.webp'
+            ? 'image/webp'
+            : 'image/jpeg';
+    final bytes = await file.readAsBytes();
+    return 'data:$mime;base64,${base64Encode(bytes)}';
+  }
+
+  Future<void> _publishDeck(_DeckTreeNode node) async {
+    final meta = _deckMetas[node.fullPath];
+    if (meta?.sourceType == 'shared') {
+      _showSnack('从共享词库导入的词库不可再次共享');
+      return;
+    }
+    if (meta?.isShared == true && (meta?.sharedDeckId?.isNotEmpty ?? false)) {
+      _showSnack('该词库已分享，可在长按菜单中撤回分享');
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('发布共享词库'),
+        content: Text('将「${meta?.displayName ?? node.displayName}」发布到共享词库，其他用户可浏览并导入。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('发布')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final cards = await localDb.listByDeck(
+        deckName: node.fullPath,
+        prefixMatch: true,
+        page: 1,
+        limit: 10000,
+      );
+      if (cards.isEmpty) {
+        _showSnack('该词库暂无可发布卡片');
+        return;
+      }
+      final coverBase64 = await _coverAsBase64(meta?.coverImagePath);
+      final result = await apiService.createSharedVocabDeck(
+        title: meta?.displayName ?? node.displayName,
+        description: meta?.description,
+        coverBase64: coverBase64,
+        sourceType: meta?.sourceType ?? 'manual',
+        jlptLevel: cards.first.jlptLevel,
+        cards: cards.map((card) => {
+          'word': card.word,
+          'reading': card.reading,
+          'meaning_zh': card.meaningZh,
+          if (card.meaningEn != null) 'meaning_en': card.meaningEn,
+          if (card.exampleSentence != null) 'example_sentence': card.exampleSentence,
+          if (card.exampleReading != null) 'example_reading': card.exampleReading,
+          if (card.exampleMeaningZh != null) 'example_meaning_zh': card.exampleMeaningZh,
+          if (card.audioUrl != null) 'audio_url': card.audioUrl,
+          'part_of_speech': card.partOfSpeech,
+          'jlpt_level': card.jlptLevel,
+        }).toList(),
+      );
+      final deck = result['deck'] is Map ? Map<String, dynamic>.from(result['deck'] as Map) : const <String, dynamic>{};
+      await localDb.setDeckShared(
+        deckName: node.fullPath,
+        isShared: true,
+        sharedDeckId: deck['id']?.toString(),
+      );
+      await _loadDecks();
+      if (mounted) _showSnack('已发布到共享词库');
+    } catch (e) {
+      if (mounted) _showSnack('发布失败：$e');
+    }
+  }
+
+  Future<void> _unshareDeck(_DeckTreeNode node) async {
+    final meta = _deckMetas[node.fullPath];
+    final sharedDeckId = meta?.sharedDeckId;
+    if (sharedDeckId == null || sharedDeckId.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('撤回分享'),
+        content: Text('确定撤回「${meta?.displayName ?? node.displayName}」的共享？撤回后不会删除本地词库。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('撤回')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await apiService.deleteSharedVocabDeck(sharedDeckId);
+      await localDb.setDeckShared(deckName: node.fullPath, isShared: false);
+      await _loadDecks();
+      if (mounted) _showSnack('已撤回分享');
+    } catch (e) {
+      if (mounted) _showSnack('撤回失败：$e');
+    }
+  }
+
+  Future<void> _editDeckMeta(_DeckTreeNode node) async {
+    final existing = _deckMetas[node.fullPath];
+    final nameCtrl = TextEditingController(text: existing?.displayName ?? node.displayName);
+    final descCtrl = TextEditingController(text: existing?.description ?? '');
+    String? coverPath = existing?.coverImagePath;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) => AlertDialog(
+          title: const Text('编辑词库信息'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () async {
+                    final result = await FilePicker.platform.pickFiles(
+                      type: FileType.image,
+                      allowMultiple: false,
+                    );
+                    final path = result?.files.first.path;
+                    if (path == null) return;
+                    final copied = await _copyCoverToLocal(path);
+                    if (copied != null) setDialog(() => coverPath = copied);
+                  },
+                  child: Container(
+                    width: 92,
+                    height: 124,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: coverPath == null || !File(coverPath!).existsSync()
+                        ? const Icon(Icons.add_photo_alternate_rounded, size: 34)
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.file(File(coverPath!), fit: BoxFit.cover),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '显示名称',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descCtrl,
+                  minLines: 2,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: '介绍',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('保存')),
+          ],
+        ),
+      ),
+    );
+    if (saved == true) {
+      await localDb.upsertDeckMeta(
+        deckName: node.fullPath,
+        displayName: nameCtrl.text,
+        coverImagePath: coverPath,
+        description: descCtrl.text,
+        sourceType: existing?.sourceType ?? 'manual',
+      );
+      await _loadDecks();
+    }
+  }
+
   Future<void> _openCardDetail(LocalVocabModel card) async {
     if (!mounted) return;
 
@@ -232,6 +520,60 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     }
   }
 
+  void _openImportOptions() {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('导入我的词库',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 6),
+              Text('支持 Anki、CSV、TXT/TSV，也可以从浏览器复制表格内容后粘贴导入。',
+                  style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.outline)),
+              const SizedBox(height: 14),
+              ListTile(
+                leading: const Icon(Icons.public_rounded),
+                title: const Text('从共享词库导入'),
+                subtitle: const Text('浏览其他用户发布的个人词库'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/shared-vocab');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.folder_open_rounded),
+                title: const Text('选择文件导入'),
+                subtitle: const Text('.apkg / .csv / .txt / .tsv'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/anki-import');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.content_paste_rounded),
+                title: const Text('文字导入'),
+                subtitle: const Text('粘贴从网页、表格、笔记中复制的词库内容'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/anki-import?mode=paste');
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ─── UI ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -247,7 +589,7 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
           tooltip: '返回',
           onPressed: () {
             if (_selectedDeck != null) {
-              setState(() { _selectedDeck = null; _cards = []; });
+              setState(() { _selectedDeck = null; _deckFilterRoot = null; _cards = []; });
             } else {
               context.canPop() ? context.pop() : context.go('/vocabulary');
             }
@@ -270,7 +612,7 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
               color: cs.surface,
               child: Text(
-                '学习计划模式：Anki ${_selectedDeck ?? ''}',
+                '学习计划模式：我的词库 ${_selectedDeck ?? ''}',
                 style: TextStyle(fontSize: 12, color: cs.outline),
               ),
             )
@@ -281,22 +623,42 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   // ── 空状态 ────────────────────────────────────────────────────────────────
   Widget _buildEmpty(ColorScheme cs, S s) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.inbox_rounded, size: 72, color: cs.outline),
-          const SizedBox(height: 16),
-          Text(s.ankiImport, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text(s.ankiImportHint, textAlign: TextAlign.center,
-              style: TextStyle(color: cs.outline, height: 1.5)),
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            icon: const Icon(Icons.upload_file_rounded),
-            onPressed: () => context.push('/anki-import'),
-            label: Text(s.ankiImport),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 86,
+              height: 110,
+              decoration: BoxDecoration(
+                color: cs.primaryContainer,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: cs.shadow.withValues(alpha: 0.08),
+                    blurRadius: 14,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Icon(Icons.menu_book_rounded, size: 42, color: cs.primary),
+            ),
+            const SizedBox(height: 18),
+            const Text('创建我的词库',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('导入 CSV、TXT、Anki 文件，或从浏览器复制表格内容粘贴导入。',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: cs.outline, height: 1.5)),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              icon: const Icon(Icons.add_rounded),
+              onPressed: _openImportOptions,
+              label: const Text('导入词库'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -378,33 +740,154 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // 汇总表头
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(10),
+          Row(children: [
+            const Expanded(
+              child: Text('我的书架',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
             ),
-            child: Row(children: [
-              Expanded(child: Text('牌组', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.onSurface))),
-              SizedBox(width: 64, child: Text('卡片数', textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: cs.primary))),
-            ]),
-          ),
+            IconButton.filledTonal(
+              tooltip: '导入词库',
+              icon: const Icon(Icons.add_rounded),
+              onPressed: _openImportOptions,
+            ),
+          ]),
           const SizedBox(height: 4),
-
-          // 树形牌组列表
-          ...roots.expand((root) => _buildTreeItems(cs, root)),
-
-          // 底部导入按钮
+          Text('共 ${roots.length} 个词库，${_decks.fold<int>(0, (sum, d) => sum + d.total)} 张卡片',
+              style: TextStyle(fontSize: 13, color: cs.outline)),
           const SizedBox(height: 16),
-          OutlinedButton.icon(
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('导入新词库'),
-            onPressed: () => context.push('/anki-import'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: roots.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 20,
+              crossAxisSpacing: 14,
+              childAspectRatio: 0.54,
+            ),
+            itemBuilder: (_, index) => _buildShelfDeck(cs, roots[index], index),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShelfDeck(ColorScheme cs, _DeckTreeNode node, int index) {
+    final meta = _deckMetas[node.fullPath];
+    final coverPath = meta?.coverImagePath;
+    final coverFile = coverPath == null ? null : File(coverPath);
+    final hasCover = coverFile != null && coverFile.existsSync();
+    final sourceLabel = switch (meta?.sourceType) {
+      'apkg' => 'Anki 导入',
+      'csv' => 'CSV 导入',
+      'txt' => 'TXT 导入',
+      'tsv' => 'TSV 导入',
+      'paste' => '文字导入',
+      'legacy' => '历史词库',
+      _ => '个人词库',
+    };
+    final colors = [
+      const Color(0xFF9F4F53),
+      const Color(0xFF2F6F73),
+      const Color(0xFF7357A6),
+      const Color(0xFFD17A22),
+      const Color(0xFF4F6F9F),
+      const Color(0xFF6B7F3A),
+    ];
+    final cover = colors[index % colors.length];
+    final hasChildren = node.children.isNotEmpty;
+    final title = meta?.displayName.trim().isNotEmpty == true
+      ? meta!.displayName.trim()
+      : node.displayName;
+    final subtitle = meta?.description?.trim().isNotEmpty == true
+      ? meta!.description!.trim()
+      : (hasChildren ? '${node.children.length} 个子词库' : sourceLabel);
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => _openDeck(node.fullPath),
+      onLongPress: () => _showDeckActions(node),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 0.78,
+            child: SizedBox.expand(
+              child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: hasCover ? cs.surfaceContainerHighest : cover,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: cs.shadow.withValues(alpha: 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: hasCover
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(coverFile, fit: BoxFit.cover),
+                    )
+                  : Stack(
+                      children: [
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Icon(
+                            hasChildren ? Icons.auto_stories_rounded : Icons.menu_book_rounded,
+                            color: Colors.white.withValues(alpha: 0.55),
+                            size: 24,
+                          ),
+                        ),
+                        Positioned(
+                          left: 10,
+                          right: 10,
+                          bottom: 12,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${node.subtreeTotal}',
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w900)),
+                              Text('张卡片',
+                                  style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.82),
+                                      fontSize: 11)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 34,
+            child: Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.2,
+                fontWeight: FontWeight.w700,
+                color: cs.onSurface,
+              ),
+            ),
+          ),
+          const SizedBox(height: 3),
+          SizedBox(
+            height: 16,
+            child: Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 11, color: cs.outline),
             ),
           ),
         ],
@@ -517,8 +1000,11 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   // ── 卡片列表 ──────────────────────────────────────────────────────────────
   Widget _buildCardList(ColorScheme cs, S s) {
     // 显示当前牌组路径（用 :: 分隔的最后一段）
+    final rootParts = (_deckFilterRoot ?? _selectedDeck)?.split('::') ?? [];
     final deckParts = _selectedDeck?.split('::') ?? [];
     final deckTitle = deckParts.isNotEmpty ? deckParts.last : s.localVocab;
+    final rootTitle = rootParts.isNotEmpty ? rootParts.last : deckTitle;
+    final filterOptions = _deckFilterOptions();
     final newCount = _stageCounts[0] ?? 0;
     final reviewCount = _stageCounts[1] ?? 0;
     final masteredCount = _stageCounts[2] ?? 0;
@@ -530,18 +1016,20 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Row(children: [
             Expanded(
-              child: Text(
-                deckParts.length > 1
-                    ? deckParts.join(' > ')
-                    : deckTitle,
-                style: TextStyle(
-                  color: cs.onSurface,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: filterOptions.length > 1
+                  ? _buildDeckFilterDropdown(cs, rootTitle, filterOptions)
+                  : Text(
+                      deckParts.length > 1
+                          ? deckParts.join(' > ')
+                          : deckTitle,
+                      style: TextStyle(
+                        color: cs.onSurface,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
             ),
             Text('$_cardTotal ${s.cards}',
                 style: TextStyle(color: cs.outline, fontSize: 13)),
@@ -602,6 +1090,73 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildDeckFilterDropdown(
+    ColorScheme cs,
+    String rootTitle,
+    List<_DeckFilterOption> options,
+  ) {
+    final current = options.any((option) => option.path == _selectedDeck)
+        ? options.firstWhere((option) => option.path == _selectedDeck)
+        : options.first;
+    final label = current.path == _deckFilterRoot ? '$rootTitle · 全部' : current.label;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => _openDeckFilterSheet(rootTitle, options),
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.7)),
+        ),
+        child: Row(children: [
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface),
+            ),
+          ),
+          Icon(Icons.expand_more_rounded, size: 20, color: cs.outline),
+        ]),
+      ),
+    );
+  }
+
+  Future<void> _openDeckFilterSheet(String rootTitle, List<_DeckFilterOption> options) async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 420),
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: options.length,
+            itemBuilder: (_, index) {
+              final option = options[index];
+              final active = option.path == _selectedDeck;
+              return RadioListTile<String>(
+                value: option.path,
+                groupValue: _selectedDeck,
+                title: Text(option.path == _deckFilterRoot ? '$rootTitle · 全部' : option.label),
+                dense: true,
+                selected: active,
+                onChanged: (value) => Navigator.pop(ctx, value),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    if (selected != null) await _selectDeckFilter(selected);
   }
 
   Widget _buildStageTabs(ColorScheme cs, int newCount, int reviewCount, int masteredCount) {
@@ -784,6 +1339,13 @@ class _DeckTreeNode {
     required this.displayName,
     required this.depth,
   });
+}
+
+class _DeckFilterOption {
+  final String path;
+  final String label;
+
+  const _DeckFilterOption({required this.path, required this.label});
 }
 
 // ─── 本地词库闪卡复习面板 ─────────────────────────────────────────────────────
