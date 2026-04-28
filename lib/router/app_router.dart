@@ -311,6 +311,7 @@ class _MainShellState extends State<MainShell> {
     if (location.startsWith('/vocabulary') ||
         location.startsWith('/grammar') ||
         location.startsWith('/listening') ||
+        location.startsWith('/local-vocab') ||
         location.startsWith('/srs-review') ||
         location.startsWith('/gojuon') ||
         location.startsWith('/flashcard') ||
@@ -328,7 +329,6 @@ class _MainShellState extends State<MainShell> {
     }
     if (location.startsWith('/dictionary') ||
         location.startsWith('/anki') ||
-        location.startsWith('/local-vocab') ||
         location.startsWith('/todofuken') ||
         location.startsWith('/translate') ||
         location.startsWith('/study-plan') ||
