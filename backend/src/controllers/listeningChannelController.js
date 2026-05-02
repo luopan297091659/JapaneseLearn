@@ -96,6 +96,52 @@ function fetchBilibiliVideos(mid, maxVideos = 12) {
   });
 }
 
+// ── Bilibili 获取单个视频 ──────────────────────────────────────────────────
+function fetchBilibiliSingleVideo(videoId) {
+  return new Promise((resolve, reject) => {
+    const isBvid = /^BV[0-9A-Za-z]+$/i.test(videoId);
+    const query = isBvid ? `bvid=${encodeURIComponent(videoId)}` : `aid=${encodeURIComponent(String(videoId).replace(/^av/i, ''))}`;
+    const url = `https://api.bilibili.com/x/web-interface/view?${query}`;
+    https.get(url, {
+      timeout: 15000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.bilibili.com/',
+      },
+    }, resp => {
+      let data = '';
+      resp.on('data', c => data += c);
+      resp.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json.code !== 0 || !json.data) {
+            logger.warn(`Bilibili video API code=${json.code}: ${json.message}`);
+            resolve({ videos: [], channelName: '' });
+            return;
+          }
+          const v = json.data;
+          const bvid = v.bvid || videoId;
+          resolve({
+            videos: [{
+              videoId: bvid,
+              title: v.title || bvid,
+              thumbnail: (v.pic?.startsWith('//') ? 'https:' + v.pic : v.pic?.replace('http://', 'https://')) || '',
+              publishedAt: v.pubdate ? new Date(v.pubdate * 1000).toISOString() : '',
+              platform: 'bilibili',
+              embedUrl: `https://player.bilibili.com/player.html?isOutside=true&bvid=${bvid}&autoplay=0&danmaku=0`,
+              duration: v.duration || 0,
+            }],
+            channelName: v.owner?.name || '',
+            avatar: v.owner?.face || '',
+          });
+        } catch (e) {
+          reject(new Error('Bilibili 视频解析失败: ' + e.message));
+        }
+      });
+    }).on('error', reject);
+  });
+}
+
 // ── Bilibili 获取用户信息 ──────────────────────────────────────────────────
 function fetchBilibiliUserInfo(mid) {
   return new Promise((resolve) => {
@@ -162,25 +208,32 @@ function resolveYouTubeHandle(handle) {
 // ── URL 解析：提取 channelId / mid ──────────────────────────────────────────
 function parseChannelUrl(url) {
   let m;
+  const normalizedUrl = String(url || '').trim();
   // YouTube: /channel/UCxxx
-  m = url.match(/youtube\.com\/channel\/(UC[\w-]+)/);
+  m = normalizedUrl.match(/youtube\.com\/channel\/(UC[\w-]+)/);
   if (m) return { platform: 'youtube', channelId: m[1] };
 
   // YouTube: /@handle  or /@handle/videos etc.
-  m = url.match(/youtube\.com\/@([\w.-]+)/);
+  m = normalizedUrl.match(/youtube\.com\/@([\w.-]+)/);
   if (m) return { platform: 'youtube', handle: m[1] };
 
   // YouTube: /c/name
-  m = url.match(/youtube\.com\/c\/([\w.-]+)/);
+  m = normalizedUrl.match(/youtube\.com\/c\/([\w.-]+)/);
   if (m) return { platform: 'youtube', handle: m[1] };
 
   // Bilibili: space.bilibili.com/12345
-  m = url.match(/space\.bilibili\.com\/(\d+)/);
+  m = normalizedUrl.match(/space\.bilibili\.com\/(\d+)/);
   if (m) return { platform: 'bilibili', channelId: m[1] };
 
   // Bilibili: bilibili.com?mid=12345
-  m = url.match(/bilibili\.com.*mid[=:](\d+)/);
+  m = normalizedUrl.match(/bilibili\.com.*mid[=:](\d+)/);
   if (m) return { platform: 'bilibili', channelId: m[1] };
+
+  // Bilibili: bilibili.com/video/BVxxx or /video/av12345, with optional trailing slash/query
+  m = normalizedUrl.match(/bilibili\.com\/video\/(BV[0-9A-Za-z]+)/i);
+  if (m) return { platform: 'bilibili', channelId: m[1], type: 'video' };
+  m = normalizedUrl.match(/bilibili\.com\/video\/(av\d+)/i);
+  if (m) return { platform: 'bilibili', channelId: m[1], type: 'video' };
 
   return null;
 }
@@ -210,10 +263,16 @@ async function refreshChannelCache(channel) {
       result = await fetchYouTubeVideos(channel.channel_id);
     } else {
       if (!channel.channel_id) return;
-      result = await fetchBilibiliVideos(channel.channel_id, channel.max_videos || 12);
+      if (/^(BV[0-9A-Za-z]+|av\d+)$/i.test(channel.channel_id)) {
+        result = await fetchBilibiliSingleVideo(channel.channel_id);
+      } else {
+        result = await fetchBilibiliVideos(channel.channel_id, channel.max_videos || 12);
+      }
       // 同时尝试获取用户名和头像
       if (!channel.name || channel.name === '未命名频道') {
-        const info = await fetchBilibiliUserInfo(channel.channel_id);
+        const info = result?.avatar
+          ? { name: result.channelName, avatar: result.avatar }
+          : await fetchBilibiliUserInfo(channel.channel_id);
         if (info) {
           await channel.update({ name: info.name, avatar: info.avatar });
         }
@@ -388,7 +447,7 @@ async function adminCreateChannel(req, res) {
   if (!channel_url) return res.status(400).json({ error: '请输入频道链接' });
 
   const parsed = parseChannelUrl(channel_url);
-  if (!parsed) return res.status(400).json({ error: '无法识别的频道链接，请输入 YouTube 或 Bilibili 频道 URL' });
+  if (!parsed) return res.status(400).json({ error: '无法识别的链接，请输入 YouTube 频道、Bilibili 空间或 Bilibili 视频 URL' });
 
   // YouTube @handle 尝试解析为 UC channel ID
   let channelId = parsed.channelId || (parsed.handle ? `@${parsed.handle}` : null);
@@ -466,7 +525,7 @@ async function createUserChannel(req, res) {
 
   const parsed = parseChannelUrl(channel_url);
   if (!parsed) {
-    return res.status(400).json({ error: '无法识别的频道链接，请输入 YouTube 或 Bilibili 频道 URL' });
+    return res.status(400).json({ error: '无法识别的链接，请输入 YouTube 频道、Bilibili 空间或 Bilibili 视频 URL' });
   }
 
   let channelId = parsed.channelId || (parsed.handle ? `@${parsed.handle}` : null);

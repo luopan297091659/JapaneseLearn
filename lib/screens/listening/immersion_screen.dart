@@ -259,14 +259,14 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
                   const Text('自定义频道', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 4),
                   Text(
-                    '仅当前账号生效，可添加 YouTube 或 Bilibili 频道链接',
+                    '仅当前账号生效，可添加 YouTube 频道、Bilibili 空间或视频链接',
                     style: TextStyle(fontSize: 12, color: Theme.of(ctx).colorScheme.outline),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: linkCtrl,
                     decoration: const InputDecoration(
-                      hintText: '粘贴频道链接，例如 youtube.com/channel/... 或 space.bilibili.com/...',
+                      hintText: '粘贴链接，例如 youtube.com/channel/...、space.bilibili.com/... 或 bilibili.com/video/BV...',
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -288,7 +288,7 @@ class _ImmersionScreenState extends State<ImmersionScreen> {
                                 if (!mounted) return;
                                 linkCtrl.clear();
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('频道已添加并开始同步')),
+                                  const SnackBar(content: Text('已添加并开始同步')),
                                 );
                                 setSheet(() => submitting = false);
                               } catch (e) {

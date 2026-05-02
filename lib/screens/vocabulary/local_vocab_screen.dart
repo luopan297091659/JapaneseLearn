@@ -58,15 +58,13 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   bool _loadingCards = false;
   int _cardTotal = 0;
   int _stageTotal = 0;
-  int _cardPage  = 1;
+  int _cardPage = 1;
   int _selectedStage = 0; // 0: 新词, 1: 复习, 2: 掌握
   Map<int, int> _stageCounts = const {0: 0, 1: 0, 2: 0};
 
   // 搜索
   final _searchCtrl = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-
-
 
   // 牌组树展开状态
   final Set<String> _expandedNodes = {};
@@ -101,7 +99,8 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   void _handleScroll() {
     if (!_scrollController.hasClients || _loadingCards) return;
     final position = _scrollController.position;
-    if (position.pixels >= position.maxScrollExtent - 200 && _cards.length < _stageTotal) {
+    if (position.pixels >= position.maxScrollExtent - 200 &&
+        _cards.length < _stageTotal) {
       _cardPage++;
       _fetchCards();
     }
@@ -114,7 +113,7 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
 
   Future<void> _loadDecks() async {
     setState(() => _loading = true);
-    final decks   = await localDb.listDecks();
+    final decks = await localDb.listDecks();
     final deckMetas = await localDb.deckMetas();
     if (!mounted) return;
     String? toOpenDeck;
@@ -124,7 +123,9 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
         toOpenDeck = decks.isNotEmpty ? decks.first.deckName : null;
       } else {
         final exact = decks.where((d) => d.deckName == initialDeck).toList();
-        final prefix = decks.where((d) => d.deckName.startsWith('$initialDeck::')).toList();
+        final prefix = decks
+            .where((d) => d.deckName.startsWith('$initialDeck::'))
+            .toList();
         if (exact.isNotEmpty) {
           toOpenDeck = exact.first.deckName;
         } else if (prefix.isNotEmpty) {
@@ -133,9 +134,9 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
       }
     }
     setState(() {
-      _decks        = decks;
-      _deckMetas    = deckMetas;
-      _loading      = false;
+      _decks = decks;
+      _deckMetas = deckMetas;
+      _loading = false;
     });
     if (toOpenDeck != null) {
       await _openDeck(toOpenDeck);
@@ -146,8 +147,8 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     setState(() {
       _selectedDeck = deckName;
       _deckFilterRoot = deckName;
-      _cardPage     = 1;
-      _cards        = [];
+      _cardPage = 1;
+      _cards = [];
       _loadingCards = true;
     });
     await _fetchCards(reset: true);
@@ -210,17 +211,18 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
       prefixMatch: true,
       query: query,
     );
-    final results = await Future.wait<dynamic>([cardsFuture, stageCountsFuture]);
+    final results =
+        await Future.wait<dynamic>([cardsFuture, stageCountsFuture]);
     final cards = results[0] as List<LocalVocabModel>;
     final stageCounts = results[1] as Map<int, int>;
     final total = stageCounts.values.fold<int>(0, (sum, count) => sum + count);
     final stageTotal = stageCounts[_selectedStage] ?? 0;
     if (!mounted) return;
     setState(() {
-      _cards        = reset ? cards : [..._cards, ...cards];
-      _cardTotal    = total;
-      _stageTotal   = stageTotal;
-      _stageCounts  = stageCounts;
+      _cards = reset ? cards : [..._cards, ...cards];
+      _cardTotal = total;
+      _stageTotal = stageTotal;
+      _stageCounts = stageCounts;
       _loadingCards = false;
     });
   }
@@ -241,7 +243,9 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
         title: const Text('删除词库'),
         content: Text('确定要删除「$deckName」及其所有卡片？\n此操作不可撤销。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
@@ -261,14 +265,17 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     final docsDir = await getApplicationDocumentsDirectory();
     final coverDir = Directory(p.join(docsDir.path, 'vocab_covers'));
     await coverDir.create(recursive: true);
-    final ext = p.extension(sourcePath).isEmpty ? '.jpg' : p.extension(sourcePath);
-    final dest = p.join(coverDir.path, 'cover_${DateTime.now().millisecondsSinceEpoch}$ext');
+    final ext =
+        p.extension(sourcePath).isEmpty ? '.jpg' : p.extension(sourcePath);
+    final dest = p.join(
+        coverDir.path, 'cover_${DateTime.now().millisecondsSinceEpoch}$ext');
     return File(sourcePath).copy(dest).then((file) => file.path);
   }
 
   Future<void> _showDeckActions(_DeckTreeNode node) async {
     final meta = _deckMetas[node.fullPath];
-    final isShared = meta?.isShared == true && (meta?.sharedDeckId?.isNotEmpty ?? false);
+    final isShared =
+        meta?.isShared == true && (meta?.sharedDeckId?.isNotEmpty ?? false);
     final importedFromShared = meta?.sourceType == 'shared';
     final action = await showModalBottomSheet<String>(
       context: context,
@@ -288,13 +295,15 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
             ),
             if (!importedFromShared)
               ListTile(
-                leading: Icon(isShared ? Icons.undo_rounded : Icons.ios_share_rounded),
+                leading: Icon(
+                    isShared ? Icons.undo_rounded : Icons.ios_share_rounded),
                 title: Text(isShared ? '撤回分享' : '共享词库'),
                 subtitle: Text(isShared ? '下架后其他用户将无法继续导入' : '发布给其他用户导入使用'),
                 onTap: () => Navigator.pop(ctx, isShared ? 'unshare' : 'share'),
               ),
             ListTile(
-              leading: Icon(Icons.delete_outline_rounded, color: Colors.red.shade400),
+              leading: Icon(Icons.delete_outline_rounded,
+                  color: Colors.red.shade400),
               title: Text('删除词库', style: TextStyle(color: Colors.red.shade400)),
               onTap: () => Navigator.pop(ctx, 'delete'),
             ),
@@ -341,10 +350,15 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('发布共享词库'),
-        content: Text('将「${meta?.displayName ?? node.displayName}」发布到共享词库，其他用户可浏览并导入。'),
+        content: Text(
+            '将「${meta?.displayName ?? node.displayName}」发布到共享词库，其他用户可浏览并导入。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('发布')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('发布')),
         ],
       ),
     );
@@ -368,21 +382,29 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
         coverBase64: coverBase64,
         sourceType: meta?.sourceType ?? 'manual',
         jlptLevel: cards.first.jlptLevel,
-        cards: cards.map((card) => {
-          'word': card.word,
-          if (card.deckName != null && card.deckName!.isNotEmpty) 'deck_name': card.deckName,
-          'reading': card.reading,
-          'meaning_zh': card.meaningZh,
-          if (card.meaningEn != null) 'meaning_en': card.meaningEn,
-          if (card.exampleSentence != null) 'example_sentence': card.exampleSentence,
-          if (card.exampleReading != null) 'example_reading': card.exampleReading,
-          if (card.exampleMeaningZh != null) 'example_meaning_zh': card.exampleMeaningZh,
-          if (card.audioUrl != null) 'audio_url': card.audioUrl,
-          'part_of_speech': card.partOfSpeech,
-          'jlpt_level': card.jlptLevel,
-        }).toList(),
+        cards: cards
+            .map((card) => {
+                  'word': card.word,
+                  if (card.deckName != null && card.deckName!.isNotEmpty)
+                    'deck_name': card.deckName,
+                  'reading': card.reading,
+                  'meaning_zh': card.meaningZh,
+                  if (card.meaningEn != null) 'meaning_en': card.meaningEn,
+                  if (card.exampleSentence != null)
+                    'example_sentence': card.exampleSentence,
+                  if (card.exampleReading != null)
+                    'example_reading': card.exampleReading,
+                  if (card.exampleMeaningZh != null)
+                    'example_meaning_zh': card.exampleMeaningZh,
+                  if (card.audioUrl != null) 'audio_url': card.audioUrl,
+                  'part_of_speech': card.partOfSpeech,
+                  'jlpt_level': card.jlptLevel,
+                })
+            .toList(),
       );
-      final deck = result['deck'] is Map ? Map<String, dynamic>.from(result['deck'] as Map) : const <String, dynamic>{};
+      final deck = result['deck'] is Map
+          ? Map<String, dynamic>.from(result['deck'] as Map)
+          : const <String, dynamic>{};
       await localDb.setDeckShared(
         deckName: node.fullPath,
         isShared: true,
@@ -403,10 +425,15 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('撤回分享'),
-        content: Text('确定撤回「${meta?.displayName ?? node.displayName}」的共享？撤回后不会删除本地词库。'),
+        content: Text(
+            '确定撤回「${meta?.displayName ?? node.displayName}」的共享？撤回后不会删除本地词库。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('撤回')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('撤回')),
         ],
       ),
     );
@@ -423,7 +450,8 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
 
   Future<void> _editDeckMeta(_DeckTreeNode node) async {
     final existing = _deckMetas[node.fullPath];
-    final nameCtrl = TextEditingController(text: existing?.displayName ?? node.displayName);
+    final nameCtrl =
+        TextEditingController(text: existing?.displayName ?? node.displayName);
     final descCtrl = TextEditingController(text: existing?.description ?? '');
     String? coverPath = existing?.coverImagePath;
 
@@ -452,14 +480,17 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
                     width: 92,
                     height: 124,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      color:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: coverPath == null || !File(coverPath!).existsSync()
-                        ? const Icon(Icons.add_photo_alternate_rounded, size: 34)
+                        ? const Icon(Icons.add_photo_alternate_rounded,
+                            size: 34)
                         : ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                            child: Image.file(File(coverPath!), fit: BoxFit.cover),
+                            child:
+                                Image.file(File(coverPath!), fit: BoxFit.cover),
                           ),
                   ),
                 ),
@@ -485,8 +516,12 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('保存')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('取消')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('保存')),
           ],
         ),
       ),
@@ -539,7 +574,9 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
               Text('支持 Anki、CSV、TXT/TSV，也可以从浏览器复制表格内容后粘贴导入。',
-                  style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.outline)),
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.outline)),
               const SizedBox(height: 14),
               ListTile(
                 leading: const Icon(Icons.public_rounded),
@@ -579,7 +616,7 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final s  = S.of(context);
+    final s = S.of(context);
     final inPlanMode = widget.planId != null && widget.planId!.isNotEmpty;
 
     return Scaffold(
@@ -590,7 +627,11 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
           tooltip: '返回',
           onPressed: () {
             if (_selectedDeck != null) {
-              setState(() { _selectedDeck = null; _deckFilterRoot = null; _cards = []; });
+              setState(() {
+                _selectedDeck = null;
+                _deckFilterRoot = null;
+                _cards = [];
+              });
             } else {
               context.canPop() ? context.pop() : context.go('/vocabulary');
             }
@@ -681,11 +722,13 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
       final parts = d.deckName.split('::');
       for (int i = 0; i < parts.length; i++) {
         final fullPath = parts.sublist(0, i + 1).join('::');
-        nodeMap.putIfAbsent(fullPath, () => _DeckTreeNode(
-          fullPath: fullPath,
-          displayName: parts[i],
-          depth: i,
-        ));
+        nodeMap.putIfAbsent(
+            fullPath,
+            () => _DeckTreeNode(
+                  fullPath: fullPath,
+                  displayName: parts[i],
+                  depth: i,
+                ));
       }
     }
 
@@ -720,9 +763,8 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     }
 
     // 收集根节点
-    final roots = nodeMap.values
-        .where((n) => !n.fullPath.contains('::'))
-        .toList();
+    final roots =
+        nodeMap.values.where((n) => !n.fullPath.contains('::')).toList();
     for (final root in roots) {
       computeTotals(root);
       sortChildren(root);
@@ -753,7 +795,8 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
             ),
           ]),
           const SizedBox(height: 4),
-          Text('共 ${roots.length} 个词库，${_decks.fold<int>(0, (sum, d) => sum + d.total)} 张卡片',
+          Text(
+              '共 ${roots.length} 个词库，${_decks.fold<int>(0, (sum, d) => sum + d.total)} 张卡片',
               style: TextStyle(fontSize: 13, color: cs.outline)),
           const SizedBox(height: 16),
           GridView.builder(
@@ -798,11 +841,11 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     final cover = colors[index % colors.length];
     final hasChildren = node.children.isNotEmpty;
     final title = meta?.displayName.trim().isNotEmpty == true
-      ? meta!.displayName.trim()
-      : node.displayName;
+        ? meta!.displayName.trim()
+        : node.displayName;
     final subtitle = meta?.description?.trim().isNotEmpty == true
-      ? meta!.description!.trim()
-      : (hasChildren ? '${node.children.length} 个子词库' : sourceLabel);
+        ? meta!.description!.trim()
+        : (hasChildren ? '${node.children.length} 个子词库' : sourceLabel);
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () => _openDeck(node.fullPath),
@@ -814,55 +857,58 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
             aspectRatio: 0.78,
             child: SizedBox.expand(
               child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: hasCover ? cs.surfaceContainerHighest : cover,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: cs.shadow.withValues(alpha: 0.12),
-                    blurRadius: 10,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: hasCover
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.file(coverFile, fit: BoxFit.cover),
-                    )
-                  : Stack(
-                      children: [
-                        Positioned(
-                          right: 8,
-                          top: 8,
-                          child: Icon(
-                            hasChildren ? Icons.auto_stories_rounded : Icons.menu_book_rounded,
-                            color: Colors.white.withValues(alpha: 0.55),
-                            size: 24,
-                          ),
-                        ),
-                        Positioned(
-                          left: 10,
-                          right: 10,
-                          bottom: 12,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('${node.subtreeTotal}',
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w900)),
-                              Text('张卡片',
-                                  style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.82),
-                                      fontSize: 11)),
-                            ],
-                          ),
-                        ),
-                      ],
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: hasCover ? cs.surfaceContainerHighest : cover,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: cs.shadow.withValues(alpha: 0.12),
+                      blurRadius: 10,
+                      offset: const Offset(0, 6),
                     ),
+                  ],
+                ),
+                child: hasCover
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(coverFile, fit: BoxFit.cover),
+                      )
+                    : Stack(
+                        children: [
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Icon(
+                              hasChildren
+                                  ? Icons.auto_stories_rounded
+                                  : Icons.menu_book_rounded,
+                              color: Colors.white.withValues(alpha: 0.55),
+                              size: 24,
+                            ),
+                          ),
+                          Positioned(
+                            left: 10,
+                            right: 10,
+                            bottom: 12,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${node.subtreeTotal}',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w900)),
+                                Text('张卡片',
+                                    style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.82),
+                                        fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ),
@@ -913,7 +959,9 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
           bottom: 10,
         ),
         decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.2))),
+          border: Border(
+              bottom:
+                  BorderSide(color: cs.outlineVariant.withValues(alpha: 0.2))),
         ),
         child: Row(children: [
           // 展开/折叠按钮或占位
@@ -929,7 +977,9 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
               child: Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: Icon(
-                  isExpanded ? Icons.expand_more_rounded : Icons.chevron_right_rounded,
+                  isExpanded
+                      ? Icons.expand_more_rounded
+                      : Icons.chevron_right_rounded,
                   size: 20,
                   color: cs.outline,
                 ),
@@ -1012,30 +1062,7 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
 
     return Column(
       children: [
-        // 顶部牌组路径 + 卡片数
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: Row(children: [
-            Expanded(
-              child: filterOptions.length > 1
-                  ? _buildDeckFilterDropdown(cs, rootTitle, filterOptions)
-                  : Text(
-                      deckParts.length > 1
-                          ? deckParts.join(' > ')
-                          : deckTitle,
-                      style: TextStyle(
-                        color: cs.onSurface,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-            ),
-            Text('$_cardTotal ${s.cards}',
-                style: TextStyle(color: cs.outline, fontSize: 13)),
-          ]),
-        ),
+        // 搜索
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: TextField(
@@ -1048,11 +1075,33 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
               suffixIcon: _searchCtrl.text.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () { _searchCtrl.clear(); _fetchCards(reset: true); })
+                      onPressed: () {
+                        _searchCtrl.clear();
+                        _fetchCards(reset: true);
+                      })
                   : null,
             ),
             onSubmitted: (_) => _fetchCards(reset: true),
           ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Row(children: [
+            Expanded(
+              child: filterOptions.length > 1
+                  ? _buildDeckFilterDropdown(cs, rootTitle, filterOptions)
+                  : Text(
+                      deckParts.length > 1 ? deckParts.join(' > ') : deckTitle,
+                      style: TextStyle(
+                        color: cs.onSurface,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+            ),
+          ]),
         ),
         const Divider(height: 16),
         Padding(
@@ -1071,7 +1120,6 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
                       _emptySection(cs, '当前分组暂无内容')
                     else
                       ..._cards.map((card) => _buildCardTile(cs, card)),
-
                     if (_loadingCards && _cards.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1101,7 +1149,8 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     final current = options.any((option) => option.path == _selectedDeck)
         ? options.firstWhere((option) => option.path == _selectedDeck)
         : options.first;
-    final label = current.path == _deckFilterRoot ? '$rootTitle · 全部' : current.label;
+    final label =
+        current.path == _deckFilterRoot ? '$rootTitle · 全部' : current.label;
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () => _openDeckFilterSheet(rootTitle, options),
@@ -1119,7 +1168,10 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface),
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurface),
             ),
           ),
           Icon(Icons.expand_more_rounded, size: 20, color: cs.outline),
@@ -1128,7 +1180,8 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     );
   }
 
-  Future<void> _openDeckFilterSheet(String rootTitle, List<_DeckFilterOption> options) async {
+  Future<void> _openDeckFilterSheet(
+      String rootTitle, List<_DeckFilterOption> options) async {
     final selected = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -1147,7 +1200,9 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
               return RadioListTile<String>(
                 value: option.path,
                 groupValue: _selectedDeck,
-                title: Text(option.path == _deckFilterRoot ? '$rootTitle · 全部' : option.label),
+                title: Text(option.path == _deckFilterRoot
+                    ? '$rootTitle · 全部'
+                    : option.label),
                 dense: true,
                 selected: active,
                 onChanged: (value) => Navigator.pop(ctx, value),
@@ -1160,7 +1215,8 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     if (selected != null) await _selectDeckFilter(selected);
   }
 
-  Widget _buildStageTabs(ColorScheme cs, int newCount, int reviewCount, int masteredCount) {
+  Widget _buildStageTabs(
+      ColorScheme cs, int newCount, int reviewCount, int masteredCount) {
     Widget item({
       required int stage,
       required String label,
@@ -1230,9 +1286,17 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
       children: [
         item(stage: 0, label: '新词', count: newCount, activeColor: cs.primary),
         const SizedBox(width: 8),
-        item(stage: 1, label: '复习', count: reviewCount, activeColor: Colors.orange),
+        item(
+            stage: 1,
+            label: '复习',
+            count: reviewCount,
+            activeColor: Colors.orange),
         const SizedBox(width: 8),
-        item(stage: 2, label: '掌握', count: masteredCount, activeColor: Colors.green),
+        item(
+            stage: 2,
+            label: '掌握',
+            count: masteredCount,
+            activeColor: Colors.green),
       ],
     );
   }
@@ -1256,23 +1320,31 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(card.jlptLevel,
-                style: TextStyle(color: cs.primary, fontWeight: FontWeight.bold, fontSize: 12)),
+                style: TextStyle(
+                    color: cs.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12)),
           ),
           title: Row(
             children: [
               Expanded(
                 child: Text(_displayWord(card),
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                    style: const TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.bold)),
               ),
               if (card.learningStage > 0)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: (card.learningStage == 2 ? Colors.green : Colors.orange)
-                        .withValues(alpha: 0.12),
+                    color:
+                        (card.learningStage == 2 ? Colors.green : Colors.orange)
+                            .withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
-                      color: (card.learningStage == 2 ? Colors.green : Colors.orange)
+                      color: (card.learningStage == 2
+                              ? Colors.green
+                              : Colors.orange)
                           .withValues(alpha: 0.35),
                     ),
                   ),
@@ -1280,13 +1352,16 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
                     card.learningStage == 2 ? '掌握' : '复习',
                     style: TextStyle(
                       fontSize: 11,
-                      color: card.learningStage == 2 ? Colors.green : Colors.orange,
+                      color: card.learningStage == 2
+                          ? Colors.green
+                          : Colors.orange,
                     ),
                   ),
                 ),
             ],
           ),
-          subtitle: Text(_displaySub(card), maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text(_displaySub(card),
+              maxLines: 1, overflow: TextOverflow.ellipsis),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1326,14 +1401,14 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
 // ─── 牌组树节点模型 ──────────────────────────────────────────────────────────
 
 class _DeckTreeNode {
-  final String fullPath;     // 完整路径，如 "Root::Sub::Leaf"
-  final String displayName;  // 显示名称，如 "Leaf"
-  final int depth;           // 层级深度（0 = 根）
+  final String fullPath; // 完整路径，如 "Root::Sub::Leaf"
+  final String displayName; // 显示名称，如 "Leaf"
+  final int depth; // 层级深度（0 = 根）
   final List<_DeckTreeNode> children = [];
-  int ownTotal = 0;          // 该节点自身的卡片数
-  int ownPending = 0;        // 该节点自身的待同步数
-  int subtreeTotal = 0;      // 该节点 + 所有后代的卡片总数
-  int subtreePending = 0;    // 该节点 + 所有后代的待同步总数
+  int ownTotal = 0; // 该节点自身的卡片数
+  int ownPending = 0; // 该节点自身的待同步数
+  int subtreeTotal = 0; // 该节点 + 所有后代的卡片总数
+  int subtreePending = 0; // 该节点 + 所有后代的待同步总数
 
   _DeckTreeNode({
     required this.fullPath,
@@ -1371,12 +1446,15 @@ class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
 
   void _goTo(int index) {
     if (index < 0 || index >= widget.cards.length) return;
-    setState(() { _currentIndex = index; _showAnswer = false; });
+    setState(() {
+      _currentIndex = index;
+      _showAnswer = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final cs   = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
     final card = widget.cards[_currentIndex];
     final hasPrev = _currentIndex > 0;
     final hasNext = _currentIndex < widget.cards.length - 1;
@@ -1396,7 +1474,8 @@ class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
           Center(
             child: Container(
               margin: const EdgeInsets.only(top: 12, bottom: 8),
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
                 color: cs.outlineVariant,
                 borderRadius: BorderRadius.circular(2),
@@ -1414,45 +1493,62 @@ class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
                   onTap: () => setState(() => _showAnswer = true),
                   onHorizontalDragEnd: (details) {
                     if (details.primaryVelocity == null) return;
-                    if (details.primaryVelocity! < -200) _goTo(_currentIndex + 1);
-                    if (details.primaryVelocity! > 200) _goTo(_currentIndex - 1);
+                    if (details.primaryVelocity! < -200)
+                      _goTo(_currentIndex + 1);
+                    if (details.primaryVelocity! > 200)
+                      _goTo(_currentIndex - 1);
                   },
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 36, horizontal: 24),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [cs.primaryContainer, cs.secondaryContainer],
-                        begin: Alignment.topLeft, end: Alignment.bottomRight,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Column(children: [
                       // JLPT 级别标签
-                      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: cs.primary,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(card.jlptLevel,
-                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: cs.tertiary.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(card.partOfSpeech,
-                              style: TextStyle(color: cs.tertiary, fontSize: 12, fontWeight: FontWeight.bold)),
-                        ),
-                      ]),
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: cs.primary,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(card.jlptLevel,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: cs.tertiary.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(card.partOfSpeech,
+                                  style: TextStyle(
+                                      color: cs.tertiary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                          ]),
                       const SizedBox(height: 20),
                       // 单词（始终显示，振假名标注）
-                      FuriganaText(text: _displayWord(card), fontSize: 44, color: cs.primary),
+                      FuriganaText(
+                          text: _displayWord(card),
+                          fontSize: 44,
+                          color: cs.primary),
                       const SizedBox(height: 8),
                       if (!_showAnswer)
                         Text('点击卡片查看答案',
@@ -1472,20 +1568,32 @@ class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
                       color: cs.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('释义', style: TextStyle(fontSize: 12, color: cs.outline, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 6),
-                      Text(card.meaningZh,
-                          style: TextStyle(fontSize: 17, color: cs.onSurface, fontWeight: FontWeight.w600)),
-                      if (card.meaningEn != null && card.meaningEn!.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(card.meaningEn!,
-                            style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
-                      ],
-                    ]),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('释义',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: cs.outline,
+                                  fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 6),
+                          Text(card.meaningZh,
+                              style: TextStyle(
+                                  fontSize: 17,
+                                  color: cs.onSurface,
+                                  fontWeight: FontWeight.w600)),
+                          if (card.meaningEn != null &&
+                              card.meaningEn!.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(card.meaningEn!,
+                                style: TextStyle(
+                                    fontSize: 14, color: cs.onSurfaceVariant)),
+                          ],
+                        ]),
                   ),
                   // 例句
-                  if (card.exampleSentence != null && card.exampleSentence!.isNotEmpty) ...[
+                  if (card.exampleSentence != null &&
+                      card.exampleSentence!.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Container(
                       width: double.infinity,
@@ -1495,12 +1603,21 @@ class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: cs.outlineVariant),
                       ),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('例句', style: TextStyle(fontSize: 12, color: cs.outline, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 6),
-                        Text(card.exampleSentence!,
-                            style: TextStyle(fontSize: 15, color: cs.onSurface, height: 1.6)),
-                      ]),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('例句',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: cs.outline,
+                                    fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 6),
+                            Text(card.exampleSentence!,
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    color: cs.onSurface,
+                                    height: 1.6)),
+                          ]),
                     ),
                   ],
                   // 来源牌组 & 同步状态
@@ -1508,11 +1625,15 @@ class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
                   Row(children: [
                     if (card.deckName != null)
                       Chip(
-                        avatar: Icon(Icons.folder_rounded, size: 14, color: const Color(0xFF00897B)),
+                        avatar: Icon(Icons.folder_rounded,
+                            size: 14, color: const Color(0xFF00897B)),
                         label: Text(card.deckName!,
                             style: const TextStyle(fontSize: 12)),
-                        backgroundColor: const Color(0xFF00897B).withValues(alpha: 0.1),
-                        side: BorderSide(color: const Color(0xFF00897B).withValues(alpha: 0.3)),
+                        backgroundColor:
+                            const Color(0xFF00897B).withValues(alpha: 0.1),
+                        side: BorderSide(
+                            color:
+                                const Color(0xFF00897B).withValues(alpha: 0.3)),
                         padding: EdgeInsets.zero,
                         visualDensity: VisualDensity.compact,
                       ),
@@ -1527,7 +1648,8 @@ class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
                       onPressed: () => setState(() => _showAnswer = true),
                       icon: const Icon(Icons.visibility_rounded),
                       label: const Text('显示答案', style: TextStyle(fontSize: 16)),
-                      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                      style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14)),
                     ),
                   ),
                 ],
@@ -1538,7 +1660,9 @@ class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
           Container(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.3))),
+              border: Border(
+                  top: BorderSide(
+                      color: cs.outlineVariant.withValues(alpha: 0.3))),
             ),
             child: Row(children: [
               OutlinedButton.icon(
@@ -1546,12 +1670,16 @@ class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
                 icon: const Icon(Icons.arrow_back_ios_rounded, size: 16),
                 label: const Text('上一个'),
                 style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
               const Spacer(),
               Text('${_currentIndex + 1} / ${widget.cards.length}',
-                  style: TextStyle(fontSize: 13, color: cs.outline, fontWeight: FontWeight.w500)),
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: cs.outline,
+                      fontWeight: FontWeight.w500)),
               const Spacer(),
               OutlinedButton.icon(
                 onPressed: hasNext ? () => _goTo(_currentIndex + 1) : null,
@@ -1565,7 +1693,8 @@ class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
                   ],
                 ),
                 style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ]),

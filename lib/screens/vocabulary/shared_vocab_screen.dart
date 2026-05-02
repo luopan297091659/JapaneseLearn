@@ -81,13 +81,25 @@ class _SharedVocabScreenState extends State<SharedVocabScreen> {
       final docsDir = await getApplicationDocumentsDirectory();
       final coverDir = Directory(p.join(docsDir.path, 'vocab_covers'));
       await coverDir.create(recursive: true);
-      final ext = p.extension(Uri.parse(url).path).isEmpty ? '.jpg' : p.extension(Uri.parse(url).path);
-      final dest = p.join(coverDir.path, 'shared_${DateTime.now().millisecondsSinceEpoch}$ext');
+      final ext = p.extension(Uri.parse(url).path).isEmpty
+          ? '.jpg'
+          : p.extension(Uri.parse(url).path);
+      final dest = p.join(
+          coverDir.path, 'shared_${DateTime.now().millisecondsSinceEpoch}$ext');
       await File(dest).writeAsBytes(bytes);
       return dest;
     } catch (_) {
       return null;
     }
+  }
+
+  String _deckRoot(String deckName) => deckName.split('::').first;
+
+  String _coverDeckName(Set<String> deckNames, String fallbackDeckName) {
+    if (deckNames.contains(fallbackDeckName)) return fallbackDeckName;
+    final roots = deckNames.map(_deckRoot).toSet();
+    if (roots.length == 1) return roots.first;
+    return deckNames.isNotEmpty ? deckNames.first : fallbackDeckName;
   }
 
   Future<void> _importDeck(Map<String, dynamic> deck) async {
@@ -103,41 +115,50 @@ class _SharedVocabScreenState extends State<SharedVocabScreen> {
       if (cards.isEmpty) throw Exception('共享词库没有可导入卡片');
 
       const uuid = Uuid();
-      final deckName = (remoteDeck['title'] ?? deck['title'] ?? '共享词库').toString();
+      final deckName =
+          (remoteDeck['title'] ?? deck['title'] ?? '共享词库').toString();
       final rows = cards.map((card) {
         final sharedDeckName = card['deck_name']?.toString().trim();
         final localDeckName = sharedDeckName == null || sharedDeckName.isEmpty
             ? deckName
             : sharedDeckName;
         return {
-            'id': uuid.v4(),
-            'word': (card['word'] ?? '').toString(),
-            'reading': (card['reading'] ?? card['word'] ?? '').toString(),
-            'meaning_zh': (card['meaning_zh'] ?? '-').toString(),
-            'meaning_en': card['meaning_en'],
-            'example_sentence': card['example_sentence'],
-            'example_reading': card['example_reading'],
-            'example_meaning_zh': card['example_meaning_zh'],
-            'audio_url': card['audio_url'],
-            'part_of_speech': (card['part_of_speech'] ?? 'other').toString(),
-            'jlpt_level': (card['jlpt_level'] ?? remoteDeck['jlpt_level'] ?? 'N3').toString(),
-            'deck_name': localDeckName,
-            'synced': 1,
-          };
+          'id': uuid.v4(),
+          'word': (card['word'] ?? '').toString(),
+          'reading': (card['reading'] ?? card['word'] ?? '').toString(),
+          'meaning_zh': (card['meaning_zh'] ?? '-').toString(),
+          'meaning_en': card['meaning_en'],
+          'example_sentence': card['example_sentence'],
+          'example_reading': card['example_reading'],
+          'example_meaning_zh': card['example_meaning_zh'],
+          'audio_url': card['audio_url'],
+          'part_of_speech': (card['part_of_speech'] ?? 'other').toString(),
+          'jlpt_level': (card['jlpt_level'] ?? remoteDeck['jlpt_level'] ?? 'N3')
+              .toString(),
+          'deck_name': localDeckName,
+          'synced': 1,
+        };
       }).toList();
 
       final imported = await localDb.insertCards(rows);
-      final coverPath = await _downloadCover(remoteDeck['cover_url']?.toString());
+      final coverPath = await _downloadCover(
+        (remoteDeck['cover_url'] ?? deck['cover_url'])?.toString(),
+      );
       final importedDeckNames = rows
           .map((row) => row['deck_name']?.toString() ?? deckName)
           .where((name) => name.isNotEmpty)
           .toSet();
-      for (final importedDeckName in importedDeckNames) {
+      final coverDeckName = _coverDeckName(importedDeckNames, deckName);
+      final metaDeckNames = {...importedDeckNames, coverDeckName};
+      for (final importedDeckName in metaDeckNames) {
+        final isCoverDeck = importedDeckName == coverDeckName;
         await localDb.upsertDeckMeta(
           deckName: importedDeckName,
-          displayName: importedDeckName.split('::').last,
-          coverImagePath: importedDeckName == deckName ? coverPath : null,
-          description: remoteDeck['description']?.toString(),
+          displayName:
+              isCoverDeck ? deckName : importedDeckName.split('::').last,
+          coverImagePath: isCoverDeck ? coverPath : null,
+          description:
+              isCoverDeck ? remoteDeck['description']?.toString() : null,
           sourceType: 'shared',
         );
       }
@@ -222,23 +243,28 @@ class _SharedVocabScreenState extends State<SharedVocabScreen> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _decks.isEmpty
-                    ? Center(child: Text('暂无共享词库', style: TextStyle(color: cs.outline)))
+                    ? Center(
+                        child:
+                            Text('暂无共享词库', style: TextStyle(color: cs.outline)))
                     : RefreshIndicator(
                         onRefresh: _loadDecks,
                         child: GridView.builder(
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 14,
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            mainAxisSpacing: 20,
                             crossAxisSpacing: 14,
-                            childAspectRatio: 0.78,
+                            childAspectRatio: 0.54,
                           ),
                           itemCount: _decks.length,
                           itemBuilder: (_, i) => _SharedDeckCard(
                             deck: _decks[i],
-                            coverUrl: _absoluteCoverUrl(_decks[i]['cover_url']?.toString()),
-                            importing: _importingDeckId == _decks[i]['id']?.toString(),
-                            importLocked: _importingDeckId != null,
+                            coverUrl: _absoluteCoverUrl(
+                                _decks[i]['cover_url']?.toString()),
+                            importing:
+                                _importingDeckId == _decks[i]['id']?.toString(),
+                            index: i,
                             onImport: () => _importDeck(_decks[i]),
                           ),
                         ),
@@ -254,82 +280,147 @@ class _SharedDeckCard extends StatelessWidget {
   final Map<String, dynamic> deck;
   final String? coverUrl;
   final bool importing;
-  final bool importLocked;
+  final int index;
   final VoidCallback onImport;
 
   const _SharedDeckCard({
     required this.deck,
     required this.coverUrl,
     required this.importing,
-    required this.importLocked,
+    required this.index,
     required this.onImport,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final owner = deck['owner'] is Map ? Map<String, dynamic>.from(deck['owner'] as Map) : null;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: importLocked ? null : onImport,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                color: cs.primaryContainer,
-                child: coverUrl == null
-                    ? Icon(Icons.menu_book_rounded, size: 48, color: cs.primary)
-                    : Image.network(
-                        coverUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Icon(Icons.menu_book_rounded, size: 48, color: cs.primary),
-                      ),
+    final owner = deck['owner'] is Map
+        ? Map<String, dynamic>.from(deck['owner'] as Map)
+        : null;
+    final colors = [
+      const Color(0xFF9F4F53),
+      const Color(0xFF2F6F73),
+      const Color(0xFF7357A6),
+      const Color(0xFFD17A22),
+      const Color(0xFF4F6F9F),
+      const Color(0xFF6B7F3A),
+    ];
+    final cover = colors[index % colors.length];
+    final title = (deck['title'] ?? '共享词库').toString();
+    final subtitle = (deck['description'] ?? owner?['username'] ?? '个人共享词库')
+        .toString();
+    final cardCount = deck['card_count'] ?? 0;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: importing ? null : onImport,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 0.78,
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: coverUrl == null ? cover : null,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: cs.shadow.withAlpha(30),
+                    blurRadius: 10,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Stack(
                 children: [
-                  Text(
-                    (deck['title'] ?? '共享词库').toString(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    (deck['description'] ?? owner?['username'] ?? '个人共享词库').toString(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, color: cs.outline),
-                  ),
-                  const SizedBox(height: 8),
-                  Text('${deck['card_count'] ?? 0} 张', style: TextStyle(fontSize: 12, color: cs.primary, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 32,
-                    child: FilledButton.icon(
-                      onPressed: importLocked ? null : onImport,
-                      icon: importing
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.download_rounded, size: 16),
-                      label: Text(importing ? '导入中' : '导入'),
+                  if (coverUrl != null)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        coverUrl!,
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: cover,
+                          child: Icon(Icons.menu_book_rounded,
+                              size: 48, color: cs.onPrimary),
+                        ),
+                      ),
+                    )
+                  else
+                    Center(
+                      child: Icon(Icons.menu_book_rounded,
+                          size: 48, color: cs.onPrimary.withOpacity(0.75)),
+                    ),
+                  Positioned(
+                    left: 10,
+                    right: 10,
+                    bottom: 10,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.38),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '$cardCount 张',
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 12),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            importing ? '导入中' : '导入',
+                            style: TextStyle(
+                              color: importing ? cs.primary : cs.onSurface,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.2,
+              fontWeight: FontWeight.w700,
+              color: cs.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 11, color: cs.outline),
+          ),
+        ],
       ),
     );
   }

@@ -53,7 +53,8 @@ class _StudyTabState extends State<StudyTab> {
   String? _resolvedAvatarUrl() {
     final avatar = _avatarUrl;
     if (avatar == null || avatar.isEmpty) return null;
-    if (avatar.startsWith('http://') || avatar.startsWith('https://')) return avatar;
+    if (avatar.startsWith('http://') || avatar.startsWith('https://'))
+      return avatar;
     return '${AppConfig.serverRoot}$avatar';
   }
 
@@ -67,21 +68,25 @@ class _StudyTabState extends State<StudyTab> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 56, height: 56,
+              width: 56,
+              height: 56,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
+                gradient: const LinearGradient(
+                    colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Center(child: Text('👑', style: TextStyle(fontSize: 28))),
+              child: const Center(
+                  child: Text('👑', style: TextStyle(fontSize: 28))),
             ),
             const SizedBox(height: 14),
             Text('$name 需开通会员',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center),
             const SizedBox(height: 8),
             Text('升级会员即可解锁全部功能',
-              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-              textAlign: TextAlign.center),
+                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                textAlign: TextAlign.center),
             const SizedBox(height: 8),
           ],
         ),
@@ -95,7 +100,8 @@ class _StudyTabState extends State<StudyTab> {
               Navigator.of(ctx).pop();
               context.push('/membership', extra: false);
             },
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFF59E0B)),
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFF59E0B)),
             child: const Text('查看权益'),
           ),
         ],
@@ -106,7 +112,8 @@ class _StudyTabState extends State<StudyTab> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final animeVisual = Theme.of(context).extension<AppVisualTheme>()?.animeBackground ?? false;
+    final animeVisual =
+        Theme.of(context).extension<AppVisualTheme>()?.animeBackground ?? false;
     Widget body = ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -135,13 +142,32 @@ class _StudyTabState extends State<StudyTab> {
         ),
         const SizedBox(height: 12),
         _StudyCard(
+          icon: Icons.folder_copy_rounded,
+          title: '我的词库',
+          subtitle: '个人词库 · Anki/CSV/TXT 导入浏览',
+          color: const Color(0xFF00897B),
+          blocked: _isBlocked('anki_quiz'),
+          onTap: () {
+            if (GuestService.guardRoute(context, '/local-vocab')) return;
+            if (_isBlocked('anki_quiz')) {
+              _showMemberDialog('我的词库');
+              return;
+            }
+            context.push('/local-vocab');
+          },
+        ),
+        const SizedBox(height: 12),
+        _StudyCard(
           icon: Icons.mic_rounded,
           title: '发音训练',
           subtitle: '智能纠正 · 对比原生发音',
           color: const Color(0xFF00BCD4),
           blocked: _isBlocked('pronunciation'),
           onTap: () {
-            if (_isBlocked('pronunciation')) { _showMemberDialog('发音训练'); return; }
+            if (_isBlocked('pronunciation')) {
+              _showMemberDialog('发音训练');
+              return;
+            }
             context.push('/pronunciation');
           },
         ),
@@ -153,21 +179,11 @@ class _StudyTabState extends State<StudyTab> {
           color: const Color(0xFF9C27B0),
           blocked: _isBlocked('listening_daily'),
           onTap: () {
-            if (_isBlocked('listening_daily')) { _showMemberDialog('听力训练'); return; }
+            if (_isBlocked('listening_daily')) {
+              _showMemberDialog('听力训练');
+              return;
+            }
             context.push('/listening');
-          },
-        ),
-        const SizedBox(height: 12),
-        _StudyCard(
-          icon: Icons.folder_copy_rounded,
-          title: '我的词库',
-          subtitle: '个人词库 · Anki/CSV/TXT 导入浏览',
-          color: const Color(0xFF00897B),
-          blocked: _isBlocked('anki_quiz'),
-          onTap: () {
-            if (GuestService.guardRoute(context, '/local-vocab')) return;
-            if (_isBlocked('anki_quiz')) { _showMemberDialog('我的词库'); return; }
-            context.push('/local-vocab');
           },
         ),
         const SizedBox(height: 12),
@@ -179,7 +195,10 @@ class _StudyTabState extends State<StudyTab> {
           blocked: _isBlocked('srs_daily'),
           onTap: () {
             if (GuestService.guardRoute(context, '/srs-review')) return;
-            if (_isBlocked('srs_daily')) { _showMemberDialog('SRS 复习'); return; }
+            if (_isBlocked('srs_daily')) {
+              _showMemberDialog('SRS 复习');
+              return;
+            }
             context.push('/srs-review?from=study');
           },
         ),
@@ -217,47 +236,64 @@ class _StudyTabState extends State<StudyTab> {
                       height: 30,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.4),
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            width: 1.4),
                       ),
                       child: ClipOval(
                         child: _resolvedAvatarUrl() != null
                             ? Image.network(
                                 _resolvedAvatarUrl()!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                                errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.person_outline,
+                                    color: Colors.white,
+                                    size: 20),
                               )
-                            : const Icon(Icons.person_outline, color: Colors.white, size: 20),
+                            : const Icon(Icons.person_outline,
+                                color: Colors.white, size: 20),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: _isMember
-                              ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
-                              : Colors.white.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _isMember ? Icons.workspace_premium : Icons.lock_open_rounded,
-                              size: 10,
-                              color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
-                            ),
-                            const SizedBox(width: 2),
-                            Text(
-                              GuestService().isGuest ? '游客' : _isMember ? '会员' : '免费',
-                              style: TextStyle(
-                                color: _isMember ? const Color(0xFFFCD34D) : Colors.white70,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: _isMember
+                            ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                            : Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(8),
                       ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _isMember
+                                ? Icons.workspace_premium
+                                : Icons.lock_open_rounded,
+                            size: 10,
+                            color: _isMember
+                                ? const Color(0xFFFCD34D)
+                                : Colors.white70,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            GuestService().isGuest
+                                ? '游客'
+                                : _isMember
+                                    ? '会员'
+                                    : '免费',
+                            style: TextStyle(
+                              color: _isMember
+                                  ? const Color(0xFFFCD34D)
+                                  : Colors.white70,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -299,45 +335,68 @@ class _StudyCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: blocked ? (isDark ? 0.12 : 0.04) : (isDark ? 0.22 : 0.08)),
+            color: color.withValues(
+                alpha:
+                    blocked ? (isDark ? 0.12 : 0.04) : (isDark ? 0.22 : 0.08)),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: blocked ? (isDark ? 0.25 : 0.1) : (isDark ? 0.45 : 0.2))),
+            border: Border.all(
+                color: color.withValues(
+                    alpha: blocked
+                        ? (isDark ? 0.25 : 0.1)
+                        : (isDark ? 0.45 : 0.2))),
           ),
           child: Row(children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: blocked ? (isDark ? 0.18 : 0.08) : (isDark ? 0.35 : 0.18)),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: blocked ? color.withValues(alpha: isDark ? 0.6 : 0.4) : color, size: 28),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16,
-                  color: blocked ? color.withValues(alpha: isDark ? 0.6 : 0.4) : color)),
-                const SizedBox(height: 4),
-                Text(blocked ? '会员专属功能' : subtitle,
-                  style: TextStyle(fontSize: 13,
-                    color: blocked ? Colors.grey : color.withValues(alpha: isDark ? 0.85 : 0.7))),
-              ],
-            ),
-          ),
-          if (blocked)
             Container(
-              padding: const EdgeInsets.all(6),
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B),
-                borderRadius: BorderRadius.circular(8),
+                color: color.withValues(
+                    alpha: blocked
+                        ? (isDark ? 0.18 : 0.08)
+                        : (isDark ? 0.35 : 0.18)),
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(Icons.workspace_premium, size: 16, color: Colors.white),
-            )
-          else
-            Icon(Icons.arrow_forward_ios_rounded, size: 16, color: color.withValues(alpha: 0.5)),
+              child: Icon(icon,
+                  color: blocked
+                      ? color.withValues(alpha: isDark ? 0.6 : 0.4)
+                      : color,
+                  size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: blocked
+                              ? color.withValues(alpha: isDark ? 0.6 : 0.4)
+                              : color)),
+                  const SizedBox(height: 4),
+                  Text(blocked ? '会员专属功能' : subtitle,
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: blocked
+                              ? Colors.grey
+                              : color.withValues(alpha: isDark ? 0.85 : 0.7))),
+                ],
+              ),
+            ),
+            if (blocked)
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.workspace_premium,
+                    size: 16, color: Colors.white),
+              )
+            else
+              Icon(Icons.arrow_forward_ios_rounded,
+                  size: 16, color: color.withValues(alpha: 0.5)),
           ]),
         ),
       ),
