@@ -238,7 +238,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
               path: '/kana-writing-test',
-              builder: (_, __) => const KanaWritingTestScreen()),
+              builder: (_, state) => KanaWritingTestScreen(
+                    initialKana: state.uri.queryParameters['kana'],
+                    initialType: state.uri.queryParameters['type'],
+                  )),
           GoRoute(
               path: '/wrong-answers',
               builder: (_, __) => const WrongAnswersScreen()),

@@ -618,6 +618,7 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     final cs = Theme.of(context).colorScheme;
     final s = S.of(context);
     final inPlanMode = widget.planId != null && widget.planId!.isNotEmpty;
+    final from = GoRouterState.of(context).uri.queryParameters['from'];
 
     return Scaffold(
       appBar: AppBar(
@@ -626,6 +627,10 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
           icon: const Icon(Icons.arrow_back_ios_rounded),
           tooltip: '返回',
           onPressed: () {
+            if (from == 'shared') {
+              context.go('/tabs/study');
+              return;
+            }
             if (_selectedDeck != null) {
               setState(() {
                 _selectedDeck = null;

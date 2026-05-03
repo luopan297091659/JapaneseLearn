@@ -16,6 +16,7 @@
   --primary: #4361ee;
   --primary-dark: #2f4ac1;
   --primary-light: #eef0fd;
+  --primary-shadow: rgba(67,97,238,.3);
   --secondary: #f72585;
   --success: #4CAF50;
   --warning: #FF9800;
@@ -55,39 +56,41 @@ ul { list-style: none; }
 /* 顶栏 */
 #topbar {
   position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-  height: var(--nav-h); background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; padding: 0 20px; gap: 12px;
-  box-shadow: var(--shadow);
+  height: var(--nav-h); background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  display: flex; align-items: center; padding: 0 18px; gap: 14px;
+  box-shadow: 0 1px 0 rgba(15,23,42,.03), 0 10px 30px rgba(15,23,42,.05);
+  backdrop-filter: blur(16px);
 }
-#topbar .logo { font-size: 20px; font-weight: 800; color: var(--primary); white-space: nowrap; }
+#topbar .logo { font-size: 19px; font-weight: 850; color: var(--primary); white-space: nowrap; letter-spacing: -.2px; }
 #topbar .logo span { color: var(--secondary); }
-#topbar .spacer { flex: 1; display: flex; align-items: center; gap: 12px; min-width: 0; }
-#topbar .hdr-stats { display: flex; align-items: center; gap: 10px; font-size: 12px; flex-shrink: 0; }
-#topbar .stat-chip { display: flex; align-items: center; gap: 3px; background: var(--bg2, #f1f5f9); padding: 3px 10px; border-radius: 12px; white-space: nowrap; }
+#topbar .logo img { width: 38px !important; height: 38px !important; border-radius: 12px !important; box-shadow: 0 8px 18px rgba(15,23,42,.16) !important; }
+#topbar .spacer { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 14px; min-width: 0; }
+#topbar .hdr-stats { display: flex; align-items: center; gap: 8px; font-size: 12px; flex-shrink: 0; }
+#topbar .stat-chip { display: flex; align-items: center; gap: 5px; background: color-mix(in srgb, var(--bg2) 82%, #fff); border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); padding: 5px 11px; border-radius: 999px; white-space: nowrap; box-shadow: 0 1px 2px rgba(15,23,42,.03); }
 #topbar .stat-chip .stat-val { font-weight: 800; color: var(--primary); font-size: 13px; }
-#topbar .stat-chip .stat-label { color: var(--text-hint); font-size: 11px; }
+#topbar .stat-chip .stat-label { color: var(--text-hint); font-size: 11px; font-weight: 650; }
 #topbar .stat-chip .stat-unit { color: var(--text-hint); font-size: 10px; }
 #topbar .stat-chip.streak .stat-val { color: var(--danger, #ef4444); }
 #topbar .stat-chip.xp .stat-val { color: var(--primary); }
 #topbar .stat-chip.time .stat-val { color: #10b981; }
 #topbar .stat-chip.acts .stat-val { color: #f59e0b; }
-#topbar .hdr-greeting { flex: 1; text-align: center; font-size: 15px; color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#topbar .hdr-greeting { margin-right: auto; text-align: left; font-size: 14px; color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 120px; }
 #topbar .user-btn {
   display: flex; align-items: center; gap: 8px;
-  padding: 6px 14px; border-radius: 20px; cursor: pointer;
-  background: var(--primary-light); color: var(--primary); font-weight: 600;
-  transition: background .15s;
+  padding: 8px 16px; border-radius: 999px; cursor: pointer;
+  background: var(--primary-light); color: var(--primary); font-weight: 750;
+  transition: all .15s; border: 1px solid color-mix(in srgb, var(--primary) 12%, transparent);
 }
-#topbar .user-btn:hover { background: var(--primary); color: #fff; }
+#topbar .user-btn:hover { background: var(--primary); color: #fff; transform: translateY(-1px); }
 #topbar .settings-wrap { position: relative; }
 #topbar .settings-btn {
   display: flex; align-items: center; justify-content: center;
-  width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+  width: 38px; height: 38px; border-radius: 999px; cursor: pointer;
   background: var(--primary-light); color: var(--primary); font-size: 18px;
-  transition: all .15s; border: none;
+  transition: all .15s; border: 1px solid color-mix(in srgb, var(--primary) 12%, transparent);
 }
-#topbar .settings-btn:hover { background: var(--primary); color: #fff; }
+#topbar .settings-btn:hover { background: var(--primary); color: #fff; transform: translateY(-1px); }
 .settings-dropdown {
   display: none; position: absolute; top: calc(100% + 8px); right: 0;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
@@ -102,10 +105,14 @@ ul { list-style: none; }
   display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer;
 }
 .theme-item .theme-dot {
-  width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid var(--border);
-  transition: all .15s; position: relative;
+  width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--border);
+  transition: all .15s; position: relative; overflow: hidden;
+  background:
+    linear-gradient(135deg, var(--dot-primary) 0 46%, transparent 46%),
+    linear-gradient(135deg, transparent 0 50%, var(--dot-accent) 50% 72%, var(--dot-surface) 72%);
 }
-.theme-item .theme-dot.active { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(200, 74, 95, 0.25); }
+.theme-item .theme-dot:hover { transform: translateY(-1px); }
+.theme-item .theme-dot.active { border-color: var(--dot-primary); box-shadow: 0 0 0 3px var(--dot-ring); }
 .theme-item .theme-label { font-size: 10px; color: var(--text-sub); white-space: nowrap; }
 
 /* 内容区 */
@@ -114,23 +121,39 @@ ul { list-style: none; }
 /* 侧边栏 */
 #sidebar {
   position: fixed; top: var(--nav-h); bottom: 0; left: 0;
-  width: var(--sidebar-w); background: var(--surface);
-  border-right: 1px solid var(--border); overflow-y: auto;
-  display: flex; flex-direction: column; padding: 16px 12px;
-  box-shadow: var(--shadow); z-index: 90;
-  transition: transform .25s ease;
+  width: var(--sidebar-w); background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, #fff), color-mix(in srgb, var(--surface2) 82%, #fff));
+  border-right: 1px solid color-mix(in srgb, var(--border) 78%, transparent); overflow-y: auto;
+  display: flex; flex-direction: column; padding: 14px 10px;
+  box-shadow: 8px 0 28px rgba(15,23,42,.04); z-index: 90;
+  transition: transform .25s ease, width .25s ease, padding .25s ease;
+  scrollbar-width: thin;
 }
-#sidebar .nav-section { font-size: 11px; color: var(--text-hint); text-transform: uppercase; letter-spacing: .8px; padding: 12px 8px 6px; }
+#sidebar .nav-section { font-size: 11px; color: var(--text-hint); text-transform: uppercase; letter-spacing: .9px; padding: 18px 10px 7px; font-weight: 750; }
 #sidebar .nav-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px; border-radius: var(--radius-sm);
-  cursor: pointer; transition: all .15s; color: var(--text-sub); font-size: 14px; font-weight: 500;
-  user-select: none;
+  display: flex; align-items: center; gap: 11px; position: relative;
+  min-height: 44px; padding: 9px 12px; border-radius: 13px;
+  cursor: pointer; transition: background .16s, color .16s, transform .16s, box-shadow .16s;
+  color: var(--text-sub); font-size: 14px; font-weight: 650;
+  user-select: none; margin: 2px 0;
 }
-#sidebar .nav-item .icon { font-size: 18px; width: 22px; text-align: center; }
-#sidebar .nav-item:hover { background: var(--primary-light); color: var(--primary); }
-#sidebar .nav-item.active { background: var(--primary); color: #fff; }
-#sidebar .nav-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+#sidebar .nav-item .icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 16px; width: 28px; height: 28px; flex: 0 0 28px;
+  border-radius: 10px; background: color-mix(in srgb, var(--bg2) 70%, #fff);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 64%, transparent);
+}
+#sidebar .nav-item:hover { background: color-mix(in srgb, var(--primary-light) 72%, #fff); color: var(--primary); transform: translateX(2px); }
+#sidebar .nav-item:hover .icon { background: #fff; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 22%, transparent); }
+#sidebar .nav-item.active {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff; box-shadow: 0 10px 20px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+#sidebar .nav-item.active::before {
+  content: ''; position: absolute; left: -10px; top: 12px; bottom: 12px; width: 3px;
+  border-radius: 999px; background: var(--primary);
+}
+#sidebar .nav-item.active .icon { background: rgba(255,255,255,.18); box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); }
+#sidebar .nav-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
 
 /* 主面板 */
 #content { margin-left: var(--sidebar-w); flex: 1; min-height: calc(100vh - var(--nav-h)); overflow-y: auto; }
@@ -147,7 +170,7 @@ ul { list-style: none; }
   cursor: pointer; transition: all .15s; border: none;
 }
 .btn-primary { background: var(--primary); color: #fff; }
-.btn-primary:hover { background: var(--primary-dark); box-shadow: 0 4px 12px rgba(67,97,238,.3); }
+.btn-primary:hover { background: var(--primary-dark); box-shadow: 0 4px 12px var(--primary-shadow); }
 .btn-outline { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
 .btn-outline:hover { background: var(--primary-light); }
 .btn-danger { background: var(--danger); color: #fff; }
@@ -161,7 +184,7 @@ ul { list-style: none; }
   padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
   background: var(--surface); color: var(--text); font-size: 14px; outline: none; transition: border .15s;
 }
-.input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(67,97,238,.1); }
+.input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
 
 .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; }
 .badge-n5 { background: #e8f5e9; color: var(--n5); }
@@ -252,14 +275,283 @@ ul { list-style: none; }
 .auth-tabs { display: flex; gap: 0; margin-bottom: 24px; border-radius: var(--radius-sm); overflow: hidden; border: 1.5px solid var(--primary); }
 .auth-tab { flex: 1; padding: 8px; text-align: center; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--primary); background: transparent; transition: all .15s; }
 .auth-tab.active { background: var(--primary); color: #fff; }
+.auth-error {
+  min-height: 20px;
+  margin-bottom: 10px;
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 18px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-2px);
+  transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+}
+.auth-error.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+@media (max-width: 480px) {
+  #auth-page {
+    align-items: flex-start;
+    justify-content: center;
+    min-height: 100dvh;
+    overflow-y: auto;
+    padding: max(18px, env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom));
+  }
+  .auth-card {
+    width: 100%;
+    max-width: 420px;
+    margin: 18px 0;
+    padding: 24px 18px 22px;
+    border-radius: 22px;
+  }
+  .auth-card img {
+    width: 72px !important;
+    height: 72px !important;
+    border-radius: 18px !important;
+  }
+  .auth-card h1 { font-size: 26px; }
+  .auth-card .subtitle { margin-bottom: 20px; }
+  .auth-tabs { margin-bottom: 20px; }
+  .auth-tab { padding: 9px 4px; font-size: 14px; white-space: nowrap; }
+  .auth-card .input-group { margin-bottom: 12px; }
+  .auth-error { min-height: 22px; margin-bottom: 8px; }
+  .auth-card .input-group > div[style*="display:flex"] {
+    width: 100%;
+    min-width: 0;
+    gap: 8px !important;
+  }
+  .auth-card .input-group > div[style*="display:flex"] > .input { min-width: 0; }
+  .auth-card .input-group > div[style*="display:flex"] > input.input {
+    flex: 1 1 0 !important;
+    width: 0 !important;
+  }
+  .auth-card .input-group > div[style*="display:flex"] > select.input {
+    flex: 0 0 112px !important;
+    width: 112px !important;
+    min-width: 0 !important;
+    padding-left: 10px;
+    padding-right: 26px;
+  }
+  #code-login-code {
+    flex: 1 1 0 !important;
+    width: 0 !important;
+  }
+  #btn-send-code {
+    flex: 0 0 112px;
+    padding: 10px 8px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .auth-card { padding: 22px 14px; }
+  .auth-card .input-group > div[style*="display:flex"] > select.input {
+    flex-basis: 96px !important;
+    width: 96px !important;
+  }
+  #btn-send-code {
+    flex-basis: 100px;
+    font-size: 13px;
+  }
+  .auth-tab { font-size: 13px; }
+}
 
 /* ─── 首页 ──────────────────────────────────────────────────── */
-.home-welcome { margin-bottom: 20px; padding: 20px; background: linear-gradient(135deg, var(--primary-light) 0%, #e8eeff 100%); border-radius: var(--radius); }
+.home-welcome { margin-bottom: 20px; padding: 20px; background: linear-gradient(135deg, var(--primary-light) 0%, var(--surface2) 100%); border-radius: var(--radius); }
 #home-welcome { display: none !important; }
 #page-home > .grid-2 { display: none !important; }
-#home-today-card > .card-title, #home-today-card > .grid-3 { display: none !important; }
-#home-today-card { padding-top: 0 !important; }
-#home-today-card > div { border-top: none !important; padding-top: 0 !important; }
+.home-progress-card {
+  margin-bottom: 14px;
+  padding: 18px 20px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--primary) 9%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 98%, #fff), color-mix(in srgb, var(--surface2) 82%, #fff));
+  box-shadow: 0 14px 36px rgba(15,23,42,.07);
+}
+.home-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.home-today-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary-light) 76%, #fff);
+  color: var(--primary);
+  border: 1px solid color-mix(in srgb, var(--primary) 14%, transparent);
+  font-size: 12px;
+  font-weight: 800;
+}
+.home-progress-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 850;
+  color: var(--text);
+}
+.home-progress-title .icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: var(--primary-light);
+}
+.home-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.home-stat-tile {
+  background: color-mix(in srgb, var(--surface) 86%, var(--bg2));
+  border: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.7) inset;
+}
+.home-stat-tile .val { font-size: 20px; font-weight: 900; line-height: 1; margin-bottom: 6px; }
+.home-stat-tile .label { font-size: 12px; color: var(--text-hint); font-weight: 650; }
+.home-progress-section {
+  padding: 16px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+}
+.home-progress-section + .home-progress-section { margin-top: 16px; }
+.home-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 850;
+  color: var(--text);
+}
+.home-section-title .icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: var(--primary-light);
+}
+.home-goals-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.home-goal-item {
+  background: color-mix(in srgb, var(--surface) 86%, var(--bg2));
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.7) inset;
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+.home-goal-item:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--goal-color) 30%, var(--border));
+  box-shadow: 0 10px 22px rgba(15,23,42,.06);
+}
+.home-goal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.home-goal-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.home-goal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--goal-color) 13%, #fff);
+}
+.home-goal-label { color: var(--text-sub); font-size: 13px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-goal-value { color: var(--text); font-size: 13px; font-weight: 850; white-space: nowrap; }
+.home-goal-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--text-hint);
+  font-size: 11px;
+  font-weight: 700;
+}
+.home-goal-percent { color: var(--goal-color); }
+.home-goal-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 48%, #fff);
+}
+.home-goal-fill {
+  height: 100%;
+  width: var(--goal-progress);
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--goal-color), color-mix(in srgb, var(--goal-color) 72%, #fff));
+  transition: width .6s ease;
+}
+.home-quiz-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+.home-quiz-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--surface) 86%, var(--bg2));
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 14px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.7) inset;
+}
+.home-quiz-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.home-quiz-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 9px;
+  background: var(--primary-light);
+}
+.home-quiz-label { font-size: 13px; color: var(--text-sub); font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-quiz-count {
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .home-progress-card { padding: 16px; }
+  .home-progress-head { align-items: flex-start; flex-direction: column; }
+  .home-stats-grid, .home-goals-list { grid-template-columns: 1fr; }
+}
 .welcome-text h2 { color: var(--primary); }
 
 .home-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
@@ -425,21 +717,24 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
 .profile-switch input:checked + .slider::before { transform: translateX(18px); }
 
 /* ─── Sidebar 折叠（桌面端）───────────────────────────────────── */
-.sidebar-collapse-btn { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 8px; cursor: pointer; color: var(--text-sub); font-size: 13px; border-radius: var(--radius-sm); transition: all .15s; user-select: none; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
-.sidebar-collapse-btn:hover { background: var(--primary-light); color: var(--primary); }
+.sidebar-collapse-btn { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 12px; margin-bottom: 8px; cursor: pointer; color: var(--text-sub); font-size: 13px; font-weight: 650; border-radius: 13px; transition: all .15s; user-select: none; border: 1px solid color-mix(in srgb, var(--border) 72%, transparent); background: color-mix(in srgb, var(--surface) 74%, transparent); }
+.sidebar-collapse-btn:hover { background: var(--primary-light); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 18%, transparent); }
 .sidebar-collapse-btn .collapse-icon { font-size: 16px; font-weight: bold; transition: transform .25s; }
-#main.sidebar-collapsed #sidebar { width: 60px; padding: 16px 6px; }
+#main.sidebar-collapsed #sidebar { width: 68px; padding: 14px 8px; }
 #main.sidebar-collapsed #sidebar .nav-section { display: none; }
-#main.sidebar-collapsed #sidebar .nav-item { justify-content: center; padding: 10px 0; font-size: 0; gap: 0; }
-#main.sidebar-collapsed #sidebar .nav-item .icon { font-size: 20px; width: auto; }
-#main.sidebar-collapsed #sidebar .sidebar-collapse-btn { justify-content: center; font-size: 0; gap: 0; padding: 8px 0 12px; }
+#main.sidebar-collapsed #sidebar .nav-item { justify-content: center; padding: 8px 0; font-size: 0; gap: 0; min-height: 44px; }
+#main.sidebar-collapsed #sidebar .nav-item .icon { font-size: 17px; width: 32px; height: 32px; flex-basis: 32px; }
+#main.sidebar-collapsed #sidebar .nav-lock,
+#main.sidebar-collapsed #sidebar .nav-footer > div:first-child { display: none !important; }
+#main.sidebar-collapsed #sidebar .nav-item.active::before { left: -8px; }
+#main.sidebar-collapsed #sidebar .sidebar-collapse-btn { justify-content: center; font-size: 0; gap: 0; padding: 8px 0; }
 #main.sidebar-collapsed #sidebar .sidebar-collapse-btn .collapse-icon { font-size: 16px; transform: scaleX(-1); }
-#main.sidebar-collapsed #content { margin-left: 60px; }
+#main.sidebar-collapsed #content { margin-left: 68px; }
 
 /* ─── 响应式 ─────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   :root { --sidebar-w: 0px; }
-  #sidebar { transform: translateX(-100%); width: 220px; }
+  #sidebar { transform: translateX(-100%); width: 260px; }
   #sidebar.open { transform: translateX(0); }
   #content { margin-left: 0; }
   .page { padding: 16px; }
@@ -447,12 +742,12 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
   .srs-actions { grid-template-columns: repeat(2, 1fr); }
   #topbar .hamburger { display: flex !important; }
   .sidebar-collapse-btn { display: none !important; }
-  #main.sidebar-collapsed #sidebar { width: 220px; }
+  #main.sidebar-collapsed #sidebar { width: 260px; }
   #main.sidebar-collapsed #content { margin-left: 0; }
   #topbar .hdr-stats { display: none; }
   #topbar .hdr-greeting { display: none; }
 }
-#topbar .hamburger { display: none; flex-direction: column; gap: 4px; padding: 8px; cursor: pointer; }
+#topbar .hamburger { display: none; flex-direction: column; gap: 4px; padding: 8px; cursor: pointer; border-radius: 10px; background: var(--primary-light); }
 #topbar .hamburger span { width: 20px; height: 2px; background: var(--text); border-radius: 1px; }
 
 .overlay-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 89; }
@@ -479,12 +774,12 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
 /* ─── 会员系统 ────────────────────────────────────────────────── */
 .member-badge {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;
+  padding: 6px 11px; border-radius: 999px; font-size: 12px; font-weight: 800;
   white-space: nowrap; cursor: pointer;
 }
-.member-badge.free { background: var(--bg3); color: var(--text-sub); }
+.member-badge.free { background: var(--bg2); color: var(--text-sub); border: 1px solid color-mix(in srgb, var(--border) 72%, transparent); }
 .member-badge.vip { background: linear-gradient(135deg, #f59e0b, #f97316); color: #fff; }
-.nav-lock { font-size: 10px; margin-left: auto; opacity: .6; }
+.nav-lock { font-size: 10px; margin-left: auto; opacity: .7; background: rgba(255,255,255,.18); border-radius: 999px; padding: 1px 5px; }
 
 /* 会员页 */
 .membership-header {
@@ -587,7 +882,7 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
         <label>密码</label>
         <input class="input" id="login-pwd" type="password" placeholder="请输入密码" autocomplete="current-password">
       </div>
-      <div id="login-err" style="color:var(--danger);font-size:13px;margin-bottom:10px;display:none"></div>
+      <div id="login-err" class="auth-error"></div>
       <button class="btn btn-primary" style="width:100%;justify-content:center" id="btn-login">登录</button>
     </div>
     <!-- 验证码登录表单 -->
@@ -611,7 +906,7 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
           <button class="btn btn-outline btn-sm" id="btn-send-code" style="white-space:nowrap;padding:9px 16px" onclick="sendLoginCode()">发送验证码</button>
         </div>
       </div>
-      <div id="code-login-err" style="color:var(--danger);font-size:13px;margin-bottom:10px;display:none"></div>
+      <div id="code-login-err" class="auth-error"></div>
       <button class="btn btn-primary" style="width:100%;justify-content:center" id="btn-code-login">登录</button>
     </div>
     <!-- 注册表单 -->
@@ -646,7 +941,7 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
         <label>邀请码（选填）</label>
         <input class="input" id="reg-invite-code" type="text" placeholder="有邀请码可填写" maxlength="8" style="text-transform:uppercase">
       </div>
-      <div id="reg-err" style="color:var(--danger);font-size:13px;margin-bottom:10px;display:none"></div>
+      <div id="reg-err" class="auth-error"></div>
       <p style="font-size:12px;color:#86868b;text-align:center;margin-bottom:10px">注册即表示您同意 <a href="/app/terms.html" style="color:#7c3aed" target="_blank">用户协议</a> 和 <a href="/app/privacy.html" style="color:#7c3aed" target="_blank">隐私政策</a></p>
       <button class="btn btn-primary" style="width:100%;justify-content:center" id="btn-register">注册并登录</button>
     </div>
@@ -778,31 +1073,34 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
         </div>
 
         <!-- 今日学习 -->
-        <div class="card" id="home-today-card" style="margin-bottom:12px;padding:12px">
-          <div class="card-title" style="margin-bottom:8px;font-size:14px">📊 今日学习</div>
-          <div class="grid-3" style="gap:8px;margin-bottom:10px">
-            <div style="background:var(--bg2);border-radius:10px;padding:10px;text-align:center">
-              <div style="font-size:18px;font-weight:800;color:var(--primary)" id="today-xp">0</div>
-              <div style="font-size:11px;color:var(--text-hint)">今日 XP</div>
+        <div class="card home-progress-card" id="home-today-card">
+          <div class="home-progress-head">
+            <div class="home-progress-title"><span class="icon">📊</span><span>今日学习</span></div>
+            <div class="home-today-summary" id="home-today-summary">今日状态</div>
+          </div>
+          <div class="home-stats-grid">
+            <div class="home-stat-tile">
+              <div class="val" style="color:var(--primary)" id="today-xp">0</div>
+              <div class="label">今日 XP</div>
             </div>
-            <div style="background:var(--bg2);border-radius:10px;padding:10px;text-align:center">
-              <div style="font-size:18px;font-weight:800;color:#10b981" id="today-time">0</div>
-              <div style="font-size:11px;color:var(--text-hint)">学习分钟</div>
+            <div class="home-stat-tile">
+              <div class="val" style="color:#10b981" id="today-time">0</div>
+              <div class="label">学习分钟</div>
             </div>
-            <div style="background:var(--bg2);border-radius:10px;padding:10px;text-align:center">
-              <div style="font-size:18px;font-weight:800;color:#f59e0b" id="today-activities">0</div>
-              <div style="font-size:11px;color:var(--text-hint)">学习活动</div>
+            <div class="home-stat-tile">
+              <div class="val" style="color:#f59e0b" id="today-activities">0</div>
+              <div class="label">学习活动</div>
             </div>
           </div>
           <!-- 每日目标 -->
-          <div style="border-top:1px solid var(--border);padding-top:10px">
-            <div style="font-size:12px;font-weight:600;margin-bottom:8px">🎯 每日目标</div>
-            <div id="daily-goals-list"></div>
+          <div class="home-progress-section">
+            <div class="home-section-title"><span class="icon">🎯</span><span>每日目标</span></div>
+            <div class="home-goals-list" id="daily-goals-list"></div>
           </div>
           <!-- 测验细分 -->
-          <div id="quiz-breakdown-section" style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px;display:none">
-            <div style="font-size:12px;font-weight:600;margin-bottom:8px">📝 今日测验</div>
-            <div id="quiz-breakdown-list"></div>
+          <div class="home-progress-section" id="quiz-breakdown-section" style="display:none">
+            <div class="home-section-title"><span class="icon">📝</span><span>今日测验</span></div>
+            <div class="home-quiz-list" id="quiz-breakdown-list"></div>
           </div>
         </div>
 
@@ -1662,7 +1960,11 @@ function setToken(t, r) {
   if (t) localStorage.setItem('access_token', t);
   if (r) localStorage.setItem('refresh_token', r);
 }
-function clearTokens() { localStorage.removeItem('access_token'); localStorage.removeItem('refresh_token'); }
+function clearTokens() {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  if (typeof clearApiCache === 'function') clearApiCache();
+}
 
 let _isRefreshing = false;
 async function request(method, path, body = null, opts = {}, _retryCount = 0) {
@@ -1769,7 +2071,13 @@ async function request(method, path, body = null, opts = {}, _retryCount = 0) {
       }
       msg = '权限不足: ' + msg;
     }
-    if (res.status === 404) msg = '资源不存在';
+    if (res.status === 404) {
+      if (path === '/auth/login' || path === '/auth/send-login-code' || path === '/auth/login-with-code') {
+        msg = '该邮箱尚未注册，请先注册账号';
+      } else {
+        msg = '资源不存在';
+      }
+    }
     if (res.status === 413) msg = '文件大小超出限制';
     if (res.status === 429) msg = '请求过于频繁，请稍后再试';
     const err = new Error(msg);
@@ -1781,9 +2089,44 @@ async function request(method, path, body = null, opts = {}, _retryCount = 0) {
   if (ct.includes('application/json')) return res.json();
   return {};
 }
-const GET  = (p) => request('GET', p);
-const POST = (p, b) => request('POST', p, b);
-const PUT  = (p, b) => request('PUT', p, b);
+
+const _apiGetCache = new Map();
+const _apiGetInFlight = new Map();
+const API_GET_TTL = 30 * 1000;
+
+function _apiCacheKey(path) {
+  return `${getToken() || 'guest'}:${path}`;
+}
+
+function clearApiCache(prefix = '') {
+  for (const key of _apiGetCache.keys()) {
+    if (!prefix || key.includes(prefix)) _apiGetCache.delete(key);
+  }
+}
+
+async function cachedGET(path, opts = {}) {
+  if (opts.skipCache) return request('GET', path, null, opts);
+
+  const key = _apiCacheKey(path);
+  const now = Date.now();
+  const cached = _apiGetCache.get(key);
+  if (cached && cached.expires > now) return cached.data;
+  if (_apiGetInFlight.has(key)) return _apiGetInFlight.get(key);
+
+  const ttl = Number.isFinite(opts.ttl) ? opts.ttl : API_GET_TTL;
+  const promise = request('GET', path, null, opts)
+    .then(data => {
+      _apiGetCache.set(key, { data, expires: Date.now() + ttl });
+      return data;
+    })
+    .finally(() => _apiGetInFlight.delete(key));
+  _apiGetInFlight.set(key, promise);
+  return promise;
+}
+
+const GET  = (p, opts) => cachedGET(p, opts);
+const POST = async (p, b) => { const data = await request('POST', p, b); clearApiCache(); return data; };
+const PUT  = async (p, b) => { const data = await request('PUT', p, b); clearApiCache(); return data; };
 
 // ══════════════════════════════════════════════════════════════════
 //  TOAST
@@ -1913,6 +2256,7 @@ function switchAuthTab(tab) {
   document.getElementById('login-form').style.display = tab === 'login' ? '' : 'none';
   document.getElementById('code-login-form').style.display = tab === 'code-login' ? '' : 'none';
   document.getElementById('register-form').style.display = tab === 'register' ? '' : 'none';
+  ['login-err', 'code-login-err', 'reg-err'].forEach(id => clearAuthError(document.getElementById(id)));
 }
 
 function getAppEmail(inputId, suffixId) {
@@ -1923,12 +2267,32 @@ function getAppEmail(inputId, suffixId) {
   return suffix ? prefix + suffix : prefix;
 }
 
+function clearAuthError(el) {
+  if (!el) return;
+  el.textContent = '';
+  el.classList.remove('show');
+}
+
+function showAuthError(el, message) {
+  if (!el) return;
+  el.textContent = message;
+  el.classList.add('show');
+}
+
+function formatAuthError(e, fallback, mode = '') {
+  if (e?.status === 404) return '该邮箱尚未注册，请先注册账号';
+  if (mode === 'password' && e?.status === 401) return '邮箱或密码不正确，请检查后重试';
+  if (mode === 'code' && (e?.status === 400 || e?.status === 401)) return '验证码不正确或已过期，请重新获取';
+  if (mode === 'sendCode' && e?.status === 429) return '验证码发送过于频繁，请稍后再试';
+  return e?.message || fallback;
+}
+
 async function doLogin() {
   const email = getAppEmail('login-email', 'login-email-suffix');
   const pwd   = document.getElementById('login-pwd').value;
   const errEl = document.getElementById('login-err');
-  errEl.style.display = 'none';
-  if (!email || !pwd) { errEl.textContent = '请填写邮箱和密码'; errEl.style.display = ''; return; }
+  clearAuthError(errEl);
+  if (!email || !pwd) { showAuthError(errEl, '请填写邮箱和密码'); return; }
   try {
     const res = await POST('/auth/login', { email, password: pwd, platform: 'web' });
     setToken(res.accessToken, res.refreshToken);
@@ -1936,8 +2300,7 @@ async function doLogin() {
     loadHome();
     if (res.user) document.getElementById('topbar-username').textContent = res.user.username || email;
   } catch(e) {
-    errEl.textContent = e.message || '登录失败';
-    errEl.style.display = '';
+    showAuthError(errEl, formatAuthError(e, '登录失败', 'password'));
   }
 }
 
@@ -1947,10 +2310,10 @@ async function doRegister() {
   const pwd   = document.getElementById('reg-pwd').value;
   const level = document.getElementById('reg-level').value;
   const errEl = document.getElementById('reg-err');
-  errEl.style.display = 'none';
-  if (!name || !email || !pwd) { errEl.textContent = '请填写所有字段'; errEl.style.display = ''; return; }
-  if (!/^[a-zA-Z0-9_]+$/.test(name)) { errEl.textContent = '用户名只能包含英文字母、数字和下划线'; errEl.style.display = ''; return; }
-  if (name.length < 3 || name.length > 50) { errEl.textContent = '用户名长度需在 3-50 个字符之间'; errEl.style.display = ''; return; }
+  clearAuthError(errEl);
+  if (!name || !email || !pwd) { showAuthError(errEl, '请填写所有字段'); return; }
+  if (!/^[a-zA-Z0-9_]+$/.test(name)) { showAuthError(errEl, '用户名只能包含英文字母、数字和下划线'); return; }
+  if (name.length < 3 || name.length > 50) { showAuthError(errEl, '用户名长度需在 3-50 个字符之间'); return; }
   try {
     const regData = { username: name, email, password: pwd, level, platform: 'web' };
     const inviteCode = document.getElementById('reg-invite-code').value.trim();
@@ -1961,8 +2324,7 @@ async function doRegister() {
     loadHome();
     if (res.user) document.getElementById('topbar-username').textContent = res.user.username || name;
   } catch(e) {
-    errEl.textContent = e.message || '注册失败，请稍后重试';
-    errEl.style.display = '';
+    showAuthError(errEl, e.message || '注册失败，请稍后重试');
   }
 }
 
@@ -1978,8 +2340,8 @@ let _codeCountdown = 0;
 async function sendLoginCode() {
   const email = getAppEmail('code-login-email', 'code-login-email-suffix');
   const errEl = document.getElementById('code-login-err');
-  errEl.style.display = 'none';
-  if (!email) { errEl.textContent = '请输入邮箱'; errEl.style.display = ''; return; }
+  clearAuthError(errEl);
+  if (!email) { showAuthError(errEl, '请输入邮箱'); return; }
   const btn = document.getElementById('btn-send-code');
   btn.disabled = true; btn.textContent = '发送中...';
   try {
@@ -1992,8 +2354,7 @@ async function sendLoginCode() {
       if (_codeCountdown <= 0) { clearInterval(iv); btn.disabled = false; btn.textContent = '重新发送'; }
     }, 1000);
   } catch(e) {
-    errEl.textContent = e.message || '发送失败';
-    errEl.style.display = '';
+    showAuthError(errEl, formatAuthError(e, '发送失败', 'sendCode'));
     btn.disabled = false; btn.textContent = '发送验证码';
   }
 }
@@ -2002,8 +2363,8 @@ async function doCodeLogin() {
   const email = getAppEmail('code-login-email', 'code-login-email-suffix');
   const code  = document.getElementById('code-login-code').value.trim();
   const errEl = document.getElementById('code-login-err');
-  errEl.style.display = 'none';
-  if (!email || !code) { errEl.textContent = '请填写邮箱和验证码'; errEl.style.display = ''; return; }
+  clearAuthError(errEl);
+  if (!email || !code) { showAuthError(errEl, '请填写邮箱和验证码'); return; }
   try {
     const res = await POST('/auth/login-with-code', { email, code, platform: 'web' });
     setToken(res.accessToken, res.refreshToken);
@@ -2011,28 +2372,32 @@ async function doCodeLogin() {
     loadHome();
     if (res.user) document.getElementById('topbar-username').textContent = res.user.username || email;
   } catch(e) {
-    errEl.textContent = e.message || '登录失败';
-    errEl.style.display = '';
+    showAuthError(errEl, formatAuthError(e, '登录失败', 'code'));
   }
 }
 
 // ── 主题背景色 ──
 // ── 主题系统 ──
 const THEMES = [
-  { id:'default',   name:'默认', group:'light', surface:'#ffffff', surface2:'#f8f9fc', border:'#e5e7ef', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#f1f5f9', shadow:'0 2px 16px rgba(67,97,238,.08)', shadowMd:'0 4px 24px rgba(67,97,238,.13)' },
-  { id:'green',     name:'浅绿', group:'light', surface:'#f6faf6', surface2:'#edf7ee', border:'#d4e5d5', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#e8f5e9', shadow:'0 2px 16px rgba(76,175,80,.06)', shadowMd:'0 4px 24px rgba(76,175,80,.1)' },
-  { id:'blue',      name:'浅蓝', group:'light', surface:'#f5f9fe', surface2:'#edf4fc', border:'#d0dff0', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#e3f2fd', shadow:'0 2px 16px rgba(33,150,243,.06)', shadowMd:'0 4px 24px rgba(33,150,243,.1)' },
-  { id:'pink',      name:'浅粉', group:'light', surface:'#fef6f9', surface2:'#fcedf3', border:'#f0d4e0', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#fce4ec', shadow:'0 2px 16px rgba(233,30,99,.06)', shadowMd:'0 4px 24px rgba(233,30,99,.1)' },
-  { id:'orange',    name:'浅橙', group:'light', surface:'#fefaf4', surface2:'#fdf5e6', border:'#f0e0c8', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#fff3e0', shadow:'0 2px 16px rgba(255,152,0,.06)', shadowMd:'0 4px 24px rgba(255,152,0,.1)' },
-  { id:'purple',    name:'浅紫', group:'light', surface:'#f9f6fe', surface2:'#f3edfc', border:'#ddd0f0', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#ede7f6', shadow:'0 2px 16px rgba(156,39,176,.06)', shadowMd:'0 4px 24px rgba(156,39,176,.1)' },
-  { id:'gray',      name:'银灰', group:'dark', surface:'#f0f0f3', surface2:'#e8e8ec', border:'#d0d0d8', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#e2e2e8', shadow:'0 2px 16px rgba(0,0,0,.06)', shadowMd:'0 4px 24px rgba(0,0,0,.1)' },
-  { id:'steel',     name:'钢蓝', group:'dark', surface:'#e8ecf2', surface2:'#dce3ed', border:'#c0cede', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#d4dceb', shadow:'0 2px 16px rgba(70,90,130,.06)', shadowMd:'0 4px 24px rgba(70,90,130,.1)' },
-  { id:'sage',      name:'灰绿', group:'dark', surface:'#e8ede9', surface2:'#dce5dd', border:'#c0d0c2', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#d4e0d6', shadow:'0 2px 16px rgba(80,120,85,.06)', shadowMd:'0 4px 24px rgba(80,120,85,.1)' },
-  { id:'warm',      name:'暖米', group:'dark', surface:'#f2ebe4', surface2:'#ebe3da', border:'#d8cec2', text:'#1a1c2e', textSub:'#6b7280', textHint:'#9ca3af', bg2:'#e5dbd0', shadow:'0 2px 16px rgba(120,90,60,.06)', shadowMd:'0 4px 24px rgba(120,90,60,.1)' },
+  { id:'default',   name:'霁蓝', group:'light', primary:'#4361ee', primaryDark:'#2f4ac1', primaryLight:'#eef0fd', secondary:'#f72585', surface:'#ffffff', surface2:'#f7f8ff', border:'#dfe4f5', text:'#171a2f', textSub:'#5f6678', textHint:'#9aa3b8', bg2:'#eef2ff', shadow:'0 2px 16px rgba(67,97,238,.10)', shadowMd:'0 4px 24px rgba(67,97,238,.16)' },
+  { id:'green',     name:'森绿', group:'light', primary:'#168a4a', primaryDark:'#0f6d3a', primaryLight:'#e7f7ed', secondary:'#0ea5a3', surface:'#fbfffc', surface2:'#edf8f0', border:'#bddfc8', text:'#10251a', textSub:'#50675a', textHint:'#86998e', bg2:'#def2e5', shadow:'0 2px 16px rgba(22,138,74,.10)', shadowMd:'0 4px 24px rgba(22,138,74,.18)' },
+  { id:'blue',      name:'海蓝', group:'light', primary:'#0877c9', primaryDark:'#055e9e', primaryLight:'#e4f3ff', secondary:'#14b8c8', surface:'#fbfdff', surface2:'#eaf6ff', border:'#bddcf2', text:'#102235', textSub:'#53687a', textHint:'#879aaa', bg2:'#dcefff', shadow:'0 2px 16px rgba(8,119,201,.10)', shadowMd:'0 4px 24px rgba(8,119,201,.18)' },
+  { id:'pink',      name:'樱粉', group:'light', primary:'#d9366f', primaryDark:'#ad2454', primaryLight:'#fff0f6', secondary:'#8b5cf6', surface:'#fffafd', surface2:'#fff0f6', border:'#f1bfd2', text:'#321420', textSub:'#765765', textHint:'#a98d99', bg2:'#ffe4ef', shadow:'0 2px 16px rgba(217,54,111,.10)', shadowMd:'0 4px 24px rgba(217,54,111,.18)' },
+  { id:'orange',    name:'夕橙', group:'light', primary:'#d46613', primaryDark:'#aa4e0d', primaryLight:'#fff1df', secondary:'#dc2626', surface:'#fffdf9', surface2:'#fff4e6', border:'#efc99e', text:'#2d1b0b', textSub:'#765f47', textHint:'#a58d74', bg2:'#ffe8cc', shadow:'0 2px 16px rgba(212,102,19,.10)', shadowMd:'0 4px 24px rgba(212,102,19,.18)' },
+  { id:'purple',    name:'藤紫', group:'light', primary:'#7c3aed', primaryDark:'#5b21b6', primaryLight:'#f1e9ff', secondary:'#db2777', surface:'#fefdff', surface2:'#f5efff', border:'#d9c4f6', text:'#25143b', textSub:'#665276', textHint:'#9a89aa', bg2:'#ede2ff', shadow:'0 2px 16px rgba(124,58,237,.10)', shadowMd:'0 4px 24px rgba(124,58,237,.18)' },
+  { id:'gray',      name:'石墨', group:'dark', primary:'#4f46e5', primaryDark:'#3730a3', primaryLight:'#e4e6f6', secondary:'#64748b', surface:'#f3f4f6', surface2:'#e5e7eb', border:'#c4cad4', text:'#111827', textSub:'#4b5563', textHint:'#7a8493', bg2:'#d9dde5', shadow:'0 2px 16px rgba(31,41,55,.10)', shadowMd:'0 4px 24px rgba(31,41,55,.16)' },
+  { id:'steel',     name:'钴蓝', group:'dark', primary:'#315f9f', primaryDark:'#234673', primaryLight:'#dde8f6', secondary:'#0f766e', surface:'#eef3f8', surface2:'#dce6f0', border:'#b7c8dc', text:'#102033', textSub:'#4e6175', textHint:'#8193a5', bg2:'#cfdae8', shadow:'0 2px 16px rgba(49,95,159,.10)', shadowMd:'0 4px 24px rgba(49,95,159,.18)' },
+  { id:'sage',      name:'松雾', group:'dark', primary:'#557a45', primaryDark:'#3f5f32', primaryLight:'#e4efdf', secondary:'#b45309', surface:'#f0f4ed', surface2:'#e2eadc', border:'#bdccb5', text:'#182315', textSub:'#596851', textHint:'#87957f', bg2:'#d7e2d0', shadow:'0 2px 16px rgba(85,122,69,.10)', shadowMd:'0 4px 24px rgba(85,122,69,.17)' },
+  { id:'warm',      name:'麦茶', group:'dark', primary:'#9a5b2f', primaryDark:'#744322', primaryLight:'#f5e6d8', secondary:'#3f7d70', surface:'#f8f1e9', surface2:'#eadbcc', border:'#d1bca7', text:'#2d1f16', textSub:'#735c49', textHint:'#9f8874', bg2:'#e2cfbd', shadow:'0 2px 16px rgba(154,91,47,.10)', shadowMd:'0 4px 24px rgba(154,91,47,.18)' },
 ];
 function applyTheme(themeId) {
   const t = THEMES.find(x => x.id === themeId) || THEMES[0];
   const r = document.documentElement.style;
+  r.setProperty('--primary', t.primary);
+  r.setProperty('--primary-dark', t.primaryDark);
+  r.setProperty('--primary-light', t.primaryLight);
+  r.setProperty('--primary-shadow', t.shadowMd.match(/rgba\([^)]+\)/)?.[0] || 'rgba(67,97,238,.3)');
+  r.setProperty('--secondary', t.secondary);
   r.setProperty('--surface', t.surface);
   r.setProperty('--surface2', t.surface2);
   r.setProperty('--border', t.border);
@@ -2042,6 +2407,7 @@ function applyTheme(themeId) {
   r.setProperty('--bg2', t.bg2);
   r.setProperty('--shadow', t.shadow);
   r.setProperty('--shadow-md', t.shadowMd);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t.primary);
   try { localStorage.setItem('kotabi_theme', themeId); } catch(e) {}
   renderThemeDots(themeId);
 }
@@ -2054,7 +2420,7 @@ function renderThemeDots(activeId) {
     const el = document.createElement('div');
     el.className = 'theme-item';
     const isDark = t.group === 'dark';
-    el.innerHTML = '<div class="theme-dot ' + (t.id === activeId ? 'active' : '') + '" style="background:' + t.surface2 + '"></div><span class="theme-label">' + t.name + '</span>';
+    el.innerHTML = '<div class="theme-dot ' + (t.id === activeId ? 'active' : '') + '" style="--dot-primary:' + t.primary + ';--dot-accent:' + t.secondary + ';--dot-surface:' + t.surface2 + ';--dot-ring:' + t.primaryLight + '"></div><span class="theme-label">' + t.name + '</span>';
     el.onclick = () => applyTheme(t.id);
     (isDark ? darkC : lightC).appendChild(el);
   });
@@ -2343,10 +2709,12 @@ async function loadHome() {
     // 今日统计
     const td = dg.today || {};
     document.getElementById('today-xp').textContent = td.xp_earned || 0;
-    document.getElementById('today-time').textContent = Math.round((td.study_seconds || 0) / 60);
+    const todayMinutes = Math.round((td.study_seconds || 0) / 60);
+    document.getElementById('today-time').textContent = todayMinutes;
     document.getElementById('today-activities').textContent = td.activity_count || 0;
+    document.getElementById('home-today-summary').textContent = todayMinutes > 0 ? `已学习 ${todayMinutes} 分钟` : '今天也要轻轻开始';
     document.getElementById('hdr-xp-today').textContent = td.xp_earned || 0;
-    document.getElementById('hdr-time').textContent = Math.round((td.study_seconds || 0) / 60);
+    document.getElementById('hdr-time').textContent = todayMinutes;
     document.getElementById('hdr-activities').textContent = td.activity_count || 0;
 
 
@@ -2354,20 +2722,28 @@ async function loadHome() {
     const goals = dg.goals || {};
     let goalsHtml = '';
     const goalItems = [
-      { label: '学习分钟', data: goals.study_minutes, color: 'var(--primary)' },
-      { label: '完成课程', data: goals.lessons, color: '#10b981' },
-      { label: 'SRS 复习', data: goals.reviews, color: '#f59e0b' },
+      { icon: '⏱️', label: '学习分钟', data: goals.study_minutes, color: 'var(--primary)' },
+      { icon: '✅', label: '完成课程', data: goals.lessons, color: '#10b981' },
+      { icon: '🗂️', label: 'SRS 复习', data: goals.reviews, color: '#f59e0b' },
     ];
     for (const g of goalItems) {
       const cur = g.data?.current || 0;
       const tgt = g.data?.target || 1;
       const pctG = Math.min(100, Math.round(cur / tgt * 100));
-      goalsHtml += `<div style="margin-bottom:8px">
-        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-sub);margin-bottom:3px">
-          <span>${g.label}</span><span>${cur} / ${tgt}</span>
+      goalsHtml += `<div class="home-goal-item" style="--goal-color:${g.color}">
+        <div class="home-goal-row">
+          <span class="home-goal-name">
+            <span class="home-goal-icon">${g.icon}</span>
+            <span class="home-goal-label">${g.label}</span>
+          </span>
+          <span class="home-goal-value">${cur} / ${tgt}</span>
         </div>
-        <div style="background:var(--bg3);border-radius:6px;height:6px;overflow:hidden">
-          <div style="background:${g.color};height:100%;width:${pctG}%;border-radius:6px;transition:width .6s"></div>
+        <div class="home-goal-bar">
+          <div class="home-goal-fill" style="--goal-color:${g.color};--goal-progress:${pctG}%"></div>
+        </div>
+        <div class="home-goal-meta">
+          <span>${pctG >= 100 ? '已完成' : '进行中'}</span>
+          <span class="home-goal-percent">${pctG}%</span>
         </div>
       </div>`;
     }
@@ -2376,11 +2752,18 @@ async function loadHome() {
     // 测验细分显示
     const qb = td.quiz_breakdown || {};
     const qbLabels = {vocabulary:'单词测验', grammar:'语法测验', listening:'听力测验', mixed:'综合测验'};
+    const qbIcons = {vocabulary:'✏️', grammar:'📖', listening:'🎧', mixed:'✨'};
     const qbEntries = Object.keys(qb).filter(k => qb[k] > 0);
     if (qbEntries.length > 0) {
       document.getElementById('quiz-breakdown-section').style.display = '';
       document.getElementById('quiz-breakdown-list').innerHTML = qbEntries.map(k =>
-        `<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-sub);margin-bottom:4px"><span>${qbLabels[k] || k}</span><span style="font-weight:700">${qb[k]} 次</span></div>`
+        `<div class="home-quiz-item">
+          <span class="home-quiz-name">
+            <span class="home-quiz-icon">${qbIcons[k] || '📝'}</span>
+            <span class="home-quiz-label">${escHtml(qbLabels[k] || k)}</span>
+          </span>
+          <span class="home-quiz-count">${qb[k]} 次</span>
+        </div>`
       ).join('');
     } else {
       document.getElementById('quiz-breakdown-section').style.display = 'none';
@@ -5671,13 +6054,28 @@ function showKanaPractice(romaji, hira, kata) {
 }
 
 let _currentKanaSvgUrl = '';
+const _kanaSvgCache = new Map();
+
+async function _fetchKanaSvg(svgUrl) {
+  if (_kanaSvgCache.has(svgUrl)) return _kanaSvgCache.get(svgUrl);
+  const promise = fetch(svgUrl)
+    .then(r => {
+      if (!r.ok) throw new Error('SVG load failed');
+      return r.text();
+    })
+    .catch(err => {
+      _kanaSvgCache.delete(svgUrl);
+      throw err;
+    });
+  _kanaSvgCache.set(svgUrl, promise);
+  return promise;
+}
 
 function _loadKanaSvg(svgUrl, containerId, autoPlay) {
   _currentKanaSvgUrl = svgUrl;
   const container = document.getElementById(containerId);
   if (!container) return;
-  fetch(svgUrl)
-    .then(r => r.text())
+  _fetchKanaSvg(svgUrl)
     .then(svgText => {
       container.innerHTML = svgText;
       const svg = container.querySelector('svg');
@@ -6210,8 +6608,7 @@ function _ktPlayPrompt() {
 function _ktLoadSvgRef(svgUrl) {
   const container = document.getElementById('kt-svg-ref');
   if (!container) return;
-  fetch(svgUrl)
-    .then(r => r.text())
+  _fetchKanaSvg(svgUrl)
     .then(svgText => {
       container.innerHTML = svgText;
       const svg = container.querySelector('svg');
@@ -7064,8 +7461,7 @@ const _pageTierMap = {
 
 async function loadFeatureTiers() {
   try {
-    const res = await fetch('/api/v1/sync/tiers');
-    const data = await res.json();
+    const data = await GET('/sync/tiers', { ttl: 5 * 60 * 1000 });
     if (data.ok && data.tiers) _featureTiers = data.tiers;
   } catch(_) {}
 }
@@ -7088,8 +7484,7 @@ function isFeatureBlocked(page) {
 
 async function loadFeatureToggles() {
   try {
-    const res = await fetch('/api/v1/sync/features?platform=web');
-    const data = await res.json();
+    const data = await GET('/sync/features?platform=web', { ttl: 5 * 60 * 1000 });
     if (data.ok && data.features) {
       _featureToggles = data.features;
       applyFeatureToggles();

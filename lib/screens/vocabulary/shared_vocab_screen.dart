@@ -167,7 +167,7 @@ class _SharedVocabScreenState extends State<SharedVocabScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('已导入 $imported 张卡片')),
       );
-      context.go('/local-vocab');
+      context.go('/local-vocab?from=shared');
     } on DioException catch (e) {
       final status = e.response?.statusCode;
       final message = status == 401

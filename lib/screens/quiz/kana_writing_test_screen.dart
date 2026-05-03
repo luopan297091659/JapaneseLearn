@@ -8,7 +8,10 @@ import '../../widgets/kana_stroke_widget.dart';
 import '../../services/api_service.dart';
 
 class KanaWritingTestScreen extends StatefulWidget {
-  const KanaWritingTestScreen({super.key});
+  final String? initialKana;
+  final String? initialType;
+
+  const KanaWritingTestScreen({super.key, this.initialKana, this.initialType});
   @override
   State<KanaWritingTestScreen> createState() => _KanaWritingTestScreenState();
 }
@@ -33,12 +36,56 @@ class _KanaWritingTestScreenState extends State<KanaWritingTestScreen> {
   DateTime? _startTime;
 
   final _strokeController = KanaStrokeController();
+  final List<KanaStrokeController> _practiceControllers = [];
   int _canvasKey = 0;
+  bool _practiceMode = false;
+  bool _practiceShowRef = false;
+  bool _audioLoading = false;
+  bool _audioPlaying = false;
 
   @override
   void initState() {
     super.initState();
+    _setupInitialQuestion();
     _initTts();
+  }
+
+  void _setupInitialQuestion() {
+    if (widget.initialKana == null) return;
+
+    _practiceMode = true;
+    final isKatakana = widget.initialType == 'katakana';
+    final romaji = _findRomaji(widget.initialKana!, isKatakana) ?? '';
+    final chars = widget.initialKana!.split('');
+
+    _practiceControllers
+      ..clear()
+      ..addAll(List.generate(chars.length, (_) => KanaStrokeController()));
+
+    _category = isKatakana ? 'katakana' : 'hiragana';
+    _count = 1;
+    _started = true;
+    _questions = [
+      {
+        'kana': widget.initialKana!,
+        'romaji': romaji,
+        'isKatakana': isKatakana.toString(),
+      }
+    ];
+  }
+
+  String? _findRomaji(String kana, bool isKatakana) {
+    for (final dataset in [gojuonData, dakuonData, youonData]) {
+      for (final row in dataset) {
+        for (final item in row) {
+          if (item.isEmpty) continue;
+          if ((isKatakana ? item[1] : item[0]) == kana) {
+            return item[2];
+          }
+        }
+      }
+    }
+    return null;
   }
 
   Future<void> _initTts() async {
@@ -106,11 +153,22 @@ class _KanaWritingTestScreenState extends State<KanaWritingTestScreen> {
     if (_kanaAudioMap.isEmpty) {
       try { _kanaAudioMap = await apiService.getKanaAudioMap(); } catch (_) {}
     }
-    await TtsHelper.playJapaneseSmart(
-      audioUrl: _kanaAudioMap[kana],
-      text: kana,
-      tts: _tts,
-    );
+    setState(() {
+      _audioLoading = true;
+      _audioPlaying = true;
+    });
+    try {
+      await TtsHelper.playJapaneseSmart(
+        audioUrl: _kanaAudioMap[kana],
+        text: kana,
+        tts: _tts,
+        onComplete: () {
+          if (mounted) setState(() => _audioPlaying = false);
+        },
+      );
+    } finally {
+      if (mounted) setState(() => _audioLoading = false);
+    }
   }
 
   void _submitAnswer() {
@@ -153,6 +211,7 @@ class _KanaWritingTestScreenState extends State<KanaWritingTestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_practiceMode) return _buildPractice(context);
     if (!_started) return _buildSetup(context);
     if (_finished) return _buildResult(context);
     return _buildTest(context);
@@ -378,6 +437,122 @@ class _KanaWritingTestScreenState extends State<KanaWritingTestScreen> {
     );
   }
 
+  Widget _buildPractice(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final q = _questions.first;
+    final isKata = q['isKatakana'] == 'true';
+    final kana = q['kana']!;
+    final romaji = q['romaji']!;
+    final chars = kana.split('');
+
+    if (_practiceControllers.length != chars.length) {
+      _practiceControllers
+        ..clear()
+        ..addAll(List.generate(chars.length, (_) => KanaStrokeController()));
+    }
+
+    return Scaffold(
+      backgroundColor: cs.surfaceContainerLowest,
+      appBar: AppBar(
+        title: Text(isKata ? '片假名书写' : '平假名书写'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_rounded),
+          onPressed: () => context.pop(),
+        ),
+      ),
+      body: Column(
+        children: [
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          romaji,
+                          style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: cs.primary),
+                        ),
+                        const SizedBox(width: 16),
+                        _AudioStateButton(
+                          loading: _audioLoading,
+                          playing: _audioPlaying,
+                          color: cs.primary,
+                          onTap: _playPrompt,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(_practiceShowRef ? Icons.visibility_rounded : Icons.visibility_off_rounded),
+                  tooltip: _practiceShowRef ? '隐藏参考' : '显示参考',
+                  onPressed: () => setState(() => _practiceShowRef = !_practiceShowRef),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_sweep_rounded),
+                  tooltip: '清除',
+                  onPressed: () {
+                    for (final controller in _practiceControllers) {
+                      controller.clear();
+                    }
+                    setState(() => _canvasKey++);
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final boxCount = chars.length;
+                  final itemWidth = boxCount > 1
+                      ? (constraints.maxWidth - 12.0 * (boxCount - 1)) / boxCount
+                      : constraints.maxWidth;
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: List.generate(chars.length, (index) {
+                      return SizedBox(
+                        width: itemWidth,
+                        height: itemWidth,
+                        child: KanaStrokeWidget(
+                          key: ValueKey('practice-$_canvasKey-$kana-$isKata-$index'),
+                          kana: chars[index],
+                          isKatakana: isKata,
+                          controller: _practiceControllers[index],
+                          autoPlay: false,
+                          showToolbar: false,
+                          showReference: _practiceShowRef,
+                        ),
+                      );
+                    }),
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _audioButton() {
+    return _AudioStateButton(
+      loading: _audioLoading,
+      playing: _audioPlaying,
+      color: Theme.of(context).colorScheme.primary,
+      onTap: _playPrompt,
+    );
+  }
+
   Widget _buildScoreResult(ColorScheme cs, String kana, bool isKata) {
     final score = _currentScore ?? 0;
     final Color scoreColor;
@@ -454,6 +629,38 @@ class _KanaWritingTestScreenState extends State<KanaWritingTestScreen> {
             child: const Text('退出'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _AudioStateButton({
+    required bool loading,
+    required bool playing,
+    required Color color,
+    required VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: playing ? color.withValues(alpha: 0.15) : Colors.transparent,
+        ),
+        child: loading
+            ? Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: color),
+                ),
+              )
+            : Icon(
+                playing ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+                color: color,
+                size: 28,
+              ),
       ),
     );
   }

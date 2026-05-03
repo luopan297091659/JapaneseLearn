@@ -54,6 +54,12 @@ class KanaStrokeWidget extends StatefulWidget {
   /// 测试模式：隐藏工具栏和参考，启用绘制
   final bool testMode;
 
+  /// 是否显示工具栏
+  final bool showToolbar;
+
+  /// 外部控制参考线显示
+  final bool showReference;
+
   /// 是否自动播放动画（默认 true）
   final bool autoPlay;
 
@@ -70,6 +76,8 @@ class KanaStrokeWidget extends StatefulWidget {
     this.backgroundColor = Colors.white,
     this.animationOnly = false,
     this.testMode = false,
+    this.showToolbar = true,
+    this.showReference = true,
     this.autoPlay = true,
     this.onAnimationComplete,
     this.controller,
@@ -451,8 +459,14 @@ class _KanaStrokeWidgetState extends State<KanaStrokeWidget>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    if (widget.animationOnly || widget.testMode) {
-      return _buildCanvas(cs, enableDrawing: widget.testMode);
+    if (widget.animationOnly) {
+      return _buildCanvas(cs, enableDrawing: false);
+    }
+    if (widget.testMode) {
+      return _buildCanvas(cs, enableDrawing: true);
+    }
+    if (!widget.showToolbar) {
+      return _buildCanvas(cs, enableDrawing: true);
     }
     return Column(
       children: [
@@ -522,7 +536,9 @@ class _KanaStrokeWidgetState extends State<KanaStrokeWidget>
               strokes: _strokes,
               animValue: _animCtrl?.value ?? (widget.testMode || (!widget.autoPlay && widget.animationOnly) ? 0.0 : 1.0),
               userStrokes: _userStrokes,
-              showRef: widget.testMode ? false : _showRef,
+              showRef: widget.testMode
+                  ? false
+                  : (widget.showToolbar ? _showRef : widget.showReference),
               svgError: _svgError,
               kana: widget.kana,
             ),
@@ -620,7 +636,7 @@ class _KanaCanvasPainter extends CustomPainter {
       // Shadow reference (grey fill)
       if (showRef) {
         final shadowPaint = Paint()
-          ..color = Colors.grey.withValues(alpha: 0.10)
+          ..color = Colors.grey.withOpacity(0.18)
           ..style = PaintingStyle.fill;
         for (final sp in shadowPaths) {
           canvas.drawPath(sp, shadowPaint);
@@ -696,7 +712,7 @@ class _KanaCanvasPainter extends CustomPainter {
 
   void _drawGrid(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.grey.withValues(alpha: 0.15)
+      ..color = Colors.grey.withOpacity(0.18)
       ..strokeWidth = 1;
     final cx = size.width / 2;
     final cy = size.height / 2;
@@ -706,7 +722,7 @@ class _KanaCanvasPainter extends CustomPainter {
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, size.height),
       Paint()
-        ..color = Colors.grey.withValues(alpha: 0.2)
+        ..color = Colors.grey.withOpacity(0.18)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1,
     );

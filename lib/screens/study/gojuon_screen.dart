@@ -113,6 +113,7 @@ class _GojuonScreenState extends State<GojuonScreen> with SingleTickerProviderSt
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      enableDrag: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _KanaPracticeSheet(
         hiragana: hira,
@@ -122,6 +123,14 @@ class _GojuonScreenState extends State<GojuonScreen> with SingleTickerProviderSt
         hasSvg: _hasSvg(_showKata ? kata : hira),
         onSpeak: () => _speak(hira),
         onSpeakSlow: () => _speakSlow(hira),
+        onWrite: () {
+          final selectedKana = _showKata ? kata : hira;
+          final selectedType = _showKata ? 'katakana' : 'hiragana';
+          Navigator.pop(context);
+          Future.microtask(() => context.push(
+                '/kana-writing-test?kana=${Uri.encodeComponent(selectedKana)}&type=$selectedType',
+              ));
+        },
       ),
     );
   }
@@ -198,6 +207,7 @@ class _KanaPracticeSheet extends StatefulWidget {
   final bool hasSvg;
   final VoidCallback onSpeak;
   final VoidCallback onSpeakSlow;
+  final VoidCallback onWrite;
 
   const _KanaPracticeSheet({
     required this.hiragana,
@@ -207,6 +217,7 @@ class _KanaPracticeSheet extends StatefulWidget {
     required this.hasSvg,
     required this.onSpeak,
     required this.onSpeakSlow,
+    required this.onWrite,
   });
 
   @override
@@ -241,40 +252,36 @@ class _KanaPracticeSheetState extends State<_KanaPracticeSheet> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final height = MediaQuery.of(context).size.height * (widget.hasSvg ? 0.72 : 0.55);
 
-    return DraggableScrollableSheet(
-      initialChildSize: widget.hasSvg ? 0.72 : 0.55,
-      minChildSize: 0.4,
-      maxChildSize: 0.92,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                  color: cs.outline.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
+    return SizedBox(
+      height: height,
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: cs.outline.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
               ),
-              Expanded(
-                child: _buildInfoView(cs, scrollController),
-              ),
-            ],
-          ),
-        );
-      },
+            ),
+            Expanded(
+              child: _buildInfoView(cs),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildInfoView(ColorScheme cs, ScrollController scrollController) {
+  Widget _buildInfoView(ColorScheme cs) {
     return ListView(
-      controller: scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       children: [
         // Top hero: stroke animation or static text
@@ -360,6 +367,16 @@ class _KanaPracticeSheetState extends State<_KanaPracticeSheet> {
                 ),
               ),
             ],
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: widget.onWrite,
+              icon: const Icon(Icons.edit_rounded, size: 18),
+              label: const Text('书写'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
           ],
         ),
       ],
