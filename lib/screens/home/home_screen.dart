@@ -969,8 +969,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final animeVisual =
-        Theme.of(context).extension<AppVisualTheme>()?.animeBackground ?? false;
+    final visualTheme = Theme.of(context).extension<AppVisualTheme>();
+    final animeVisual = visualTheme?.animeBackground ?? false;
+    final sakuraVisual = visualTheme?.sakuraBackground ?? false;
 
     // 从 dailyGoals 提取数据
     final totalXp = _dailyGoals?['total_xp'] ?? 0;
@@ -1099,7 +1100,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
     );
 
-    if (animeVisual) {
+    if (sakuraVisual) {
+      body = SakuraModeBackground(child: body);
+    } else if (animeVisual) {
       body = AnimeModeBackground(child: body);
     }
 

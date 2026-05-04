@@ -158,8 +158,9 @@ class _TestTabState extends State<TestTab> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final animeVisual =
-        Theme.of(context).extension<AppVisualTheme>()?.animeBackground ?? false;
+    final visualTheme = Theme.of(context).extension<AppVisualTheme>();
+    final animeVisual = visualTheme?.animeBackground ?? false;
+    final sakuraVisual = visualTheme?.sakuraBackground ?? false;
     final wrongBlocked = _isBlocked('wrong_answers');
     Widget body = ListView(
       padding: const EdgeInsets.all(16),
@@ -265,7 +266,9 @@ class _TestTabState extends State<TestTab> {
       ],
     );
 
-    if (animeVisual) {
+    if (sakuraVisual) {
+      body = SakuraModeBackground(child: body);
+    } else if (animeVisual) {
       body = AnimeModeBackground(child: body);
     }
 

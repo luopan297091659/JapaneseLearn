@@ -39,16 +39,22 @@ void main() async {
       showDialog(
         context: ctx,
         builder: (_) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(children: [
-            Icon(error == 'DAILY_LIMIT_REACHED' ? Icons.hourglass_empty : Icons.lock,
-                color: Colors.orange, size: 28),
+            Icon(
+                error == 'DAILY_LIMIT_REACHED'
+                    ? Icons.hourglass_empty
+                    : Icons.lock,
+                color: Colors.orange,
+                size: 28),
             const SizedBox(width: 8),
             const Expanded(child: Text('会员功能')),
           ]),
           content: Text(msg),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('关闭')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('关闭')),
             FilledButton(
               onPressed: () {
                 Navigator.pop(ctx);
@@ -80,7 +86,8 @@ void main() async {
   TtsHelper.instance.init();
   // 初始化学习计划提醒服务
   await PlanReminderService.instance.init();
-  runApp(UncontrolledProviderScope(container: container, child: const JapaneseLearnApp()));
+  runApp(UncontrolledProviderScope(
+      container: container, child: const JapaneseLearnApp()));
 }
 
 class JapaneseLearnApp extends ConsumerWidget {
@@ -91,12 +98,21 @@ class JapaneseLearnApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
     final locale = ref.watch(localeProvider);
     final appearance = ref.watch(appAppearanceProvider);
-    final isAnime = appearance == AppAppearanceMode.anime;
+    final lightTheme = switch (appearance) {
+      AppAppearanceMode.anime => AppTheme.animeLight,
+      AppAppearanceMode.sakura => AppTheme.sakuraLight,
+      AppAppearanceMode.classic => AppTheme.light,
+    };
+    final darkTheme = switch (appearance) {
+      AppAppearanceMode.anime => AppTheme.animeDark,
+      AppAppearanceMode.sakura => AppTheme.sakuraDark,
+      AppAppearanceMode.classic => AppTheme.dark,
+    };
     return MaterialApp.router(
       title: '言旅 Kotabi',
       debugShowCheckedModeBanner: false,
-      theme: isAnime ? AppTheme.animeLight : AppTheme.light,
-      darkTheme: isAnime ? AppTheme.animeDark : AppTheme.dark,
+      theme: lightTheme,
+      darkTheme: darkTheme,
       themeMode: ThemeMode.system,
       routerConfig: router,
       // ── 国际化配置 ──
@@ -227,6 +243,100 @@ class AppTheme {
     ),
     extensions: const [
       AppVisualTheme(animeBackground: true),
+    ],
+  );
+
+  static final sakuraLight = ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: const Color(0xFFEFA7B8),
+      brightness: Brightness.light,
+    ).copyWith(
+      primary: const Color(0xFFD96C8C),
+      secondary: const Color(0xFFA8CFA0),
+      tertiary: const Color(0xFFE8A0AD),
+      surface: const Color(0xFFFFFFFF),
+      surfaceContainerLowest: const Color(0xFFFFF8F5),
+      surfaceContainerLow: const Color(0xFFFFF1F5),
+      surfaceContainer: const Color(0xFFFFEBF1),
+      surfaceContainerHigh: const Color(0xFFFFE4EC),
+      surfaceContainerHighest: const Color(0xFFFFDCE7),
+      onSurface: const Color(0xFF3F3437),
+      onSurfaceVariant: const Color(0xFF735D64),
+      outline: const Color(0xFFB98A96),
+      outlineVariant: const Color(0xFFF4D6DE),
+    ),
+    scaffoldBackgroundColor: const Color(0xFFFFF8F5),
+    fontFamily: 'NotoSansJP',
+    appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
+    cardTheme: CardThemeData(
+      elevation: 2,
+      color: Colors.white,
+      shadowColor: const Color(0xFFEFA7B8).withValues(alpha: 0.18),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      filled: true,
+      fillColor: const Color(0xFFFFF8F5),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        minimumSize: const Size.fromHeight(48),
+        backgroundColor: const Color(0xFFD96C8C),
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
+    extensions: const [
+      AppVisualTheme(animeBackground: false, sakuraBackground: true),
+    ],
+  );
+
+  static final sakuraDark = ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: const Color(0xFFE48CA2),
+      brightness: Brightness.dark,
+    ).copyWith(
+      primary: const Color(0xFFF2A6BA),
+      secondary: const Color(0xFFA8CFA0),
+      tertiary: const Color(0xFFF0C2CC),
+      surface: const Color(0xFF241A1F),
+      surfaceContainerLowest: const Color(0xFF1F171B),
+      surfaceContainerLow: const Color(0xFF281D22),
+      surfaceContainer: const Color(0xFF302329),
+      surfaceContainerHigh: const Color(0xFF392A31),
+      surfaceContainerHighest: const Color(0xFF433139),
+      onSurface: const Color(0xFFFFECEF),
+      onSurfaceVariant: const Color(0xFFE8C8D0),
+      outline: const Color(0xFFC99BA7),
+      outlineVariant: const Color(0xFF5F414A),
+    ),
+    scaffoldBackgroundColor: const Color(0xFF1F171B),
+    fontFamily: 'NotoSansJP',
+    appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
+    cardTheme: CardThemeData(
+      elevation: 2,
+      color: const Color(0xFF302329),
+      shadowColor: Colors.black.withValues(alpha: 0.32),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      filled: true,
+      fillColor: const Color(0xFF281D22),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        minimumSize: const Size.fromHeight(48),
+        backgroundColor: const Color(0xFFF2A6BA),
+        foregroundColor: const Color(0xFF321D25),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
+    extensions: const [
+      AppVisualTheme(animeBackground: false, sakuraBackground: true),
     ],
   );
 }

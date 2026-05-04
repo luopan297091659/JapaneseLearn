@@ -31,7 +31,8 @@ class ProfileScreen extends ConsumerStatefulWidget {
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindingObserver {
+class _ProfileScreenState extends ConsumerState<ProfileScreen>
+    with WidgetsBindingObserver {
   UserModel? _user;
   bool _loading = true;
   bool? _notifOverride; // 乐观更新开关状态
@@ -47,7 +48,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _load(); _checkPermissions(); _loadSlowSpeed(); _loadAppVersion(); _loadReminderTime();
+    _load();
+    _checkPermissions();
+    _loadSlowSpeed();
+    _loadAppVersion();
+    _loadReminderTime();
   }
 
   @override
@@ -73,7 +78,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
 
   Future<void> _loadSlowSpeed() async {
     final prefs = await SharedPreferences.getInstance();
-    if (mounted) setState(() => _slowSpeed = prefs.getDouble('slow_speed') ?? 0.5);
+    if (mounted)
+      setState(() => _slowSpeed = prefs.getDouble('slow_speed') ?? 0.5);
   }
 
   Future<void> _setSlowSpeed(double v) async {
@@ -97,23 +103,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
       final prefs = await SharedPreferences.getInstance();
       final remotePreferences = user.preferences;
       if (remotePreferences['slow_speed'] is num) {
-        await prefs.setDouble('slow_speed', (remotePreferences['slow_speed'] as num).toDouble());
+        await prefs.setDouble(
+            'slow_speed', (remotePreferences['slow_speed'] as num).toDouble());
       }
       if (remotePreferences['locale'] is String) {
-        await prefs.setString('app_language', remotePreferences['locale'] as String);
+        await prefs.setString(
+            'app_language', remotePreferences['locale'] as String);
       }
       if (remotePreferences['appearance_mode'] is String) {
-        await prefs.setString('app_appearance_mode', remotePreferences['appearance_mode'] as String);
+        await ref
+            .read(appAppearanceProvider.notifier)
+            .applySavedValue(remotePreferences['appearance_mode'] as String);
       }
       await prefs.setInt('daily_goal_minutes', user.dailyGoalMinutes);
       await prefs.setBool('notification_enabled', user.notificationEnabled);
       setState(() {
         _user = user;
         _avatarBytes = avatarBytes;
-        _slowSpeed = (remotePreferences['slow_speed'] as num?)?.toDouble() ?? _slowSpeed;
+        _slowSpeed =
+            (remotePreferences['slow_speed'] as num?)?.toDouble() ?? _slowSpeed;
         _loading = false;
       });
-    } catch (_) { setState(() => _loading = false); }
+    } catch (_) {
+      setState(() => _loading = false);
+    }
   }
 
   Future<Uint8List?> _downloadAvatarBytes(String? rawUrl) async {
@@ -181,7 +194,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
@@ -194,7 +209,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
     final password = passwordCtrl.text.trim();
     if (password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入密码'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+            content: Text('请输入密码'), behavior: SnackBarBehavior.floating),
       );
       return;
     }
@@ -276,7 +292,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
     const presets = [5, 15, 30, 60, 90, 120];
     // 确保 selected 是合法值
     if (!presets.contains(selected)) {
-      selected = presets.reduce((a, b) => (a - selected).abs() < (b - selected).abs() ? a : b);
+      selected = presets.reduce(
+          (a, b) => (a - selected).abs() < (b - selected).abs() ? a : b);
     }
     final confirmed = await showDialog<bool>(
       context: context,
@@ -289,11 +306,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text('每日学习目标：$selected 分钟',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Slider(
                   value: idx.toDouble(),
-                  min: 0, max: (presets.length - 1).toDouble(),
+                  min: 0,
+                  max: (presets.length - 1).toDouble(),
                   divisions: presets.length - 1,
                   label: '$selected 分钟',
                   onChanged: (v) => setSt(() => selected = presets[v.round()]),
@@ -303,30 +322,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                   spacing: 8,
                   runSpacing: 8,
                   alignment: WrapAlignment.center,
-                  children: presets.map((m) => GestureDetector(
-                    onTap: () => setSt(() => selected = m),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: selected == m
-                            ? Theme.of(ctx).colorScheme.primary
-                            : Theme.of(ctx).colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text('$m分',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: selected == m ? Colors.white : null,
-                          )),
-                    ),
-                  )).toList(),
+                  children: presets
+                      .map((m) => GestureDetector(
+                            onTap: () => setSt(() => selected = m),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: selected == m
+                                    ? Theme.of(ctx).colorScheme.primary
+                                    : Theme.of(ctx)
+                                        .colorScheme
+                                        .surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text('$m分',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: selected == m ? Colors.white : null,
+                                  )),
+                            ),
+                          ))
+                      .toList(),
                 ),
               ],
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-              FilledButton(onPressed: () => Navigator.pop(ctx, true),  child: const Text('保存')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('取消')),
+              FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('保存')),
             ],
           );
         },
@@ -340,8 +368,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
         _load();
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('更新失败：$e'), behavior: SnackBarBehavior.floating));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('更新失败：$e'), behavior: SnackBarBehavior.floating));
         }
       }
     }
@@ -350,7 +378,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
   // ── 学习提醒 ─────────────────────────────────────────────────
   Future<void> _loadReminderTime() async {
     final t = await PlanReminderService.instance.getReminderTime();
-    if (mounted) setState(() { _reminderHour = t.hour; _reminderMinute = t.minute; });
+    if (mounted)
+      setState(() {
+        _reminderHour = t.hour;
+        _reminderMinute = t.minute;
+      });
   }
 
   Future<void> _toggleNotification(bool value) async {
@@ -371,8 +403,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
     } catch (e) {
       setState(() => _notifOverride = !value);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('设置失败：$e'), behavior: SnackBarBehavior.floating));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('设置失败：$e'), behavior: SnackBarBehavior.floating));
       }
     }
   }
@@ -384,8 +416,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
       helpText: '选择每日提醒时间',
     );
     if (picked == null || !mounted) return;
-    setState(() { _reminderHour = picked.hour; _reminderMinute = picked.minute; });
-    await PlanReminderService.instance.saveReminderTime(hour: picked.hour, minute: picked.minute);
+    setState(() {
+      _reminderHour = picked.hour;
+      _reminderMinute = picked.minute;
+    });
+    await PlanReminderService.instance
+        .saveReminderTime(hour: picked.hour, minute: picked.minute);
     final enabled = _notifOverride ?? (_user?.notificationEnabled ?? true);
     if (enabled) {
       await PlanReminderService.instance.scheduleDailyReminder(
@@ -399,7 +435,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
   int _compareVersions(String current, String latest) {
     List<int> parse(String input) {
       final normalized = input.split('+').first.trim();
-      return normalized.split('.').map((part) => int.tryParse(part) ?? 0).toList();
+      return normalized
+          .split('.')
+          .map((part) => int.tryParse(part) ?? 0)
+          .toList();
     }
 
     final left = parse(current);
@@ -427,13 +466,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
           ? rawDownloadUrl
           : '${AppConfig.serverRoot}$rawDownloadUrl';
       final currentVersion = _appVersion.split('+').first;
-      final needUpdate = latestVersion.isNotEmpty && _compareVersions(currentVersion, latestVersion) < 0;
+      final needUpdate = latestVersion.isNotEmpty &&
+          _compareVersions(currentVersion, latestVersion) < 0;
 
       if (!mounted) return;
 
       if (!needUpdate) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_appVersion.isEmpty ? '当前已是最新版本' : '当前已是最新版本（$_appVersion）')),
+          SnackBar(
+              content: Text(
+                  _appVersion.isEmpty ? '当前已是最新版本' : '当前已是最新版本（$_appVersion）')),
         );
         return;
       }
@@ -446,25 +488,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('当前版本：${_appVersion.isEmpty ? currentVersion : _appVersion}'),
+              Text(
+                  '当前版本：${_appVersion.isEmpty ? currentVersion : _appVersion}'),
               const SizedBox(height: 6),
               Text('最新版本：$latestVersion'),
               if (changelog.trim().isNotEmpty) ...[
                 const SizedBox(height: 14),
-                const Text('更新内容', style: TextStyle(fontWeight: FontWeight.w700)),
+                const Text('更新内容',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
-                Text(changelog, style: const TextStyle(fontSize: 13, height: 1.5)),
+                Text(changelog,
+                    style: const TextStyle(fontSize: 13, height: 1.5)),
               ],
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('稍后再说')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('稍后再说')),
             FilledButton(
               onPressed: () async {
                 Uri? uri;
                 if (Platform.isIOS) {
                   // 优先使用服务端返回的下载地址（App Store链接）
-                  if (downloadUrl.contains('apps.apple.com') || downloadUrl.contains('itunes.apple.com')) {
+                  if (downloadUrl.contains('apps.apple.com') ||
+                      downloadUrl.contains('itunes.apple.com')) {
                     uri = Uri.parse(downloadUrl);
                   }
                 } else {
@@ -489,7 +536,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('检查更新失败，请检查网络后重试'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+            content: Text('检查更新失败，请检查网络后重试'),
+            behavior: SnackBarBehavior.floating),
       );
     } finally {
       if (mounted) setState(() => _checkingUpdate = false);
@@ -517,7 +566,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                     color: Colors.red.shade50,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(errorMsg!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+                  child: Text(errorMsg!,
+                      style: const TextStyle(color: Colors.red, fontSize: 13)),
                 ),
               TextField(
                 controller: ctrl,
@@ -531,7 +581,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('取消')),
             FilledButton(
               onPressed: () {
                 if (ctrl.text.trim().isEmpty) {
@@ -552,8 +604,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
         _load();
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('更新失败：$e'), behavior: SnackBarBehavior.floating));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('更新失败：$e'), behavior: SnackBarBehavior.floating));
         }
       }
     }
@@ -593,7 +645,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                             : Theme.of(ctx).colorScheme.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(12),
                         border: isSelected
-                            ? Border.all(color: Theme.of(ctx).colorScheme.primary, width: 2)
+                            ? Border.all(
+                                color: Theme.of(ctx).colorScheme.primary,
+                                width: 2)
                             : null,
                       ),
                       alignment: Alignment.center,
@@ -610,8 +664,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('保存')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('取消')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('保存')),
           ],
         ),
       ),
@@ -622,8 +680,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
         _load();
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('更新失败：$e'), behavior: SnackBarBehavior.floating));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('更新失败：$e'), behavior: SnackBarBehavior.floating));
         }
       }
     }
@@ -642,7 +700,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
         final list = engines is List ? engines : [];
         diag.writeln('可用引擎: ${list.isEmpty ? "无" : list.join(", ")}');
         if (list.any((e) => e.toString().contains('google'))) {
-          await tts.setEngine(list.firstWhere((e) => e.toString().contains('google')).toString());
+          await tts.setEngine(list
+              .firstWhere((e) => e.toString().contains('google'))
+              .toString());
           diag.writeln('已选引擎: Google TTS');
         }
       } catch (e) {
@@ -652,13 +712,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
       // 2. 检测语言
       try {
         final raw = await tts.getLanguages;
-        final langs = raw is List ? raw.map((l) => l.toString()).toList() : <String>[];
-        final jaLangs = langs.where((l) => l.toLowerCase().startsWith('ja')).toList();
+        final langs =
+            raw is List ? raw.map((l) => l.toString()).toList() : <String>[];
+        final jaLangs =
+            langs.where((l) => l.toLowerCase().startsWith('ja')).toList();
         diag.writeln('可用语言总数: ${langs.length}');
-        diag.writeln('日语支持: ${jaLangs.isEmpty ? "❌ 无" : "✅ ${jaLangs.join(", ")}"}');
+        diag.writeln(
+            '日语支持: ${jaLangs.isEmpty ? "❌ 无" : "✅ ${jaLangs.join(", ")}"}');
 
         // 也检测中文
-        final zhLangs = langs.where((l) => l.toLowerCase().startsWith('zh') || l.toLowerCase().contains('chinese')).toList();
+        final zhLangs = langs
+            .where((l) =>
+                l.toLowerCase().startsWith('zh') ||
+                l.toLowerCase().contains('chinese'))
+            .toList();
         diag.writeln('中文变体: ${zhLangs.isEmpty ? "无" : zhLangs.join(", ")}');
       } catch (e) {
         diag.writeln('语言检测失败: $e');
@@ -666,7 +733,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
 
       // 3. 配置并测试
       await tts.awaitSpeakCompletion(false);
-      try { await TtsHelper.setJapaneseVoice(tts); } catch (_) {}
+      try {
+        await TtsHelper.setJapaneseVoice(tts);
+      } catch (_) {}
       await tts.setVolume(1.0);
       await tts.setSpeechRate(0.45);
       await tts.setPitch(1.0);
@@ -697,30 +766,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SelectableText(diag.toString(), style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
+                SelectableText(diag.toString(),
+                    style:
+                        const TextStyle(fontSize: 12, fontFamily: 'monospace')),
                 if (!speakSuccess && Platform.isAndroid) ...[
                   const Divider(height: 24),
-                  const Text('修复步骤：', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const Text('修复步骤：',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 8),
-                  const Text('1. 安装「Google 文字转语音」引擎', style: TextStyle(fontSize: 13)),
+                  const Text('1. 安装「Google 文字转语音」引擎',
+                      style: TextStyle(fontSize: 13)),
                   const SizedBox(height: 4),
-                  const Text('2. 在 Google TTS 中下载日语语音包', style: TextStyle(fontSize: 13)),
+                  const Text('2. 在 Google TTS 中下载日语语音包',
+                      style: TextStyle(fontSize: 13)),
                   const SizedBox(height: 4),
-                  const Text('3. 将默认 TTS 引擎切换为 Google', style: TextStyle(fontSize: 13)),
+                  const Text('3. 将默认 TTS 引擎切换为 Google',
+                      style: TextStyle(fontSize: 13)),
                   const SizedBox(height: 12),
                   Row(children: [
-                    Expanded(child: OutlinedButton.icon(
+                    Expanded(
+                        child: OutlinedButton.icon(
                       icon: const Icon(Icons.shop, size: 16),
-                      label: const Text('安装Google TTS', style: TextStyle(fontSize: 12)),
+                      label: const Text('安装Google TTS',
+                          style: TextStyle(fontSize: 12)),
                       onPressed: () => launchUrl(
-                        Uri.parse('https://play.google.com/store/apps/details?id=com.google.android.tts'),
+                        Uri.parse(
+                            'https://play.google.com/store/apps/details?id=com.google.android.tts'),
                         mode: LaunchMode.externalApplication,
                       ),
                     )),
                     const SizedBox(width: 8),
-                    Expanded(child: OutlinedButton.icon(
+                    Expanded(
+                        child: OutlinedButton.icon(
                       icon: const Icon(Icons.settings, size: 16),
-                      label: const Text('TTS设置', style: TextStyle(fontSize: 12)),
+                      label:
+                          const Text('TTS设置', style: TextStyle(fontSize: 12)),
                       onPressed: () async {
                         try {
                           if (Platform.isAndroid) {
@@ -745,15 +826,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                 ],
                 if (!speakSuccess && Platform.isIOS) ...[
                   const Divider(height: 24),
-                  const Text('提示：', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const Text('提示：',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 8),
-                  const Text('请前往 设置 → 辅助功能 → 朗读内容 → 声音，下载日语语音包。', style: TextStyle(fontSize: 13)),
+                  const Text('请前往 设置 → 辅助功能 → 朗读内容 → 声音，下载日语语音包。',
+                      style: TextStyle(fontSize: 13)),
                 ],
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('关闭')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('关闭')),
           ],
         ),
       );
@@ -764,7 +849,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
 
   Future<void> _changePassword() async {
     final currentCtrl = TextEditingController();
-    final newCtrl     = TextEditingController();
+    final newCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
     bool obscureCurrent = true, obscureNew = true, obscureConfirm = true;
     String? errorMsg;
@@ -786,7 +871,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                     color: Colors.red.shade50,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(errorMsg!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+                  child: Text(errorMsg!,
+                      style: const TextStyle(color: Colors.red, fontSize: 13)),
                 ),
               TextField(
                 controller: currentCtrl,
@@ -795,8 +881,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                   labelText: '当前密码',
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
-                    icon: Icon(obscureCurrent ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setSt(() => obscureCurrent = !obscureCurrent),
+                    icon: Icon(obscureCurrent
+                        ? Icons.visibility_off
+                        : Icons.visibility),
+                    onPressed: () =>
+                        setSt(() => obscureCurrent = !obscureCurrent),
                   ),
                 ),
               ),
@@ -808,7 +897,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                   labelText: '新密码（至8位）',
                   prefixIcon: const Icon(Icons.lock_reset_rounded),
                   suffixIcon: IconButton(
-                    icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility),
+                    icon: Icon(
+                        obscureNew ? Icons.visibility_off : Icons.visibility),
                     onPressed: () => setSt(() => obscureNew = !obscureNew),
                   ),
                 ),
@@ -821,15 +911,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                   labelText: '确认新密码',
                   prefixIcon: const Icon(Icons.check_circle_outline),
                   suffixIcon: IconButton(
-                    icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setSt(() => obscureConfirm = !obscureConfirm),
+                    icon: Icon(obscureConfirm
+                        ? Icons.visibility_off
+                        : Icons.visibility),
+                    onPressed: () =>
+                        setSt(() => obscureConfirm = !obscureConfirm),
                   ),
                 ),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
             FilledButton(
               onPressed: () async {
                 setSt(() => errorMsg = null);
@@ -847,26 +941,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                 }
                 Navigator.pop(ctx);
                 try {
-                  await apiService.changePassword(currentCtrl.text, newCtrl.text);
+                  await apiService.changePassword(
+                      currentCtrl.text, newCtrl.text);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('密码已更新！请重新登录'),
-                      backgroundColor: Colors.green,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                      const SnackBar(
+                        content: Text('密码已更新！请重新登录'),
+                        backgroundColor: Colors.green,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
                   }
                   await apiService.logout();
                   if (mounted) context.go('/login');
                 } catch (e) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('修改失败：当前密码不正确或网络错误'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                      SnackBar(
+                        content: Text('修改失败：当前密码不正确或网络错误'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
                   }
                 }
               },
@@ -876,7 +971,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
         ),
       ),
     );
-    currentCtrl.dispose(); newCtrl.dispose(); confirmCtrl.dispose();
+    currentCtrl.dispose();
+    newCtrl.dispose();
+    confirmCtrl.dispose();
   }
 
   @override
@@ -909,17 +1006,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                     const Icon(Icons.notifications_none_rounded),
                     if (unread > 0)
                       Positioned(
-                        right: -4, top: -2,
+                        right: -4,
+                        top: -2,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 1),
+                          constraints:
+                              const BoxConstraints(minWidth: 16, minHeight: 16),
                           decoration: BoxDecoration(
                             color: Colors.red,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             unread > 99 ? '99+' : '$unread',
-                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold),
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -941,7 +1044,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                 children: [
                   // ── 个人信息卡片 ──
                   Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
                       child: Column(
@@ -955,28 +1059,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                                   radius: 38,
                                   backgroundColor: cs.primaryContainer,
                                   backgroundImage: (_avatarBytes != null)
-                                    ? MemoryImage(_avatarBytes!)
+                                      ? MemoryImage(_avatarBytes!)
                                       : null,
                                   child: (_avatarBytes == null)
                                       ? Text(
-                                          _user?.username.substring(0, 1).toUpperCase() ?? 'U',
-                                          style: TextStyle(fontSize: 30, color: cs.primary, fontWeight: FontWeight.bold),
+                                          _user?.username
+                                                  .substring(0, 1)
+                                                  .toUpperCase() ??
+                                              'U',
+                                          style: TextStyle(
+                                              fontSize: 30,
+                                              color: cs.primary,
+                                              fontWeight: FontWeight.bold),
                                         )
                                       : null,
                                 ),
                               ),
                               Positioned(
-                                bottom: 0, right: 0,
+                                bottom: 0,
+                                right: 0,
                                 child: GestureDetector(
                                   onTap: _editAvatar,
                                   child: Container(
-                                    width: 24, height: 24,
+                                    width: 24,
+                                    height: 24,
                                     decoration: BoxDecoration(
                                       color: cs.primary,
                                       shape: BoxShape.circle,
-                                      border: Border.all(color: cs.surface, width: 2),
+                                      border: Border.all(
+                                          color: cs.surface, width: 2),
                                     ),
-                                    child: const Icon(Icons.camera_alt_rounded, size: 12, color: Colors.white),
+                                    child: const Icon(Icons.camera_alt_rounded,
+                                        size: 12, color: Colors.white),
                                   ),
                                 ),
                               ),
@@ -985,7 +1099,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                           const SizedBox(height: 12),
                           Text(
                             _user?.username ?? '',
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -1000,43 +1115,61 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                               GestureDetector(
                                 onTap: _editJlptLevel,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: cs.primary,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                    Text('JLPT ${_user?.level ?? 'N5'}',
-                                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                                    const SizedBox(width: 4),
-                                    const Icon(Icons.edit, size: 10, color: Colors.white),
-                                  ]),
+                                  child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text('JLPT ${_user?.level ?? 'N5'}',
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600)),
+                                        const SizedBox(width: 4),
+                                        const Icon(Icons.edit,
+                                            size: 10, color: Colors.white),
+                                      ]),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               GestureDetector(
-                                onTap: () => context.push('/membership', extra: _user?.isMember ?? false),
+                                onTap: () => context.push('/membership',
+                                    extra: _user?.isMember ?? false),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: _user?.isMember == true
                                         ? const Color(0xFFF59E0B)
                                         : cs.surfaceContainerHighest,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                    Text(
-                                      _user?.isMember == true ? '👑 会员' : '免费用户',
-                                      style: TextStyle(
-                                        color: _user?.isMember == true ? Colors.white : cs.outline,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 2),
-                                    Icon(Icons.chevron_right, size: 14,
-                                      color: _user?.isMember == true ? Colors.white : cs.outline),
-                                  ]),
+                                  child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          _user?.isMember == true
+                                              ? '👑 会员'
+                                              : '免费用户',
+                                          style: TextStyle(
+                                            color: _user?.isMember == true
+                                                ? Colors.white
+                                                : cs.outline,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 2),
+                                        Icon(Icons.chevron_right,
+                                            size: 14,
+                                            color: _user?.isMember == true
+                                                ? Colors.white
+                                                : cs.outline),
+                                      ]),
                                 ),
                               ),
                             ],
@@ -1044,14 +1177,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                           const SizedBox(height: 14),
                           // ── 会员入口横幅（嵌入卡片底部）──
                           GestureDetector(
-                            onTap: () => context.push('/membership', extra: _user?.isMember ?? false),
+                            onTap: () => context.push('/membership',
+                                extra: _user?.isMember ?? false),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 10),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: _user?.isMember == true
-                                      ? [const Color(0xFFF59E0B), const Color(0xFFD97706)]
-                                      : [const Color(0xFF6366F1), const Color(0xFF4F46E5)],
+                                      ? [
+                                          const Color(0xFFF59E0B),
+                                          const Color(0xFFD97706)
+                                        ]
+                                      : [
+                                          const Color(0xFF6366F1),
+                                          const Color(0xFF4F46E5)
+                                        ],
                                   begin: Alignment.centerLeft,
                                   end: Alignment.centerRight,
                                 ),
@@ -1059,7 +1200,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.workspace_premium, color: Colors.white, size: 20),
+                                  Icon(Icons.workspace_premium,
+                                      color: Colors.white, size: 20),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
@@ -1074,7 +1216,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                                     ),
                                   ),
                                   Icon(Icons.arrow_forward_ios_rounded,
-                                      color: Colors.white.withValues(alpha: 0.7), size: 14),
+                                      color:
+                                          Colors.white.withValues(alpha: 0.7),
+                                      size: 14),
                                 ],
                               ),
                             ),
@@ -1085,7 +1229,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                   ),
                   const SizedBox(height: 20),
                   // Settings section
-                  Text(s.settings, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(s.settings,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 8),
                   // ── 权限状态栏 ──
                   if (_permissions.isNotEmpty) ...[
@@ -1099,15 +1245,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                               children: [
                                 const Icon(Icons.security_rounded, size: 20),
                                 const SizedBox(width: 8),
-                                const Expanded(child: Text('权限管理', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                                const Expanded(
+                                    child: Text('权限管理',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16))),
                                 TextButton.icon(
                                   onPressed: () async {
                                     await openAppSettings();
                                     // 返回后刷新权限状态
-                                    Future.delayed(const Duration(milliseconds: 500), _checkPermissions);
+                                    Future.delayed(
+                                        const Duration(milliseconds: 500),
+                                        _checkPermissions);
                                   },
                                   icon: const Icon(Icons.settings, size: 16),
-                                  label: const Text('设置', style: TextStyle(fontSize: 13)),
+                                  label: const Text('设置',
+                                      style: TextStyle(fontSize: 13)),
                                 ),
                               ],
                             ),
@@ -1116,15 +1269,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                               spacing: 8,
                               runSpacing: 8,
                               children: [
-                                _PermChip(icon: Icons.mic, label: '麦克风', granted: _permissions['microphone'] ?? false),
-                                _PermChip(icon: Icons.volume_up, label: '扬声器', granted: true),
-                                _PermChip(icon: Icons.camera_alt, label: '相机', granted: _permissions['camera'] ?? false),
+                                _PermChip(
+                                    icon: Icons.mic,
+                                    label: '麦克风',
+                                    granted:
+                                        _permissions['microphone'] ?? false),
+                                _PermChip(
+                                    icon: Icons.volume_up,
+                                    label: '扬声器',
+                                    granted: true),
+                                _PermChip(
+                                    icon: Icons.camera_alt,
+                                    label: '相机',
+                                    granted: _permissions['camera'] ?? false),
                                 _PermChip(
                                   icon: Icons.photo_library,
                                   label: Platform.isIOS ? '相册' : '存储/相册',
                                   granted: _permissions['media'] ?? false,
                                 ),
-                                _PermChip(icon: Icons.notifications, label: '通知', granted: _permissions['notification'] ?? false),
+                                _PermChip(
+                                    icon: Icons.notifications,
+                                    label: '通知',
+                                    granted:
+                                        _permissions['notification'] ?? false),
                               ],
                             ),
                           ],
@@ -1136,17 +1303,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                   // ── 邀请码卡片 ──
                   if (_user?.inviteCode != null) ...[
                     Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(children: [
-                              Icon(Icons.card_giftcard_rounded, size: 20, color: cs.primary),
+                              Icon(Icons.card_giftcard_rounded,
+                                  size: 20, color: cs.primary),
                               const SizedBox(width: 8),
-                              const Expanded(child: Text('我的邀请码', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                              Text('已邀请 ${_user!.inviteCount} 人', style: TextStyle(fontSize: 13, color: cs.outline)),
+                              const Expanded(
+                                  child: Text('我的邀请码',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16))),
+                              Text('已邀请 ${_user!.inviteCount} 人',
+                                  style: TextStyle(
+                                      fontSize: 13, color: cs.outline)),
                             ]),
                             const SizedBox(height: 12),
                             GestureDetector(
@@ -1154,16 +1329,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                                 final code = _user!.inviteCode!;
                                 Clipboard.setData(ClipboardData(text: code));
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('邀请码 $code 已复制'), behavior: SnackBarBehavior.floating),
+                                  SnackBar(
+                                      content: Text('邀请码 $code 已复制'),
+                                      behavior: SnackBarBehavior.floating),
                                 );
                               },
                               child: Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
                                 decoration: BoxDecoration(
-                                  color: cs.primaryContainer.withValues(alpha: 0.3),
+                                  color: cs.primaryContainer
+                                      .withValues(alpha: 0.3),
                                   borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
+                                  border: Border.all(
+                                      color: cs.primary.withValues(alpha: 0.3)),
                                 ),
                                 child: Row(children: [
                                   Expanded(
@@ -1178,12 +1358,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                                       ),
                                     ),
                                   ),
-                                  Icon(Icons.copy_rounded, size: 20, color: cs.primary),
+                                  Icon(Icons.copy_rounded,
+                                      size: 20, color: cs.primary),
                                 ]),
                               ),
                             ),
                             const SizedBox(height: 8),
-                            Text('分享邀请码给好友，注册时填写即可', style: TextStyle(fontSize: 12, color: cs.outline)),
+                            Text('分享邀请码给好友，注册时填写即可',
+                                style:
+                                    TextStyle(fontSize: 12, color: cs.outline)),
                           ],
                         ),
                       ),
@@ -1191,14 +1374,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                     const SizedBox(height: 16),
                   ],
                   Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
                     child: Column(
                       children: [
                         // Language switcher
                         ListTile(
                           leading: const Icon(Icons.language_rounded),
                           title: Text(s.language),
-                          subtitle: Text(locale.languageCode == 'zh' ? s.langZh : s.langEn),
+                          subtitle: Text(locale.languageCode == 'zh'
+                              ? s.langZh
+                              : s.langEn),
                           trailing: ToggleButtons(
                             isSelected: [
                               locale.languageCode == 'zh',
@@ -1206,14 +1392,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                             ],
                             onPressed: (i) {
                               ref.read(localeProvider.notifier).setLocale(
-                                i == 0 ? const Locale('zh') : const Locale('en'),
-                              );
+                                    i == 0
+                                        ? const Locale('zh')
+                                        : const Locale('en'),
+                                  );
                             },
-                            constraints: const BoxConstraints(minWidth: 44, minHeight: 34),
+                            constraints: const BoxConstraints(
+                                minWidth: 44, minHeight: 34),
                             borderRadius: BorderRadius.circular(8),
                             children: const [
-                              Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('中', style: TextStyle(fontWeight: FontWeight.bold))),
-                              Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('EN', style: TextStyle(fontWeight: FontWeight.bold))),
+                              Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 8),
+                                  child: Text('中',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold))),
+                              Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 8),
+                                  child: Text('EN',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold))),
                             ],
                           ),
                         ),
@@ -1221,38 +1418,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                         ListTile(
                           leading: const Icon(Icons.palette_rounded),
                           title: const Text('界面模式'),
-                          subtitle: Text(
-                            appearance == AppAppearanceMode.anime ? '蓝调模式' : '经典模式',
-                          ),
-                          trailing: ToggleButtons(
-                            isSelected: [
-                              appearance == AppAppearanceMode.classic,
-                              appearance == AppAppearanceMode.anime,
-                            ],
-                            onPressed: (i) {
-                              ref.read(appAppearanceProvider.notifier).setMode(
-                                i == 0 ? AppAppearanceMode.classic : AppAppearanceMode.anime,
-                              );
-                            },
-                            constraints: const BoxConstraints(minWidth: 52, minHeight: 34),
-                            borderRadius: BorderRadius.circular(8),
-                            children: const [
-                              Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 8),
-                                child: Text('经典', style: TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                              Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 8),
-                                child: Text('蓝调', style: TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                            ],
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: AppAppearanceMode.values.map((mode) {
+                                return ChoiceChip(
+                                  label: Text(mode.shortLabel),
+                                  selected: appearance == mode,
+                                  onSelected: (_) {
+                                    ref
+                                        .read(appAppearanceProvider.notifier)
+                                        .setMode(mode);
+                                  },
+                                );
+                              }).toList(),
+                            ),
                           ),
                         ),
                         const Divider(height: 1, indent: 56),
                         ListTile(
                           leading: const Icon(Icons.bar_chart_rounded),
                           title: Text(s.studyGoal),
-                          subtitle: Text(s.dailyGoalFmt.replaceAll('%d', '${_user?.dailyGoalMinutes ?? 15}')),
+                          subtitle: Text(s.dailyGoalFmt.replaceAll(
+                              '%d', '${_user?.dailyGoalMinutes ?? 15}')),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: _editGoal,
                         ),
@@ -1260,23 +1450,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                         ListTile(
                           leading: const Icon(Icons.notifications_outlined),
                           title: Text(s.notifications),
-                          subtitle: (_notifOverride ?? (_user?.notificationEnabled ?? true))
-                              ? Text('每天 ${_reminderHour.toString().padLeft(2, '0')}:${_reminderMinute.toString().padLeft(2, '0')} 提醒',
-                                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary))
+                          subtitle: (_notifOverride ??
+                                  (_user?.notificationEnabled ?? true))
+                              ? Text(
+                                  '每天 ${_reminderHour.toString().padLeft(2, '0')}:${_reminderMinute.toString().padLeft(2, '0')} 提醒',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary))
                               : null,
                           trailing: Switch(
-                            value: _notifOverride ?? (_user?.notificationEnabled ?? true),
+                            value: _notifOverride ??
+                                (_user?.notificationEnabled ?? true),
                             onChanged: _toggleNotification,
                           ),
-                          onTap: (_notifOverride ?? (_user?.notificationEnabled ?? true)) ? _pickReminderTime : null,
+                          onTap: (_notifOverride ??
+                                  (_user?.notificationEnabled ?? true))
+                              ? _pickReminderTime
+                              : null,
                         ),
                         const Divider(height: 1, indent: 56),
                         ListTile(
-                          leading: Icon(Icons.slow_motion_video_rounded, color: Theme.of(context).colorScheme.primary),
+                          leading: Icon(Icons.slow_motion_video_rounded,
+                              color: Theme.of(context).colorScheme.primary),
                           title: const Text('慢放速度'),
                           subtitle: Row(
                             children: [
-                              const Text('0.2x', style: TextStyle(fontSize: 11)),
+                              const Text('0.2x',
+                                  style: TextStyle(fontSize: 11)),
                               Expanded(
                                 child: Slider(
                                   value: _slowSpeed.clamp(0.2, 0.8),
@@ -1287,11 +1489,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                                   onChanged: _setSlowSpeed,
                                 ),
                               ),
-                              const Text('0.8x', style: TextStyle(fontSize: 11)),
+                              const Text('0.8x',
+                                  style: TextStyle(fontSize: 11)),
                               const SizedBox(width: 4),
                               Text('${_slowSpeed}x',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
-                                      color: Theme.of(context).colorScheme.primary)),
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary)),
                             ],
                           ),
                         ),
@@ -1313,22 +1520,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                         ),
                         const Divider(height: 1, indent: 56),
                         ListTile(
-                          leading: Icon(Icons.system_update_rounded, color: Theme.of(context).colorScheme.primary),
+                          leading: Icon(Icons.system_update_rounded,
+                              color: Theme.of(context).colorScheme.primary),
                           title: const Text('检查更新'),
-                          subtitle: Text(_appVersion.isEmpty ? '检查是否有新版本可升级' : '当前版本 $_appVersion'),
+                          subtitle: Text(_appVersion.isEmpty
+                              ? '检查是否有新版本可升级'
+                              : '当前版本 $_appVersion'),
                           trailing: _checkingUpdate
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Icon(Icons.chevron_right),
                           onTap: _checkingUpdate ? null : _checkAppUpdate,
                         ),
                         const Divider(height: 1, indent: 56),
                         ListTile(
-                          leading: Icon(Icons.delete_forever_rounded, color: Theme.of(context).colorScheme.error),
-                          title: Text('账户删除', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                          leading: Icon(Icons.delete_forever_rounded,
+                              color: Theme.of(context).colorScheme.error),
+                          title: Text('账户删除',
+                              style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error)),
                           subtitle: const Text('永久删除账户及所有数据'),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: _confirmDeleteAccount,
@@ -1344,10 +1558,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
                       spacing: 4,
                       runSpacing: 4,
                       children: [
-                        _legalLink(context, '《用户协议》', '${AppConfig.serverRoot}/app/terms.html'),
-                        _legalLink(context, '《隐私政策》', '${AppConfig.serverRoot}/app/privacy.html'),
-                        _legalLink(context, '《退款政策》', '${AppConfig.serverRoot}/app/refund.html'),
-                        _legalLink(context, '《特定商取引法》', '${AppConfig.serverRoot}/app/tokusho.html'),
+                        _legalLink(context, '《用户协议》',
+                            '${AppConfig.serverRoot}/app/terms.html'),
+                        _legalLink(context, '《隐私政策》',
+                            '${AppConfig.serverRoot}/app/privacy.html'),
+                        _legalLink(context, '《退款政策》',
+                            '${AppConfig.serverRoot}/app/refund.html'),
+                        _legalLink(context, '《特定商取引法》',
+                            '${AppConfig.serverRoot}/app/tokusho.html'),
                       ],
                     ),
                   ),
@@ -1361,11 +1579,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with WidgetsBindi
   Widget _legalLink(BuildContext context, String label, String url) {
     return GestureDetector(
       onTap: () => Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => LegalWebViewPage(title: label.replaceAll('《', '').replaceAll('》', ''), url: url),
+        builder: (_) => LegalWebViewPage(
+            title: label.replaceAll('《', '').replaceAll('》', ''), url: url),
       )),
       child: Text(
         label,
-        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary),
+        style: TextStyle(
+            fontSize: 12, color: Theme.of(context).colorScheme.primary),
       ),
     );
   }
@@ -1400,7 +1620,8 @@ class _AvatarEditorDialogState extends State<_AvatarEditorDialog> {
     if (_saving) return;
     setState(() => _saving = true);
     try {
-      final boundary = _repaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      final boundary = _repaintKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
       if (boundary == null) throw Exception('渲染失败');
       final image = await boundary.toImage(pixelRatio: 3);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
@@ -1448,7 +1669,8 @@ class _AvatarEditorDialogState extends State<_AvatarEditorDialog> {
             ),
           ),
           const SizedBox(height: 12),
-          Text('双指缩放和拖动位置后保存', style: TextStyle(fontSize: 12, color: cs.outline)),
+          Text('双指缩放和拖动位置后保存',
+              style: TextStyle(fontSize: 12, color: cs.outline)),
         ],
       ),
       actions: [
@@ -1462,7 +1684,8 @@ class _AvatarEditorDialogState extends State<_AvatarEditorDialog> {
               ? const SizedBox(
                   width: 14,
                   height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
                 )
               : const Icon(Icons.cloud_upload_rounded),
           label: Text(_saving ? '上传中' : '保存头像'),
@@ -1477,22 +1700,29 @@ class _StatCard extends StatelessWidget {
   final Color color;
   final String label;
   final String value;
-  const _StatCard({required this.icon, required this.color, required this.label, required this.value});
+  const _StatCard(
+      {required this.icon,
+      required this.color,
+      required this.label,
+      required this.value});
 
   @override
   Widget build(BuildContext context) => Expanded(
-    child: Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        ]),
-      ),
-    ),
-  );
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(children: [
+              Icon(icon, color: color, size: 28),
+              const SizedBox(height: 4),
+              Text(value,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 18)),
+              Text(label,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            ]),
+          ),
+        ),
+      );
 }
 
 class _SrsStatItem extends StatelessWidget {
@@ -1503,16 +1733,19 @@ class _SrsStatItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(children: [
-    Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
-    Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-  ]);
+        Text(value,
+            style: TextStyle(
+                fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+      ]);
 }
 
 class _PermChip extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool granted;
-  const _PermChip({required this.icon, required this.label, required this.granted});
+  const _PermChip(
+      {required this.icon, required this.label, required this.granted});
 
   @override
   Widget build(BuildContext context) {
@@ -1520,10 +1753,14 @@ class _PermChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: granted ? Colors.green.withValues(alpha: 0.1) : cs.errorContainer.withValues(alpha: 0.3),
+        color: granted
+            ? Colors.green.withValues(alpha: 0.1)
+            : cs.errorContainer.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: granted ? Colors.green.withValues(alpha: 0.4) : cs.error.withValues(alpha: 0.4),
+          color: granted
+              ? Colors.green.withValues(alpha: 0.4)
+              : cs.error.withValues(alpha: 0.4),
           width: 0.5,
         ),
       ),
@@ -1532,9 +1769,13 @@ class _PermChip extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: granted ? Colors.green : cs.error),
           const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 12, color: granted ? Colors.green.shade700 : cs.error)),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 12,
+                  color: granted ? Colors.green.shade700 : cs.error)),
           const SizedBox(width: 4),
-          Icon(granted ? Icons.check_circle : Icons.cancel, size: 14, color: granted ? Colors.green : cs.error),
+          Icon(granted ? Icons.check_circle : Icons.cancel,
+              size: 14, color: granted ? Colors.green : cs.error),
         ],
       ),
     );

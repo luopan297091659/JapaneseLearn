@@ -113,8 +113,9 @@ class _ToolsTabState extends State<ToolsTab> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final animeVisual =
-        Theme.of(context).extension<AppVisualTheme>()?.animeBackground ?? false;
+    final visualTheme = Theme.of(context).extension<AppVisualTheme>();
+    final animeVisual = visualTheme?.animeBackground ?? false;
+    final sakuraVisual = visualTheme?.sakuraBackground ?? false;
     Widget body = ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -197,7 +198,9 @@ class _ToolsTabState extends State<ToolsTab> {
       ],
     );
 
-    if (animeVisual) {
+    if (sakuraVisual) {
+      body = SakuraModeBackground(child: body);
+    } else if (animeVisual) {
       body = AnimeModeBackground(child: body);
     }
     return Scaffold(

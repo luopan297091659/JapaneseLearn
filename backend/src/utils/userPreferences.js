@@ -24,7 +24,7 @@ function parsePreferenceJson(raw) {
 
 function normalizeUserPreferences(input = {}, user = null) {
   const locale = ['zh', 'en', 'ja'].includes(input.locale) ? input.locale : DEFAULT_USER_PREFERENCES.locale;
-  const appearanceMode = ['classic', 'anime'].includes(input.appearance_mode)
+  const appearanceMode = ['classic', 'anime', 'sakura'].includes(input.appearance_mode)
     ? input.appearance_mode
     : DEFAULT_USER_PREFERENCES.appearance_mode;
 
@@ -74,7 +74,7 @@ function serializeUserPreferences(preferences) {
 function summarizeUserPreferences(preferences) {
   const pref = normalizeUserPreferences(preferences);
   const localeLabel = { zh: '中文', en: 'English', ja: '日本語' }[pref.locale] || pref.locale;
-  const appearanceLabel = pref.appearance_mode === 'anime' ? '蓝调' : '经典';
+  const appearanceLabel = { anime: '蓝调', sakura: '樱花日和', classic: '经典' }[pref.appearance_mode] || '经典';
   const notificationLabel = pref.notification_enabled ? '通知开' : '通知关';
   return `${localeLabel} / ${appearanceLabel} / ${pref.slow_speed}x / ${pref.daily_goal_minutes}分 / ${notificationLabel}`;
 }
