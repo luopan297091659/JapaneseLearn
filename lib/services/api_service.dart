@@ -1150,19 +1150,42 @@ class ApiService {
   }
 
   // ─── Shared Vocab Decks ─────────────────────────────────────────────────
+  /// 获取公开共享词库列表，包含 429 错误重试机制
   Future<Map<String, dynamic>> listSharedVocabDecks({
     String? query,
     String? level,
     int page = 1,
     int limit = 20,
   }) async {
-    final res = await _dio.get('/shared-vocab/decks', queryParameters: {
-      'page': page,
-      'limit': limit,
-      if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
-      if (level != null && level.isNotEmpty) 'level': level,
-    });
-    return Map<String, dynamic>.from(res.data as Map);
+    int retries = 0;
+    const maxRetries = 3;
+    
+    while (retries <= maxRetries) {
+      try {
+        final res = await _dio.get('/shared-vocab/decks', queryParameters: {
+          'page': page,
+          'limit': limit,
+          if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+          if (level != null && level.isNotEmpty) 'level': level,
+        });
+        return Map<String, dynamic>.from(res.data as Map);
+      } catch (e) {
+        // 处理 429 Too Many Requests 错误
+        if (e is DioException && e.response?.statusCode == 429) {
+          if (retries < maxRetries) {
+            // 指数退避：第1次等待2秒，第2次4秒，第3次8秒
+            final delayMs = Duration(seconds: 1 << (retries + 1));
+            await Future.delayed(delayMs);
+            retries++;
+            continue;
+          }
+        }
+        // 其他错误或达到最大重试次数则抛出
+        rethrow;
+      }
+    }
+    
+    throw Exception('加载共享词库失败：超过最大重试次数');
   }
 
   Future<Map<String, dynamic>> createSharedVocabDeck({
@@ -1188,7 +1211,10 @@ class ApiService {
     return Map<String, dynamic>.from(res.data as Map);
   }
 
-  Future<Map<String, dynamic>> uploadSharedVocabAudio(String filePath) async {
+  Future<Map<String, dynamic>> uploadSharedVocabAudio(
+    String filePath, {
+    void Function(int bytes, int totalBytes)? onProgress,
+  }) async {
     final file = File(filePath);
     final formData = FormData.fromMap({
       'audio': await MultipartFile.fromFile(
@@ -1196,7 +1222,10 @@ class ApiService {
         filename: file.path.split(Platform.pathSeparator).last,
       ),
     });
-    final res = await _dio.post('/shared-vocab/audio/upload', data: formData);
+    final res = await _dio.post('/shared-vocab/audio/upload', 
+      data: formData,
+      onSendProgress: onProgress,
+    );
     return Map<String, dynamic>.from(res.data as Map);
   }
 

@@ -107,12 +107,45 @@ app.use(cors({
 }));
 
 // Rate limiting
+// 公开列表查询的宽松限流（共享词库、听力等公开资源）
+const publicListLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 500, // 500 requests per minute
+  message: { error: 'Too many requests, please try again later.' },
+  skip: (req) => {
+    // 仅对特定的GET查询端点应用此限流
+    return !(
+      req.method === 'GET' && 
+      (req.path.match(/^\/api\/v\d+\/shared-vocab\/decks$/) || 
+       req.path.match(/^\/api\/v\d+\/listening\/channels$/) ||
+       req.path.match(/^\/api\/v\d+\/listening\/episodes$/))
+    );
+  },
+});
+
+// 标准限流
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 2000,
   message: { error: 'Too many requests, please try again later.' },
-  skip: (req) => req.path.startsWith('/admin') || req.path.startsWith('/auth'),
+  skip: (req) => {
+    // 公开列表查询由 publicListLimiter 单独处理
+    if (
+      req.method === 'GET' && 
+      (req.path.match(/^\/api\/v\d+\/shared-vocab\/decks$/) ||
+       req.path.match(/^\/api\/v\d+\/listening\/channels$/) ||
+       req.path.match(/^\/api\/v\d+\/listening\/episodes$/))
+    ) {
+      return true;
+    }
+    // admin 和 auth 跳过
+    return req.path.startsWith('/admin') || req.path.startsWith('/auth');
+  },
 });
+
+// 应用公开列表限流（优先级高）
+app.use('/api/', publicListLimiter);
+// 应用标准限流
 app.use('/api/', limiter);
 
 // Stripe webhook needs raw body for signature verification — must come before express.json()

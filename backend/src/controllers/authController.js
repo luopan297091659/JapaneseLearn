@@ -153,7 +153,7 @@ async function sendCodeForRegister(req, res) {
   if (recent) throw new HttpError(429, '请求过于频繁，请稍后再试');
 
   const code = generateCode();
-  await PasswordResetCode.create({ email, code, expires_at: new Date(Date.now() + 10 * 60 * 1000) });
+  await PasswordResetCode.create({ email, code, expires_at: new Date(Date.now() + 1 * 60 * 1000) });
   await sendRegisterCode(email, code);
   res.json({ message: '验证码已发送至邮箱' });
 }
@@ -226,7 +226,7 @@ async function sendCodeForLogin(req, res) {
   if (recent) throw new HttpError(429, '请求过于频繁，请稍后再试');
 
   const code = String(Math.floor(100000 + Math.random() * 900000));
-  await PasswordResetCode.create({ email, code, expires_at: new Date(Date.now() + 10 * 60 * 1000) });
+  await PasswordResetCode.create({ email, code, expires_at: new Date(Date.now() + 1 * 60 * 1000) });
   await _sendLoginCode(email, code);
   res.json({ message: '验证码已发送至邮箱' });
 }

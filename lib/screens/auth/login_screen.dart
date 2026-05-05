@@ -259,15 +259,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 12),
                         Text(_error!, style: TextStyle(color: cs.error, fontSize: 13), textAlign: TextAlign.center),
                       ],
-                      if (!_useCode)
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () => context.go('/forgot-password'),
-                            child: Text(s.forgotPassword, style: TextStyle(fontSize: 13, color: cs.primary)),
-                          ),
-                        ),
-                      if (_useCode) const SizedBox(height: 8),
                       const SizedBox(height: 8),
                       SizedBox(
                         width: double.infinity,
@@ -282,12 +273,45 @@ class _LoginScreenState extends State<LoginScreen> {
                               : Text(s.login, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          if (!_useCode)
+                            TextButton(
+                              onPressed: _loading ? null : () => context.go('/forgot-password'),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: Text(
+                                s.forgotPassword,
+                                style: TextStyle(fontSize: 13, color: cs.primary),
+                              ),
+                            )
+                          else
+                            const SizedBox(width: 4),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: _loading ? null : () => context.go('/register'),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Text(
+                              s.registerNow,
+                              style: TextStyle(fontSize: 13, color: cs.primary),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
-                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  if (Platform.isIOS)
+                if (Platform.isIOS)
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     TextButton(
                       onPressed: _loading ? null : () async {
                         await guestService.enableGuestMode();
@@ -295,9 +319,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                       child: Text('游客模式', style: TextStyle(color: cs.outline)),
                     ),
-                  if (Platform.isIOS)
-                    const SizedBox(width: 8),
-                  TextButton(onPressed: () => context.go('/register'), child: Text(s.registerNow)),
                 ]),
                 if (false) ...[
                   const SizedBox(height: 8),

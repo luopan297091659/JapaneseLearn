@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/local_db.dart';
 import '../../services/api_service.dart';
@@ -69,6 +70,13 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   // 牌组树展开状态
   final Set<String> _expandedNodes = {};
   bool _isMember = true;
+
+  // 上传进度
+  int _uploadProgress = 0;
+  int _uploadTotal = 0;
+  String? _uploadingFileName;
+  bool _uploadPaused = false;
+  bool _uploading = false;
 
   @override
   void initState() {
@@ -346,20 +354,32 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   Future<String?> _ensureSharedAudioUrl(
     String? rawUrl,
     Map<String, String> uploaded,
+    void Function()? onProgress,
   ) async {
     final url = rawUrl?.trim();
     if (url == null || url.isEmpty) return null;
     if (_isRemoteAudioUrl(url)) return url;
-    if (uploaded.containsKey(url)) return uploaded[url];
+    if (uploaded.containsKey(url)) {
+      onProgress?.call();
+      return uploaded[url];
+    }
 
     final file = File(url);
     if (!await file.exists()) return null;
 
-    final result = await apiService.uploadSharedVocabAudio(file.path);
-    final remoteUrl = result['url']?.toString();
-    if (remoteUrl == null || remoteUrl.isEmpty) return null;
-    uploaded[url] = remoteUrl;
-    return remoteUrl;
+    try {
+      final result = await apiService.uploadSharedVocabAudio(
+        file.path,
+        onProgress: (_, __) => onProgress?.call(),
+      );
+      final remoteUrl = result['url']?.toString();
+      if (remoteUrl == null || remoteUrl.isEmpty) return null;
+      uploaded[url] = remoteUrl;
+      return remoteUrl;
+    } catch (e) {
+      debugPrint('上传音频失败: $url, $e');
+      return null;
+    }
   }
 
   Future<void> _publishDeck(_DeckTreeNode node) async {
@@ -401,13 +421,47 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
         _showSnack('该词库暂无可发布卡片');
         return;
       }
+
+      // 计算需要上传的音频文件总数
+      final audioUrls = <String>{};
+      for (final card in cards) {
+        if (card.audioUrl != null && 
+            card.audioUrl!.isNotEmpty && 
+            !_isRemoteAudioUrl(card.audioUrl!)) {
+          audioUrls.add(card.audioUrl!);
+        }
+        if (card.exampleAudioUrl != null && 
+            card.exampleAudioUrl!.isNotEmpty && 
+            !_isRemoteAudioUrl(card.exampleAudioUrl!)) {
+          audioUrls.add(card.exampleAudioUrl!);
+        }
+      }
+
       final coverBase64 = await _coverAsBase64(meta?.coverImagePath);
       final uploadedAudio = <String, String>{};
+
+      // 如果有音频文件需要上传，显示进度对话框
+      if (audioUrls.isNotEmpty && mounted) {
+        await _showUploadProgressDialog(
+          audioUrls: audioUrls,
+          uploadedAudio: uploadedAudio,
+          deckName: meta?.displayName ?? node.displayName,
+        );
+      }
+
+      // 准备卡片数据
       final sharedCards = <Map<String, dynamic>>[];
       for (final card in cards) {
-        final audioUrl = await _ensureSharedAudioUrl(card.audioUrl, uploadedAudio);
-        final exampleAudioUrl =
-            await _ensureSharedAudioUrl(card.exampleAudioUrl, uploadedAudio);
+        final audioUrl = await _ensureSharedAudioUrl(
+          card.audioUrl,
+          uploadedAudio,
+          null,
+        );
+        final exampleAudioUrl = await _ensureSharedAudioUrl(
+          card.exampleAudioUrl,
+          uploadedAudio,
+          null,
+        );
         sharedCards.add({
           'word': card.word,
           if (card.deckName != null && card.deckName!.isNotEmpty)
@@ -427,6 +481,11 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
           'jlpt_level': card.jlptLevel,
         });
       }
+
+      if (mounted) {
+        _showSnack('正在发布词库，请稍候...');
+      }
+
       final result = await apiService.createSharedVocabDeck(
         title: meta?.displayName ?? node.displayName,
         description: meta?.description,
@@ -446,7 +505,149 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
       await _loadDecks();
       if (mounted) _showSnack('已发布到共享词库');
     } catch (e) {
-      if (mounted) _showSnack('发布失败：$e');
+      if (mounted) {
+        _showSnack('发布失败：$e');
+      }
+    }
+  }
+
+  /// 显示上传进度对话框，支持并发上传
+  Future<void> _showUploadProgressDialog({
+    required Set<String> audioUrls,
+    required Map<String, String> uploadedAudio,
+    required String deckName,
+  }) async {
+    if (!mounted) return;
+
+    final List<String> urls = audioUrls.toList();
+    int completed = 0;
+    final uploadStartTime = DateTime.now();
+
+    // 显示进度对话框
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('上传音频文件'),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('正在上传：$deckName'),
+                const SizedBox(height: 16),
+                LinearProgressIndicator(
+                  value: completed / urls.length,
+                  minHeight: 8,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('$completed/${urls.length} 个文件'),
+                    Text(
+                      '${(completed * 100 ~/ urls.length)}%',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                if (_uploadingFileName != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '当前: $_uploadingFileName',
+                    style: const TextStyle(fontSize: 12),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('后台上传'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // 并发上传，最多5个并发
+    const int maxConcurrent = 5;
+    int uploadIndex = 0;
+    final futures = <Future<void>>[];
+
+    for (int i = 0; i < maxConcurrent && i < urls.length; i++) {
+      futures.add(_uploadAudioWorker(
+        urls,
+        uploadedAudio,
+        () {
+          uploadIndex++;
+          completed++;
+          if (mounted) {
+            setState(() {
+              _uploadProgress = completed;
+              _uploadTotal = urls.length;
+            });
+          }
+        },
+        () => uploadIndex < urls.length ? uploadIndex++ : -1,
+      ));
+    }
+
+    try {
+      await Future.wait(futures);
+    } catch (e) {
+      debugPrint('部分音频上传失败: $e');
+    }
+
+    if (mounted) {
+      Navigator.pop(context); // 关闭进度对话框
+    }
+  }
+
+  /// 音频上传工作线程
+  Future<void> _uploadAudioWorker(
+    List<String> urls,
+    Map<String, String> uploadedAudio,
+    void Function() onProgress,
+    int Function() getNextIndex,
+  ) async {
+    while (true) {
+      final index = getNextIndex();
+      if (index < 0 || index >= urls.length) break;
+
+      final url = urls[index];
+      if (uploadedAudio.containsKey(url)) {
+        onProgress();
+        continue;
+      }
+
+      try {
+        final file = File(url);
+        if (!await file.exists()) {
+          onProgress();
+          continue;
+        }
+
+        if (mounted) {
+          setState(() => _uploadingFileName = p.basename(url));
+        }
+
+        final result = await apiService.uploadSharedVocabAudio(url);
+        final remoteUrl = result['url']?.toString();
+        if (remoteUrl != null && remoteUrl.isNotEmpty) {
+          uploadedAudio[url] = remoteUrl;
+        }
+      } catch (e) {
+        debugPrint('上传 $url 失败: $e');
+        // 继续上传其他文件
+      }
+
+      onProgress();
     }
   }
 
