@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../utils/jwt');
 const HttpError = require('../utils/httpError');
+const { Op } = require('sequelize');
 
 const registerValidation = [
   body('username').trim()
@@ -12,6 +13,18 @@ const registerValidation = [
   body('password').isLength({ min: 8 }).withMessage('密码长度至少 8 位'),
 ];
 
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+function generateCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 async function register(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -19,7 +32,14 @@ async function register(req, res) {
     throw new HttpError(400, msgs);
   }
 
-  const { username, email, password, level, invite_code } = req.body;
+  const { username, password, level, invite_code, code } = req.body;
+  const email = normalizeEmail(req.body.email);
+  if (!code || !/^\d{6}$/.test(String(code))) throw new HttpError(400, '请输入 6 位邮箱验证码');
+  const registerCodeRecord = await PasswordResetCode.findOne({
+    where: { email, code: String(code), used: false, expires_at: { [Op.gt]: new Date() } },
+    order: [['created_at', 'DESC']],
+  });
+  if (!registerCodeRecord) throw new HttpError(400, '邮箱验证码无效或已过期');
   const existing = await User.findOne({ where: { email } });
   if (existing) throw new HttpError(409, '该邮箱已被注册');
 
@@ -34,6 +54,8 @@ async function register(req, res) {
   const platform = req.body.platform === 'app' ? 'app' : 'web';
   const loginToken = crypto.randomUUID();
   const user = await User.create({ username, email, password_hash: password, level: level || 'N5', invited_by: inviterId, [`${platform}_login_token`]: loginToken });
+  await registerCodeRecord.update({ used: true });
+  await PasswordResetCode.update({ used: true }, { where: { email, used: false } });
   const accessToken = signAccessToken({ id: user.id, email: user.email, loginToken, platform });
   const refreshToken = signRefreshToken({ id: user.id, loginToken, platform });
   res.status(201).json({ user, accessToken, refreshToken });
@@ -115,7 +137,26 @@ async function getMe(req, res) {
 
 // ── Password Reset ─────────────────────────────────────────────────────
 const PasswordResetCode = require('../models/PasswordResetCode');
-const { sendResetCode } = require('../services/emailService');
+const { sendResetCode, sendRegisterCode } = require('../services/emailService');
+
+async function sendCodeForRegister(req, res) {
+  const email = normalizeEmail(req.body.email);
+  if (!email) throw new HttpError(400, '请输入邮箱');
+  if (!isValidEmail(email)) throw new HttpError(400, '请输入有效的邮箱地址');
+  const existing = await User.findOne({ where: { email } });
+  if (existing) throw new HttpError(409, '该邮箱已被注册');
+
+  const recent = await PasswordResetCode.findOne({
+    where: { email, used: false, created_at: { [Op.gt]: new Date(Date.now() - 60 * 1000) } },
+    order: [['created_at', 'DESC']],
+  });
+  if (recent) throw new HttpError(429, '请求过于频繁，请稍后再试');
+
+  const code = generateCode();
+  await PasswordResetCode.create({ email, code, expires_at: new Date(Date.now() + 10 * 60 * 1000) });
+  await sendRegisterCode(email, code);
+  res.json({ message: '验证码已发送至邮箱' });
+}
 
 async function forgotPassword(req, res) {
   const { email } = req.body;
@@ -212,4 +253,4 @@ async function loginWithCode(req, res) {
   res.json({ user, accessToken, refreshToken });
 }
 
-module.exports = { register, login, refreshToken, getMe, registerValidation, forgotPassword, verifyResetCode, resetPassword, sendCodeForLogin, loginWithCode };
+module.exports = { register, login, refreshToken, getMe, registerValidation, forgotPassword, verifyResetCode, resetPassword, sendCodeForRegister, sendCodeForLogin, loginWithCode };

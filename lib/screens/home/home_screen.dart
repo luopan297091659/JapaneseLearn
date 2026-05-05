@@ -18,6 +18,7 @@ import '../../widgets/furigana_text.dart';
 import '../../config/app_config.dart';
 import '../../providers/app_appearance_provider.dart';
 import '../../widgets/mode_background.dart';
+import '../../widgets/sakura_fall_overlay.dart';
 
 // ── 首页功能 ID → 分级 tier ID 映射 ──
 const _featureTierMap = <String, String>{
@@ -1132,6 +1133,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         : (rawAvatar.startsWith('http://') || rawAvatar.startsWith('https://')
             ? rawAvatar
             : '${AppConfig.serverRoot}$rawAvatar');
+    final sakuraVisual =
+        Theme.of(context).extension<AppVisualTheme>()?.sakuraBackground ??
+            false;
+    final headerGradientColors = sakuraVisual
+        ? const [Color(0xFFD85F87), Color(0xFFF4B8C8)]
+        : [cs.primary, cs.secondary];
     return SliverAppBar(
       expandedHeight: 120,
       floating: false,
@@ -1277,7 +1284,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         background: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [cs.primary, cs.secondary],
+              colors: headerGradientColors,
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -2624,12 +2631,14 @@ class _FeatureTile extends StatelessWidget {
           );
           return;
         }
+        SakuraFallController.playIfEnabled(context);
         context.push(path);
       },
       borderRadius: BorderRadius.circular(16),
       child: AnimeCardDecoration(
         color: color,
         borderRadius: 16,
+        enableSakuraDecoration: false,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
           decoration: BoxDecoration(

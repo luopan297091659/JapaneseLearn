@@ -52,6 +52,7 @@ extension AppAppearanceModeX on AppAppearanceMode {
 }
 
 const _kAppearanceModeKey = 'app_appearance_mode';
+const _kPendingAppearanceModeSyncKey = 'pending_app_appearance_mode_sync';
 
 class AppAppearanceNotifier extends Notifier<AppAppearanceMode> {
   @override
@@ -61,6 +62,7 @@ class AppAppearanceNotifier extends Notifier<AppAppearanceMode> {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_kAppearanceModeKey);
     state = AppAppearanceModeX.fromValue(saved);
+    await retryPendingSync();
   }
 
   Future<void> setMode(AppAppearanceMode mode) async {
@@ -68,9 +70,8 @@ class AppAppearanceNotifier extends Notifier<AppAppearanceMode> {
     final prefs = await SharedPreferences.getInstance();
     final value = mode.value;
     await prefs.setString(_kAppearanceModeKey, value);
-    try {
-      await syncService.syncUserPreferences(appearanceMode: value);
-    } catch (_) {}
+    await prefs.setString(_kPendingAppearanceModeSyncKey, value);
+    await _syncAppearanceMode(value);
   }
 
   Future<void> applySavedValue(String? value) async {
@@ -78,6 +79,35 @@ class AppAppearanceNotifier extends Notifier<AppAppearanceMode> {
     state = mode;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kAppearanceModeKey, mode.value);
+    await prefs.remove(_kPendingAppearanceModeSyncKey);
+  }
+
+  Future<void> syncCurrentModeToRemote() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(_kAppearanceModeKey) ?? state.value;
+    await prefs.setString(_kPendingAppearanceModeSyncKey, value);
+    await _syncAppearanceMode(value);
+  }
+
+  Future<void> retryPendingSync() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pending = prefs.getString(_kPendingAppearanceModeSyncKey) ??
+        prefs.getString(_kAppearanceModeKey);
+    if (pending == null || pending.isEmpty) return;
+    await _syncAppearanceMode(pending);
+  }
+
+  Future<void> _syncAppearanceMode(String value) async {
+    try {
+      final remote =
+          await syncService.syncUserPreferences(appearanceMode: value);
+      final prefs = await SharedPreferences.getInstance();
+      if (remote['appearance_mode'] == value) {
+        await prefs.remove(_kPendingAppearanceModeSyncKey);
+      } else {
+        await prefs.setString(_kPendingAppearanceModeSyncKey, value);
+      }
+    } catch (_) {}
   }
 }
 

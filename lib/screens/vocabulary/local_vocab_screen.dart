@@ -336,6 +336,32 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     return 'data:$mime;base64,${base64Encode(bytes)}';
   }
 
+  bool _isRemoteAudioUrl(String url) {
+    return url.startsWith('http://') ||
+        url.startsWith('https://') ||
+        url.startsWith('/uploads/') ||
+        url.startsWith('/audio/');
+  }
+
+  Future<String?> _ensureSharedAudioUrl(
+    String? rawUrl,
+    Map<String, String> uploaded,
+  ) async {
+    final url = rawUrl?.trim();
+    if (url == null || url.isEmpty) return null;
+    if (_isRemoteAudioUrl(url)) return url;
+    if (uploaded.containsKey(url)) return uploaded[url];
+
+    final file = File(url);
+    if (!await file.exists()) return null;
+
+    final result = await apiService.uploadSharedVocabAudio(file.path);
+    final remoteUrl = result['url']?.toString();
+    if (remoteUrl == null || remoteUrl.isEmpty) return null;
+    uploaded[url] = remoteUrl;
+    return remoteUrl;
+  }
+
   Future<void> _publishDeck(_DeckTreeNode node) async {
     final meta = _deckMetas[node.fullPath];
     if (meta?.sourceType == 'shared') {
@@ -376,31 +402,38 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
         return;
       }
       final coverBase64 = await _coverAsBase64(meta?.coverImagePath);
+      final uploadedAudio = <String, String>{};
+      final sharedCards = <Map<String, dynamic>>[];
+      for (final card in cards) {
+        final audioUrl = await _ensureSharedAudioUrl(card.audioUrl, uploadedAudio);
+        final exampleAudioUrl =
+            await _ensureSharedAudioUrl(card.exampleAudioUrl, uploadedAudio);
+        sharedCards.add({
+          'word': card.word,
+          if (card.deckName != null && card.deckName!.isNotEmpty)
+            'deck_name': card.deckName,
+          'reading': card.reading,
+          'meaning_zh': card.meaningZh,
+          if (card.meaningEn != null) 'meaning_en': card.meaningEn,
+          if (card.exampleSentence != null)
+            'example_sentence': card.exampleSentence,
+          if (card.exampleReading != null)
+            'example_reading': card.exampleReading,
+          if (card.exampleMeaningZh != null)
+            'example_meaning_zh': card.exampleMeaningZh,
+          if (exampleAudioUrl != null) 'example_audio_url': exampleAudioUrl,
+          if (audioUrl != null) 'audio_url': audioUrl,
+          'part_of_speech': card.partOfSpeech,
+          'jlpt_level': card.jlptLevel,
+        });
+      }
       final result = await apiService.createSharedVocabDeck(
         title: meta?.displayName ?? node.displayName,
         description: meta?.description,
         coverBase64: coverBase64,
         sourceType: meta?.sourceType ?? 'manual',
         jlptLevel: cards.first.jlptLevel,
-        cards: cards
-            .map((card) => {
-                  'word': card.word,
-                  if (card.deckName != null && card.deckName!.isNotEmpty)
-                    'deck_name': card.deckName,
-                  'reading': card.reading,
-                  'meaning_zh': card.meaningZh,
-                  if (card.meaningEn != null) 'meaning_en': card.meaningEn,
-                  if (card.exampleSentence != null)
-                    'example_sentence': card.exampleSentence,
-                  if (card.exampleReading != null)
-                    'example_reading': card.exampleReading,
-                  if (card.exampleMeaningZh != null)
-                    'example_meaning_zh': card.exampleMeaningZh,
-                  if (card.audioUrl != null) 'audio_url': card.audioUrl,
-                  'part_of_speech': card.partOfSpeech,
-                  'jlpt_level': card.jlptLevel,
-                })
-            .toList(),
+        cards: sharedCards,
       );
       final deck = result['deck'] is Map
           ? Map<String, dynamic>.from(result['deck'] as Map)
@@ -628,7 +661,7 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
           tooltip: '返回',
           onPressed: () {
             if (from == 'shared') {
-              context.go('/tabs/study');
+              context.go('/study');
               return;
             }
             if (_selectedDeck != null) {

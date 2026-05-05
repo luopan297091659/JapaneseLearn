@@ -153,7 +153,7 @@ class SyncService {
   /// 返回 [SyncResult]，包含成功数、失败数、错误信息。
   /// 已在同步时直接返回 null，避免重复触发。
   Future<SyncResult?> syncVocabulary({
-    String jlptLevel     = 'N3',
+    String? jlptLevel,
     String partOfSpeech  = 'other',
   }) async {
     if (_syncing) return null;

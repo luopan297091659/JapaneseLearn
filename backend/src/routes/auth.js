@@ -1,9 +1,10 @@
 const router = require('express').Router();
 const asyncHandler = require('../utils/asyncHandler');
-const { register, login, refreshToken, getMe, registerValidation, forgotPassword, verifyResetCode, resetPassword, sendCodeForLogin, loginWithCode } = require('../controllers/authController');
+const { register, login, refreshToken, getMe, registerValidation, forgotPassword, verifyResetCode, resetPassword, sendCodeForRegister, sendCodeForLogin, loginWithCode } = require('../controllers/authController');
 const { authenticate } = require('../middlewares/auth');
 
 router.post('/register', registerValidation, asyncHandler(register));
+router.post('/send-register-code', asyncHandler(sendCodeForRegister));
 router.post('/login', asyncHandler(login));
 router.post('/refresh', asyncHandler(refreshToken));
 router.get('/me', authenticate, asyncHandler(getMe));

@@ -109,7 +109,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
         await AudioManager.instance.requestPlay(_player);
         final url = widget.audioUrl!;
         // 服务端相对路径（/uploads/audio/...）→ 拼接为完整 URL
-        if (url.startsWith('/uploads/')) {
+        if (url.startsWith('/uploads/') || url.startsWith('/audio/')) {
           final fullUrl = AppConfig.serverRoot + url;
           final localPath = await apiService.downloadToTempFile(fullUrl);
           await _player.setFilePath(localPath);

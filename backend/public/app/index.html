@@ -932,6 +932,13 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
         <input class="input" id="reg-pwd" type="password" placeholder="至少6位">
       </div>
       <div class="input-group">
+        <label>邮箱验证码</label>
+        <div style="display:flex;gap:8px">
+          <input class="input" id="reg-code" type="text" placeholder="6 位验证码" maxlength="6" style="flex:1">
+          <button class="btn btn-outline btn-sm" id="btn-send-register-code" style="white-space:nowrap;padding:9px 16px" onclick="sendRegisterCode()">发送验证码</button>
+        </div>
+      </div>
+      <div class="input-group">
         <label>JLPT 目标级别</label>
         <select class="input" id="reg-level">
           <option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option>
@@ -2308,14 +2315,16 @@ async function doRegister() {
   const name  = document.getElementById('reg-name').value.trim();
   const email = getAppEmail('reg-email', 'reg-email-suffix');
   const pwd   = document.getElementById('reg-pwd').value;
+  const code  = document.getElementById('reg-code').value.trim();
   const level = document.getElementById('reg-level').value;
   const errEl = document.getElementById('reg-err');
   clearAuthError(errEl);
-  if (!name || !email || !pwd) { showAuthError(errEl, '请填写所有字段'); return; }
+  if (!name || !email || !pwd || !code) { showAuthError(errEl, '请填写所有字段'); return; }
   if (!/^[a-zA-Z0-9_]+$/.test(name)) { showAuthError(errEl, '用户名只能包含英文字母、数字和下划线'); return; }
   if (name.length < 3 || name.length > 50) { showAuthError(errEl, '用户名长度需在 3-50 个字符之间'); return; }
+  if (!/^\d{6}$/.test(code)) { showAuthError(errEl, '请输入 6 位邮箱验证码'); return; }
   try {
-    const regData = { username: name, email, password: pwd, level, platform: 'web' };
+    const regData = { username: name, email, password: pwd, code, level, platform: 'web' };
     const inviteCode = document.getElementById('reg-invite-code').value.trim();
     if (inviteCode) regData.invite_code = inviteCode;
     const res = await POST('/auth/register', regData);
@@ -2352,6 +2361,29 @@ async function sendLoginCode() {
       _codeCountdown--;
       btn.textContent = _codeCountdown + 's';
       if (_codeCountdown <= 0) { clearInterval(iv); btn.disabled = false; btn.textContent = '重新发送'; }
+    }, 1000);
+  } catch(e) {
+    showAuthError(errEl, formatAuthError(e, '发送失败', 'sendCode'));
+    btn.disabled = false; btn.textContent = '发送验证码';
+  }
+}
+
+let _registerCodeCountdown = 0;
+async function sendRegisterCode() {
+  const email = getAppEmail('reg-email', 'reg-email-suffix');
+  const errEl = document.getElementById('reg-err');
+  clearAuthError(errEl);
+  if (!email) { showAuthError(errEl, '请输入邮箱'); return; }
+  const btn = document.getElementById('btn-send-register-code');
+  btn.disabled = true; btn.textContent = '发送中...';
+  try {
+    await POST('/auth/send-register-code', { email });
+    toast('验证码已发送');
+    _registerCodeCountdown = 60;
+    const iv = setInterval(() => {
+      _registerCodeCountdown--;
+      btn.textContent = _registerCodeCountdown + 's';
+      if (_registerCodeCountdown <= 0) { clearInterval(iv); btn.disabled = false; btn.textContent = '重新发送'; }
     }, 1000);
   } catch(e) {
     showAuthError(errEl, formatAuthError(e, '发送失败', 'sendCode'));

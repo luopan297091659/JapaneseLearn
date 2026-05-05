@@ -319,6 +319,13 @@ footer a { color: var(--text-hint); }
           <button type="button" id="sendLoginCodeBtn" onclick="sendLoginCode()" style="white-space:nowrap;padding:8px 16px;border:1px solid var(--primary);border-radius:8px;background:#fff;color:var(--primary);cursor:pointer;font-size:13px;">发送验证码</button>
         </div>
       </div>
+      <div class="form-group" id="registerCodeGroup" style="display:none;">
+        <label>邮箱验证码</label>
+        <div style="display:flex;gap:6px;">
+          <input type="text" id="registerCode" placeholder="6 位验证码" maxlength="6" style="flex:1;">
+          <button type="button" id="sendRegisterCodeBtn" onclick="sendRegisterCode()" style="white-space:nowrap;padding:8px 16px;border:1px solid var(--primary);border-radius:8px;background:#fff;color:var(--primary);cursor:pointer;font-size:13px;">发送验证码</button>
+        </div>
+      </div>
       <div class="form-group" id="inviteCodeGroup" style="display:none;">
         <label>邀请码 <span style="color:#9ca3af;font-weight:400">(选填)</span></label>
         <input type="text" id="regInviteCode" placeholder="有邀请码请填写" maxlength="16" style="text-transform:uppercase;">
@@ -396,6 +403,7 @@ function switchTab(mode) {
   document.getElementById('usernameGroup').style.display = mode === 'register' ? '' : 'none';
   document.getElementById('passwordGroup').style.display = mode === 'codeLogin' ? 'none' : '';
   document.getElementById('loginCodeGroup').style.display = mode === 'codeLogin' ? '' : 'none';
+  document.getElementById('registerCodeGroup').style.display = mode === 'register' ? '' : 'none';
   document.getElementById('inviteCodeGroup').style.display = mode === 'register' ? '' : 'none';
   document.getElementById('authSubmitBtn').textContent = mode === 'register' ? '注册' : '登录';
   document.getElementById('authTitle').textContent = mode === 'register' ? '注册账号' : '登录账号';
@@ -429,6 +437,25 @@ async function sendLoginCode() {
   } catch (e) { showToast(e.message, 'error'); btn.disabled = false; btn.textContent = '发送验证码'; }
 }
 
+let _registerCodeCountdown = 0;
+async function sendRegisterCode() {
+  const email = getAuthEmail();
+  if (!email) { showToast('请输入邮箱', 'error'); return; }
+  const btn = document.getElementById('sendRegisterCodeBtn');
+  btn.disabled = true; btn.textContent = '发送中...';
+  try {
+    const r = await fetch(API + '/auth/send-register-code', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
+    if (!r.ok) { const d = await r.json(); throw new Error(d.error || '发送失败'); }
+    showToast('验证码已发送', 'success');
+    _registerCodeCountdown = 60;
+    const iv = setInterval(() => {
+      _registerCodeCountdown--;
+      btn.textContent = _registerCodeCountdown + 's';
+      if (_registerCodeCountdown <= 0) { clearInterval(iv); btn.disabled = false; btn.textContent = '重新发送'; }
+    }, 1000);
+  } catch (e) { showToast(e.message, 'error'); btn.disabled = false; btn.textContent = '发送验证码'; }
+}
+
 async function handleAuth(e) {
   e.preventDefault();
   const btn = document.getElementById('authSubmitBtn');
@@ -443,8 +470,10 @@ async function handleAuth(e) {
       const username = document.getElementById('regUsername').value.trim();
       const password = document.getElementById('authPassword').value;
       const inviteCode = document.getElementById('regInviteCode').value.trim().toUpperCase();
+      const code = document.getElementById('registerCode').value.trim();
       if (!username || username.length < 3) throw new Error('用户名至少 3 个字符');
-      const regBody = { username, email, password, platform: 'web' };
+      if (!/^\d{6}$/.test(code)) throw new Error('请输入 6 位邮箱验证码');
+      const regBody = { username, email, password, code, platform: 'web' };
       if (inviteCode) regBody.invite_code = inviteCode;
       data = await apiCall('POST', '/auth/register', regBody);
     } else if (authMode === 'codeLogin') {

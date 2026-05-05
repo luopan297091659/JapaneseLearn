@@ -304,6 +304,7 @@ class ApiService {
     required String username,
     required String email,
     required String password,
+    required String code,
     String level = 'N5',
     String inviteCode = '',
   }) async {
@@ -311,6 +312,7 @@ class ApiService {
       'username': username,
       'email': email,
       'password': password,
+      'code': code,
       'level': level,
       'platform': 'app',
     };
@@ -318,6 +320,10 @@ class ApiService {
     final res = await _dio.post('/auth/register', data: data);
     await _saveTokens(res.data);
     return res.data;
+  }
+
+  Future<void> sendRegisterCode(String email) async {
+    await _dio.post('/auth/send-register-code', data: {'email': email});
   }
 
   Future<Map<String, dynamic>> login({required String email, required String password}) async {
@@ -1124,13 +1130,14 @@ class ApiService {
   Future<Map<String, dynamic>> bulkImportVocabulary({
     required List<Map<String, dynamic>> cards,
     String deckName = 'Anki Import',
-    String jlptLevel = 'N3',
+    String? jlptLevel,
     String partOfSpeech = 'other',
   }) async {
     final res = await _dio.post('/vocabulary/bulk', data: {
       'cards': cards,
       'deck_name': deckName,
-      'jlpt_level': jlptLevel,
+      if (jlptLevel != null && jlptLevel.trim().isNotEmpty)
+        'jlpt_level': jlptLevel.trim(),
       'part_of_speech': partOfSpeech,
     });
     return res.data as Map<String, dynamic>;
@@ -1178,6 +1185,18 @@ class ApiService {
       if (tags.isNotEmpty) 'tags': tags,
       'cards': cards,
     });
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
+  Future<Map<String, dynamic>> uploadSharedVocabAudio(String filePath) async {
+    final file = File(filePath);
+    final formData = FormData.fromMap({
+      'audio': await MultipartFile.fromFile(
+        file.path,
+        filename: file.path.split(Platform.pathSeparator).last,
+      ),
+    });
+    final res = await _dio.post('/shared-vocab/audio/upload', data: formData);
     return Map<String, dynamic>.from(res.data as Map);
   }
 

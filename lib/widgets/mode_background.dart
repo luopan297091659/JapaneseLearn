@@ -37,9 +37,15 @@ class SakuraModeBackground extends StatelessWidget {
         ? const [Color(0xFF1F171B), Color(0xFF281D22), Color(0xFF302329)]
         : const [Color(0xFFFFF8F5), Color(0xFFFFF1F5), Color(0xFFFFFAF0)];
 
-    return CustomPaint(
-      painter: _SakuraBackgroundPainter(colors: colors, isDark: isDark),
-      child: child,
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: CustomPaint(
+            painter: _SakuraBackgroundPainter(colors: colors, isDark: isDark),
+          ),
+        ),
+        child,
+      ],
     );
   }
 }
@@ -123,27 +129,107 @@ class AnimeCardDecoration extends StatelessWidget {
   final Widget child;
   final Color color;
   final double borderRadius;
+  final bool enableSakuraDecoration;
 
   const AnimeCardDecoration({
     super.key,
     required this.child,
     required this.color,
     this.borderRadius = 16,
+    this.enableSakuraDecoration = true,
   });
 
   @override
   Widget build(BuildContext context) {
     final visual = Theme.of(context).extension<AppVisualTheme>();
-    if (visual?.sakuraBackground == true) {
+    if (enableSakuraDecoration && visual?.sakuraBackground == true) {
+      final variant = ((color.r * 255).round() +
+                  (color.g * 255).round() * 3 +
+                  (color.b * 255).round() * 7)
+              .abs() %
+          9;
       return ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
-        child: CustomPaint(
-          foregroundPainter: _SakuraCardPainter(color: color),
-          child: child,
+        child: Stack(
+          children: [
+            Positioned(
+              top: -8,
+              right: -18,
+              bottom: -8,
+              width: 230,
+              child: _SakuraCardBranchImage(variant: variant),
+            ),
+            child,
+          ],
         ),
       );
     }
     return child;
+  }
+}
+
+class _SakuraCardBranchImage extends StatelessWidget {
+  final int variant;
+
+  const _SakuraCardBranchImage({required this.variant});
+
+  static const _asset = 'assets/images/sakura/sakura_branch.png';
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = switch (variant) {
+      0 => 0.88,
+      1 => 0.82,
+      2 => 0.92,
+      3 => 0.86,
+      4 => 0.94,
+      5 => 0.84,
+      6 => 0.90,
+      7 => 0.82,
+      _ => 0.90,
+    };
+    final turns = switch (variant) {
+      0 => -0.006,
+      1 => 0.010,
+      2 => -0.012,
+      3 => 0.014,
+      4 => -0.010,
+      5 => 0.008,
+      6 => -0.014,
+      7 => 0.010,
+      _ => -0.008,
+    };
+    final alignment = switch (variant) {
+      0 => Alignment.centerRight,
+      1 => Alignment.topRight,
+      2 => Alignment.bottomRight,
+      3 => Alignment.centerRight,
+      4 => Alignment.topRight,
+      5 => Alignment.bottomRight,
+      6 => Alignment.centerRight,
+      7 => Alignment.topRight,
+      _ => Alignment.bottomRight,
+    };
+
+    return IgnorePointer(
+      child: Opacity(
+        opacity: 0.60,
+        child: Transform.rotate(
+          angle: turns * pi * 2,
+          alignment: alignment,
+          child: Transform.scale(
+            scale: scale,
+            alignment: alignment,
+            child: Image.asset(
+              _asset,
+              alignment: alignment,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -167,7 +253,6 @@ class _SakuraBackgroundPainter extends CustomPainter {
     canvas.drawRect(Offset.zero & size, base);
 
     _drawPaperTexture(canvas, size);
-    _drawSakuraBranch(canvas, size);
     _drawFallingPetals(canvas, size);
   }
 
@@ -373,36 +458,316 @@ class _SakuraBackgroundPainter extends CustomPainter {
 
 class _SakuraCardPainter extends CustomPainter {
   final Color color;
-  const _SakuraCardPainter({required this.color});
+  final int variant;
+
+  const _SakuraCardPainter({
+    required this.color,
+    required this.variant,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
+    final branchPaint = Paint()
+      ..color = const Color(0xFF6E1C24).withValues(alpha: 0.24)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final twigPaint = Paint()
+      ..color = const Color(0xFF7D2630).withValues(alpha: 0.20)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
     final petalPaint = Paint()
-      ..color = color.withValues(alpha: 0.12)
+      ..color = const Color(0xFFEFA7B8).withValues(alpha: 0.38)
       ..style = PaintingStyle.fill;
-    final accentPaint = Paint()
-      ..color = color.withValues(alpha: 0.08)
+    final petalDeepPaint = Paint()
+      ..color = color.withValues(alpha: 0.18)
+      ..style = PaintingStyle.fill;
+    final highlightPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.26)
+      ..style = PaintingStyle.fill;
+    final centerPaint = Paint()
+      ..color = const Color(0xFFC84665).withValues(alpha: 0.32)
       ..style = PaintingStyle.fill;
 
-    _drawBlossom(
-        canvas, Offset(size.width * 0.90, size.height * 0.18), 4.8, petalPaint);
-    _drawSinglePetal(canvas, Offset(size.width * 0.12, size.height * 0.82), 6.0,
-        -0.55, petalPaint);
-    _drawSinglePetal(canvas, Offset(size.width * 0.82, size.height * 0.80), 4.8,
-        0.70, petalPaint);
-
-    final dot = Paint()
-      ..color = color.withValues(alpha: 0.10)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(size.width * 0.70, size.height * 0.12), 2.5, dot);
-    canvas.drawCircle(Offset(size.width * 0.20, size.height * 0.18), 2.0, dot);
-    canvas.drawCircle(Offset(size.width * 0.94, size.height * 0.62), 3.0, dot);
+    _drawCardBranch(
+      canvas,
+      size,
+      variant,
+      branchPaint,
+      twigPaint,
+      petalPaint,
+      petalDeepPaint,
+      highlightPaint,
+      centerPaint,
+    );
 
     final seal = RRect.fromRectAndRadius(
       Rect.fromLTWH(size.width - 24, size.height - 22, 14, 14),
       const Radius.circular(3),
     );
-    canvas.drawRRect(seal, accentPaint);
+    canvas.drawRRect(
+      seal,
+      Paint()
+        ..color = color.withValues(alpha: 0.08)
+        ..style = PaintingStyle.fill,
+    );
+  }
+
+  void _drawCardBranch(
+    Canvas canvas,
+    Size size,
+    int variant,
+    Paint branchPaint,
+    Paint twigPaint,
+    Paint petalPaint,
+    Paint petalDeepPaint,
+    Paint highlightPaint,
+    Paint centerPaint,
+  ) {
+    final branch = switch (variant) {
+      0 => _BranchSpec(stroke: 4.0, path: const [
+          Offset(1.08, 0.14),
+          Offset(0.80, 0.18),
+          Offset(0.60, 0.42),
+          Offset(0.36, 0.50)
+        ], twigs: const [
+          (Offset(0.78, 0.20), Offset(0.72, 0.04)),
+          (Offset(0.64, 0.35), Offset(0.72, 0.56)),
+          (Offset(0.50, 0.47), Offset(0.42, 0.28)),
+        ], blossoms: const [
+          (Offset(0.76, 0.10), 7.0, -0.2),
+          (Offset(0.66, 0.31), 8.0, 0.4),
+          (Offset(0.47, 0.42), 7.0, -0.6),
+        ], buds: const [
+          Offset(0.71, 0.04),
+          Offset(0.40, 0.29)
+        ], petals: const [
+          Offset(0.86, 0.72),
+          Offset(0.53, 0.76)
+        ]),
+      1 => _BranchSpec(stroke: 3.2, path: const [
+          Offset(0.40, 0.08),
+          Offset(0.58, 0.25),
+          Offset(0.82, 0.22),
+          Offset(1.05, 0.36)
+        ], twigs: const [
+          (Offset(0.56, 0.23), Offset(0.50, 0.44)),
+          (Offset(0.76, 0.23), Offset(0.83, 0.06)),
+          (Offset(0.88, 0.27), Offset(0.92, 0.52)),
+        ], blossoms: const [
+          (Offset(0.53, 0.40), 7.0, 0.2),
+          (Offset(0.72, 0.20), 6.5, -0.5),
+          (Offset(0.91, 0.43), 8.0, 0.7),
+        ], buds: const [
+          Offset(0.83, 0.07),
+          Offset(0.96, 0.51)
+        ], petals: const [
+          Offset(0.62, 0.70),
+          Offset(0.88, 0.76)
+        ]),
+      2 => _BranchSpec(stroke: 4.8, path: const [
+          Offset(1.10, 0.78),
+          Offset(0.86, 0.60),
+          Offset(0.70, 0.40),
+          Offset(0.50, 0.20)
+        ], twigs: const [
+          (Offset(0.83, 0.58), Offset(0.98, 0.44)),
+          (Offset(0.71, 0.42), Offset(0.61, 0.62)),
+          (Offset(0.58, 0.28), Offset(0.69, 0.12)),
+        ], blossoms: const [
+          (Offset(0.94, 0.45), 7.2, -0.1),
+          (Offset(0.64, 0.58), 7.8, 0.5),
+          (Offset(0.66, 0.14), 6.8, -0.8),
+        ], buds: const [
+          Offset(0.98, 0.44),
+          Offset(0.58, 0.61)
+        ], petals: const [
+          Offset(0.79, 0.18),
+          Offset(0.46, 0.62)
+        ]),
+      3 => _BranchSpec(stroke: 3.4, path: const [
+          Offset(0.98, 0.05),
+          Offset(0.78, 0.22),
+          Offset(0.66, 0.50),
+          Offset(0.52, 0.86)
+        ], twigs: const [
+          (Offset(0.78, 0.22), Offset(0.91, 0.30)),
+          (Offset(0.67, 0.48), Offset(0.53, 0.38)),
+          (Offset(0.58, 0.70), Offset(0.72, 0.82)),
+        ], blossoms: const [
+          (Offset(0.88, 0.28), 7.0, 0.1),
+          (Offset(0.55, 0.40), 7.5, -0.4),
+          (Offset(0.72, 0.79), 6.8, 0.6),
+        ], buds: const [
+          Offset(0.91, 0.30),
+          Offset(0.52, 0.86)
+        ], petals: const [
+          Offset(0.41, 0.28),
+          Offset(0.86, 0.72)
+        ]),
+      4 => _BranchSpec(stroke: 5.2, path: const [
+          Offset(0.36, 0.78),
+          Offset(0.56, 0.56),
+          Offset(0.76, 0.38),
+          Offset(1.10, 0.22)
+        ], twigs: const [
+          (Offset(0.55, 0.57), Offset(0.49, 0.30)),
+          (Offset(0.75, 0.39), Offset(0.68, 0.68)),
+          (Offset(0.90, 0.30), Offset(0.95, 0.08)),
+        ], blossoms: const [
+          (Offset(0.50, 0.33), 8.0, -0.2),
+          (Offset(0.70, 0.64), 7.0, 0.6),
+          (Offset(0.94, 0.10), 7.2, -0.5),
+        ], buds: const [
+          Offset(0.36, 0.78),
+          Offset(0.66, 0.68)
+        ], petals: const [
+          Offset(0.86, 0.62),
+          Offset(0.56, 0.16)
+        ]),
+      5 => _BranchSpec(stroke: 3.8, path: const [
+          Offset(1.06, 0.50),
+          Offset(0.78, 0.50),
+          Offset(0.62, 0.32),
+          Offset(0.42, 0.16)
+        ], twigs: const [
+          (Offset(0.78, 0.50), Offset(0.82, 0.74)),
+          (Offset(0.65, 0.35), Offset(0.56, 0.54)),
+          (Offset(0.50, 0.22), Offset(0.60, 0.08)),
+        ], blossoms: const [
+          (Offset(0.82, 0.70), 7.8, 0.3),
+          (Offset(0.56, 0.50), 6.8, -0.6),
+          (Offset(0.59, 0.10), 7.4, 0.7),
+        ], buds: const [
+          Offset(0.41, 0.16),
+          Offset(0.92, 0.49)
+        ], petals: const [
+          Offset(0.73, 0.18),
+          Offset(0.88, 0.82)
+        ]),
+      6 => _BranchSpec(stroke: 4.4, path: const [
+          Offset(0.44, 0.92),
+          Offset(0.56, 0.66),
+          Offset(0.76, 0.54),
+          Offset(1.06, 0.56)
+        ], twigs: const [
+          (Offset(0.56, 0.66), Offset(0.44, 0.52)),
+          (Offset(0.73, 0.55), Offset(0.76, 0.31)),
+          (Offset(0.89, 0.55), Offset(0.98, 0.72)),
+        ], blossoms: const [
+          (Offset(0.47, 0.52), 7.0, -0.2),
+          (Offset(0.76, 0.34), 8.0, 0.4),
+          (Offset(0.98, 0.70), 6.8, -0.7),
+        ], buds: const [
+          Offset(0.42, 0.91),
+          Offset(0.88, 0.55)
+        ], petals: const [
+          Offset(0.64, 0.20),
+          Offset(0.70, 0.82)
+        ]),
+      7 => _BranchSpec(stroke: 3.6, path: const [
+          Offset(1.08, 0.92),
+          Offset(0.86, 0.76),
+          Offset(0.74, 0.52),
+          Offset(0.58, 0.28)
+        ], twigs: const [
+          (Offset(0.85, 0.75), Offset(0.92, 0.50)),
+          (Offset(0.73, 0.52), Offset(0.58, 0.58)),
+          (Offset(0.64, 0.38), Offset(0.75, 0.22)),
+        ], blossoms: const [
+          (Offset(0.91, 0.52), 7.5, 0.1),
+          (Offset(0.59, 0.56), 7.0, -0.3),
+          (Offset(0.75, 0.24), 6.8, 0.7),
+        ], buds: const [
+          Offset(1.02, 0.88),
+          Offset(0.56, 0.29)
+        ], petals: const [
+          Offset(0.42, 0.70),
+          Offset(0.86, 0.20)
+        ]),
+      _ => _BranchSpec(stroke: 4.6, path: const [
+          Offset(0.38, 0.28),
+          Offset(0.62, 0.30),
+          Offset(0.80, 0.18),
+          Offset(1.06, 0.12)
+        ], twigs: const [
+          (Offset(0.62, 0.30), Offset(0.58, 0.58)),
+          (Offset(0.78, 0.20), Offset(0.86, 0.42)),
+          (Offset(0.90, 0.16), Offset(0.96, 0.04)),
+        ], blossoms: const [
+          (Offset(0.58, 0.54), 7.6, 0.3),
+          (Offset(0.86, 0.40), 7.0, -0.4),
+          (Offset(0.96, 0.06), 6.8, 0.6),
+        ], buds: const [
+          Offset(0.39, 0.29),
+          Offset(1.03, 0.12)
+        ], petals: const [
+          Offset(0.72, 0.70),
+          Offset(0.48, 0.14)
+        ]),
+    };
+
+    _drawCurvedBranch(canvas, size, branch.path, branch.stroke, branchPaint);
+    for (final twig in branch.twigs) {
+      _drawTwig(canvas, size, twig.$1, twig.$2, twigPaint);
+    }
+    for (final blossom in branch.blossoms) {
+      _drawDetailedBlossom(
+        canvas,
+        _p(size, blossom.$1),
+        blossom.$2,
+        blossom.$3,
+        petalPaint,
+        petalDeepPaint,
+        highlightPaint,
+        centerPaint,
+      );
+    }
+    for (final bud in branch.buds) {
+      _drawBud(canvas, _p(size, bud), 4.2, petalDeepPaint);
+    }
+    for (final petal in branch.petals) {
+      _drawSinglePetal(canvas, _p(size, petal), 5.4, -0.7, petalPaint);
+    }
+  }
+
+  Offset _p(Size size, Offset unit) {
+    return Offset(size.width * unit.dx, size.height * unit.dy);
+  }
+
+  void _drawCurvedBranch(Canvas canvas, Size size, List<Offset> points,
+      double stroke, Paint paint) {
+    final path = Path()
+      ..moveTo(size.width * points.first.dx, size.height * points.first.dy);
+    for (int i = 1; i < points.length; i++) {
+      final previous = points[i - 1];
+      final current = points[i];
+      final control = Offset(
+        size.width * ((previous.dx + current.dx) / 2),
+        size.height * ((previous.dy + current.dy) / 2 - 0.04),
+      );
+      path.quadraticBezierTo(
+        control.dx,
+        control.dy,
+        size.width * current.dx,
+        size.height * current.dy,
+      );
+    }
+    canvas.drawPath(path, paint..strokeWidth = stroke);
+  }
+
+  void _drawTwig(
+      Canvas canvas, Size size, Offset start, Offset end, Paint paint) {
+    final path = Path()
+      ..moveTo(size.width * start.dx, size.height * start.dy)
+      ..quadraticBezierTo(
+        size.width * ((start.dx + end.dx) / 2),
+        size.height * ((start.dy + end.dy) / 2 - 0.03),
+        size.width * end.dx,
+        size.height * end.dy,
+      );
+    canvas.drawPath(path, paint..strokeWidth = 1.9);
   }
 
   void _drawSinglePetal(
@@ -419,6 +784,44 @@ class _SakuraCardPainter extends CustomPainter {
       ..cubicTo(left.dx, left.dy, left.dx, left.dy, tip.dx, tip.dy)
       ..cubicTo(right.dx, right.dy, right.dx, right.dy, base.dx, base.dy);
     canvas.drawPath(path, p);
+  }
+
+  void _drawDetailedBlossom(
+    Canvas canvas,
+    Offset c,
+    double r,
+    double rotation,
+    Paint petalPaint,
+    Paint deepPaint,
+    Paint highlightPaint,
+    Paint centerPaint,
+  ) {
+    for (int i = 0; i < 5; i++) {
+      final angle = rotation - pi / 2 + i * 2 * pi / 5;
+      _drawPetal(
+        canvas,
+        Offset(c.dx + cos(angle) * r * 0.17, c.dy + sin(angle) * r * 0.17),
+        r,
+        angle,
+        i.isEven ? petalPaint : deepPaint,
+      );
+    }
+    canvas.drawCircle(c, r * 0.28, highlightPaint);
+    canvas.drawCircle(c, r * 0.11, centerPaint);
+
+    final stamen = Paint()
+      ..color = centerPaint.color.withValues(alpha: 0.52)
+      ..strokeWidth = 0.55
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    for (int i = 0; i < 6; i++) {
+      final angle = rotation + i * pi / 3;
+      canvas.drawLine(
+        c,
+        Offset(c.dx + cos(angle) * r * 0.48, c.dy + sin(angle) * r * 0.48),
+        stamen,
+      );
+    }
   }
 
   void _drawPetal(Canvas canvas, Offset c, double r, double rotation, Paint p) {
@@ -451,8 +854,33 @@ class _SakuraCardPainter extends CustomPainter {
     }
   }
 
+  void _drawBud(Canvas canvas, Offset c, double r, Paint p) {
+    _drawSinglePetal(canvas, c, r, -0.65, p);
+    _drawSinglePetal(
+        canvas, Offset(c.dx + r * 0.32, c.dy + r * 0.14), r * 0.72, -0.22, p);
+  }
+
   @override
-  bool shouldRepaint(covariant _SakuraCardPainter old) => old.color != color;
+  bool shouldRepaint(covariant _SakuraCardPainter old) =>
+      old.color != color || old.variant != variant;
+}
+
+class _BranchSpec {
+  final double stroke;
+  final List<Offset> path;
+  final List<(Offset, Offset)> twigs;
+  final List<(Offset, double, double)> blossoms;
+  final List<Offset> buds;
+  final List<Offset> petals;
+
+  const _BranchSpec({
+    required this.stroke,
+    required this.path,
+    required this.twigs,
+    required this.blossoms,
+    required this.buds,
+    required this.petals,
+  });
 }
 
 class _AnimeCardPainter extends CustomPainter {

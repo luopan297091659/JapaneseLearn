@@ -13,6 +13,7 @@ import 'providers/locale_provider.dart';
 import 'utils/tts_helper.dart';
 import 'services/plan_reminder_service.dart';
 import 'providers/app_appearance_provider.dart';
+import 'widgets/sakura_fall_overlay.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -114,6 +115,9 @@ class JapaneseLearnApp extends ConsumerWidget {
       theme: lightTheme,
       darkTheme: darkTheme,
       themeMode: ThemeMode.system,
+      themeAnimationDuration: Duration.zero,
+      builder: (context, child) =>
+          SakuraFallHost(child: child ?? const SizedBox.shrink()),
       routerConfig: router,
       // ── 国际化配置 ──
       locale: locale,

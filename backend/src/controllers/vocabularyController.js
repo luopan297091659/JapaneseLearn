@@ -105,7 +105,7 @@ async function bulkImport(req, res) {
   const {
     cards,
     deck_name    = 'Anki Import',
-    jlpt_level   = 'N3',
+    jlpt_level,
     part_of_speech = 'other',
   } = req.body;
 
@@ -118,7 +118,7 @@ async function bulkImport(req, res) {
 
   const VALID_LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1'];
   const VALID_POS    = ['noun','verb','adjective','adverb','particle','conjunction','interjection','other'];
-  const safeLevel = VALID_LEVELS.includes(jlpt_level) ? jlpt_level : 'N3';
+  const safeLevel = VALID_LEVELS.includes(jlpt_level) ? jlpt_level : null;
   const safePos   = VALID_POS.includes(part_of_speech) ? part_of_speech : 'other';
 
   const rows = cards
@@ -131,10 +131,12 @@ async function bulkImport(req, res) {
       meaning_zh:      (c.meaning_zh ? String(c.meaning_zh) : (c.meaning_en ? String(c.meaning_en) : '-')).substring(0, 1000),
       meaning_en:      c.meaning_en  ? String(c.meaning_en).substring(0, 1000)  : null,
       example_sentence:c.example_sentence ? String(c.example_sentence).substring(0, 2000) : null,
-      audio_url:       c.audio_url && (String(c.audio_url).startsWith('/uploads/') || String(c.audio_url).startsWith('http'))
+      example_audio_url:c.example_audio_url && (String(c.example_audio_url).startsWith('/uploads/') || String(c.example_audio_url).startsWith('/audio/') || String(c.example_audio_url).startsWith('http'))
+                       ? String(c.example_audio_url).substring(0, 500) : null,
+      audio_url:       c.audio_url && (String(c.audio_url).startsWith('/uploads/') || String(c.audio_url).startsWith('/audio/') || String(c.audio_url).startsWith('http'))
                        ? String(c.audio_url).substring(0, 500) : null,
       part_of_speech:  safePos,
-      jlpt_level:      safeLevel,
+      jlpt_level:      VALID_LEVELS.includes(c.jlpt_level) ? c.jlpt_level : safeLevel,
       deck_name:       String(deck_name).substring(0, 100),
       source:          'anki',
       tags:            { deck: deck_name },

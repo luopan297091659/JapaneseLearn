@@ -131,6 +131,7 @@ class _SharedVocabScreenState extends State<SharedVocabScreen> {
           'example_sentence': card['example_sentence'],
           'example_reading': card['example_reading'],
           'example_meaning_zh': card['example_meaning_zh'],
+          'example_audio_url': card['example_audio_url'],
           'audio_url': card['audio_url'],
           'part_of_speech': (card['part_of_speech'] ?? 'other').toString(),
           'jlpt_level': (card['jlpt_level'] ?? remoteDeck['jlpt_level'] ?? 'N3')
@@ -246,28 +247,42 @@ class _SharedVocabScreenState extends State<SharedVocabScreen> {
                     ? Center(
                         child:
                             Text('暂无共享词库', style: TextStyle(color: cs.outline)))
-                    : RefreshIndicator(
-                        onRefresh: _loadDecks,
-                        child: GridView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            mainAxisSpacing: 20,
-                            crossAxisSpacing: 14,
-                            childAspectRatio: 0.54,
-                          ),
-                          itemCount: _decks.length,
-                          itemBuilder: (_, i) => _SharedDeckCard(
-                            deck: _decks[i],
-                            coverUrl: _absoluteCoverUrl(
-                                _decks[i]['cover_url']?.toString()),
-                            importing:
-                                _importingDeckId == _decks[i]['id']?.toString(),
-                            index: i,
-                            onImport: () => _importDeck(_decks[i]),
-                          ),
-                        ),
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          final width = constraints.maxWidth;
+                          final crossAxisCount = width >= 900
+                              ? 5
+                              : width >= 700
+                                  ? 4
+                                  : width >= 520
+                                      ? 3
+                                      : 2;
+
+                          return RefreshIndicator(
+                            onRefresh: _loadDecks,
+                            child: GridView.builder(
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: crossAxisCount,
+                                mainAxisSpacing: 18,
+                                crossAxisSpacing: 18,
+                                childAspectRatio: 0.62,
+                              ),
+                              itemCount: _decks.length,
+                              itemBuilder: (_, i) => _SharedDeckCard(
+                                deck: _decks[i],
+                                coverUrl: _absoluteCoverUrl(
+                                    _decks[i]['cover_url']?.toString()),
+                                importing: _importingDeckId ==
+                                    _decks[i]['id']?.toString(),
+                                index: i,
+                                onImport: () => _importDeck(_decks[i]),
+                              ),
+                            ),
+                          );
+                        },
                       ),
           ),
         ],
@@ -309,8 +324,6 @@ class _SharedDeckCard extends StatelessWidget {
     final title = (deck['title'] ?? '共享词库').toString();
     final subtitle = (deck['description'] ?? owner?['username'] ?? '个人共享词库')
         .toString();
-    final cardCount = deck['card_count'] ?? 0;
-
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: importing ? null : onImport,
@@ -358,43 +371,24 @@ class _SharedDeckCard extends StatelessWidget {
                     left: 10,
                     right: 10,
                     bottom: 10,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.38),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              '$cardCount 张',
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 12),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                    child: Align(
+                      alignment: AlignmentDirectional.bottomEnd,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          importing ? '导入中' : '导入',
+                          style: TextStyle(
+                            color: importing ? cs.primary : cs.onSurface,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.9),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            importing ? '导入中' : '导入',
-                            style: TextStyle(
-                              color: importing ? cs.primary : cs.onSurface,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ],
@@ -404,7 +398,7 @@ class _SharedDeckCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             title,
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 13,
@@ -416,7 +410,7 @@ class _SharedDeckCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             subtitle,
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 11, color: cs.outline),
           ),

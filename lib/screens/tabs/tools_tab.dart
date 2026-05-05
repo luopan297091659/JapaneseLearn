@@ -5,6 +5,7 @@ import '../../services/guest_service.dart';
 import '../../config/app_config.dart';
 import '../../providers/app_appearance_provider.dart';
 import '../../widgets/mode_background.dart';
+import '../../widgets/sakura_fall_overlay.dart';
 
 class ToolsTab extends StatefulWidget {
   const ToolsTab({super.key});
@@ -335,7 +336,12 @@ class _ToolCard extends StatelessWidget {
         ? (isDark ? cs.outline : Colors.grey)
         : (isDark ? cs.onSurfaceVariant : color.withValues(alpha: 0.7));
     return InkWell(
-      onTap: onTap,
+      onTap: () {
+        if (!blocked) {
+          SakuraFallController.playIfEnabled(context);
+        }
+        onTap();
+      },
       borderRadius: BorderRadius.circular(16),
       child: AnimeCardDecoration(
         color: color,

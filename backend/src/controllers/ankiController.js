@@ -225,7 +225,7 @@ async function serverImport(req, res) {
     import_type    = 'vocabulary',
     mapping: mappingJson,
     deck_name      = 'Anki Import',
-    jlpt_level     = 'N3',
+    jlpt_level,
     part_of_speech = 'other',
     has_header     = 'false',
   } = req.body;
@@ -239,7 +239,7 @@ async function serverImport(req, res) {
 
   const VALID_LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1'];
   const VALID_POS    = ['noun','verb','adjective','adverb','particle','conjunction','interjection','other'];
-  const safeLevel = VALID_LEVELS.includes(jlpt_level) ? jlpt_level : 'N3';
+  const safeLevel = VALID_LEVELS.includes(jlpt_level) ? jlpt_level : null;
   const safePos   = VALID_POS.includes(part_of_speech) ? part_of_speech : 'other';
 
   try {
@@ -324,7 +324,7 @@ async function serverImport(req, res) {
             id:            uuidv4(),
             title:         pattern,
             title_zh:      (flds[exzhIdx] || '').substring(0, 200) || null,
-            jlpt_level:    safeLevel,
+            jlpt_level:    safeLevel || 'N3',
             pattern,
             explanation:   (flds[explIdx] || pattern).substring(0, 2000),
             explanation_zh:(flds[exzhIdx] || '').substring(0, 2000) || null,
@@ -405,7 +405,7 @@ async function importAnki(req, res) {
   const {
     mapping: mappingJson,
     deck_name    = 'Anki Import',
-    jlpt_level   = 'N3',
+    jlpt_level,
     part_of_speech = 'other',
     has_header   = 'false',
   } = req.body;
@@ -419,7 +419,7 @@ async function importAnki(req, res) {
 
   const VALID_LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1'];
   const VALID_POS    = ['noun','verb','adjective','adverb','particle','conjunction','interjection','other'];
-  const safeLevel = VALID_LEVELS.includes(jlpt_level) ? jlpt_level : 'N3';
+  const safeLevel = VALID_LEVELS.includes(jlpt_level) ? jlpt_level : null;
   const safePos   = VALID_POS.includes(part_of_speech) ? part_of_speech : 'other';
 
   try {

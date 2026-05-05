@@ -30,7 +30,7 @@ const audioUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB per file
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    const allowedExts = ['.mp3', '.wav', '.m4a', '.aac', '.flac'];
+    const allowedExts = ['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg', '.opus'];
     if (allowedExts.includes(ext)) {
       cb(null, true);
     } else {

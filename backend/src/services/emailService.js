@@ -84,6 +84,35 @@ async function sendLoginCode(to, code) {
   });
 }
 
+async function sendRegisterCode(to, code) {
+  const cfg = await getEmailConfig();
+  if (!cfg.smtp_user || !cfg.smtp_pass) {
+    throw new Error('閭欢鏈嶅姟鏈厤缃紝璇疯仈绯荤鐞嗗憳');
+  }
+  await checkDailyLimit(cfg);
+  const transporter = nodemailer.createTransport({
+    host: cfg.smtp_host, port: cfg.smtp_port, secure: true,
+    auth: { user: cfg.smtp_user, pass: cfg.smtp_pass },
+  });
+  await transporter.sendMail({
+    from: `"瑷€鏃?Kotabi" <${cfg.smtp_user}>`,
+    to,
+    subject: '銆愯█鏃?Kotabi銆戞敞鍐岄獙璇佺爜',
+    html: `
+      <div style="max-width:480px;margin:0 auto;font-family:sans-serif;color:#333;">
+        <h2 style="color:#8B4513;">瑷€鏃?Kotabi 鈥?閭娉ㄥ唽楠岃瘉</h2>
+        <p>鎮ㄦ鍦ㄦ敞鍐岃█鏃?Kotabi 璐︽埛锛岄獙璇佺爜涓猴細</p>
+        <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#8B4513;
+                    background:#FFF5EE;padding:16px 24px;border-radius:8px;text-align:center;margin:16px 0;">
+          ${code}
+        </div>
+        <p>楠岃瘉鐮?<strong>10 鍒嗛挓</strong>鍐呮湁鏁堬紝璇峰嬁娉勯湶缁欎粬浜恒€?/p>
+        <p style="color:#999;font-size:12px;margin-top:24px;">濡傞潪鏈汉鎿嶄綔锛岃蹇界暐姝ら偖浠躲€?/p>
+      </div>
+    `,
+  });
+}
+
 /**
  * 发送新订单通知邮件给管理员
  * @param {string[]} recipients - 接收邮箱列表
@@ -142,4 +171,4 @@ async function sendOrderNotification(recipients, orderInfo) {
   });
 }
 
-module.exports = { sendResetCode, sendLoginCode, sendOrderNotification };
+module.exports = { sendResetCode, sendLoginCode, sendRegisterCode, sendOrderNotification };

@@ -111,9 +111,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             'app_language', remotePreferences['locale'] as String);
       }
       if (remotePreferences['appearance_mode'] is String) {
-        await ref
-            .read(appAppearanceProvider.notifier)
-            .applySavedValue(remotePreferences['appearance_mode'] as String);
+        final localAppearance = prefs.getString('app_appearance_mode');
+        final remoteAppearance = remotePreferences['appearance_mode'] as String;
+        if (localAppearance == null || localAppearance.isEmpty) {
+          await ref
+              .read(appAppearanceProvider.notifier)
+              .applySavedValue(remoteAppearance);
+        } else if (localAppearance != remoteAppearance) {
+          await ref
+              .read(appAppearanceProvider.notifier)
+              .syncCurrentModeToRemote();
+        }
       }
       await prefs.setInt('daily_goal_minutes', user.dailyGoalMinutes);
       await prefs.setBool('notification_enabled', user.notificationEnabled);
@@ -1032,7 +1040,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               );
             },
           ),
-          TextButton(onPressed: _logout, child: Text(s.logout)),
         ],
       ),
       body: _loading
@@ -1546,6 +1553,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                           subtitle: const Text('永久删除账户及所有数据'),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: _confirmDeleteAccount,
+                        ),
+                        const Divider(height: 1, indent: 56),
+                        ListTile(
+                          leading: const Icon(Icons.logout_rounded),
+                          title: Text(s.logout),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: _logout,
                         ),
                       ],
                     ),

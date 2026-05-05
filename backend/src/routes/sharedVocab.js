@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { authenticate, optionalAuthenticate } = require('../middlewares/auth');
 const asyncHandler = require('../utils/asyncHandler');
+const { audioUpload } = require('../services/audioService');
 const {
   createDeck,
   listPublicDecks,
@@ -19,6 +20,15 @@ router.get('/my/decks', authenticate, asyncHandler(listMyDecks));
 
 // 发布共享词库：body = { title, description, cover_url|cover_image_base64, source_type, tags, cards: [...] }
 router.post('/decks', authenticate, asyncHandler(createDeck));
+
+router.post('/audio/upload', authenticate, audioUpload.single('audio'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: '未找到音频文件' });
+  res.json({
+    filename: req.file.filename,
+    url: `/audio/${req.file.filename}`,
+    size: req.file.size,
+  });
+});
 
 // 词库详情，可带 ?cards=0 只取元信息
 router.get('/decks/:id', optionalAuthenticate, asyncHandler(getDeckDetail));

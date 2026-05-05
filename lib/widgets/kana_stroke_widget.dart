@@ -530,11 +530,12 @@ class _KanaStrokeWidgetState extends State<KanaStrokeWidget>
       child: LayoutBuilder(
         builder: (context, constraints) {
           _lastCanvasSize = constraints.biggest;
+          final animValue = _animValueForCanvas(enableDrawing: enableDrawing);
           final painter = CustomPaint(
             painter: _KanaCanvasPainter(
               shadowPaths: _shadowPaths,
               strokes: _strokes,
-              animValue: _animCtrl?.value ?? (widget.testMode || (!widget.autoPlay && widget.animationOnly) ? 0.0 : 1.0),
+              animValue: animValue,
               userStrokes: _userStrokes,
               showRef: widget.testMode
                   ? false
@@ -555,6 +556,16 @@ class _KanaStrokeWidgetState extends State<KanaStrokeWidget>
         },
       ),
     );
+  }
+
+  double _animValueForCanvas({required bool enableDrawing}) {
+    final currentValue = _animCtrl?.value;
+    if (currentValue != null) return currentValue;
+
+    if (widget.testMode) return 0.0;
+    if (enableDrawing && !widget.autoPlay) return 0.0;
+    if (widget.animationOnly && !widget.autoPlay) return 0.0;
+    return 1.0;
   }
 }
 

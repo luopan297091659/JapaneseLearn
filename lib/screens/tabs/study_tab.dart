@@ -5,6 +5,7 @@ import '../../services/guest_service.dart';
 import '../../config/app_config.dart';
 import '../../providers/app_appearance_provider.dart';
 import '../../widgets/mode_background.dart';
+import '../../widgets/sakura_fall_overlay.dart';
 
 class StudyTab extends StatefulWidget {
   const StudyTab({super.key});
@@ -330,7 +331,12 @@ class _StudyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
-      onTap: onTap,
+      onTap: () {
+        if (!blocked) {
+          SakuraFallController.playIfEnabled(context);
+        }
+        onTap();
+      },
       borderRadius: BorderRadius.circular(16),
       child: AnimeCardDecoration(
         color: color,

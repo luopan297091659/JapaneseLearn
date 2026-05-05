@@ -37,6 +37,15 @@ function normalizeVisibility(value) {
   return allowed.has(value) ? value : 'public';
 }
 
+function normalizeAudioUrl(value) {
+  const url = clampText(value, 500);
+  if (!url) return null;
+  if (url.startsWith('/uploads/') || url.startsWith('/audio/') || url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  return null;
+}
+
 function inferLevel(cards, fallback) {
   if (fallback) return clampText(fallback, 10);
   const counts = new Map();
@@ -71,7 +80,8 @@ function normalizeCards(cards) {
       example_sentence: clampText(card.example_sentence || card.exampleSentence, 3000) || null,
       example_reading: clampText(card.example_reading || card.exampleReading, 1000) || null,
       example_meaning_zh: clampText(card.example_meaning_zh || card.exampleMeaningZh, 2000) || null,
-      audio_url: clampText(card.audio_url || card.audioUrl, 500) || null,
+      example_audio_url: normalizeAudioUrl(card.example_audio_url || card.exampleAudioUrl),
+      audio_url: normalizeAudioUrl(card.audio_url || card.audioUrl),
       part_of_speech: clampText(card.part_of_speech || card.partOfSpeech, 50, 'other') || 'other',
       jlpt_level: clampText(card.jlpt_level || card.jlptLevel, 10) || null,
       sort_order: Number.isInteger(card.sort_order) ? card.sort_order : index,
