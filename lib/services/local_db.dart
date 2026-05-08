@@ -656,15 +656,18 @@ class LocalDb {
       ORDER BY
         CASE
           WHEN word = ? THEN 0
-          WHEN word LIKE ? THEN 1
-          WHEN reading LIKE ? THEN 2
-          ELSE 3
+          WHEN reading = ? THEN 1
+          WHEN meaning_zh = ? THEN 2
+          WHEN word LIKE ? THEN 3
+          WHEN reading LIKE ? THEN 4
+          WHEN meaning_zh LIKE ? THEN 5
+          ELSE 20
         END,
         jlpt_level ASC,
         sort_order ASC
       LIMIT ?
       ''',
-      [like, like, like, q, '$q%', '$q%', limit],
+      [like, like, like, q, q, q, '$q%', '$q%', '$q%', limit],
     );
     return rows.map(_vocabFromRow).toList();
   }

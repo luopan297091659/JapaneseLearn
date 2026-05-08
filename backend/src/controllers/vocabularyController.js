@@ -1,6 +1,6 @@
 const { Op, Sequelize } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
-const { Vocabulary, UserVocabulary } = require('../models');
+const { Vocabulary, UserVocabulary, SharedVocabCard, SharedVocabDeck } = require('../models');
 
 // 从 word 字段中提取假名读音，如 "吉[よし]野[の]山[やま]" → "よしのやま"
 function extractReading(word) {
@@ -17,6 +17,8 @@ const _dailySeed = () => Math.floor(Date.now() / 86400000);
 
 async function list(req, res) {
   const { level, category, q, part_of_speech, page = 1, limit = 20 } = req.query;
+  const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+  const limitNum = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 200);
   const where = {};
   if (level) where.jlpt_level = level;
   if (category) where.category = category;
@@ -39,16 +41,39 @@ async function list(req, res) {
     where[Op.and] = ands;
   }
 
-  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const offset = (pageNum - 1) * limitNum;
   try {
     // 有搜索时按字母序，无搜索时按每日随机序（避免接头接尾词聚集在前面）
-    const order = q
-      ? [['jlpt_level', 'ASC'], ['word', 'ASC']]
-      : [['jlpt_level', 'ASC'], Sequelize.literal(`RAND(${_dailySeed()})`)];
+    let order = [['jlpt_level', 'ASC'], Sequelize.literal(`RAND(${_dailySeed()})`)];
+    if (q) {
+      const escaped = Vocabulary.sequelize.escape(String(q).trim());
+      order = [
+        [Sequelize.literal(`CASE
+          WHEN word = ${escaped} THEN 0
+          WHEN reading = ${escaped} THEN 1
+          WHEN meaning_zh = ${escaped} THEN 2
+          WHEN meaning_en = ${escaped} THEN 3
+          WHEN word LIKE CONCAT(${escaped}, '%') THEN 4
+          WHEN reading LIKE CONCAT(${escaped}, '%') THEN 5
+          WHEN meaning_zh LIKE CONCAT(${escaped}, '%') THEN 6
+          WHEN meaning_en LIKE CONCAT(${escaped}, '%') THEN 7
+          ELSE 20
+        END`), 'ASC'],
+        ['jlpt_level', 'ASC'],
+        ['word', 'ASC'],
+      ];
+    }
     const { count, rows } = await Vocabulary.findAndCountAll({
-      where, limit: parseInt(limit), offset, order,
+      where, limit: limitNum, offset, order,
     });
-    res.json({ total: count, page: parseInt(page), limit: parseInt(limit), data: rows });
+    let data = rows.map(row => row.toJSON());
+    let total = count;
+    if (q && !category && pageNum === 1) {
+      const shared = await searchSharedCards(String(q).trim(), { level, partOfSpeech: part_of_speech, limit: limitNum });
+      data = mergeVocabularyResults(data, shared).slice(0, limitNum);
+      total += shared.length;
+    }
+    res.json({ total, page: pageNum, limit: limitNum, data });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -57,11 +82,111 @@ async function list(req, res) {
 async function getById(req, res) {
   try {
     const vocab = await Vocabulary.findByPk(req.params.id);
-    if (!vocab) return res.status(404).json({ error: 'Not found' });
-    res.json(vocab);
+    if (vocab) return res.json(vocab);
+    const shared = await SharedVocabCard.findOne({
+      where: { id: req.params.id },
+      include: [{
+        model: SharedVocabDeck,
+        as: 'deck',
+        attributes: ['id', 'title', 'visibility', 'status'],
+        where: { status: 'published', visibility: { [Op.ne]: 'private' } },
+      }],
+    });
+    if (!shared) return res.status(404).json({ error: 'Not found' });
+    res.json(sharedCardToVocabulary(shared));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+}
+
+function normalizeJlpt(level) {
+  if (!level) return 'N5';
+  const text = String(level).toUpperCase();
+  return ['N5', 'N4', 'N3', 'N2', 'N1'].includes(text) ? text : 'N5';
+}
+
+function sharedCardToVocabulary(card) {
+  const raw = card.toJSON ? card.toJSON() : card;
+  const exampleSentences = raw.example_sentences || (raw.example_sentence ? [{
+    jp: raw.example_sentence,
+    reading: raw.example_reading,
+    zh: raw.example_meaning_zh,
+    audio_url: raw.example_audio_url,
+  }] : null);
+
+  return {
+    id: raw.id,
+    word: raw.word,
+    reading: raw.reading || raw.word,
+    meaning_zh: raw.meaning_zh,
+    meaning_en: raw.meaning_en,
+    part_of_speech: raw.part_of_speech || 'other',
+    part_of_speech_raw: null,
+    jlpt_level: normalizeJlpt(raw.jlpt_level),
+    audio_url: raw.audio_url,
+    image_url: null,
+    category: raw.deck?.title || raw.deck_name || null,
+    example_sentence: raw.example_sentence,
+    example_reading: raw.example_reading,
+    example_meaning_zh: raw.example_meaning_zh,
+    example_audio_url: raw.example_audio_url,
+    example_sentences: exampleSentences,
+    tags: raw.deck?.title ? { source: 'shared_vocab', deck: raw.deck.title } : { source: 'shared_vocab' },
+  };
+}
+
+async function searchSharedCards(query, { level, partOfSpeech, limit }) {
+  if (!query) return [];
+  const escaped = SharedVocabCard.sequelize.escape(query);
+  const where = {
+    [Op.or]: [
+      { word: { [Op.like]: `%${query}%` } },
+      { reading: { [Op.like]: `%${query}%` } },
+      { meaning_zh: { [Op.like]: `%${query}%` } },
+      { meaning_en: { [Op.like]: `%${query}%` } },
+    ],
+  };
+  if (level) where.jlpt_level = level;
+  if (partOfSpeech) where.part_of_speech = partOfSpeech;
+
+  const rows = await SharedVocabCard.findAll({
+    where,
+    include: [{
+      model: SharedVocabDeck,
+      as: 'deck',
+      attributes: ['id', 'title', 'visibility', 'status'],
+      where: { status: 'published', visibility: { [Op.ne]: 'private' } },
+    }],
+    order: [
+      [Sequelize.literal(`CASE
+        WHEN SharedVocabCard.word = ${escaped} THEN 0
+        WHEN SharedVocabCard.reading = ${escaped} THEN 1
+        WHEN SharedVocabCard.meaning_zh = ${escaped} THEN 2
+        WHEN SharedVocabCard.meaning_en = ${escaped} THEN 3
+        WHEN SharedVocabCard.word LIKE CONCAT(${escaped}, '%') THEN 4
+        WHEN SharedVocabCard.reading LIKE CONCAT(${escaped}, '%') THEN 5
+        WHEN SharedVocabCard.meaning_zh LIKE CONCAT(${escaped}, '%') THEN 6
+        WHEN SharedVocabCard.meaning_en LIKE CONCAT(${escaped}, '%') THEN 7
+        ELSE 20
+      END`), 'ASC'],
+      ['sort_order', 'ASC'],
+      ['created_at', 'DESC'],
+    ],
+    limit,
+  });
+  return rows.map(sharedCardToVocabulary);
+}
+
+function mergeVocabularyResults(primary, secondary) {
+  const merged = [];
+  const seen = new Set();
+  for (const item of [...primary, ...secondary]) {
+    const key = `${item.word || ''}|${item.reading || ''}|${item.meaning_zh || ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+  return merged;
 }
 
 async function getByLevel(req, res) {

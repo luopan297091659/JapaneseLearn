@@ -1,7 +1,7 @@
 const https = require('https');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/database');
-const { DictEntry, DictTransCache } = require('../models');
+const { DictEntry, DictTransCache, SharedVocabCard, SharedVocabDeck } = require('../models');
 const logger = require('../utils/logger');
 
 // ─── AI 翻译辅助 ────────────────────────────────────────────────────────────
@@ -176,6 +176,177 @@ async function lookupLocal(word, reading) {
   } catch { return null; }
 }
 
+async function searchSharedLocal(query, limit = 20) {
+  const q = query.trim();
+  if (!q) return [];
+
+  try {
+    const escaped = sequelize.escape(q);
+    const rows = await SharedVocabCard.findAll({
+      where: {
+        [Op.or]: [
+          { word: { [Op.like]: `%${q}%` } },
+          { reading: { [Op.like]: `%${q}%` } },
+          { meaning_zh: { [Op.like]: `%${q}%` } },
+          { meaning_en: { [Op.like]: `%${q}%` } },
+        ],
+      },
+      include: [{
+        model: SharedVocabDeck,
+        as: 'deck',
+        attributes: ['id', 'title', 'visibility', 'status'],
+        where: { status: 'published', visibility: { [Op.ne]: 'private' } },
+      }],
+      order: [
+        [sequelize.literal(`CASE
+          WHEN SharedVocabCard.word = ${escaped} THEN 0
+          WHEN SharedVocabCard.reading = ${escaped} THEN 1
+          WHEN SharedVocabCard.meaning_zh = ${escaped} THEN 2
+          WHEN SharedVocabCard.meaning_en = ${escaped} THEN 3
+          WHEN SharedVocabCard.word LIKE CONCAT(${escaped}, '%') THEN 4
+          WHEN SharedVocabCard.reading LIKE CONCAT(${escaped}, '%') THEN 5
+          WHEN SharedVocabCard.meaning_zh LIKE CONCAT(${escaped}, '%') THEN 6
+          WHEN SharedVocabCard.meaning_en LIKE CONCAT(${escaped}, '%') THEN 7
+          ELSE 20
+        END`), 'ASC'],
+        ['sort_order', 'ASC'],
+        ['created_at', 'DESC'],
+      ],
+      limit,
+    });
+    return rows.map(sharedCardToResult);
+  } catch (err) {
+    logger.warn('Shared vocab dict search error:', err.message);
+    return [];
+  }
+}
+
+function normalizeJlptTag(level) {
+  if (!level) return [];
+  const text = String(level).toUpperCase();
+  return ['N5', 'N4', 'N3', 'N2', 'N1'].includes(text) ? [`jlpt-${text.toLowerCase()}`] : [];
+}
+
+function sharedCardToResult(row) {
+  const card = row.toJSON ? row.toJSON() : row;
+  const pos = card.part_of_speech ? [card.part_of_speech] : [];
+  return {
+    slug: card.word || card.reading,
+    url: '',
+    is_common: true,
+    tags: card.deck?.title ? [`shared:${card.deck.title}`] : ['shared'],
+    jlpt: normalizeJlptTag(card.jlpt_level),
+    japanese: [{ word: card.word, reading: card.reading || card.word }],
+    word: card.word || card.reading,
+    reading: card.reading || '',
+    meanings: [{
+      parts_of_speech: pos,
+      english_definitions: card.meaning_en ? [card.meaning_en] : [],
+      chinese_definitions: card.meaning_zh ? [card.meaning_zh] : [],
+      tags: [], restrictions: [], antonyms: [], source: [], info: [], links: [],
+    }],
+    example_sentence: card.example_sentence,
+    example_reading: card.example_reading,
+    example_meaning_zh: card.example_meaning_zh,
+    example_audio_url: card.example_audio_url,
+    audio_url: card.audio_url,
+    attribution: {},
+    source: 'shared',
+  };
+}
+
+function rankDictionaryResult(entry, query) {
+  const q = String(query || '').trim();
+  if (!q) return 100;
+  const word = entry.word || '';
+  const reading = entry.reading || '';
+  const meanings = (entry.meanings || [])
+    .flatMap(m => [...(m.chinese_definitions || []), ...(m.english_definitions || [])])
+    .join('; ');
+  if (word === q) return 0;
+  if (reading === q) return 1;
+  if (meanings === q) return 2;
+  if (word.startsWith(q)) return 4;
+  if (reading.startsWith(q)) return 5;
+  if (meanings.startsWith(q)) return 6;
+  if (word.includes(q)) return 10;
+  if (reading.includes(q)) return 11;
+  if (meanings.includes(q)) return 12;
+  return 100;
+}
+
+function extractJson(text) {
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) return JSON.parse(fenceMatch[1].trim());
+  const jsonStart = text.search(/[\[{]/);
+  if (jsonStart >= 0) {
+    const candidate = text.slice(jsonStart);
+    const lastBracket = Math.max(candidate.lastIndexOf(']'), candidate.lastIndexOf('}'));
+    if (lastBracket >= 0) return JSON.parse(candidate.slice(0, lastBracket + 1));
+  }
+  return JSON.parse(text.trim());
+}
+
+async function lookupWithAI(query) {
+  const q = String(query || '').trim();
+  if (!q) return null;
+  const callAI = getCallAI();
+  if (!callAI) return null;
+
+  try {
+    const prompt = `你是日语词典助手。系统词库和外部辞书都没有查到「${q}」，请判断它是否可能是日语单词、短语、变形、外来语、专有名词或用户输入的近似词。
+
+请只返回 JSON 对象，不要 markdown：
+{
+  "word": "标准词形或原输入",
+  "reading": "假名读音，不确定则为空",
+  "meaning_zh": "中文释义，多个义项用；分隔",
+  "meaning_en": "English meaning, optional",
+  "part_of_speech": "noun|verb|adjective|adverb|particle|conjunction|interjection|expression|proper noun|other",
+  "jlpt": "",
+  "is_confident": true,
+  "note": "如果是推测、变形或可能拼写错误，简短说明"
+}
+
+要求：
+1. 如果完全不像日语或无法判断，is_confident 设为 false，但仍给出可能解释或提示。
+2. meaning_zh 必须有内容。
+3. 不要编造不存在的确定出处。`;
+
+    const result = await callAI(prompt, 1024);
+    const detail = extractJson(result);
+    const meaningZh = String(detail.meaning_zh || detail.meaning || detail.explanation || '').trim();
+    if (!meaningZh) return null;
+    const word = String(detail.word || q).trim() || q;
+    const reading = String(detail.reading || detail.furigana || '').trim();
+    const pos = String(detail.part_of_speech || detail.pos || 'other').trim();
+    const note = String(detail.note || '').trim();
+    const jlpt = String(detail.jlpt || '').trim().toLowerCase();
+
+    return {
+      slug: word,
+      url: '',
+      is_common: false,
+      tags: detail.is_confident === false ? ['AI推测'] : ['AI'],
+      jlpt: /^n[1-5]$/.test(jlpt) ? [`jlpt-${jlpt}`] : [],
+      japanese: [{ word, reading }],
+      word,
+      reading,
+      meanings: [{
+        parts_of_speech: pos ? [pos] : [],
+        english_definitions: detail.meaning_en ? [String(detail.meaning_en)] : [],
+        chinese_definitions: [meaningZh],
+        tags: [], restrictions: [], antonyms: [], source: [], info: note ? [note] : [], links: [],
+      }],
+      attribution: {},
+      source: 'ai',
+    };
+  } catch (err) {
+    logger.warn('AI dict fallback error:', err.message);
+    return null;
+  }
+}
+
 /**
  * 将 DictEntry 数据库行转为前端兼容的结果格式
  */
@@ -275,6 +446,10 @@ async function search(req, res) {
   try {
     // 1. 本地 JMdict 搜索
     let results = await searchLocal(q, 30);
+    const sharedResults = await searchSharedLocal(q, 20);
+    if (sharedResults.length > 0) {
+      results = results.concat(sharedResults);
+    }
     let source = 'local';
 
     // 2. 如果本地结果不足，用 Jisho 补充
@@ -334,6 +509,16 @@ async function search(req, res) {
     }
 
     // 4. 去重：按 word|reading 去掉重复条目
+    if (results.length === 0) {
+      const aiResult = await lookupWithAI(q);
+      if (aiResult) {
+        results.push(aiResult);
+        source = 'ai';
+      }
+    }
+
+    results.sort((a, b) => rankDictionaryResult(a, q) - rankDictionaryResult(b, q));
+
     const deduped = [];
     const seenKeys = new Set();
     for (const entry of results) {
@@ -373,9 +558,18 @@ async function detail(req, res) {
 
     // 本地无结果，fallback Jisho
     const keyword = encodeURIComponent(word);
-    const jishoData = await fetchJisho(`https://jisho.org/api/v1/search/words?keyword=${keyword}`);
-    const raw = jishoData.data && jishoData.data.length > 0 ? jishoData.data[0] : null;
-    if (!raw) return res.status(404).json({ error: 'Word not found' });
+    let raw = null;
+    try {
+      const jishoData = await fetchJisho(`https://jisho.org/api/v1/search/words?keyword=${keyword}`);
+      raw = jishoData.data && jishoData.data.length > 0 ? jishoData.data[0] : null;
+    } catch (jishoErr) {
+      logger.warn('Jisho detail fallback failed:', jishoErr.message);
+    }
+    if (!raw) {
+      const aiEntry = await lookupWithAI(word);
+      if (aiEntry) return res.json(aiEntry);
+      return res.status(404).json({ error: 'Word not found' });
+    }
 
     const entry = normalizeJishoEntry(raw);
     // AI 翻译

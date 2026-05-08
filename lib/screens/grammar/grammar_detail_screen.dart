@@ -130,9 +130,24 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
     } catch (_) { setState(() => _loading = false); }
   }
 
+  String _plainGrammarText(String text) => stripFuriganaMarkup(text);
+
+  String? _lessonSubtitle(GrammarLessonModel lesson) {
+    final subtitle = (lesson.titleZh ?? lesson.title).trim();
+    if (subtitle.isEmpty) return null;
+    final plainSubtitle = _plainGrammarText(subtitle);
+    final plainPattern = _plainGrammarText(lesson.pattern);
+    final normalizedSubtitle = plainSubtitle.replaceAll(RegExp(r'\s+'), '');
+    final normalizedPattern = plainPattern.replaceAll(RegExp(r'\s+'), '');
+    if (normalizedSubtitle == normalizedPattern) return null;
+    return plainSubtitle;
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final lesson = _lesson;
+    final subtitle = lesson == null ? null : _lessonSubtitle(lesson);
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -140,7 +155,7 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
           tooltip: '返回',
           onPressed: () => context.canPop() ? context.pop() : context.go('/grammar'),
         ),
-        title: Text(_lesson?.pattern ?? '语法'),
+        title: Text(lesson == null ? '语法' : _plainGrammarText(lesson.pattern)),
         actions: [
           if (_lesson != null)
             IconButton(
@@ -151,7 +166,7 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
                 builder: (_) => ReportDialog(
                   refType: 'grammar',
                   refId: _lesson!.id,
-                  refTitle: _lesson!.pattern,
+                  refTitle: _plainGrammarText(_lesson!.pattern),
                 ),
               ),
             ),
@@ -177,10 +192,19 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(_lesson!.pattern, style: TextStyle(
-                            fontSize: 28, fontWeight: FontWeight.bold, color: cs.primary)),
-                          Text(_lesson!.titleZh ?? _lesson!.title,
-                              style: TextStyle(color: cs.onPrimaryContainer)),
+                          FuriganaText(
+                            text: _lesson!.pattern,
+                            fontSize: 28,
+                            color: cs.primary,
+                            textAlign: TextAlign.start,
+                          ),
+                          if (subtitle != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              subtitle,
+                              style: TextStyle(color: cs.onPrimaryContainer),
+                            ),
+                          ],
                           Container(
                             margin: const EdgeInsets.only(top: 4),
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

@@ -143,12 +143,15 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
             .toList();
 
         // 判断是否有精确匹配（单词完全一致）
-        final hasExactMatch = remoteVocab.any((v) => v.word == q || v.reading == q);
+        final exactVocab = remoteVocab
+            .where((v) => v.word == q || v.reading == q || v.meaningZh == q || v.meaningEn == q)
+            .toList();
+        final hasExactMatch = exactVocab.isNotEmpty;
 
         if (hasExactMatch && remoteVocab.isNotEmpty) {
           // 系统词库精确匹配到，跳过辞书搜索
           setState(() {
-            _vocabResults = remoteVocab;
+            _vocabResults = exactVocab;
             _results = [];
             _hasMore = false;
             _loading = false;
@@ -361,7 +364,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         if (i < vocabCount) {
           final vocab = _vocabResults[i];
           final id = 'vocab_$i';
-          return _VocabResultCard(vocab: vocab, onWordTap: _searchWord, playingId: _playingId, itemId: id, onPlay: (word) => _playWord(word, id: id, audioUrl: vocab.audioUrl));
+          return _VocabResultCard(vocab: vocab, playingId: _playingId, itemId: id, onPlay: (word) => _playWord(word, id: id, audioUrl: vocab.audioUrl));
         }
         final dictIndex = i - vocabCount;
         if (dictIndex == _results.length) {
@@ -673,8 +676,7 @@ class _VocabResultCard extends StatelessWidget {
   final String? playingId;
   final String itemId;
   final void Function(String) onPlay;
-  final void Function(String) onWordTap;
-  const _VocabResultCard({required this.vocab, required this.onWordTap, required this.playingId, required this.itemId, required this.onPlay});
+  const _VocabResultCard({required this.vocab, required this.playingId, required this.itemId, required this.onPlay});
 
   @override
   Widget build(BuildContext context) {
@@ -683,7 +685,7 @@ class _VocabResultCard extends StatelessWidget {
       elevation: 1,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => onWordTap(vocab.word),
+        onTap: () => context.push('/vocabulary/${vocab.id}?showAnswer=1'),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(

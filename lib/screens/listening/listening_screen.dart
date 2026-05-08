@@ -162,6 +162,34 @@ class _ListeningScreenState extends State<ListeningScreen> {
     );
   }
 
+  int _currentSentenceLength() {
+    if (_sentences.isEmpty) return 0;
+    final s = _sentences[_index];
+    final sentence = (s['sentence'] as String? ?? '').trim();
+    final reading = (s['reading'] as String? ?? '').trim();
+    final text = reading.isNotEmpty ? reading : sentence;
+    return text.runes
+        .where((r) => !String.fromCharCode(r).trim().isEmpty)
+        .length;
+  }
+
+  Duration _adaptiveListenFor() {
+    final length = _currentSentenceLength();
+    final seconds = max(15, min(45, (length * 0.45).ceil() + 8));
+    return Duration(seconds: seconds);
+  }
+
+  Duration _adaptivePauseFor() {
+    final length = _currentSentenceLength();
+    final seconds = length >= 55 ? 6 : length >= 35 ? 5 : 3;
+    return Duration(seconds: seconds);
+  }
+
+  Duration _adaptiveResultDebounce() {
+    final length = _currentSentenceLength();
+    final seconds = length >= 55 ? 5 : length >= 35 ? 4 : 2;
+    return Duration(seconds: seconds);
+  }
 
   bool _toggling = false;
   bool _preferOnDevice = true; // 优先本地识别，失败后回退到在线
@@ -241,6 +269,11 @@ class _ListeningScreenState extends State<ListeningScreen> {
       _debugPartial = '-';
     });
     try {
+      final listenFor = _adaptiveListenFor();
+      final pauseFor = _adaptivePauseFor();
+      final resultDebounce = _adaptiveResultDebounce();
+      final safetyTimeout = listenFor + pauseFor + const Duration(seconds: 3);
+
       // statusListener —— 启动后 2s 内忽略 notListening（Android STT 启动时会发一次瞬态回调）
       _speech.statusListener = (status) {
         debugPrint('STT status: $status');
@@ -273,7 +306,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
           }
           _resultDebounce?.cancel();
           if (_lastRecognized.trim().isNotEmpty) {
-            _resultDebounce = Timer(const Duration(seconds: 2), () {
+            _resultDebounce = Timer(resultDebounce, () {
               if (!_attemptFinalized && _listening) {
                 _finalizeAttempt();
               }
@@ -290,8 +323,8 @@ class _ListeningScreenState extends State<ListeningScreen> {
             localeId: _speechLocaleId ?? 'ja-JP',
             onDevice: tryOnDevice,
             onResult: onSttResult,
-            listenFor: const Duration(seconds: 15),
-            pauseFor: const Duration(seconds: 3),
+            listenFor: listenFor,
+            pauseFor: pauseFor,
           );
           final started = listenResult is bool ? listenResult : true;
           debugPrint('listen(onDevice: $tryOnDevice) => $listenResult');
@@ -330,8 +363,8 @@ class _ListeningScreenState extends State<ListeningScreen> {
         return;
       }
 
-      // 安全超时：无论如何 18 秒后强制结束
-      _safetyTimeout = Timer(const Duration(seconds: 18), () {
+      // Safety timeout follows the adaptive recognition window for long sentences.
+      _safetyTimeout = Timer(safetyTimeout, () {
         if (!_attemptFinalized && _listening) {
           debugPrint('Safety timeout triggered');
           _finalizeAttempt();

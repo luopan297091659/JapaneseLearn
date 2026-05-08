@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../services/guest_service.dart';
 import '../../models/models.dart';
+import '../../widgets/furigana_text.dart';
 
 // JLPT 级别色
 const _grammarLevelColors = {
@@ -452,6 +453,11 @@ class _GrammarCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final desc = lesson.explanationZh ?? lesson.explanation ?? '';
+    final pattern = stripFuriganaMarkup(lesson.pattern);
+    final title = stripFuriganaMarkup(lesson.titleZh ?? lesson.title);
+    final showTitle = title.isNotEmpty &&
+        title.replaceAll(RegExp(r'\s+'), '') !=
+            pattern.replaceAll(RegExp(r'\s+'), '');
     final preview = desc.length > 60 ? '${desc.substring(0, 60)}…' : desc;
 
     return Material(
@@ -496,7 +502,7 @@ class _GrammarCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            lesson.pattern,
+                            pattern,
                             style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.bold,
@@ -532,10 +538,10 @@ class _GrammarCard extends StatelessWidget {
                           ),
                       ],
                     ),
-                    if ((lesson.titleZh ?? lesson.title).isNotEmpty) ...[
+                    if (showTitle) ...[
                       const SizedBox(height: 3),
                       Text(
-                        lesson.titleZh ?? lesson.title,
+                        title,
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: cs.onSurface),
                       ),
                     ],

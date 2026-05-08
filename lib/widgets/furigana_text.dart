@@ -46,6 +46,20 @@ List<_FuriganaPart> _parseFurigana(String raw) {
 /// 检测文本是否包含 bracket 振假名标注
 bool hasFurigana(String text) => text.contains(RegExp(r'[^\[\]]+\[[^\]]+\]'));
 
+/// Remove bracket furigana markup while keeping the visible Japanese text.
+///
+/// Example: 以[い]上[じょう]（は） -> 以上（は）
+String stripFuriganaMarkup(String raw) {
+  var s = raw.replaceAll('!', '');
+  s = s.replaceAll(RegExp(r'@\d+'), '');
+  s = s.replaceAllMapped(
+    RegExp(r'([^\[\]]+)\[[^\]]+\]'),
+    (m) => m.group(1)!,
+  );
+  s = s.replaceAll(RegExp(r'\[[^\]]*\]'), '');
+  return s.trim();
+}
+
 /// 振假名显示组件 — 将 reading 标注在 kanji 上方
 class FuriganaText extends StatelessWidget {
   final String text;            // 原始 bracket 标注文本

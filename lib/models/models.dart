@@ -128,6 +128,7 @@ class VocabularyModel {
   final String? exampleReading;
   final String? exampleMeaningZh;
   final String? exampleAudioUrl;
+  final List<VocabularyExampleModel> exampleSentences;
   final String? audioUrl;
   final String? imageUrl;
   final String? category;
@@ -149,6 +150,7 @@ class VocabularyModel {
     this.exampleReading,
     this.exampleMeaningZh,
     this.exampleAudioUrl,
+    this.exampleSentences = const [],
     this.audioUrl,
     this.imageUrl,
     this.category,
@@ -158,7 +160,9 @@ class VocabularyModel {
     this.verbForms,
   });
 
-  factory VocabularyModel.fromJson(Map<String, dynamic> json) => VocabularyModel(
+  factory VocabularyModel.fromJson(Map<String, dynamic> json) {
+    final examples = _parseVocabularyExamples(json);
+    return VocabularyModel(
         id: json['id'],
         word: json['word'],
         reading: json['reading'],
@@ -167,10 +171,11 @@ class VocabularyModel {
         partOfSpeech: json['part_of_speech'] ?? 'noun',
         partOfSpeechRaw: json['part_of_speech_raw'],
         jlptLevel: json['jlpt_level'],
-        exampleSentence: json['example_sentence'],
-        exampleReading: json['example_reading'],
-        exampleMeaningZh: json['example_meaning_zh'],
-        exampleAudioUrl: json['example_audio_url'],
+        exampleSentence: json['example_sentence'] ?? (examples.isNotEmpty ? examples.first.sentence : null),
+        exampleReading: json['example_reading'] ?? (examples.isNotEmpty ? examples.first.reading : null),
+        exampleMeaningZh: json['example_meaning_zh'] ?? (examples.isNotEmpty ? examples.first.meaningZh : null),
+        exampleAudioUrl: json['example_audio_url'] ?? (examples.isNotEmpty ? examples.first.audioUrl : null),
+        exampleSentences: examples,
         audioUrl: json['audio_url'],
         imageUrl: json['image_url'],
         category: json['category'],
@@ -178,6 +183,60 @@ class VocabularyModel {
         frequencyRank: (json['frequency_rank'] as num?)?.toInt(),
         difficulty: json['difficulty'] as String?,
         verbForms: json['verb_forms'] as Map<String, dynamic>?,
+      );
+  }
+}
+
+List<VocabularyExampleModel> _parseVocabularyExamples(Map<String, dynamic> json) {
+  final raw = json['example_sentences'];
+  final parsed = <VocabularyExampleModel>[];
+  dynamic list = raw;
+  if (raw is String && raw.trim().isNotEmpty) {
+    try {
+      list = jsonDecode(raw);
+    } catch (_) {
+      list = null;
+    }
+  }
+  if (list is List) {
+    for (final item in list) {
+      if (item is! Map) continue;
+      final ex = VocabularyExampleModel.fromJson(Map<String, dynamic>.from(item));
+      if (ex.sentence.trim().isNotEmpty) parsed.add(ex);
+    }
+  }
+  if (parsed.isEmpty && (json['example_sentence']?.toString().trim().isNotEmpty ?? false)) {
+    parsed.add(VocabularyExampleModel(
+      sentence: json['example_sentence'].toString(),
+      reading: json['example_reading']?.toString(),
+      meaningZh: json['example_meaning_zh']?.toString(),
+      audioUrl: json['example_audio_url']?.toString(),
+    ));
+  }
+  return parsed;
+}
+
+class VocabularyExampleModel {
+  final String sentence;
+  final String? reading;
+  final String? meaningZh;
+  final String? audioUrl;
+
+  const VocabularyExampleModel({
+    required this.sentence,
+    this.reading,
+    this.meaningZh,
+    this.audioUrl,
+  });
+
+  factory VocabularyExampleModel.fromJson(Map<String, dynamic> json) =>
+      VocabularyExampleModel(
+        sentence: (json['jp'] ?? json['sentence'] ?? '').toString(),
+        reading: (json['reading']?.toString().trim().isNotEmpty ?? false)
+            ? json['reading'].toString()
+            : null,
+        meaningZh: (json['zh'] ?? json['meaning_zh'])?.toString(),
+        audioUrl: (json['audio_url'] ?? json['audioUrl'])?.toString(),
       );
 }
 

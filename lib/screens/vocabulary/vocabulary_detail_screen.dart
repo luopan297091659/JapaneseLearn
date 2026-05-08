@@ -18,7 +18,13 @@ import '../../utils/verb_conjugation.dart';
 class VocabularyDetailScreen extends StatefulWidget {
   final String id;
   final List<String>? wordIds;
-  const VocabularyDetailScreen({super.key, required this.id, this.wordIds});
+  final bool initialShowAnswer;
+  const VocabularyDetailScreen({
+    super.key,
+    required this.id,
+    this.wordIds,
+    this.initialShowAnswer = false,
+  });
   @override
   State<VocabularyDetailScreen> createState() => _VocabularyDetailScreenState();
 }
@@ -33,7 +39,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
   late String _currentId;
 
   // 闪卡模式
-  bool _showAnswer = false;
+  late bool _showAnswer;
 
   // SRS 卡片信息
   String? _srsCardId;
@@ -56,6 +62,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
   void initState() {
     super.initState();
     _currentId = widget.id;
+    _showAnswer = widget.initialShowAnswer;
     _screenOpenTime = DateTime.now();
     _load();
   }
@@ -119,15 +126,19 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
   }
 
   /// 播放音频：有 audio_url 用音频文件，否则回退到 TTS
-  Future<void> _playAudio({required bool isExample, bool slow = false}) async {
-    final url = isExample ? _vocab?.exampleAudioUrl : _vocab?.audioUrl;
+  Future<void> _playAudio({
+    required bool isExample,
+    bool slow = false,
+    VocabularyExampleModel? example,
+  }) async {
+    final url = isExample ? (example?.audioUrl ?? _vocab?.exampleAudioUrl) : _vocab?.audioUrl;
     // TTS 回退：没有 audio_url 时使用 TTS
     if (url == null) {
       final v = _vocab;
       if (v == null) return;
       String? text;
       if (isExample) {
-        text = v.exampleSentence;
+        text = example?.sentence ?? v.exampleSentence;
       } else {
         text = ttsText(v.word, v.reading);
       }
@@ -172,9 +183,12 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
       await player.stop();
 
       // 加载音频
-      if (url.startsWith('/uploads/')) {
+      if (url.startsWith('/uploads/') || url.startsWith('/audio/')) {
         final fullUrl = AppConfig.serverRoot + url;
         final localPath = await apiService.downloadToTempFile(fullUrl);
+        await player.setFilePath(localPath);
+      } else if (url.startsWith(AppConfig.baseUrl) || url.startsWith(AppConfig.serverRoot)) {
+        final localPath = await apiService.downloadToTempFile(url);
         await player.setFilePath(localPath);
       } else {
         await player.setUrl(url);

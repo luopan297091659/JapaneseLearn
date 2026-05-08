@@ -112,8 +112,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/vocabulary/:id',
             builder: (_, state) {
               final ids = state.extra as List<String>?;
+              final showAnswer = state.uri.queryParameters['showAnswer'] == '1';
               return VocabularyDetailScreen(
-                  id: state.pathParameters['id']!, wordIds: ids);
+                  id: state.pathParameters['id']!,
+                  wordIds: ids,
+                  initialShowAnswer: showAnswer);
             },
           ),
           GoRoute(
