@@ -237,7 +237,7 @@ class LocalDb {
           'part_of_speech':  c['part_of_speech'] ?? 'other',
           'jlpt_level':      c['jlpt_level'] ?? 'N3',
           'deck_name':       c['deck_name'],
-          'synced':          1,
+          'synced':          c['synced'] ?? 0,
           'created_at':      now,
         },
         conflictAlgorithm: ConflictAlgorithm.ignore,
@@ -346,11 +346,15 @@ class LocalDb {
   // ─── 查询 ────────────────────────────────────────────────────────────────
 
   /// 查询待同步的卡片（synced=0），最多返回 [limit] 条
-  Future<List<Map<String, dynamic>>> pendingCards({int limit = 1000}) async {
+  Future<List<Map<String, dynamic>>> pendingCards({
+    int limit = 1000,
+    String? deckName,
+  }) async {
     final database = await db;
     return database.query(
       tableVocab,
-      where: 'synced = 0',
+      where: deckName == null ? 'synced = 0' : 'synced = 0 AND deck_name = ?',
+      whereArgs: deckName == null ? null : [deckName],
       orderBy: 'created_at ASC',
       limit: limit,
     );

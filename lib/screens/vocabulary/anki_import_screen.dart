@@ -9,6 +9,7 @@ import '../../l10n/app_localizations.dart';
 import '../../services/anki_parser.dart';
 import '../../services/local_db.dart';
 import '../../services/api_service.dart';
+import '../../services/sync_service.dart';
 import '../../widgets/membership_gate.dart';
 
 enum _Step { pick, parsing, preview, importing, done, error }
@@ -284,6 +285,7 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
           // all 表示不按词性筛选导入，统一保留为 other 以兼容后端字段
           'part_of_speech': _partOfSpeech == 'all' ? 'other' : _partOfSpeech,
           'deck_name':      cardDeckName,
+          'synced':         0,
         };
       }).toList();
 
@@ -308,11 +310,19 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
       }
       _savedLocally = true;
 
+      final syncResult = await syncService.syncVocabulary();
+      final syncedCount = syncResult?.uploaded ?? 0;
+      final syncFailedCount = syncResult?.failed ?? 0;
+      final syncSkippedCount = syncResult?.skipped ?? 0;
+
       setState(() {
         _result = {
           'imported':  localCount,
           'failed':    0,
           'deck_name': deckName,
+          'synced_uploaded': syncedCount,
+          'synced_failed': syncFailedCount,
+          'synced_skipped': syncSkippedCount,
         };
         _step = _Step.done;
       });
@@ -792,6 +802,10 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
   Widget _buildDoneStep(ColorScheme cs, S s) {
     final imported  = _result['imported']   as int?  ?? 0;
     final failed    = _result['failed']     as int?  ?? 0;
+    final syncedUploaded = _result['synced_uploaded'] as int? ?? 0;
+    final syncedFailed = _result['synced_failed'] as int? ?? 0;
+    final syncedSkipped = _result['synced_skipped'] as int? ?? 0;
+    final syncOk = syncedFailed == 0;
 
     return Center(
       child: Padding(
@@ -812,6 +826,9 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
             const SizedBox(height: 24),
             _ResultRow(label: s.importedCount, value: '$imported', color: Colors.green),
             if (failed > 0) _ResultRow(label: s.skippedCount, value: '$failed', color: Colors.orange),
+            _ResultRow(label: '服务端同步', value: '$syncedUploaded', color: syncOk ? Colors.blue : Colors.orange),
+            if (syncedSkipped > 0) _ResultRow(label: '服务端跳过', value: '$syncedSkipped', color: Colors.orange),
+            if (syncedFailed > 0) _ResultRow(label: '服务端失败', value: '$syncedFailed', color: Colors.red),
             _ResultRow(label: s.deckName, value: _result['deck_name']?.toString() ?? ''),
             const SizedBox(height: 12),
             _StatusChip(
@@ -819,6 +836,13 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
               label: s.savedLocally,
               active: _savedLocally,
               activeColor: Colors.blue,
+            ),
+            const SizedBox(height: 10),
+            _StatusChip(
+              icon: Icons.cloud_done_rounded,
+              label: syncOk ? '已同步到服务端' : '部分内容待稍后重试',
+              active: syncOk,
+              activeColor: Colors.green,
             ),
             const SizedBox(height: 32),
             Row(children: [

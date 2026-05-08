@@ -74,7 +74,7 @@ function serializeUserPreferences(preferences) {
 function summarizeUserPreferences(preferences) {
   const pref = normalizeUserPreferences(preferences);
   const localeLabel = { zh: '中文', en: 'English', ja: '日本語' }[pref.locale] || pref.locale;
-  const appearanceLabel = { anime: '蓝调', sakura: '樱花日和', classic: '经典' }[pref.appearance_mode] || '经典';
+  const appearanceLabel = { anime: '蓝调', sakura: '樱花', classic: '经典' }[pref.appearance_mode] || '经典';
   const notificationLabel = pref.notification_enabled ? '通知开' : '通知关';
   return `${localeLabel} / ${appearanceLabel} / ${pref.slow_speed}x / ${pref.daily_goal_minutes}分 / ${notificationLabel}`;
 }

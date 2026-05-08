@@ -49,6 +49,10 @@ const sharedVocabRoutes = require('./routes/sharedVocab');
 
 const app = express();
 
+function getRequestPath(req) {
+  return req.originalUrl || req.path || '';
+}
+
 // Security
 app.use(helmet());
 
@@ -116,9 +120,9 @@ const publicListLimiter = rateLimit({
     // 仅对特定的GET查询端点应用此限流
     return !(
       req.method === 'GET' && 
-      (req.path.match(/^\/api\/v\d+\/shared-vocab\/decks$/) || 
-       req.path.match(/^\/api\/v\d+\/listening\/channels$/) ||
-       req.path.match(/^\/api\/v\d+\/listening\/episodes$/))
+      (getRequestPath(req).match(/^\/api\/v\d+\/shared-vocab\/decks$/) || 
+       getRequestPath(req).match(/^\/api\/v\d+\/listening\/channels$/) ||
+       getRequestPath(req).match(/^\/api\/v\d+\/listening\/episodes$/))
     );
   },
 });
@@ -132,14 +136,21 @@ const limiter = rateLimit({
     // 公开列表查询由 publicListLimiter 单独处理
     if (
       req.method === 'GET' && 
-      (req.path.match(/^\/api\/v\d+\/shared-vocab\/decks$/) ||
-       req.path.match(/^\/api\/v\d+\/listening\/channels$/) ||
-       req.path.match(/^\/api\/v\d+\/listening\/episodes$/))
+      (getRequestPath(req).match(/^\/api\/v\d+\/shared-vocab\/decks$/) ||
+       getRequestPath(req).match(/^\/api\/v\d+\/listening\/channels$/) ||
+       getRequestPath(req).match(/^\/api\/v\d+\/listening\/episodes$/))
+    ) {
+      return true;
+    }
+    if (
+      req.method === 'POST' &&
+      (getRequestPath(req).match(/^\/api\/v\d+\/vocabulary\/bulk$/) ||
+       getRequestPath(req).match(/^\/api\/v\d+\/shared-vocab\/audio\/upload$/))
     ) {
       return true;
     }
     // admin 和 auth 跳过
-    return req.path.startsWith('/admin') || req.path.startsWith('/auth');
+    return getRequestPath(req).startsWith('/admin') || getRequestPath(req).startsWith('/auth');
   },
 });
 

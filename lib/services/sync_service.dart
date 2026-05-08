@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'local_db.dart';
 import 'api_service.dart';
@@ -155,11 +156,12 @@ class SyncService {
   Future<SyncResult?> syncVocabulary({
     String? jlptLevel,
     String partOfSpeech  = 'other',
+    String? deckName,
   }) async {
     if (_syncing) return null;
     _syncing = true;
     try {
-      final pending = await localDb.pendingCards(limit: 1000);
+      final pending = await localDb.pendingCards(limit: 20000, deckName: deckName);
       if (pending.isEmpty) {
         return SyncResult(uploaded: 0, failed: 0, skipped: 0);
       }
@@ -173,6 +175,8 @@ class SyncService {
 
       int uploaded = 0, failed = 0, skipped = 0;
 
+      bool throttled = false;
+
       for (final entry in byDeck.entries) {
         final deckName = entry.key;
         final cards    = entry.value;
@@ -181,11 +185,11 @@ class SyncService {
         final level = cards.first['jlpt_level'] as String? ?? jlptLevel;
         final pos   = cards.first['part_of_speech'] as String? ?? partOfSpeech;
 
-        const chunkSize = 500;
+        const chunkSize = 800;
         for (int i = 0; i < cards.length; i += chunkSize) {
           final chunk = cards.sublist(i, (i + chunkSize).clamp(0, cards.length));
           try {
-            final result = await apiService.bulkImportVocabulary(
+            final result = await _bulkImportVocabularyWithRetry(
               cards:        chunk,
               deckName:     deckName,
               jlptLevel:    level,
@@ -195,10 +199,18 @@ class SyncService {
             await localDb.markSynced(syncedIds);
             uploaded += (result['imported'] as int?)  ?? chunk.length;
             skipped  += (result['failed']   as int?)  ?? 0;
+            if (i + chunkSize < cards.length) {
+              await Future.delayed(const Duration(milliseconds: 350));
+            }
+          } on _SyncThrottleException {
+            failed += chunk.length;
+            throttled = true;
+            break;
           } catch (_) {
             failed += chunk.length;
           }
         }
+        if (throttled) break;
       }
 
       return SyncResult(uploaded: uploaded, failed: failed, skipped: skipped);
@@ -209,6 +221,35 @@ class SyncService {
 
   // ── 快捷：仅查询待同步数量（不上传）
   Future<int> pendingCount() => localDb.pendingCount();
+
+  Future<Map<String, dynamic>> _bulkImportVocabularyWithRetry({
+    required List<Map<String, dynamic>> cards,
+    required String deckName,
+    required String? jlptLevel,
+    required String partOfSpeech,
+  }) async {
+    const maxRetries = 4;
+    for (int attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await apiService.bulkImportVocabulary(
+          cards: cards,
+          deckName: deckName,
+          jlptLevel: jlptLevel,
+          partOfSpeech: partOfSpeech,
+        );
+      } catch (e) {
+        final isTooManyRequests =
+            e is DioException && e.response?.statusCode == 429;
+        if (!isTooManyRequests) rethrow;
+        if (attempt >= maxRetries) {
+          throw _SyncThrottleException();
+        }
+        final delaySeconds = 1 << (attempt + 1);
+        await Future.delayed(Duration(seconds: delaySeconds));
+      }
+    }
+    throw _SyncThrottleException();
+  }
 
   // ── 检测服务端内容版本，若有更新则清除客户端缓存，触发下次访问时重新拉取 ──────
   ///
@@ -267,3 +308,5 @@ class SyncResult {
 
 // ─── 全局单例 ──────────────────────────────────────────────────────────────────
 final syncService = SyncService();
+
+class _SyncThrottleException implements Exception {}

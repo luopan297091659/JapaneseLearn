@@ -1431,7 +1431,7 @@ function localeLabel(locale) {
 }
 
 function appearanceLabel(mode) {
-  return { anime: '蓝调', sakura: '樱花日和', classic: '经典' }[mode] || '经典';
+  return { anime: '蓝调', sakura: '樱花', classic: '经典' }[mode] || '经典';
 }
 
 function buildPreferenceStats(rows) {

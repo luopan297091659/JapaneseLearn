@@ -5,6 +5,8 @@ import '../services/sync_service.dart';
 
 enum AppAppearanceMode { classic, anime, sakura }
 
+const _defaultAppearanceMode = AppAppearanceMode.sakura;
+
 extension AppAppearanceModeX on AppAppearanceMode {
   String get value {
     switch (this) {
@@ -22,7 +24,7 @@ extension AppAppearanceModeX on AppAppearanceMode {
       case AppAppearanceMode.anime:
         return '蓝调模式';
       case AppAppearanceMode.sakura:
-        return '樱花日和';
+        return '樱花';
       case AppAppearanceMode.classic:
         return '经典模式';
     }
@@ -46,7 +48,7 @@ extension AppAppearanceModeX on AppAppearanceMode {
       case 'sakura':
         return AppAppearanceMode.sakura;
       default:
-        return AppAppearanceMode.classic;
+        return _defaultAppearanceMode;
     }
   }
 }
@@ -56,7 +58,7 @@ const _kPendingAppearanceModeSyncKey = 'pending_app_appearance_mode_sync';
 
 class AppAppearanceNotifier extends Notifier<AppAppearanceMode> {
   @override
-  AppAppearanceMode build() => AppAppearanceMode.classic;
+  AppAppearanceMode build() => _defaultAppearanceMode;
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
