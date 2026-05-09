@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
@@ -42,6 +44,9 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     _loadSpeed();
     _player = AudioPlayer();
     _player.playerStateStream.listen((state) {
+      if (state.processingState == ProcessingState.completed && state.playing) {
+        unawaited(_player.pause());
+      }
       if (mounted) setState(() => _playerState = state);
     });
     _player.positionStream.listen((p) {
@@ -98,7 +103,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
 
   Future<void> _togglePlay() async {
     if (widget.audioUrl == null) return;
-    if (_playerState.playing) {
+    if (_isPlaying) {
       await _player.pause();
       return;
     }
@@ -190,9 +195,12 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     return '$m:$s';
   }
 
-  bool get _isPlaying => _playerState.playing;
+  bool get _isPlaying =>
+      _playerState.playing &&
+      _playerState.processingState != ProcessingState.completed;
   // ignore: unused_element
-  bool get _isCompleted => _playerState.processingState == ProcessingState.completed;
+  bool get _isCompleted =>
+      _playerState.processingState == ProcessingState.completed;
 
   @override
   Widget build(BuildContext context) {
