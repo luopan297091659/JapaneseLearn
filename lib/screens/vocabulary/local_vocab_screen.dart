@@ -1,11 +1,14 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
+import '../../config/app_config.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/local_db.dart';
 import '../../services/api_service.dart';
@@ -25,9 +28,67 @@ bool _isSwapped(LocalVocabModel c) =>
 /// 列表/闪卡显示的「主词」：若字段颠倒则用 reading（含振假名的日语），否则用 word
 String _displayWord(LocalVocabModel c) => _isSwapped(c) ? c.reading : c.word;
 
+String _stripBracketReadings(String text) => text
+    .replaceAll(RegExp(r'\[[^\]]*[\u3040-\u30ff][^\]]*\]'), '')
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .trim();
+
+String _displayListWord(LocalVocabModel c) =>
+    _stripBracketReadings(_displayWord(c));
+
+String _posLabel(String pos) {
+  final raw = pos.trim();
+  if (raw.isEmpty) return '其他';
+  final text = raw.toLowerCase();
+  if (RegExp(r'(代名詞|代名词|pronoun)').hasMatch(text)) return '代词';
+  if (RegExp(r'(数詞|数词|numeric|number)').hasMatch(text)) return '数词';
+  if (RegExp(r'(名詞|名词|名|noun|^n[\.\s]|^n$)').hasMatch(text)) {
+    return '名词';
+  }
+  if (RegExp(r'(動詞|动词|動|动|verb|^v[\.\s]|^v$|自動|他動|自他|サ変|する)').hasMatch(text)) {
+    return '动词';
+  }
+  if (RegExp(r'(形容動詞|形动|形動|な形容詞|na-adj|adjectival noun)').hasMatch(text)) {
+    return '形容动词';
+  }
+  if (RegExp(r'(形容詞|形容词|い形容詞|adj|adjective|^a$|^i-adj)').hasMatch(text)) {
+    return '形容词';
+  }
+  if (RegExp(r'(副詞|副词|副|adverb|adv)').hasMatch(text)) {
+    return '副词';
+  }
+  if (RegExp(r'(助詞|助词|助|particle|prt)').hasMatch(text)) {
+    return '助词';
+  }
+  if (RegExp(r'(接続詞|接续词|接続|接续|conjunction|conj)').hasMatch(text)) {
+    return '连词';
+  }
+  if (RegExp(r'(感動詞|感叹词|感動|感叹|interjection|int)').hasMatch(text)) {
+    return '感叹词';
+  }
+  if (RegExp(r'(接頭|接头|prefix)').hasMatch(text)) return '接头词';
+  if (RegExp(r'(接尾|suffix)').hasMatch(text)) return '接尾词';
+  if (RegExp(r'(連体詞|连体词|rentaishi|prenominal)').hasMatch(text)) {
+    return '连体词';
+  }
+  const map = {
+    'noun': '名词',
+    'verb': '动词',
+    'adjective': '形容词',
+    'adverb': '副词',
+    'particle': '助词',
+    'conjunction': '连词',
+    'interjection': '感叹词',
+    'other': '其他',
+  };
+  return map[text] ?? raw;
+}
+
 /// 列表副标题：若字段颠倒则只显示释义，否则显示「读音　释义」
 String _displaySub(LocalVocabModel c) =>
-    _isSwapped(c) ? c.meaningZh : '${c.reading}　${c.meaningZh}'.trim();
+    _isSwapped(c)
+        ? c.meaningZh
+        : '${_stripBracketReadings(c.reading)} ${c.meaningZh}'.trim();
 
 /// 本地词汇列表（Anki 导入后保存在设备 SQLite 中的卡片）
 class LocalVocabScreen extends StatefulWidget {
@@ -57,6 +118,7 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
   String? _deckFilterRoot;
   List<LocalVocabModel> _cards = [];
   bool _loadingCards = false;
+  bool _defaultsChecked = false;
   int _cardTotal = 0;
   int _stageTotal = 0;
   int _cardPage = 1;
@@ -121,6 +183,10 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
 
   Future<void> _loadDecks() async {
     setState(() => _loading = true);
+    if (!_defaultsChecked) {
+      _defaultsChecked = true;
+      await _syncDefaultSharedDecks();
+    }
     final decks = await localDb.listDecks();
     final deckMetas = await localDb.deckMetas();
     if (!mounted) return;
@@ -148,6 +214,129 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
     });
     if (toOpenDeck != null) {
       await _openDeck(toOpenDeck);
+    }
+  }
+
+  Future<void> _syncDefaultSharedDecks() async {
+    try {
+      final metas = await localDb.deckMetas();
+      final importedIds = metas.values
+          .map((meta) => meta.sharedDeckId)
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toSet();
+      final res = await apiService.listDefaultSharedVocabDecks();
+      final decks = ((res['decks'] as List?) ?? const [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+      for (final deck in decks) {
+        final id = deck['id']?.toString();
+        if (id == null || id.isEmpty || importedIds.contains(id)) continue;
+        await _importDefaultSharedDeck(id, deck);
+        importedIds.add(id);
+      }
+    } catch (e) {
+      debugPrint('sync default shared decks failed: $e');
+    }
+  }
+
+  String? _absoluteCoverUrl(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    return '${AppConfig.serverRoot}$raw';
+  }
+
+  Future<String?> _downloadRemoteCover(String? rawUrl) async {
+    final url = _absoluteCoverUrl(rawUrl);
+    if (url == null) return null;
+    try {
+      final res = await apiService.dio.get<List<int>>(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final bytes = res.data;
+      if (bytes == null || bytes.isEmpty) return null;
+      final docsDir = await getApplicationDocumentsDirectory();
+      final coverDir = Directory(p.join(docsDir.path, 'vocab_covers'));
+      await coverDir.create(recursive: true);
+      final ext = p.extension(Uri.parse(url).path).isEmpty
+          ? '.jpg'
+          : p.extension(Uri.parse(url).path);
+      final dest = p.join(
+        coverDir.path,
+        'default_${DateTime.now().millisecondsSinceEpoch}$ext',
+      );
+      await File(dest).writeAsBytes(bytes);
+      return dest;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _coverDeckName(Set<String> deckNames, String fallbackDeckName) {
+    if (deckNames.contains(fallbackDeckName)) return fallbackDeckName;
+    final roots = deckNames.map((name) => name.split('::').first).toSet();
+    if (roots.length == 1) return roots.first;
+    return deckNames.isNotEmpty ? deckNames.first : fallbackDeckName;
+  }
+
+  Future<void> _importDefaultSharedDeck(
+    String deckId,
+    Map<String, dynamic> deck,
+  ) async {
+    final data = await apiService.importSharedVocabDeck(deckId);
+    final remoteDeck = Map<String, dynamic>.from(data['deck'] as Map);
+    final cards = ((data['cards'] as List?) ?? const [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+    if (cards.isEmpty) return;
+
+    const uuid = Uuid();
+    final deckName =
+        (remoteDeck['title'] ?? deck['title'] ?? '默认词库').toString();
+    final rows = cards.map((card) {
+      final sharedDeckName = card['deck_name']?.toString().trim();
+      final localDeckName = sharedDeckName == null || sharedDeckName.isEmpty
+          ? deckName
+          : sharedDeckName;
+      return {
+        'id': uuid.v4(),
+        'word': (card['word'] ?? '').toString(),
+        'reading': (card['reading'] ?? card['word'] ?? '').toString(),
+        'meaning_zh': (card['meaning_zh'] ?? '-').toString(),
+        'meaning_en': card['meaning_en'],
+        'example_sentence': card['example_sentence'],
+        'example_reading': card['example_reading'],
+        'example_meaning_zh': card['example_meaning_zh'],
+        'example_audio_url': card['example_audio_url'],
+        'audio_url': card['audio_url'],
+        'part_of_speech': (card['part_of_speech'] ?? 'other').toString(),
+        'jlpt_level':
+            (card['jlpt_level'] ?? remoteDeck['jlpt_level'] ?? '').toString(),
+        'deck_name': localDeckName,
+        'synced': 1,
+      };
+    }).toList();
+
+    await localDb.insertCards(rows);
+    final coverPath = await _downloadRemoteCover(
+      (remoteDeck['cover_url'] ?? deck['cover_url'])?.toString(),
+    );
+    final importedDeckNames = rows
+        .map((row) => row['deck_name']?.toString() ?? deckName)
+        .where((name) => name.isNotEmpty)
+        .toSet();
+    final coverDeckName = _coverDeckName(importedDeckNames, deckName);
+    for (final importedDeckName in {...importedDeckNames, coverDeckName}) {
+      final isCoverDeck = importedDeckName == coverDeckName;
+      await localDb.upsertDeckMeta(
+        deckName: importedDeckName,
+        displayName: isCoverDeck ? deckName : importedDeckName.split('::').last,
+        coverImagePath: isCoverDeck ? coverPath : null,
+        description: isCoverDeck ? remoteDeck['description']?.toString() : null,
+        sourceType: 'shared',
+        sharedDeckId: deckId,
+      );
     }
   }
 
@@ -1552,22 +1741,25 @@ class _LocalVocabScreenState extends State<LocalVocabScreen> {
       children: [
         ListTile(
           contentPadding: const EdgeInsets.symmetric(vertical: 4),
-          leading: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: cs.primaryContainer,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(card.jlptLevel,
-                style: TextStyle(
-                    color: cs.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12)),
-          ),
+          leading: card.jlptLevel.trim().isEmpty
+              ? null
+              : Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(card.jlptLevel,
+                      style: TextStyle(
+                          color: cs.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12)),
+                ),
           title: Row(
             children: [
               Expanded(
-                child: Text(_displayWord(card),
+                child: Text(_displayListWord(card),
                     style: const TextStyle(
                         fontSize: 17, fontWeight: FontWeight.bold)),
               ),
@@ -1754,20 +1946,22 @@ class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
                       Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: cs.primary,
-                                borderRadius: BorderRadius.circular(8),
+                            if (card.jlptLevel.trim().isNotEmpty) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: cs.primary,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(card.jlptLevel,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold)),
                               ),
-                              child: Text(card.jlptLevel,
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold)),
-                            ),
-                            const SizedBox(width: 8),
+                              const SizedBox(width: 8),
+                            ],
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 3),
@@ -1775,7 +1969,7 @@ class _LocalVocabFlashCardState extends State<_LocalVocabFlashCard> {
                                 color: cs.tertiary.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Text(card.partOfSpeech,
+                              child: Text(_posLabel(card.partOfSpeech),
                                   style: TextStyle(
                                       color: cs.tertiary,
                                       fontSize: 12,

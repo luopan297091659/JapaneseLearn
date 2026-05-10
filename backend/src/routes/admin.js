@@ -28,7 +28,7 @@ const {
   listOrders, reviewOrder, uploadQrCode,
   getEmailSettings, saveEmailSettings, testEmailSettings,
   getSupportChannels, saveSupportChannel, deleteSupportChannel, uploadSupportQrCode,
-  listSharedVocabDecksAdmin, unshareSharedVocabDeckAdmin,
+  listSharedVocabDecksAdmin, toggleDefaultSharedVocabDeckAdmin, unshareSharedVocabDeckAdmin,
 } = require('../controllers/adminController');
 const {
   adminListChannels, adminCreateChannel, adminUpdateChannel, adminDeleteChannel, adminRefreshChannel,
@@ -134,6 +134,7 @@ router.post('/vocabulary/import-file', permissionCheck('vocabulary'), upload.sin
 
 // 共享词库管理
 router.get('/shared-vocab/decks',        permissionCheck('vocabulary'), asyncHandler(listSharedVocabDecksAdmin));
+router.patch('/shared-vocab/decks/:id/default', permissionCheck('vocabulary'), asyncHandler(toggleDefaultSharedVocabDeckAdmin));
 router.delete('/shared-vocab/decks/:id', permissionCheck('vocabulary'), asyncHandler(unshareSharedVocabDeckAdmin));
 
 // 音频管理

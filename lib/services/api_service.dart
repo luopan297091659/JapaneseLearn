@@ -1188,6 +1188,11 @@ class ApiService {
     throw Exception('加载共享词库失败：超过最大重试次数');
   }
 
+  Future<Map<String, dynamic>> listDefaultSharedVocabDecks() async {
+    final res = await _dio.get('/shared-vocab/default-decks');
+    return Map<String, dynamic>.from(res.data as Map);
+  }
+
   Future<Map<String, dynamic>> createSharedVocabDeck({
     required String title,
     String? description,

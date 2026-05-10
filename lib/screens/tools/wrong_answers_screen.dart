@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
+import '../../services/membership_service.dart';
 import '../../widgets/membership_gate.dart';
 
 class WrongAnswersScreen extends StatefulWidget {
@@ -28,14 +29,17 @@ class _WrongAnswersScreenState extends State<WrongAnswersScreen> {
   @override
   void initState() {
     super.initState();
+    if (membershipService.hasCachedStatus) {
+      _isMember = membershipService.cachedIsMember;
+    }
     _checkMembership();
     _loadAndSync();
   }
 
   Future<void> _checkMembership() async {
     try {
-      final user = await apiService.getMe();
-      if (mounted) setState(() => _isMember = user.isMember);
+      final status = await membershipService.getCachedStatus();
+      if (mounted) setState(() => _isMember = status.isMember);
     } catch (_) {}
   }
 
@@ -45,7 +49,10 @@ class _WrongAnswersScreenState extends State<WrongAnswersScreen> {
     final raw = prefs.getString('wrongAnswers') ?? '[]';
     final List<dynamic> list = jsonDecode(raw);
     final local = list.cast<Map<String, dynamic>>().reversed.toList();
-    setState(() { _items = local; _loading = false; });
+    setState(() {
+      _items = local;
+      _loading = false;
+    });
     // 后台同步
     _syncWithServer(prefs, local);
   }

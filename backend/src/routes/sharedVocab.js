@@ -5,6 +5,7 @@ const { audioUpload } = require('../services/audioService');
 const {
   createDeck,
   listPublicDecks,
+  listDefaultDecks,
   listMyDecks,
   getDeckDetail,
   updateDeck,
@@ -14,6 +15,9 @@ const {
 
 // 公开词库广场
 router.get('/decks', optionalAuthenticate, asyncHandler(listPublicDecks));
+
+// Default decks pushed to the app's local vocabulary library
+router.get('/default-decks', authenticate, asyncHandler(listDefaultDecks));
 
 // 我的已发布/草稿词库
 router.get('/my/decks', authenticate, asyncHandler(listMyDecks));

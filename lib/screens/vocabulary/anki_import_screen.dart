@@ -261,6 +261,8 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
         'example':    _mapExample,
         'example_reading': _mapExampleReading,
         'example_meaning_zh': _mapExampleMeaningZh,
+        'part_of_speech': _preview?.autoMapping['part_of_speech'],
+        'jlpt_level': _preview?.autoMapping['jlpt_level'],
       };
 
       // ── 1. 本地解析 ──────────────────────────────────────────────────────
@@ -283,7 +285,9 @@ class _AnkiImportScreenState extends State<AnkiImportScreen> {
           ...json,
           'id':             json['id'] as String? ?? uuid.v4(),
           // all 表示不按词性筛选导入，统一保留为 other 以兼容后端字段
-          'part_of_speech': _partOfSpeech == 'all' ? 'other' : _partOfSpeech,
+          'part_of_speech': _partOfSpeech == 'all'
+              ? (json['part_of_speech'] as String? ?? 'other')
+              : _partOfSpeech,
           'deck_name':      cardDeckName,
           'synced':         0,
         };

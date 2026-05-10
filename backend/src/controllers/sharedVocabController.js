@@ -46,6 +46,14 @@ function normalizeAudioUrl(value) {
   return null;
 }
 
+function readMetaJson(value) {
+  if (!value) return {};
+  if (typeof value === 'string') {
+    try { return JSON.parse(value) || {}; } catch { return {}; }
+  }
+  return value;
+}
+
 function inferLevel(cards, fallback) {
   if (fallback) return clampText(fallback, 10);
   const counts = new Map();
@@ -180,6 +188,22 @@ async function listPublicDecks(req, res) {
   res.json({ decks, total: count, page, limit });
 }
 
+async function listDefaultDecks(req, res) {
+  const rows = await SharedVocabDeck.findAll({
+    where: {
+      status: 'published',
+      visibility: { [Op.ne]: 'private' },
+    },
+    order: [['created_at', 'DESC']],
+  });
+  const defaults = rows.filter((deck) => {
+    const meta = readMetaJson(deck.meta_json);
+    return meta.default_for_users === true;
+  });
+  const decks = await Promise.all(defaults.map(deck => serializeDeck(deck)));
+  res.json({ decks, total: decks.length });
+}
+
 async function listMyDecks(req, res) {
   const rows = await SharedVocabDeck.findAll({
     where: { owner_user_id: req.user.id, status: { [Op.ne]: 'archived' } },
@@ -262,6 +286,7 @@ async function importDeck(req, res) {
 module.exports = {
   createDeck,
   listPublicDecks,
+  listDefaultDecks,
   listMyDecks,
   getDeckDetail,
   updateDeck,

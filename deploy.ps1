@@ -9,8 +9,8 @@ param(
     [ValidateSet('test','prod')]
     [string]$Env        = "prod",
     [string]$User       = "root",
-    [string]$Passwd     = "Xiaoyun@123",
-    [int]   $Port       = 22,
+    [string]$Passwd     = "xIAOYUN@123",
+    [int]   $Port       = 22345,
     [string]$RemotePath = "/home/japanese-learn/backend"
 )
 

@@ -28,16 +28,20 @@ class MembershipService {
 
   /// 从 SharedPreferences 恢复缓存（app 启动时调用）
   void restoreFromPrefs(SharedPreferences prefs) {
-    _cachedIsMember = prefs.getBool(_persistKeyIsMember) ?? false;
-    _cachedAvatarUrl = prefs.getString(_persistKeyAvatarUrl);
-    if (prefs.containsKey(_persistKeyIsMember)) {
+    final cachedUser = apiService.getCachedUser(prefs);
+    _cachedIsMember =
+        prefs.getBool(_persistKeyIsMember) ?? cachedUser?.isMember ?? false;
+    _cachedAvatarUrl =
+        prefs.getString(_persistKeyAvatarUrl) ?? cachedUser?.avatarUrl;
+    if (prefs.containsKey(_persistKeyIsMember) || cachedUser != null) {
       _cacheTime = DateTime.now();
     }
   }
 
   /// 获取缓存的会员状态，如未缓存则自动加载
   Future<({bool isMember, String? avatarUrl})> getCachedStatus() async {
-    if (_cacheTime != null && DateTime.now().difference(_cacheTime!) < _cacheDuration) {
+    if (_cacheTime != null &&
+        DateTime.now().difference(_cacheTime!) < _cacheDuration) {
       return (isMember: _cachedIsMember, avatarUrl: _cachedAvatarUrl);
     }
     try {

@@ -191,7 +191,7 @@ class _SharedVocabScreenState extends State<SharedVocabScreen> {
           'example_audio_url': card['example_audio_url'],
           'audio_url': card['audio_url'],
           'part_of_speech': (card['part_of_speech'] ?? 'other').toString(),
-          'jlpt_level': (card['jlpt_level'] ?? remoteDeck['jlpt_level'] ?? 'N3')
+          'jlpt_level': (card['jlpt_level'] ?? remoteDeck['jlpt_level'] ?? '')
               .toString(),
           'deck_name': localDeckName,
           'synced': 1,
@@ -218,6 +218,7 @@ class _SharedVocabScreenState extends State<SharedVocabScreen> {
           description:
               isCoverDeck ? remoteDeck['description']?.toString() : null,
           sourceType: 'shared',
+          sharedDeckId: deckId,
         );
       }
 

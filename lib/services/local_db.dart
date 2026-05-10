@@ -15,7 +15,7 @@ class LocalDb {
   Database? _db;
 
   static const _dbName    = 'japanese_learn_local.db';
-  static const _dbVersion = 9;
+  static const _dbVersion = 10;
 
   static const tableVocab = 'local_vocabulary';
   static const tableLocalDecks = 'local_decks';
@@ -57,7 +57,7 @@ class LocalDb {
         is_learned       INTEGER NOT NULL DEFAULT 0,
         learning_stage   INTEGER NOT NULL DEFAULT 0,
         part_of_speech   TEXT    NOT NULL DEFAULT 'other',
-        jlpt_level       TEXT    NOT NULL DEFAULT 'N3',
+        jlpt_level       TEXT    NOT NULL DEFAULT '',
         deck_name        TEXT,
         synced           INTEGER NOT NULL DEFAULT 0,
         created_at       INTEGER NOT NULL
@@ -110,6 +110,18 @@ class LocalDb {
     }
     if (oldVersion < 9) {
       await _ensureLocalDeckShareColumns(db);
+    }
+    if (oldVersion < 10) {
+      await db.execute('''
+        UPDATE $tableVocab
+        SET jlpt_level = ''
+        WHERE jlpt_level = 'N3'
+          AND EXISTS (
+            SELECT 1 FROM $tableLocalDecks d
+            WHERE d.deck_name = $tableVocab.deck_name
+              AND d.source_type IN ('apkg', 'txt', 'csv', 'tsv', 'paste', 'legacy')
+          )
+      ''');
     }
   }
 
@@ -235,7 +247,7 @@ class LocalDb {
           'is_learned': c['is_learned'] ?? 0,
           'learning_stage': c['learning_stage'] ?? ((c['is_learned'] ?? 0) == 1 ? 1 : 0),
           'part_of_speech':  c['part_of_speech'] ?? 'other',
-          'jlpt_level':      c['jlpt_level'] ?? 'N3',
+          'jlpt_level':      c['jlpt_level'] ?? '',
           'deck_name':       c['deck_name'],
           'synced':          c['synced'] ?? 0,
           'created_at':      now,
@@ -1075,7 +1087,7 @@ class LocalVocabModel {
       return (m['is_learned'] as int? ?? 0) == 1 ? 1 : 0;
     })(),
     partOfSpeech:    m['part_of_speech'] as String? ?? 'other',
-    jlptLevel:       m['jlpt_level'] as String? ?? 'N3',
+    jlptLevel:       m['jlpt_level'] as String? ?? '',
     deckName:        m['deck_name'] as String?,
     synced:          (m['synced'] as int? ?? 0) == 1,
     createdAt:       DateTime.fromMillisecondsSinceEpoch(m['created_at'] as int),

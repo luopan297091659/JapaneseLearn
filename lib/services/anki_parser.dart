@@ -19,6 +19,9 @@ class AnkiCard {
   final String? audioUrl; // 本地音频文件路径（来自 .apkg 提取）
   final String? deckName; // 牌组层级名称，如 "Root::Sub::Leaf"
 
+  final String? partOfSpeech;
+  final String? jlptLevel;
+
   const AnkiCard({
     required this.word,
     required this.reading,
@@ -29,6 +32,8 @@ class AnkiCard {
     this.exampleMeaningZh,
     this.exampleAudioUrl,
     this.audioUrl,
+    this.partOfSpeech,
+    this.jlptLevel,
     this.deckName,
   });
 
@@ -45,6 +50,10 @@ class AnkiCard {
         if (exampleAudioUrl != null && exampleAudioUrl!.isNotEmpty)
           'example_audio_url': exampleAudioUrl,
         if (audioUrl != null && audioUrl!.isNotEmpty) 'audio_url': audioUrl,
+        if (partOfSpeech != null && partOfSpeech!.isNotEmpty)
+          'part_of_speech': partOfSpeech,
+        if (jlptLevel != null && jlptLevel!.isNotEmpty)
+          'jlpt_level': jlptLevel,
         if (deckName != null && deckName!.isNotEmpty) 'deck_name': deckName,
       };
 }
@@ -129,7 +138,7 @@ class AnkiParser {
   static Map<String, int?> detectMapping(List<String> fields,
       [List<List<String>>? rawSamples]) {
     int? word, reading, meaningZh, meaningEn, example, exampleReading,
-      exampleMeaningZh, posField;
+      exampleMeaningZh, posField, jlptField;
 
     // ── Step 1: 字段名匹配 ───────────────────────────────────────────────────
     for (int i = 0; i < fields.length; i++) {
@@ -140,6 +149,12 @@ class AnkiParser {
               caseSensitive: false)
           .hasMatch(name)) {
         posField ??= i;
+        continue;
+      }
+      if (RegExp(r'(jlpt|level|等级|級別|级别|レベル|難易度|难易度)',
+              caseSensitive: false)
+          .hasMatch(name)) {
+        jlptField ??= i;
         continue;
       }
 
@@ -192,7 +207,7 @@ class AnkiParser {
       final furiganaRe = RegExp(
           r'[\u4e00-\u9fff\uff10-\uff19\u3041-\u30ff]+\[[^\]]*[\u3040-\u30ff][^\]]*\]');
       for (int i = 0; i < colCount && word == null; i++) {
-        if (i == posField) continue;
+        if (i == posField || i == jlptField) continue;
         final vals = rawSamples
             .map((r) => i < r.length ? r[i].trim() : '')
             .where((v) => v.isNotEmpty)
@@ -221,6 +236,13 @@ class AnkiParser {
           posField ??= i;
           continue;
         }
+        final looksLikeJlpt = vals.every((v) =>
+            RegExp(r'^(N[1-5]|[1-5]|JLPT\s*N?[1-5])$', caseSensitive: false)
+                .hasMatch(v.trim()));
+        if (looksLikeJlpt) {
+          jlptField ??= i;
+          continue;
+        }
 
         final hasJapanese =
             vals.any((v) => RegExp(r'[\u3040-\u30ff\u4e00-\u9fff]').hasMatch(v));
@@ -238,7 +260,7 @@ class AnkiParser {
         final looksLikeMeaning = hasChinese &&
             vals.any((v) => v.contains(RegExp(r'[、，。：；！？,.]')) || v.length > 6);
 
-        if (i == posField) continue;
+        if (i == posField || i == jlptField) continue;
 
         // 跳过已被振假名识别为 word 的列
         if (i == word) continue;
@@ -261,7 +283,7 @@ class AnkiParser {
     // ── Step 3: 终极兜底 — 跳过品词列 ──────────────────────────────────────
     if (word == null) {
       for (int i = 0; i < fields.length; i++) {
-        if (i != posField) {
+        if (i != posField && i != jlptField) {
           word = i;
           break;
         }
@@ -270,7 +292,7 @@ class AnkiParser {
     }
     if (meaningZh == null && meaningEn == null) {
       for (int i = 0; i < fields.length; i++) {
-        if (i != word && i != reading && i != posField) {
+        if (i != word && i != reading && i != posField && i != jlptField) {
           meaningZh = i;
           break;
         }
@@ -320,6 +342,8 @@ class AnkiParser {
       'example': example,
       'example_reading': exampleReading,
       'example_meaning_zh': exampleMeaningZh,
+      'part_of_speech': posField,
+      'jlpt_level': jlptField,
     };
   }
 
@@ -726,6 +750,21 @@ class AnkiParser {
         ? _clamp(_stripHtml(flds[eni]), 1000)
         : null;
 
+    final posi = mapping['part_of_speech'];
+    final partOfSpeech = (posi != null && posi < flds.length)
+        ? _clamp(_stripHtml(flds[posi]), 50)
+        : null;
+    final jlpti = mapping['jlpt_level'];
+    final rawJlptLevel = (jlpti != null && jlpti < flds.length)
+        ? _stripHtml(flds[jlpti]).toUpperCase().trim()
+        : '';
+    final jlptMatch = RegExp(r'N?[1-5]').firstMatch(rawJlptLevel);
+    final jlptLevel = jlptMatch == null
+        ? null
+        : (jlptMatch.group(0)!.startsWith('N')
+            ? jlptMatch.group(0)!
+            : 'N${jlptMatch.group(0)!}');
+
     return AnkiCard(
       word: word,
       reading: reading,
@@ -736,6 +775,8 @@ class AnkiParser {
       exampleMeaningZh: exampleMeaningZh,
       exampleAudioUrl: exampleAudioUrl,
       audioUrl: audioUrl,
+      partOfSpeech: partOfSpeech,
+      jlptLevel: jlptLevel,
       deckName: deckName,
     );
   }

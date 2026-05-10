@@ -26,6 +26,54 @@ String _localDisplayWord(LocalVocabModel c) =>
 String _localDisplayReading(LocalVocabModel c) =>
     _localIsSwapped(c) ? c.word : c.reading;
 
+String _localPosLabel(String pos) {
+  final raw = pos.trim();
+  if (raw.isEmpty) return '其他';
+  final text = raw.toLowerCase();
+  if (RegExp(r'(代名詞|代名词|pronoun)').hasMatch(text)) return '代词';
+  if (RegExp(r'(数詞|数词|numeric|number)').hasMatch(text)) return '数词';
+  if (RegExp(r'(名詞|名词|名|noun|^n[\.\s]|^n$)').hasMatch(text)) {
+    return '名词';
+  }
+  if (RegExp(r'(動詞|动词|動|动|verb|^v[\.\s]|^v$|自動|他動|自他|サ変|する)').hasMatch(text)) {
+    return '动词';
+  }
+  if (RegExp(r'(形容動詞|形动|形動|な形容詞|na-adj|adjectival noun)').hasMatch(text)) {
+    return '形容动词';
+  }
+  if (RegExp(r'(形容詞|形容词|い形容詞|adj|adjective|^a$|^i-adj)').hasMatch(text)) {
+    return '形容词';
+  }
+  if (RegExp(r'(副詞|副词|副|adverb|adv)').hasMatch(text)) {
+    return '副词';
+  }
+  if (RegExp(r'(助詞|助词|助|particle|prt)').hasMatch(text)) {
+    return '助词';
+  }
+  if (RegExp(r'(接続詞|接续词|接続|接续|conjunction|conj)').hasMatch(text)) {
+    return '连词';
+  }
+  if (RegExp(r'(感動詞|感叹词|感動|感叹|interjection|int)').hasMatch(text)) {
+    return '感叹词';
+  }
+  if (RegExp(r'(接頭|接头|prefix)').hasMatch(text)) return '接头词';
+  if (RegExp(r'(接尾|suffix)').hasMatch(text)) return '接尾词';
+  if (RegExp(r'(連体詞|连体词|rentaishi|prenominal)').hasMatch(text)) {
+    return '连体词';
+  }
+  const map = {
+    'noun': '名词',
+    'verb': '动词',
+    'adjective': '形容词',
+    'adverb': '副词',
+    'particle': '助词',
+    'conjunction': '连词',
+    'interjection': '感叹词',
+    'other': '其他',
+  };
+  return map[text] ?? raw;
+}
+
 class LocalVocabDetailArgs {
   final LocalVocabModel? initialCard;
   final List<LocalVocabModel>? cards;
@@ -467,12 +515,14 @@ class _LocalVocabDetailScreenState extends State<LocalVocabDetailScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              _MetaChip(
-                                  label: card.jlptLevel, color: cs.primary),
-                              if (card.partOfSpeech.isNotEmpty) ...[
-                                const SizedBox(width: 8),
+                              if (card.jlptLevel.trim().isNotEmpty)
                                 _MetaChip(
-                                    label: card.partOfSpeech,
+                                    label: card.jlptLevel, color: cs.primary),
+                              if (card.partOfSpeech.isNotEmpty) ...[
+                                if (card.jlptLevel.trim().isNotEmpty)
+                                  const SizedBox(width: 8),
+                                _MetaChip(
+                                    label: _localPosLabel(card.partOfSpeech),
                                     color: cs.secondary),
                               ],
                               const SizedBox(width: 12),

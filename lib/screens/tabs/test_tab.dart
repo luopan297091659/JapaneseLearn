@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../services/api_service.dart';
 import '../../services/membership_service.dart';
 import '../../services/guest_service.dart';
-import '../../services/sync_service.dart';
 import '../../config/app_config.dart';
 import '../../providers/app_appearance_provider.dart';
 import '../../widgets/mode_background.dart';
@@ -23,17 +21,21 @@ class _TestTabState extends State<TestTab> {
   @override
   void initState() {
     super.initState();
+    if (membershipService.hasCachedStatus) {
+      _isMember = membershipService.cachedIsMember;
+      _avatarUrl = membershipService.cachedAvatarUrl;
+      _tiersReady = true;
+    }
     _loadMembership();
   }
 
   Future<void> _loadMembership() async {
     try {
-      final user = await apiService.getMe();
-      await syncService.fetchFeatureTiers();
+      final status = await membershipService.getCachedStatus();
       if (mounted) {
         setState(() {
-          _isMember = user.isMember;
-          _avatarUrl = user.avatarUrl;
+          _isMember = status.isMember;
+          _avatarUrl = status.avatarUrl;
           _tiersReady = true;
         });
       }

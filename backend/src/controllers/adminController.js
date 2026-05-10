@@ -3249,6 +3249,30 @@ async function listSharedVocabDecksAdmin(req, res) {
   });
 }
 
+function readSharedVocabMeta(value) {
+  if (!value) return {};
+  if (typeof value === 'string') {
+    try { return JSON.parse(value) || {}; } catch { return {}; }
+  }
+  return value;
+}
+
+async function toggleDefaultSharedVocabDeckAdmin(req, res) {
+  const deck = await SharedVocabDeck.findByPk(req.params.id);
+  if (!deck || deck.status === 'archived') return res.status(404).json({ error: 'Deck not found or archived' });
+  const enabled = req.body?.enabled === true;
+  const meta = { ...readSharedVocabMeta(deck.meta_json) };
+  if (enabled) meta.default_for_users = true;
+  else delete meta.default_for_users;
+  const patch = { meta_json: meta };
+  if (enabled) {
+    patch.status = 'published';
+    patch.visibility = 'public';
+  }
+  await deck.update(patch);
+  res.json({ success: true, deck: deck.toJSON() });
+}
+
 async function unshareSharedVocabDeckAdmin(req, res) {
   const deck = await SharedVocabDeck.findByPk(req.params.id);
   if (!deck || deck.status === 'archived') return res.status(404).json({ error: '词库不存在或已下架' });
@@ -3285,5 +3309,5 @@ module.exports = {
   listOrders, reviewOrder, uploadQrCode,
   getEmailSettings, saveEmailSettings, testEmailSettings,
   getSupportChannels, saveSupportChannel, deleteSupportChannel, uploadSupportQrCode, getPublicSupportChannels,
-  listSharedVocabDecksAdmin, unshareSharedVocabDeckAdmin,
+  listSharedVocabDecksAdmin, toggleDefaultSharedVocabDeckAdmin, unshareSharedVocabDeckAdmin,
 };

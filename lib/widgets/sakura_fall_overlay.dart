@@ -60,6 +60,7 @@ class SakuraFallOverlay extends StatefulWidget {
 class _SakuraFallOverlayState extends State<SakuraFallOverlay>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  List<_SakuraFallSprite> _sprites = const [];
   bool _assetsPrecached = false;
 
   @override
@@ -67,12 +68,13 @@ class _SakuraFallOverlayState extends State<SakuraFallOverlay>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2600),
+      duration: const Duration(milliseconds: 3200),
     )..addStatusListener((status) {
         if (status == AnimationStatus.completed) {
           widget.onCompleted?.call();
         }
       });
+    _sprites = _SakuraFallSprite.randomBatch();
   }
 
   @override
@@ -89,6 +91,7 @@ class _SakuraFallOverlayState extends State<SakuraFallOverlay>
   void didUpdateWidget(covariant SakuraFallOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.playId > 0 && widget.playId != oldWidget.playId) {
+      _sprites = _SakuraFallSprite.randomBatch();
       _controller.forward(from: 0);
     }
   }
@@ -110,7 +113,7 @@ class _SakuraFallOverlayState extends State<SakuraFallOverlay>
           }
           return Stack(
             children: [
-              for (final sprite in _SakuraFallSprite.sprites)
+              for (final sprite in _sprites)
                 _FallingSakuraSprite(
                   sprite: sprite,
                   progress: _controller.value,
@@ -145,11 +148,12 @@ class _FallingSakuraSprite extends StatelessWidget {
     final fadeOut = ((1 - progress) / 0.22).clamp(0.0, 1.0);
     final alpha = min(fadeIn, fadeOut) * sprite.opacity;
     final eased = Curves.easeInOutSine.transform(local);
-    final drift = sin((eased * pi * sprite.wave) + sprite.phase) * sprite.sway;
+    final drift = sin((eased * pi * sprite.wave) + sprite.phase) * sprite.sway +
+        sin((eased * pi * 5.2) + sprite.phase * 0.7) * sprite.sway * 0.24;
     final x = media.width * sprite.x + drift;
     final y = -sprite.size * 1.5 +
         eased * (media.height + sprite.size * 4) * sprite.speed;
-    final scalePulse = 1 + sin(eased * pi * 2 + sprite.phase) * 0.05;
+    final scalePulse = 1 + sin(eased * pi * 2 + sprite.phase) * 0.07;
 
     return Positioned(
       left: x - sprite.size / 2,
@@ -159,7 +163,9 @@ class _FallingSakuraSprite extends StatelessWidget {
       child: Opacity(
         opacity: alpha,
         child: Transform.rotate(
-          angle: sprite.startAngle + eased * pi * 2.2 * sprite.spin,
+          angle: sprite.startAngle +
+              eased * pi * 2.2 * sprite.spin +
+              sin(eased * pi * 3.4 + sprite.phase) * 0.18,
           child: Transform.scale(
             scale: scalePulse,
             child: Image.asset(
@@ -214,123 +220,51 @@ class _SakuraFallSprite {
     'assets/images/sakura/sakura_blossom_09.png',
   ];
 
-  static final sprites = [
-    _SakuraFallSprite(
-      asset: assets[1],
-      x: 0.08,
-      delay: 0.00,
-      speed: 0.88,
-      size: 42,
-      sway: 36,
-      spin: 0.42,
-      startAngle: -0.4,
-      phase: 0.2,
-    ),
-    _SakuraFallSprite(
-      asset: assets[2],
-      x: 0.20,
-      delay: 0.06,
-      speed: 0.78,
-      size: 34,
-      sway: -28,
-      spin: -0.36,
-      startAngle: 0.7,
-      phase: 1.1,
-      opacity: 0.72,
-    ),
-    _SakuraFallSprite(
-      asset: assets[3],
-      x: 0.34,
-      delay: 0.02,
-      speed: 0.92,
-      size: 46,
-      sway: 30,
-      spin: 0.48,
-      startAngle: -0.9,
-      phase: 2.4,
-    ),
-    _SakuraFallSprite(
-      asset: assets[4],
-      x: 0.50,
-      delay: 0.13,
-      speed: 0.74,
-      size: 38,
-      sway: -22,
-      spin: -0.44,
-      startAngle: 1.2,
-      phase: 3.0,
-      opacity: 0.70,
-    ),
-    _SakuraFallSprite(
-      asset: assets[0],
-      x: 0.63,
-      delay: 0.05,
-      speed: 0.84,
-      size: 50,
-      sway: 26,
-      spin: 0.34,
-      startAngle: -0.1,
-      phase: 0.8,
-      opacity: 0.62,
-    ),
-    _SakuraFallSprite(
-      asset: assets[5],
-      x: 0.76,
-      delay: 0.11,
-      speed: 0.88,
-      size: 32,
-      sway: -34,
-      spin: -0.58,
-      startAngle: 0.5,
-      phase: 1.8,
-    ),
-    _SakuraFallSprite(
-      asset: assets[6],
-      x: 0.90,
-      delay: 0.18,
-      speed: 0.76,
-      size: 28,
-      sway: 24,
-      spin: 0.68,
-      startAngle: -1.1,
-      phase: 2.8,
-      opacity: 0.74,
-    ),
-    _SakuraFallSprite(
-      asset: assets[7],
-      x: 0.27,
-      delay: 0.22,
-      speed: 0.72,
-      size: 30,
-      sway: 24,
-      spin: 0.52,
-      startAngle: 0.2,
-      phase: 2.1,
-      wave: 2.8,
-    ),
-    _SakuraFallSprite(
-      asset: assets[8],
-      x: 0.57,
-      delay: 0.26,
-      speed: 0.70,
-      size: 30,
-      sway: -26,
-      spin: -0.62,
-      startAngle: -0.7,
-      phase: 0.4,
-      wave: 2.5,
-    ),
-    _SakuraFallSprite(
-      asset: assets[9],
-      x: 0.83,
-      delay: 0.30,
-      speed: 0.68,
-      size: 28,
-      sway: -20,
-      spin: -0.50,
-      startAngle: 0.9,
-      phase: 1.6,
-      opacity: 0.70,
-    ),
-  ];
+  static List<_SakuraFallSprite> randomBatch() {
+    final seed = DateTime.now().microsecondsSinceEpoch ^
+        SakuraFallController.playId.value * 1000003;
+    final random = Random(seed);
+    final fullFlowerAssets = [
+      assets[0],
+      assets[1],
+      assets[2],
+      assets[3],
+      assets[4]
+    ];
+    final petalAssets = [assets[5], assets[6], assets[7], assets[8], assets[9]];
+
+    final sprites = <_SakuraFallSprite>[];
+    for (var i = 0; i < 26; i++) {
+      final isFullFlower = i < 11 || random.nextDouble() < 0.38;
+      final assetPool = isFullFlower ? fullFlowerAssets : petalAssets;
+      final asset = assetPool[random.nextInt(assetPool.length)];
+      final size = isFullFlower
+          ? 28 + random.nextDouble() * 34
+          : 16 + random.nextDouble() * 22;
+      final fromLeft = random.nextBool() ? -0.08 : 0.08;
+      final fromRight = random.nextBool() ? 1.08 : 0.92;
+
+      sprites.add(
+        _SakuraFallSprite(
+          asset: asset,
+          x: i.isEven
+              ? fromLeft + random.nextDouble() * 1.08
+              : fromRight - random.nextDouble() * 1.08,
+          delay: random.nextDouble() * 0.46,
+          speed: 0.66 + random.nextDouble() * 0.34,
+          size: size,
+          sway: (random.nextBool() ? 1 : -1) * (18 + random.nextDouble() * 48),
+          spin: (random.nextBool() ? 1 : -1) *
+              (0.20 + random.nextDouble() * 0.70),
+          startAngle: -pi + random.nextDouble() * pi * 2,
+          phase: random.nextDouble() * pi * 2,
+          wave: 1.6 + random.nextDouble() * 2.2,
+          opacity: isFullFlower
+              ? 0.50 + random.nextDouble() * 0.28
+              : 0.45 + random.nextDouble() * 0.30,
+        ),
+      );
+    }
+    return sprites;
+  }
 }
