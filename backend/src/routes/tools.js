@@ -7,9 +7,10 @@ const ALLOWED_TOOLS = new Set([
   'screenshot-generator',
   'kokoro-tts',
   'jlpt-mock-exam',
+  'jlpt-papers',
   'tools-home',
 ]);
-const ALLOWED_ACTIONS = new Set(['open', 'generate', 'export', 'play', 'click']);
+const ALLOWED_ACTIONS = new Set(['open', 'generate', 'export', 'play', 'click', 'download']);
 
 // 解析可选 JWT（不强制登录）
 function tryGetUserId(req) {

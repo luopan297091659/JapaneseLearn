@@ -245,6 +245,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item" onclick="nav('shared-vocab')" id="nav-shared-vocab"><span class="icon">📦</span><span class="nav-label">我的词库管理</span></div>
   <div class="nav-item" onclick="nav('grammar')" id="nav-grammar"><span class="icon">📖</span><span class="nav-label">语法管理</span></div>
   <div class="nav-item" onclick="nav('jlpt-exams')" id="nav-jlpt-exams"><span class="icon">📝</span><span class="nav-label">JLPT模拟题</span></div>
+  <div class="nav-item" onclick="nav('jlpt-resources')" id="nav-jlpt-resources"><span class="icon">📄</span><span class="nav-label">JLPT真题资料</span></div>
   <div class="nav-item" onclick="nav('kana')"    id="nav-kana"><span class="icon">🔤</span><span class="nav-label">五十音管理</span></div>
   <div class="nav-item" onclick="nav('tracks')"  id="nav-tracks"><span class="icon">🎧</span><span class="nav-label">听力管理</span></div>
   <div class="nav-item" onclick="nav('channels')" id="nav-channels"><span class="icon">📺</span><span class="nav-label">频道管理</span></div>
@@ -668,7 +669,7 @@ function showApp(){
 function applySidebarPermissions(){
   const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-ai-settings','nav-kokoro-settings','nav-email-settings','nav-support-channels','nav-admin-mgmt'];
   const permNavMap = {
-    'nav-vocab': 'vocabulary', 'nav-shared-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-jlpt-exams': 'vocabulary', 'nav-kana': 'vocabulary', 'nav-tracks': 'tracks',
+    'nav-vocab': 'vocabulary', 'nav-shared-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-jlpt-exams': 'vocabulary', 'nav-jlpt-resources': 'vocabulary', 'nav-kana': 'vocabulary', 'nav-tracks': 'tracks',
     'nav-channels': 'tracks', 'nav-users': 'users', 'nav-reports': 'reports',
     'nav-stat-users': 'stats', 'nav-stat-traffic': 'stats', 'nav-stat-behavior': 'stats',
     'nav-membership': 'membership', 'nav-sync': 'sync', 'nav-import': 'vocabulary',
@@ -692,6 +693,7 @@ function applySidebarPermissions(){
 const PAGE_TITLES = {
   dashboard:'仪表板', vocab:'词汇管理', 'shared-vocab':'我的词库管理', grammar:'语法管理', kana:'五十音管理',
   'jlpt-exams':'JLPT模拟题',
+  'jlpt-resources':'JLPT真题资料',
   tracks:'听力管理', channels:'频道管理', users:'用户管理', reports:'问题反馈',
   'stat-users':'用户统计', 'stat-traffic':'流量监控',
   'stat-behavior':'行为分析',
@@ -704,6 +706,7 @@ const PAGE_TITLES = {
 const PAGE_ICONS = {
   dashboard:'📊', vocab:'📚', 'shared-vocab':'📦', grammar:'📖', kana:'🔤',
   'jlpt-exams':'📝',
+  'jlpt-resources':'📄',
   tracks:'🎧', channels:'📺', users:'👥', reports:'🐛',
   'stat-users':'📈', 'stat-traffic':'🌐',
   'stat-behavior':'🧠',
@@ -715,6 +718,7 @@ const PAGE_ICONS = {
 const PAGE_DESCS = {
   vocab:'管理词汇条目', 'shared-vocab':'查看和下架用户分享的个人词库', grammar:'管理语法条目', kana:'管理五十音数据', reports:'查看用户反馈的问题',
   'jlpt-exams':'管理官网 JLPT 模拟测验题库与详解',
+  'jlpt-resources':'上传和管理 JLPT 真题文件',
   tracks:'管理听力素材', channels:'管理YouTube/B站频道', users:'查看管理用户',
   'stat-users':'用户数据分析', 'stat-traffic':'API流量监控',
   'stat-behavior':'用户行为数据分析',
@@ -749,6 +753,7 @@ function getFrequentNav(limit){
 const PAGE_FNS = {
   dashboard: renderDashboard, vocab: renderVocab, 'shared-vocab': renderSharedVocab, grammar: renderGrammar, kana: renderKana,
   'jlpt-exams': renderJlptExams,
+  'jlpt-resources': renderJlptResources,
   tracks: renderTracks, channels: renderChannels, users: renderUsers,
   'stat-users': renderStatUsers, 'stat-traffic': renderStatTraffic,
   'stat-behavior': renderStatBehavior,
@@ -771,6 +776,233 @@ let _jlptQuestionPage = 1;
 let _jlptQuestionPageSize = 20;
 let _jlptSelectedQuestionIndex = 0;
 let _jlptReadingBlocks = [];
+let _jlptResourceDirs = [];
+let _jlptResourceSelectedFileIds = new Set();
+let _jlptResourceFilter = { level: 'N1', year: '2025', session: '07' };
+let _jlptResourceQueuedFiles = [];
+
+function jlptResourceYearsOptions() {
+  let html = '';
+  for (let y = 2025; y >= 2010; y--) {
+    html += `<option value="${y}" ${String(_jlptResourceFilter.year) === String(y) ? 'selected' : ''}>${y}</option>`;
+  }
+  return html;
+}
+
+function getCurrentJlptResourceDirectory() {
+  return _jlptResourceDirs.find(d => d.level === _jlptResourceFilter.level && String(d.year) === String(_jlptResourceFilter.year) && d.session === _jlptResourceFilter.session);
+}
+
+async function renderJlptResources() {
+  document.getElementById('content').innerHTML = '<p style="color:#aaa;padding:40px;text-align:center">加载中...</p>';
+  try {
+    const res = await api('GET', '/admin/jlpt-resources');
+    _jlptResourceDirs = res.data || [];
+    _jlptResourceSelectedFileIds = new Set([..._jlptResourceSelectedFileIds].filter(id => _jlptResourceDirs.some(d => (d.files || []).some(f => f.id === id))));
+    buildJlptResourceAdmin();
+  } catch (e) {
+    document.getElementById('content').innerHTML = `<div class="panel"><p style="color:#e74c3c">加载失败: ${esc(e.message)}</p></div>`;
+  }
+}
+
+function buildJlptResourceAdmin() {
+  const dir = getCurrentJlptResourceDirectory();
+  const files = dir?.files || [];
+  const rows = files.map(file => `
+    <tr>
+      <td><input type="checkbox" class="jr-file-cb" value="${file.id}" ${_jlptResourceSelectedFileIds.has(file.id) ? 'checked' : ''} onchange="toggleJlptResourceFile('${file.id}', this.checked)" /></td>
+      <td><b>${esc(file.original_name)}</b></td>
+      <td>${formatJlptResourceSize(file.file_size)}</td>
+      <td>${esc(file.mime_type || '')}</td>
+      <td>${file.createdAt ? new Date(file.createdAt).toLocaleString('zh-CN') : ''}</td>
+    </tr>
+  `).join('');
+  const summary = _jlptResourceDirs.reduce((acc, d) => acc + (d.file_count || 0), 0);
+
+  document.getElementById('content').innerHTML = `
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:20px;font-weight:800;color:#0f172a">JLPT 真题资料</div>
+          <div style="font-size:13px;color:#64748b;margin-top:4px">N1-N5 / 2010-2025 / 7月与12月目录，支持 PDF、Word、MP3 多文件上传。</div>
+        </div>
+        <div style="font-size:12px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px">共 ${summary} 个文件</div>
+      </div>
+      <div class="toolbar" style="margin:16px 0 0;box-shadow:none">
+        <select id="jr-level" onchange="changeJlptResourceDir()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff">
+          ${['N1','N2','N3','N4','N5'].map(v => `<option value="${v}" ${_jlptResourceFilter.level === v ? 'selected' : ''}>${v}</option>`).join('')}
+        </select>
+        <select id="jr-year" onchange="changeJlptResourceDir()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff">${jlptResourceYearsOptions()}</select>
+        <select id="jr-session" onchange="changeJlptResourceDir()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff">
+          <option value="07" ${_jlptResourceFilter.session === '07' ? 'selected' : ''}>7月</option>
+          <option value="12" ${_jlptResourceFilter.session === '12' ? 'selected' : ''}>12月</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#334155">
+          <input type="checkbox" id="jr-member" ${dir?.membership_required ? 'checked' : ''} onchange="updateJlptResourceMembership()" />
+          仅会员可下载
+        </label>
+        <input id="jr-files" type="file" multiple accept=".pdf,.doc,.docx,.mp3,.png,.jpg,.jpeg" style="display:none" onchange="queueJlptResourceFiles(Array.from(this.files || []))" />
+        <button class="btn btn-primary" onclick="uploadQueuedJlptResourceFiles()">上传选中文件</button>
+        <button class="btn btn-danger" onclick="bulkDeleteJlptResourceFiles()">批量删除</button>
+        <button class="btn btn-ghost" onclick="renderJlptResources()">刷新</button>
+      </div>
+      <div id="jr-drop-zone" class="drop-zone" style="margin-top:16px;padding:28px;border-radius:10px" onclick="document.getElementById('jr-files').click()">
+        <div class="drop-zone-icon">📤</div>
+        <div class="drop-zone-title">拖拽 PDF / Word / MP3 / 图片到这里</div>
+        <div class="drop-zone-sub">先加入待上传列表，确认后点击“上传选中文件”批量上传</div>
+        <div class="drop-zone-file" id="jr-drop-file">当前目录：${_jlptResourceFilter.level} / ${_jlptResourceFilter.year} / ${_jlptResourceFilter.session === '07' ? '7月' : '12月'}</div>
+      </div>
+      <div id="jr-queue" style="margin-top:12px;font-size:12px;color:#64748b">${renderJlptResourceQueue()}</div>
+    </div>
+    <div class="panel" style="padding:0">
+      <table>
+        <thead><tr>
+          <th><input type="checkbox" ${files.length && files.every(f => _jlptResourceSelectedFileIds.has(f.id)) ? 'checked' : ''} onchange="toggleAllJlptResourceFiles(this.checked)" /></th>
+          <th>文件名</th><th>大小</th><th>类型</th><th>上传时间</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px">当前目录暂无文件</td></tr>'}</tbody>
+      </table>
+    </div>`;
+  bindJlptResourceDropZone();
+}
+
+function changeJlptResourceDir() {
+  _jlptResourceFilter = {
+    level: document.getElementById('jr-level').value,
+    year: document.getElementById('jr-year').value,
+    session: document.getElementById('jr-session').value,
+  };
+  buildJlptResourceAdmin();
+}
+
+function formatJlptResourceSize(size) {
+  const n = Number(size || 0);
+  if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB';
+  if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+  return n + ' B';
+}
+
+function renderJlptResourceQueue() {
+  if (!_jlptResourceQueuedFiles.length) {
+    return '<span>暂无待上传文件</span>';
+  }
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">
+      <b style="color:#334155">待上传 ${_jlptResourceQueuedFiles.length} 个文件</b>
+      <button class="btn btn-ghost btn-sm" onclick="clearJlptResourceQueue();event.stopPropagation()">清空</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px">
+      ${_jlptResourceQueuedFiles.map(file => `<div style="border:1px solid #e2e8f0;border-radius:8px;padding:8px;background:#f8fafc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(file.name)}">${esc(file.name)} · ${formatJlptResourceSize(file.size)}</div>`).join('')}
+    </div>`;
+}
+
+function refreshJlptResourceQueue() {
+  const el = document.getElementById('jr-queue');
+  if (el) el.innerHTML = renderJlptResourceQueue();
+}
+
+function clearJlptResourceQueue() {
+  _jlptResourceQueuedFiles = [];
+  const input = document.getElementById('jr-files');
+  if (input) input.value = '';
+  refreshJlptResourceQueue();
+}
+
+function toggleJlptResourceFile(id, checked) {
+  if (checked) _jlptResourceSelectedFileIds.add(id);
+  else _jlptResourceSelectedFileIds.delete(id);
+}
+
+function toggleAllJlptResourceFiles(checked) {
+  const files = getCurrentJlptResourceDirectory()?.files || [];
+  files.forEach(file => checked ? _jlptResourceSelectedFileIds.add(file.id) : _jlptResourceSelectedFileIds.delete(file.id));
+  buildJlptResourceAdmin();
+}
+
+function bindJlptResourceDropZone() {
+  const zone = document.getElementById('jr-drop-zone');
+  if (!zone || zone.dataset.bound === '1') return;
+  zone.dataset.bound = '1';
+  ['dragenter', 'dragover'].forEach(type => {
+    zone.addEventListener(type, e => {
+      e.preventDefault();
+      e.stopPropagation();
+      zone.classList.add('drag-over');
+    });
+  });
+  ['dragleave', 'drop'].forEach(type => {
+    zone.addEventListener(type, e => {
+      e.preventDefault();
+      e.stopPropagation();
+      zone.classList.remove('drag-over');
+    });
+  });
+  zone.addEventListener('drop', e => {
+    const files = Array.from(e.dataTransfer?.files || []);
+    queueJlptResourceFiles(files);
+  });
+}
+
+function queueJlptResourceFiles(files) {
+  const input = document.getElementById('jr-files');
+  files = Array.isArray(files) ? files : Array.from(input?.files || []);
+  if (!files.length) return;
+  const allowed = ['pdf', 'doc', 'docx', 'mp3', 'png', 'jpg', 'jpeg'];
+  const invalid = files.filter(file => !allowed.includes(String(file.name || '').split('.').pop().toLowerCase()));
+  if (invalid.length) {
+    toast('仅支持 PDF / Word / MP3 / PNG / JPG 文件', true);
+    if (input) input.value = '';
+    return;
+  }
+  _jlptResourceQueuedFiles = [..._jlptResourceQueuedFiles, ...files];
+  if (input) input.value = '';
+  refreshJlptResourceQueue();
+}
+
+async function uploadQueuedJlptResourceFiles() {
+  const files = _jlptResourceQueuedFiles;
+  if (!files.length) return toast('请先拖拽或选择文件', true);
+  const fd = new FormData();
+  fd.append('level', _jlptResourceFilter.level);
+  fd.append('year', _jlptResourceFilter.year);
+  fd.append('session', _jlptResourceFilter.session);
+  fd.append('membership_required', document.getElementById('jr-member')?.checked ? 'true' : 'false');
+  files.forEach(file => fd.append('files', file));
+  try {
+    await api('POST', '/admin/jlpt-resources/upload', fd, true);
+    toast('上传完成');
+    _jlptResourceQueuedFiles = [];
+    await renderJlptResources();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function updateJlptResourceMembership() {
+  const dir = getCurrentJlptResourceDirectory();
+  if (!dir) return;
+  try {
+    await api('PATCH', `/admin/jlpt-resources/directories/${dir.id}`, { membership_required: document.getElementById('jr-member').checked });
+    toast('目录权限已更新');
+    await renderJlptResources();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function bulkDeleteJlptResourceFiles() {
+  const ids = [..._jlptResourceSelectedFileIds];
+  if (!ids.length) return toast('请先选择文件', true);
+  if (!confirm(`确定删除选中的 ${ids.length} 个文件吗？`)) return;
+  try {
+    await api('POST', '/admin/jlpt-resources/bulk-delete', { ids });
+    _jlptResourceSelectedFileIds.clear();
+    toast('已删除');
+    await renderJlptResources();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
 
 function ensureJlptConfirmDialog() {
   let dlg = document.getElementById('jlpt-confirm-dialog');
@@ -4035,13 +4267,18 @@ async function renderStatTools(){
     `<div class="cards-row" id="tu-cards"></div>
     <div class="charts-grid">
       <div class="chart-card" style="grid-column:1/-1"><h4>📊 各工具使用次数趋势</h4><canvas id="tu-trend-c" style="max-height:280px"></canvas></div>
+      <div class="chart-card" style="grid-column:1/-1"><h4>JLPT真题每日下载</h4><canvas id="tu-jlpt-download-c" style="max-height:260px"></canvas></div>
       <div class="chart-card"><h4>🧰 工具使用次数分布</h4><canvas id="tu-pie-c"></canvas></div>
       <div class="chart-card"><h4>🔐 登录用户 vs 匿名访问</h4><canvas id="tu-usertype-c"></canvas></div>
       <div class="chart-card"><h4>⏰ 使用时段分布（小时）</h4><canvas id="tu-hour-c"></canvas></div>
       <div class="chart-card"><h4>⚙️ 动作分布（按工具）</h4><canvas id="tu-action-c"></canvas></div>
       <div class="chart-card" style="grid-column:1/-1"><h4>🧾 工具汇总</h4>
-        <table class="top-table"><thead><tr><th>工具</th><th>总次数</th><th>独立用户</th><th>独立IP</th><th>打开</th><th>生成</th><th>导出</th><th>最近使用</th></tr></thead>
+        <table class="top-table"><thead><tr><th>工具</th><th>总次数</th><th>独立用户</th><th>独立IP</th><th>打开</th><th>生成</th><th>导出</th><th>下载</th><th>最近使用</th></tr></thead>
         <tbody id="tu-summary-body"></tbody></table>
+      </div>
+      <div class="chart-card" style="grid-column:1/-1"><h4>JLPT真题下载日报</h4>
+        <table class="top-table"><thead><tr><th>日期</th><th>下载量</th><th>下载账号数</th></tr></thead>
+        <tbody id="tu-jlpt-download-body"></tbody></table>
       </div>
       <div class="chart-card"><h4>👤 登录用户 Top20</h4><div id="tu-users-wrap" style="max-height:360px;overflow-y:auto"></div></div>
       <div class="chart-card"><h4>🕒 最近 30 条访问</h4><div id="tu-recent-wrap" style="max-height:360px;overflow-y:auto"></div></div>
@@ -4062,11 +4299,16 @@ async function loadToolUsageCharts(){
     const totalRange = summary.reduce((s,x)=>s + Number(x.usage_count||0), 0);
     const totalUsers = summary.reduce((s,x)=>s + Number(x.unique_users||0), 0);
     const totalIps   = summary.reduce((s,x)=>s + Number(x.unique_ips||0), 0);
+    const jlptSummary = summary.find(x => x.tool_id === 'jlpt-papers') || {};
+    const jlptDownloads = Number(jlptSummary.downloads || 0);
+    const jlptUsers = Number(jlptSummary.unique_users || 0);
     const cards = document.getElementById('tu-cards');
     if(cards) cards.innerHTML = `
       <div class="stat-card"><div class="stat-icon c-indigo">🧰</div><div class="stat-body"><div class="stat-label">范围内总使用</div><div class="stat-value">${totalRange.toLocaleString()}</div></div></div>
       <div class="stat-card"><div class="stat-icon c-emerald">👥</div><div class="stat-body"><div class="stat-label">登录用户数（去重合计）</div><div class="stat-value">${totalUsers.toLocaleString()}</div></div></div>
       <div class="stat-card"><div class="stat-icon c-cyan">🌐</div><div class="stat-body"><div class="stat-label">独立 IP 数（合计）</div><div class="stat-value">${totalIps.toLocaleString()}</div></div></div>
+      <div class="stat-card"><div class="stat-icon c-indigo">JLPT</div><div class="stat-body"><div class="stat-label">JLPT下载量</div><div class="stat-value">${jlptDownloads.toLocaleString()}</div></div></div>
+      <div class="stat-card"><div class="stat-icon c-emerald">账号</div><div class="stat-body"><div class="stat-label">JLPT下载账号数</div><div class="stat-value">${jlptUsers.toLocaleString()}</div></div></div>
       <div class="stat-card"><div class="stat-icon c-amber">📚</div><div class="stat-body"><div class="stat-label">历史累计</div><div class="stat-value">${Number(d.totalAll||0).toLocaleString()}</div></div></div>`;
 
     // 趋势：每个工具一条线
@@ -4079,6 +4321,15 @@ async function loadToolUsageCharts(){
       data: periods.map(p => trendMap[`${t}|${p}`] || 0),
     }));
     mkChart('tu-trend-c', lineCfg(periods, trendDatasets), 'tu-trend');
+
+    const jlptDaily = d.jlptDownloadDaily || [];
+    mkChart('tu-jlpt-download-c', lineCfg(
+      jlptDaily.map(x => x.day),
+      [
+        { label:'下载量', data: jlptDaily.map(x => Number(x.downloads || 0)) },
+        { label:'下载账号数', data: jlptDaily.map(x => Number(x.unique_users || 0)) },
+      ]
+    ), 'tu-jlpt-download');
 
     // 工具占比饼图
     mkChart('tu-pie-c', pieCfg(
@@ -4096,8 +4347,8 @@ async function loadToolUsageCharts(){
     (d.hourlyDist||[]).forEach(x=>{ hourMap[x.hour]=Number(x.count); });
     mkChart('tu-hour-c', barCfg(hours.map(h=>`${h}:00`), [{label:'使用次数', data:hours.map(h=>hourMap[h]||0)}]), 'tu-hour');
 
-    // 动作分布（堆叠条）— 每个工具的 open/generate/export
-    const actions = ['open','generate','export','play','click'];
+    // 动作分布（堆叠条）— 每个工具的 open/generate/export/download
+    const actions = ['open','generate','export','download','play','click'];
     const actionMap = {};
     (d.actionDist||[]).forEach(x=>{ actionMap[`${x.tool_id}|${x.action}`] = Number(x.count); });
     const toolIds = summary.map(x=>x.tool_id);
@@ -4118,8 +4369,17 @@ async function loadToolUsageCharts(){
         <td>${Number(x.opens||0).toLocaleString()}</td>
         <td>${Number(x.generates||0).toLocaleString()}</td>
         <td>${Number(x.exports||0).toLocaleString()}</td>
+        <td>${Number(x.downloads||0).toLocaleString()}</td>
         <td>${x.last_used ? new Date(x.last_used).toLocaleString() : '-'}</td>
-      </tr>`).join('') : '<tr><td colspan="8" style="text-align:center;color:#aaa">暂无数据</td></tr>';
+      </tr>`).join('') : '<tr><td colspan="9" style="text-align:center;color:#aaa">暂无数据</td></tr>';
+
+    const jlptBody = document.getElementById('tu-jlpt-download-body');
+    if(jlptBody) jlptBody.innerHTML = jlptDaily.length ? jlptDaily.map(x => `
+      <tr>
+        <td>${esc(x.day || '')}</td>
+        <td><b>${Number(x.downloads || 0).toLocaleString()}</b></td>
+        <td>${Number(x.unique_users || 0).toLocaleString()}</td>
+      </tr>`).join('') : '<tr><td colspan="3" style="text-align:center;color:#aaa">暂无下载记录</td></tr>';
 
     // 用户 Top
     const uw = document.getElementById('tu-users-wrap');

@@ -89,8 +89,12 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
   }
 
   String _planLevel(Map<String, dynamic> plan) {
-    if (plan['includeVocabulary'] == true) return (plan['vocabularyLevel'] ?? 'N5').toString();
-    if (plan['includeGrammar'] == true) return (plan['grammarLevel'] ?? 'N5').toString();
+    if (plan['includeVocabulary'] == true) {
+      return (plan['vocabularyLevel'] ?? 'N5').toString();
+    }
+    if (plan['includeGrammar'] == true) {
+      return (plan['grammarLevel'] ?? 'N5').toString();
+    }
     return 'N5';
   }
 
@@ -119,29 +123,30 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
 
       final level = _planLevel(plan);
       final dailyTarget = ((_plan?['dailyTarget'] as int?) ?? 20).clamp(1, 999);
-      final queueRes = await apiService.getStudyPlanQueue(level: level, dailyTarget: dailyTarget);
-      final rawQueue = (queueRes['queue'] as List<dynamic>? ?? const []).cast<dynamic>();
+      final queueRes = await apiService.getStudyPlanQueue(
+          level: level, dailyTarget: dailyTarget);
+      final rawQueue =
+          (queueRes['queue'] as List<dynamic>? ?? const []).cast<dynamic>();
       final planType = _planType(plan);
 
       final filtered = rawQueue
           .map((e) => Map<String, dynamic>.from(e as Map))
           .where((item) {
-            if (planType == 'anki') return false;
-            if (item['card_type']?.toString() != planType) return false;
-            final stage = widget.stage;
-            if (stage == null || stage.isEmpty) return true;
-            if (stage == 'new') return (item['source']?.toString() == 'new');
-            if (stage == 'learning') {
-              final source = item['source']?.toString() ?? '';
-              return source == 'new' || source == 'review' || source == 'difficult';
-            }
-            return true;
-          })
-          .toList();
+        if (planType == 'anki') return false;
+        if (item['card_type']?.toString() != planType) return false;
+        final stage = widget.stage;
+        if (stage == null || stage.isEmpty) return true;
+        if (stage == 'new') return (item['source']?.toString() == 'new');
+        if (stage == 'learning') {
+          final source = item['source']?.toString() ?? '';
+          return source == 'new' || source == 'review' || source == 'difficult';
+        }
+        return true;
+      }).toList();
 
-          final sorted = _sortCommonFirst(filtered);
+      final sorted = _sortCommonFirst(filtered);
 
-          final limited = sorted.take(dailyTarget).toList();
+      final limited = sorted.take(dailyTarget).toList();
 
       _queue = limited;
       _index = 0;
@@ -290,17 +295,21 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
     if (_error != null) {
       return Scaffold(
         appBar: AppBar(title: const Text('计划学习中')),
-        body: Center(child: Text(_error!, style: const TextStyle(color: Colors.red))),
+        body: Center(
+            child: Text(_error!, style: const TextStyle(color: Colors.red))),
       );
     }
 
     if (_planType(_plan!) == 'anki') {
-      final deckRoot = (_plan?['ankiDeckRoot'] ?? _plan?['ankiDeck'] ?? '__all__').toString();
+      final deckRoot =
+          (_plan?['ankiDeckRoot'] ?? _plan?['ankiDeck'] ?? '__all__')
+              .toString();
       final stage = widget.stage ?? 'new';
       final localStage = stage == 'mastered' ? 2 : (stage == 'review' ? 1 : 0);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        context.go('/local-vocab?deck=${Uri.encodeComponent(deckRoot)}&stage=$localStage&planId=${widget.planId}');
+        context.go(
+            '/local-vocab?deck=${Uri.encodeComponent(deckRoot)}&stage=$localStage&planId=${widget.planId}');
       });
       return Scaffold(
         appBar: AppBar(title: const Text('计划学习中')),
@@ -329,9 +338,11 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.emoji_events_rounded, size: 72, color: Colors.amber),
+            const Icon(Icons.emoji_events_rounded,
+                size: 72, color: Colors.amber),
             const SizedBox(height: 12),
-            const Text('本轮计划学习完成', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+            const Text('本轮计划学习完成',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             const Text('继续保持每天一点点，记忆会越来越稳。'),
             const SizedBox(height: 20),
@@ -360,7 +371,8 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
 
   double _dragOffset = 0;
 
-  Widget _buildRunView(BuildContext context, {required int completed, required int total}) {
+  Widget _buildRunView(BuildContext context,
+      {required int completed, required int total}) {
     final item = _queue[_index];
     final cardType = item['card_type']?.toString() ?? '';
     final refId = item['ref_id']?.toString() ?? '';
@@ -391,7 +403,8 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
         children: [
           Row(
             children: [
-              Text('第 ${completed + 1} / $total 项', style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text('第 ${completed + 1} / $total 项',
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
               const Spacer(),
               if (cardType == 'vocabulary')
                 IconButton(
@@ -441,7 +454,9 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
                     },
               onHorizontalDragCancel: () => setState(() => _dragOffset = 0),
               child: AnimatedContainer(
-                duration: _dragOffset == 0 ? const Duration(milliseconds: 200) : Duration.zero,
+                duration: _dragOffset == 0
+                    ? const Duration(milliseconds: 200)
+                    : Duration.zero,
                 transform: Matrix4.translationValues(_dragOffset, 0, 0),
                 child: Stack(
                   clipBehavior: Clip.none,
@@ -463,7 +478,8 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
                         right: overlayColor == Colors.red ? null : 16,
                         left: overlayColor == Colors.red ? 16 : null,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
                             color: overlayColor.withValues(alpha: 0.85),
                             borderRadius: BorderRadius.circular(20),
@@ -471,7 +487,11 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(overlayText, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                              Text(overlayText,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13)),
                               const SizedBox(width: 4),
                               Icon(overlayIcon, color: Colors.white, size: 16),
                             ],
@@ -487,13 +507,17 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.swipe_left_rounded, size: 16, color: Colors.red.shade300),
+              Icon(Icons.swipe_left_rounded,
+                  size: 16, color: Colors.red.shade300),
               const SizedBox(width: 4),
-              Text('左滑：$_leftSwipeText', style: TextStyle(fontSize: 12, color: Colors.red.shade400)),
+              Text('左滑：$_leftSwipeText',
+                  style: TextStyle(fontSize: 12, color: Colors.red.shade400)),
               const SizedBox(width: 16),
-              Icon(Icons.swipe_right_rounded, size: 16, color: Colors.green.shade400),
+              Icon(Icons.swipe_right_rounded,
+                  size: 16, color: Colors.green.shade400),
               const SizedBox(width: 4),
-              Text('右滑：$_rightSwipeText', style: TextStyle(fontSize: 12, color: Colors.green.shade500)),
+              Text('右滑：$_rightSwipeText',
+                  style: TextStyle(fontSize: 12, color: Colors.green.shade500)),
             ],
           ),
         ],
@@ -501,11 +525,11 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
     );
   }
 
-
-
   /// 播放音频：有 audio_url 用 just_audio，否则回退到 TTS
   Future<void> _playAudio({required bool isExample, bool slow = false}) async {
-    final v = _index < _queue.length ? _vocabCache[_queue[_index]['ref_id']?.toString() ?? ''] : null;
+    final v = _index < _queue.length
+        ? _vocabCache[_queue[_index]['ref_id']?.toString() ?? '']
+        : null;
     if (v == null) return;
     final url = isExample ? v.exampleAudioUrl : v.audioUrl;
 
@@ -606,7 +630,8 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
     }
   }
 
-  Future<void> _speakTts(String text, {bool isExample = false, bool slow = false}) async {
+  Future<void> _speakTts(String text,
+      {bool isExample = false, bool slow = false}) async {
     await _wordPlayer?.stop();
     await _examplePlayer?.stop();
     await _tts.stop();
@@ -665,15 +690,21 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
         height: size + 8,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: playing ? cs.primary.withValues(alpha: 0.15) : Colors.transparent,
+          color:
+              playing ? cs.primary.withValues(alpha: 0.15) : Colors.transparent,
         ),
         child: loading
-            ? Center(child: SizedBox(
-                width: size * 0.6, height: size * 0.6,
-                child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+            ? Center(
+                child: SizedBox(
+                width: size * 0.6,
+                height: size * 0.6,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: cs.primary),
               ))
             : Icon(
-                playing ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
+                playing
+                    ? Icons.volume_up_rounded
+                    : Icons.play_circle_outline_rounded,
                 color: cs.primary,
                 size: size,
               ),
@@ -691,12 +722,15 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
           shape: BoxShape.circle,
           color: Colors.orange.withValues(alpha: 0.1),
         ),
-        child: Center(child: Text('🐌', style: TextStyle(fontSize: size * 0.55, height: 1.0))),
+        child: Center(
+            child: Text('🐌',
+                style: TextStyle(fontSize: size * 0.55, height: 1.0))),
       ),
     );
   }
 
-  List<Map<String, dynamic>> _sortCommonFirst(List<Map<String, dynamic>> items) {
+  List<Map<String, dynamic>> _sortCommonFirst(
+      List<Map<String, dynamic>> items) {
     final withIndex = <MapEntry<int, Map<String, dynamic>>>[];
     for (var i = 0; i < items.length; i++) {
       withIndex.add(MapEntry(i, items[i]));
@@ -718,11 +752,16 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
       return s == 'true' || s == '1' || s == 'yes';
     }
 
-    if (asBool(item['is_common']) || asBool(item['isCommon']) || asBool(item['common'])) {
+    if (asBool(item['is_common']) ||
+        asBool(item['isCommon']) ||
+        asBool(item['common'])) {
       return 0;
     }
 
-    final rank = item['frequency_rank'] ?? item['frequencyRank'] ?? item['freq_rank'] ?? item['rank'];
+    final rank = item['frequency_rank'] ??
+        item['frequencyRank'] ??
+        item['freq_rank'] ??
+        item['rank'];
     if (rank is num) {
       if (rank <= 3000) return 0;
       if (rank >= 15000) return 2;
@@ -737,10 +776,17 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
       item['difficulty'],
     ].where((e) => e != null).join(' ').toLowerCase();
 
-    if (tags.contains('常用') || tags.contains('common') || tags.contains('core') || tags.contains('daily') || tags.contains('basic')) {
+    if (tags.contains('常用') ||
+        tags.contains('common') ||
+        tags.contains('core') ||
+        tags.contains('daily') ||
+        tags.contains('basic')) {
       return 0;
     }
-    if (tags.contains('生僻') || tags.contains('rare') || tags.contains('uncommon') || tags.contains('hard')) {
+    if (tags.contains('生僻') ||
+        tags.contains('rare') ||
+        tags.contains('uncommon') ||
+        tags.contains('hard')) {
       return 2;
     }
     return 1;
@@ -748,8 +794,14 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
 
   static String _posLabel(String pos) {
     const map = {
-      'noun': '名词', 'verb': '动词', 'adjective': '形容词', 'adverb': '副词',
-      'particle': '助词', 'conjunction': '接续词', 'interjection': '感叹词', 'other': '其他',
+      'noun': '名词',
+      'verb': '动词',
+      'adjective': '形容词',
+      'adverb': '副词',
+      'particle': '助词',
+      'conjunction': '接续词',
+      'interjection': '感叹词',
+      'other': '其他',
     };
     return map[pos] ?? pos;
   }
@@ -769,8 +821,26 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
-      child: Text(label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 11, color: color, fontWeight: FontWeight.bold)),
     );
+  }
+
+  Widget _vocabSectionHeader({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Row(children: [
+      Icon(icon, size: 17, color: color),
+      const SizedBox(width: 6),
+      Text(
+        label,
+        style:
+            TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: color),
+      ),
+    ]);
   }
 
   Widget _buildVocabCard(String refId) {
@@ -779,74 +849,108 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     final cs = Theme.of(context).colorScheme;
-    final posText = vocab.partOfSpeechRaw != null ? _formatPosRaw(vocab.partOfSpeechRaw!) : _posLabel(vocab.partOfSpeech);
-    final conjugations = vocab.partOfSpeech == 'verb' ? conjugateVerb(vocab.word, vocab.reading) : <VerbConjugation>[];
+    final posText = vocab.partOfSpeechRaw != null
+        ? _formatPosRaw(vocab.partOfSpeechRaw!)
+        : _posLabel(vocab.partOfSpeech);
+    final conjugations = vocab.partOfSpeech == 'verb'
+        ? conjugateVerb(vocab.word, vocab.reading)
+        : <VerbConjugation>[];
+    final reading = cleanReading(vocab.reading);
+    final word = cleanWord(vocab.word);
+    final showReading = reading.isNotEmpty && reading != word;
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── 单词 + 音频 ──
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: FuriganaText(text: vocab.word, fontSize: 32, color: cs.onSurface),
-                  ),
-                  const SizedBox(width: 8),
-                  Padding(
-                    // Furigana 区域高度较高，按钮下移可与主词中心更接近水平对齐。
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildAudioBtn(isExample: false, playing: _ttsPlaying, loading: _wordLoading),
-                        const SizedBox(width: 4),
-                        _buildSlowBtn(isExample: false, size: 24),
-                      ],
+              // ── 单词 + 读音 ──
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FuriganaText(
+                      text: vocab.word,
+                      fontSize: 32,
+                      color: cs.onSurface,
                     ),
-                  ),
-                ],
-              ),
-              if (vocab.reading.isNotEmpty && cleanReading(vocab.reading) != cleanWord(vocab.word))
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(cleanReading(vocab.reading), style: TextStyle(fontSize: 15, color: cs.primary.withValues(alpha: 0.7))),
+                    if (showReading) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: cs.primary.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          reading,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.1,
+                            color: cs.primary.withValues(alpha: 0.78),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              const SizedBox(height: 8),
-              // ── 级别 + 词性 ──
-              Row(children: [
-                _chip(vocab.jlptLevel, cs.primary),
-                if (posText.isNotEmpty) ...[
-                  const SizedBox(width: 6),
-                  _chip(posText, cs.secondary),
-                ],
-              ]),
-              const Divider(height: 20),
+              ),
+              const SizedBox(height: 10),
+              // ── 级别 + 词性 + 音频 ──
+              Center(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _chip(vocab.jlptLevel, cs.primary),
+                    if (posText.isNotEmpty) _chip(posText, cs.secondary),
+                    _buildAudioBtn(
+                        isExample: false,
+                        playing: _ttsPlaying,
+                        loading: _wordLoading,
+                        size: 24),
+                    _buildSlowBtn(isExample: false, size: 22),
+                  ],
+                ),
+              ),
+              const Divider(height: 24),
               // ── 释义 ──
-              Row(children: [
-                Icon(Icons.translate_rounded, size: 18, color: cs.primary),
-                const SizedBox(width: 6),
-                Text('释义', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: cs.onSurfaceVariant)),
-              ]),
-              const SizedBox(height: 8),
-              Text(vocab.meaningZh, style: const TextStyle(fontSize: 18)),
-              if (vocab.meaningEn != null) ...[  
+              _vocabSectionHeader(
+                icon: Icons.translate_rounded,
+                label: '释义',
+                color: cs.onSurfaceVariant,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                vocab.meaningZh,
+                style:
+                    TextStyle(fontSize: 18, height: 1.35, color: cs.onSurface),
+              ),
+              if (vocab.meaningEn != null) ...[
                 const SizedBox(height: 4),
-                Text(vocab.meaningEn!, style: TextStyle(fontSize: 14, color: cs.outline)),
+                Text(
+                  vocab.meaningEn!,
+                  style:
+                      TextStyle(fontSize: 14, height: 1.35, color: cs.outline),
+                ),
               ],
               // ── 例句 ──
               if ((vocab.exampleSentence ?? '').isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Row(children: [
-                  Icon(Icons.format_quote_rounded, size: 16, color: cs.primary),
-                  const SizedBox(width: 4),
-                  Text('例文', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.primary)),
-                ]),
-                const SizedBox(height: 6),
+                const SizedBox(height: 16),
+                _vocabSectionHeader(
+                  icon: Icons.format_quote_rounded,
+                  label: '例句',
+                  color: cs.primary,
+                ),
+                const SizedBox(height: 8),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -854,7 +958,8 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (vocab.exampleReading != null && hasFurigana(vocab.exampleReading!))
+                          if (vocab.exampleReading != null &&
+                              hasFurigana(vocab.exampleReading!))
                             FuriganaText(
                               text: vocab.exampleReading!,
                               fontSize: 15,
@@ -863,17 +968,33 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
                               textAlign: TextAlign.start,
                             )
                           else
-                            Text(vocab.exampleSentence!, style: const TextStyle(fontSize: 15, height: 1.5)),
-                          if (vocab.exampleMeaningZh != null) ...[  
-                            const SizedBox(height: 2),
-                            Text(vocab.exampleMeaningZh!, style: TextStyle(fontSize: 13, color: cs.outline)),
+                            Text(
+                              vocab.exampleSentence!,
+                              style: TextStyle(
+                                  fontSize: 15,
+                                  height: 1.5,
+                                  color: cs.onSurface),
+                            ),
+                          if (vocab.exampleMeaningZh != null) ...[
+                            const SizedBox(height: 5),
+                            Text(
+                              vocab.exampleMeaningZh!,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  height: 1.35,
+                                  color: cs.outline),
+                            ),
                           ],
                         ],
                       ),
                     ),
                     const SizedBox(width: 4),
                     Column(children: [
-                      _buildAudioBtn(isExample: true, playing: _examplePlaying, loading: _exampleLoading, size: 24),
+                      _buildAudioBtn(
+                          isExample: true,
+                          playing: _examplePlaying,
+                          loading: _exampleLoading,
+                          size: 24),
                       const SizedBox(height: 4),
                       _buildSlowBtn(isExample: true, size: 20),
                     ]),
@@ -886,17 +1007,29 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
                 Row(children: [
                   Icon(Icons.swap_horiz_rounded, size: 16, color: cs.primary),
                   const SizedBox(width: 4),
-                  Text('动词变形', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: cs.primary)),
+                  Text('动词变形',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: cs.primary)),
                 ]),
                 const SizedBox(height: 4),
                 ...conjugations.map((c) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(children: [
-                    SizedBox(width: 52, child: Text(c.form, style: TextStyle(fontSize: 12, color: cs.primary, fontWeight: FontWeight.w600))),
-                    const SizedBox(width: 6),
-                    Expanded(child: Text(c.value, style: const TextStyle(fontSize: 14))),
-                  ]),
-                )),
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(children: [
+                        SizedBox(
+                            width: 52,
+                            child: Text(c.form,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: cs.primary,
+                                    fontWeight: FontWeight.w600))),
+                        const SizedBox(width: 6),
+                        Expanded(
+                            child: Text(c.value,
+                                style: const TextStyle(fontSize: 14))),
+                      ]),
+                    )),
               ],
             ],
           ),
@@ -922,25 +1055,33 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('语法学习', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Text('语法学习',
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
               const SizedBox(height: 8),
-              Text(grammar.pattern, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+              Text(grammar.pattern,
+                  style: const TextStyle(
+                      fontSize: 28, fontWeight: FontWeight.bold)),
               if (title.isNotEmpty) ...[
                 const SizedBox(height: 6),
-                Text(title, style: const TextStyle(fontSize: 18, color: Colors.black54)),
+                Text(title,
+                    style:
+                        const TextStyle(fontSize: 18, color: Colors.black54)),
               ],
               const Divider(height: 24),
-              Text(grammar.explanationZh ?? grammar.explanation ?? '', style: const TextStyle(fontSize: 16)),
+              Text(grammar.explanationZh ?? grammar.explanation ?? '',
+                  style: const TextStyle(fontSize: 16)),
               if (examples.where(_isValidExample).isNotEmpty) ...[
                 const SizedBox(height: 12),
-                Text('例句：${examples.where(_isValidExample).first.sentence}', style: const TextStyle(fontSize: 14)),
+                Text('例句：${examples.where(_isValidExample).first.sentence}',
+                    style: const TextStyle(fontSize: 14)),
               ],
               if (examples.where(_isValidExample).isNotEmpty) ...[
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: () => _showGrammarExercise(grammar, exerciseCount),
+                    onPressed: () =>
+                        _showGrammarExercise(grammar, exerciseCount),
                     icon: const Icon(Icons.quiz_outlined),
                     label: Text('进入$exerciseCount道例句练习'),
                   ),
@@ -967,10 +1108,12 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
 
   /// 基于当前语法例句的练习（回忆模式）
   void _showGrammarExercise(GrammarLessonModel grammar, int count) {
-    final examples = grammar.examples.where(_isValidExample).take(count).toList();
+    final examples =
+        grammar.examples.where(_isValidExample).take(count).toList();
     if (examples.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(behavior: SnackBarBehavior.floating, content: Text('该语法暂无有效例句可练习')),
+        const SnackBar(
+            behavior: SnackBarBehavior.floating, content: Text('该语法暂无有效例句可练习')),
       );
       return;
     }
@@ -978,7 +1121,8 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => _GrammarExerciseSheet(grammar: grammar, examples: examples),
+      builder: (_) =>
+          _GrammarExerciseSheet(grammar: grammar, examples: examples),
     );
   }
 }
@@ -1046,7 +1190,8 @@ class _GrammarExerciseSheetState extends State<_GrammarExerciseSheet> {
               '例句练习 ${_current + 1}/${widget.examples.length}',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            Text(widget.grammar.pattern, style: TextStyle(fontSize: 14, color: cs.primary)),
+            Text(widget.grammar.pattern,
+                style: TextStyle(fontSize: 14, color: cs.primary)),
           ],
         ),
         const SizedBox(height: 8),
@@ -1067,16 +1212,19 @@ class _GrammarExerciseSheetState extends State<_GrammarExerciseSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('中文含义：', style: TextStyle(fontSize: 13, color: Colors.grey)),
+              const Text('中文含义：',
+                  style: TextStyle(fontSize: 13, color: Colors.grey)),
               const SizedBox(height: 4),
-              Text(_example.meaningZh, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              Text(_example.meaningZh,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w600)),
             ],
           ),
         ),
         const SizedBox(height: 16),
         if (!_revealed) ...[
           const Text('请回忆对应的日语例句，然后点击下方按钮查看答案。',
-            style: TextStyle(fontSize: 14, color: Colors.grey)),
+              style: TextStyle(fontSize: 14, color: Colors.grey)),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
@@ -1097,12 +1245,18 @@ class _GrammarExerciseSheetState extends State<_GrammarExerciseSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('日语例句：', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                const Text('日语例句：',
+                    style: TextStyle(fontSize: 13, color: Colors.grey)),
                 const SizedBox(height: 4),
-                Text(_example.sentence, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                if (_example.reading != null && _example.reading!.isNotEmpty) ...[
+                Text(_example.sentence,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w600)),
+                if (_example.reading != null &&
+                    _example.reading!.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(_example.reading!, style: const TextStyle(fontSize: 14, color: Colors.black54)),
+                  Text(_example.reading!,
+                      style:
+                          const TextStyle(fontSize: 14, color: Colors.black54)),
                 ],
               ],
             ),
@@ -1147,11 +1301,17 @@ class _GrammarExerciseSheetState extends State<_GrammarExerciseSheet> {
             color: ratio >= 0.8 ? Colors.amber : cs.primary,
           ),
           const SizedBox(height: 12),
-          Text('练习完成', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: cs.onSurface)),
+          Text('练习完成',
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: cs.onSurface)),
           const SizedBox(height: 8),
-          Text('$_correct / $total 题回忆成功', style: const TextStyle(fontSize: 16)),
+          Text('$_correct / $total 题回忆成功',
+              style: const TextStyle(fontSize: 16)),
           const SizedBox(height: 4),
-          Text(widget.grammar.pattern, style: TextStyle(fontSize: 14, color: cs.outline)),
+          Text(widget.grammar.pattern,
+              style: TextStyle(fontSize: 14, color: cs.outline)),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,

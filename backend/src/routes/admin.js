@@ -44,6 +44,12 @@ const {
   adminBulkDeleteJlptPapers,
   adminDeleteJlptPaper,
 } = require('../controllers/jlptExamController');
+const {
+  adminListJlptResources,
+  adminUploadJlptResources,
+  adminUpdateJlptResourceDirectory,
+  adminBulkDeleteJlptResources,
+} = require('../controllers/jlptResourceController');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -97,6 +103,16 @@ const jlptUpload = multer({
     const ext = path.extname(file.originalname || '').toLowerCase();
     if (['.csv', '.json'].includes(ext)) return cb(null, true);
     cb(new Error('仅支持 .csv / .json 格式'));
+  },
+});
+
+const jlptResourceUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 200 * 1024 * 1024, files: 50 },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (['.pdf', '.doc', '.docx', '.mp3', '.png', '.jpg', '.jpeg'].includes(ext)) return cb(null, true);
+    cb(new Error('仅支持 PDF / Word / MP3 / PNG / JPG 文件'));
   },
 });
 
@@ -167,6 +183,11 @@ router.get('/jlpt-exams/:id', permissionCheck('vocabulary'), asyncHandler(adminG
 router.post('/jlpt-exams', permissionCheck('vocabulary'), asyncHandler(adminCreateJlptPaper));
 router.put('/jlpt-exams/:id', permissionCheck('vocabulary'), asyncHandler(adminUpdateJlptPaper));
 router.delete('/jlpt-exams/:id', permissionCheck('vocabulary'), asyncHandler(adminDeleteJlptPaper));
+
+router.get('/jlpt-resources', permissionCheck('vocabulary'), asyncHandler(adminListJlptResources));
+router.post('/jlpt-resources/upload', permissionCheck('vocabulary'), jlptResourceUpload.array('files', 50), asyncHandler(adminUploadJlptResources));
+router.patch('/jlpt-resources/directories/:id', permissionCheck('vocabulary'), asyncHandler(adminUpdateJlptResourceDirectory));
+router.post('/jlpt-resources/bulk-delete', permissionCheck('vocabulary'), asyncHandler(adminBulkDeleteJlptResources));
 
 // 听力管理
 router.get('/tracks',        permissionCheck('tracks'), asyncHandler(listTracks));

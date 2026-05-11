@@ -45,6 +45,7 @@ const stripeRoutes = require('./routes/stripe');
 const { router: stripeRouter, stripeWebhook } = stripeRoutes;
 const paymentRoutes = require('./routes/payment');
 const jlptExamRoutes = require('./routes/jlptExam');
+const jlptResourceRoutes = require('./routes/jlptResources');
 const sharedVocabRoutes = require('./routes/sharedVocab');
 
 const app = express();
@@ -85,6 +86,10 @@ app.get('/', (_req, res, next) => {
   next();
 });
 app.use('/support', (_req, res, next) => {
+  res.setHeader('Content-Security-Policy', homeCsp);
+  next();
+});
+app.use('/jlpt', (_req, res, next) => {
   res.setHeader('Content-Security-Policy', homeCsp);
   next();
 });
@@ -203,6 +208,9 @@ app.get('/forum', (req, res) => res.sendFile(path.join(__dirname, '../public/for
 // Support page
 app.use('/support', express.static(path.join(__dirname, '../public/support')));
 app.get('/support', (req, res) => res.sendFile(path.join(__dirname, '../public/support/index.html')));
+// JLPT real past papers
+app.use('/jlpt', express.static(path.join(__dirname, '../public/jlpt-papers')));
+app.get('/jlpt', (req, res) => res.sendFile(path.join(__dirname, '../public/jlpt-papers/index.html')));
 // Tools pages
 app.use('/tools', (_req, res, next) => {
   res.setHeader(
@@ -245,6 +253,7 @@ app.use('/api/v1/kana', kanaRoutes);
 app.use('/api/v1/stripe', stripeRouter);
 app.use('/api/v1/payment', paymentRoutes);
 app.use('/api/v1/jlpt-exams', jlptExamRoutes);
+app.use('/api/v1/jlpt-resources', jlptResourceRoutes);
 app.use('/api/v1/tools', require('./routes/tools'));
 app.use('/api/v1/shared-vocab', sharedVocabRoutes);
 

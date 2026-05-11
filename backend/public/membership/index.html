@@ -50,6 +50,9 @@ nav .nav-link.active { color: var(--primary); }
 .user-badge .vip-icon { font-size: 14px; margin-right: 2px; }
 .user-badge.is-member { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; }
 .user-sub { font-size: 10px; color: var(--text-sub); white-space: nowrap; margin-top: 1px; }
+.auth-slot { width: 148px; min-height: 34px; display: flex; justify-content: flex-end; align-items: center; visibility: hidden; }
+body.auth-ready .auth-slot { visibility: visible; }
+.auth-slot .user-badge { max-width: 148px; overflow: hidden; text-overflow: ellipsis; }
 
 /* ── Hero section ── */
 .membership-hero {
@@ -163,6 +166,15 @@ footer { text-align: center; padding: 28px 16px; font-size: 12px; color: var(--t
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 480px) {
+  nav { padding: 0 8px; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+  nav::-webkit-scrollbar { display: none; }
+  nav .logo { font-size: 18px; gap: 5px; flex: 0 0 auto; }
+  nav .logo img { width: 28px; height: 28px; }
+  nav .logo sub { display: none; }
+  nav .spacer { display: none; }
+  nav .nav-link { font-size: 12px; padding: 5px 7px; flex: 0 0 auto; }
+  .auth-slot { width: auto; min-width: 0; flex: 0 0 auto; }
+  .auth-slot .user-badge { max-width: 92px; }
   .plans-grid { grid-template-columns: 1fr; }
   .comparison table { font-size: 12px; }
   .comparison th, .comparison td { padding: 8px 10px; }
@@ -182,10 +194,13 @@ footer { text-align: center; padding: 28px 16px; font-size: 12px; color: var(--t
   <a class="nav-link active" href="/membership">会员</a>
   <a class="nav-link active" href="/support">支持</a>
   <a class="nav-link" href="/tools">工具箱</a>
-  <div class="user-account" id="userAccount">
-    <span class="user-badge" id="userBadge" onclick="showUserMenu()"></span>
+  <a class="nav-link" href="/jlpt">JLPT真题</a>
+  <div class="auth-slot">
+    <div class="user-account" id="userAccount">
+      <span class="user-badge" id="userBadge" onclick="showUserMenu()"></span>
+    </div>
+    <a class="nav-link" id="loginBtn" href="javascript:void(0)" onclick="showAuthModal()">登录</a>
   </div>
-  <a class="nav-link" id="loginBtn" href="javascript:void(0)" onclick="showAuthModal()">登录</a>
 </nav>
 
 <!-- Hero -->
@@ -704,6 +719,7 @@ function updateUI() {
   const loginBtn = document.getElementById('loginBtn');
   const badge = document.getElementById('userBadge');
   const account = document.getElementById('userAccount');
+  document.body.classList.add('auth-ready');
 
   if (currentUser) {
     loginBtn.style.display = 'none';

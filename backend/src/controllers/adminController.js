@@ -1747,6 +1747,7 @@ async function getFeatureUsage(req, res) {
 const TOOL_LABELS = {
   'screenshot-generator': 'App Store 截图生成器',
   'kokoro-tts': 'AI 语音合成 (Kokoro)',
+  'jlpt-papers': 'JLPT真题下载',
   'tools-home': '工具箱首页',
 };
 
@@ -1764,6 +1765,7 @@ async function getToolUsage(req, res) {
               SUM(CASE WHEN action='open' THEN 1 ELSE 0 END) AS opens,
               SUM(CASE WHEN action='generate' THEN 1 ELSE 0 END) AS generates,
               SUM(CASE WHEN action='export' THEN 1 ELSE 0 END) AS exports,
+              SUM(CASE WHEN action='download' THEN 1 ELSE 0 END) AS downloads,
               MAX(created_at) AS last_used
        FROM tool_usage_logs
        WHERE created_at BETWEEN :start AND :end
@@ -1791,6 +1793,19 @@ async function getToolUsage(req, res) {
        WHERE created_at BETWEEN :start AND :end
        GROUP BY tool_id, action
        ORDER BY count DESC`,
+      { replacements: { start, end }, type: sequelize.QueryTypes.SELECT }
+    );
+
+    const jlptDownloadDaily = await sequelize.query(
+      `SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS day,
+              COUNT(*) AS downloads,
+              COUNT(DISTINCT user_id) AS unique_users
+       FROM tool_usage_logs
+       WHERE created_at BETWEEN :start AND :end
+         AND tool_id='jlpt-papers'
+         AND action='download'
+       GROUP BY day
+       ORDER BY day ASC`,
       { replacements: { start, end }, type: sequelize.QueryTypes.SELECT }
     );
 
@@ -1849,6 +1864,7 @@ async function getToolUsage(req, res) {
       summary,
       trend,
       actionDist,
+      jlptDownloadDaily,
       hourlyDist,
       userTypeDist: userTypeDist[0] || { logged_in: 0, anonymous: 0 },
       topUsers,
@@ -2013,7 +2029,7 @@ const DEFAULT_MEMBERSHIP = {
   plans: [
     { id: 'free',     name: '免费版',   price: 0,   period: 'forever', description: '基础学习功能，适合入门用户',   features: ['词汇学习', '语法学习', '听力训练', 'NHK新闻'], enabled: true  },
     { id: 'monthly',  name: '月度会员', price: 18,  period: 'month',   description: '完整功能解锁，按月计费，随时取消', features: ['发音训练', '错题集', '学习计划', 'AI翻译'], enabled: true  },
-    { id: 'yearly',   name: '年度会员', price: 128, period: 'year',    description: '全功能 + 年度优惠，比月付省22%',  features: ['无限练习题', 'SRS 间隔复习', '听力课程', '离线下载'], enabled: true  },
+    { id: 'yearly',   name: '年度会员', price: 128, period: 'year',    description: '全功能 + 年度优惠，比月付省22%',  features: ['全功能永久解锁', '未来新功能免费', '专属徽章'], enabled: true  },
     { id: 'lifetime', name: '终身会员', price: 398, period: 'forever', description: '一次购买永久使用，含未来所有新功能', features: ['全功能永久解锁', '未来新功能免费', '专属徽章'], enabled: false },
   ],
   trial: {

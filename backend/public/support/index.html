@@ -44,6 +44,8 @@ nav .nav-link {
 }
 nav .nav-link:hover { color: var(--primary); background: var(--primary-light); }
 nav .nav-link.active { color: var(--primary); }
+.auth-slot { width: 148px; min-height: 32px; display: flex; justify-content: flex-end; align-items: center; visibility: hidden; }
+body.auth-ready .auth-slot { visibility: visible; }
 
 .page-header {
   margin-top: var(--nav-h); padding: 48px clamp(16px,6vw,80px) 36px;
@@ -139,6 +141,16 @@ nav .nav-link.active { color: var(--primary); }
 .loading { text-align: center; padding: 80px 20px; color: var(--text-hint); max-width: 960px; margin: 0 auto; }
 .spinner { display: inline-block; width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 520px) {
+  nav { padding: 0 8px; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+  nav::-webkit-scrollbar { display: none; }
+  nav .logo { font-size: 18px; gap: 5px; flex: 0 0 auto; }
+  nav .logo img { width: 28px; height: 28px; }
+  nav .logo sub { display: none; }
+  nav .spacer { display: none; }
+  nav .nav-link { font-size: 12px; padding: 5px 7px; flex: 0 0 auto; }
+  .auth-slot { width: auto; min-width: 0; flex: 0 0 auto; }
+}
 
 footer {
   text-align: center; padding: 28px 16px; font-size: 12px; color: var(--text-hint);
@@ -146,7 +158,7 @@ footer {
 }
 </style>
 </head>
-<body>
+<body class="auth-ready">
 
 <nav>
   <div class="logo" onclick="location.href='/'">
@@ -158,7 +170,10 @@ footer {
   <a class="nav-link" href="/membership">会员</a>
   <a class="nav-link active" href="/support">支持</a>
   <a class="nav-link" href="/tools">工具箱</a>
-  <a class="nav-link" id="loginBtn" href="javascript:void(0)" onclick="showAuthModal()">登录</a>
+  <a class="nav-link" href="/jlpt">JLPT真题</a>
+  <div class="auth-slot">
+    <a class="nav-link" id="loginBtn" href="javascript:void(0)" onclick="showAuthModal()">登录</a>
+  </div>
 </nav>
 
 <section class="page-header">

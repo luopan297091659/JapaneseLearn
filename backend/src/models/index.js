@@ -263,6 +263,37 @@ const JlptExamAttempt = sequelize.define('JlptExamAttempt', {
 });
 
 // ────────── News ──────────
+const JlptResourceDirectory = sequelize.define('JlptResourceDirectory', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  level: { type: DataTypes.ENUM('N5', 'N4', 'N3', 'N2', 'N1'), allowNull: false },
+  year: { type: DataTypes.INTEGER, allowNull: false },
+  session: { type: DataTypes.ENUM('07', '12'), allowNull: false },
+  membership_required: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+}, {
+  tableName: 'jlpt_resource_directories',
+  indexes: [
+    { unique: true, fields: ['level', 'year', 'session'] },
+    { fields: ['membership_required'] },
+  ],
+});
+
+const JlptResourceFile = sequelize.define('JlptResourceFile', {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  directory_id: { type: DataTypes.UUID, allowNull: false },
+  original_name: { type: DataTypes.STRING(255), allowNull: false },
+  stored_name: { type: DataTypes.STRING(255), allowNull: false },
+  file_url: { type: DataTypes.STRING(600), allowNull: false },
+  mime_type: { type: DataTypes.STRING(120), allowNull: true },
+  file_size: { type: DataTypes.BIGINT, allowNull: false, defaultValue: 0 },
+  sort_order: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+}, {
+  tableName: 'jlpt_resource_files',
+  indexes: [
+    { fields: ['directory_id'] },
+    { fields: ['created_at'] },
+  ],
+});
+
 const NewsArticle = sequelize.define('NewsArticle', {
   id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
   external_id: { type: DataTypes.STRING(100), allowNull: true, unique: true },
@@ -447,6 +478,8 @@ JlptExamPaper.hasMany(JlptExamQuestion, { foreignKey: 'paper_id', as: 'questions
 JlptExamQuestion.belongsTo(JlptExamPaper, { foreignKey: 'paper_id', as: 'paper' });
 JlptExamPaper.hasMany(JlptExamAttempt, { foreignKey: 'paper_id', as: 'attempts', onDelete: 'CASCADE' });
 JlptExamAttempt.belongsTo(JlptExamPaper, { foreignKey: 'paper_id', as: 'paper' });
+JlptResourceDirectory.hasMany(JlptResourceFile, { foreignKey: 'directory_id', as: 'files', onDelete: 'CASCADE' });
+JlptResourceFile.belongsTo(JlptResourceDirectory, { foreignKey: 'directory_id', as: 'directory' });
 SharedVocabDeck.hasMany(SharedVocabCard, { foreignKey: 'deck_id', as: 'cards', onDelete: 'CASCADE' });
 SharedVocabCard.belongsTo(SharedVocabDeck, { foreignKey: 'deck_id', as: 'deck' });
 
@@ -622,6 +655,8 @@ module.exports = {
   JlptExamPaper,
   JlptExamQuestion,
   JlptExamAttempt,
+  JlptResourceDirectory,
+  JlptResourceFile,
   NewsArticle,
   NhkNewsCache,
   NewsFavorite,
