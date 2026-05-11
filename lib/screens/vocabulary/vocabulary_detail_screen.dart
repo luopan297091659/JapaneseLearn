@@ -561,7 +561,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                     const Text('释义', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   ]),
                   const Divider(height: 16),
-                  _meaningRow('中文', '[${v.partOfSpeechRaw != null ? _formatPosRaw(v.partOfSpeechRaw!) : _posLabel(v.partOfSpeech)}] ${v.meaningZh}', cs),
+                  _meaningRow('中文', v.meaningZh, cs),
                   if (v.meaningEn != null) _meaningRow('English', v.meaningEn!, cs),
                 ],
               ),

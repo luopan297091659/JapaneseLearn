@@ -1968,94 +1968,117 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
                   ? Container(
                       key: const ValueKey('revealed'),
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 12, horizontal: 2),
+                      margin: const EdgeInsets.only(top: 2),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(children: [
-                            Icon(Icons.translate_rounded,
-                                size: 18, color: cs.primary),
-                            const SizedBox(width: 6),
-                            Text('释义',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                    color: cs.onSurfaceVariant)),
-                          ]),
-                          const SizedBox(height: 8),
-                          Text(word.meaningZh,
-                              style: TextStyle(
-                                  fontSize: 16,
-                                  color: cs.onSurface,
-                                  fontWeight: FontWeight.w500)),
-                          if (word.exampleSentence != null) ...[
-                            const SizedBox(height: 16),
-                            Row(children: [
-                              Icon(Icons.format_quote_rounded,
-                                  size: 18, color: cs.primary),
-                              const SizedBox(width: 6),
-                              Text('例文',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                      color: cs.onSurfaceVariant)),
-                            ]),
-                            const SizedBox(height: 8),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: cs.surface.withValues(alpha: 0.48),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: cs.primary.withValues(alpha: 0.10),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      if (word.exampleReading != null &&
-                                          hasFurigana(word.exampleReading!))
-                                        FuriganaText(
-                                          text: word.exampleReading!,
-                                          fontSize: 14,
-                                          color: cs.onSurfaceVariant,
-                                          fontWeight: FontWeight.normal,
-                                          textAlign: TextAlign.start,
-                                        )
-                                      else
-                                        Text(word.exampleSentence!,
-                                            style: TextStyle(
-                                                fontSize: 14,
-                                                color: cs.onSurfaceVariant,
-                                                height: 1.5)),
-                                      if (word.exampleMeaningZh != null) ...[
-                                        const SizedBox(height: 4),
-                                        Text(word.exampleMeaningZh!,
-                                            style: TextStyle(
-                                                fontSize: 13,
-                                                color: cs.onSurfaceVariant
-                                                    .withValues(alpha: 0.7),
-                                                height: 1.4)),
-                                      ],
-                                    ],
-                                  ),
+                                _revealedLabel(
+                                  cs,
+                                  icon: Icons.translate_rounded,
+                                  label: '释义',
                                 ),
-                                const SizedBox(width: 12),
-                                GestureDetector(
-                                  onTap: _playExampleAudio,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: cs.primary.withValues(alpha: 0.1),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      _playingExample
-                                          ? Icons.volume_up_rounded
-                                          : Icons.play_circle_outline_rounded,
-                                      size: 24,
-                                      color: cs.primary,
-                                    ),
-                                  ),
-                                ),
+                                const SizedBox(height: 8),
+                                Text(word.meaningZh,
+                                    style: TextStyle(
+                                        fontSize: 17,
+                                        color: cs.onSurface,
+                                        height: 1.45,
+                                        fontWeight: FontWeight.w700)),
                               ],
+                            ),
+                          ),
+                          if (word.exampleSentence != null) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: cs.surface.withValues(alpha: 0.48),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: cs.primary.withValues(alpha: 0.10),
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        _revealedLabel(
+                                          cs,
+                                          icon: Icons.format_quote_rounded,
+                                          label: '例文',
+                                        ),
+                                        const SizedBox(height: 8),
+                                        if (word.exampleReading != null &&
+                                            hasFurigana(word.exampleReading!))
+                                          FuriganaText(
+                                            text: word.exampleReading!,
+                                            fontSize: 15,
+                                            color: cs.onSurfaceVariant,
+                                            fontWeight: FontWeight.normal,
+                                            textAlign: TextAlign.start,
+                                          )
+                                        else
+                                          Text(word.exampleSentence!,
+                                              style: TextStyle(
+                                                  fontSize: 15,
+                                                  color: cs.onSurfaceVariant,
+                                                  height: 1.5,
+                                                  fontWeight: FontWeight.w600)),
+                                        if (word.exampleMeaningZh != null) ...[
+                                          const SizedBox(height: 5),
+                                          Text(word.exampleMeaningZh!,
+                                              style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: cs.onSurfaceVariant
+                                                      .withValues(alpha: 0.72),
+                                                  height: 1.4)),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  GestureDetector(
+                                    onTap: _playExampleAudio,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color:
+                                            cs.primary.withValues(alpha: 0.12),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color:
+                                              cs.primary.withValues(alpha: 0.14),
+                                        ),
+                                      ),
+                                      child: Icon(
+                                        _playingExample
+                                            ? Icons.volume_up_rounded
+                                            : Icons.play_circle_outline_rounded,
+                                        size: 24,
+                                        color: cs.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ],
@@ -2085,6 +2108,34 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
         ]),
       ),
     );
+  }
+
+  Widget _revealedLabel(
+    ColorScheme cs, {
+    required IconData icon,
+    required String label,
+    bool compact = false,
+  }) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(
+        width: compact ? 24 : 28,
+        height: compact ? 24 : 28,
+        decoration: BoxDecoration(
+          color: cs.primary.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, size: compact ? 14 : 16, color: cs.primary),
+      ),
+      const SizedBox(width: 7),
+      Text(
+        label,
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: compact ? 13 : 14,
+          color: cs.onSurfaceVariant,
+        ),
+      ),
+    ]);
   }
 
   static String _posLabel(String pos) {
