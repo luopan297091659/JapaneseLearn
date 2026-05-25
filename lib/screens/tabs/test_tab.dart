@@ -258,14 +258,6 @@ class _TestTabState extends State<TestTab> {
             _showGameTypeSelection(context);
           },
         ),
-        const SizedBox(height: 12),
-        _TestCard(
-          icon: Icons.map_rounded,
-          title: '都道府県测验',
-          subtitle: '地理测验 · 学习 47 个都道府県读音',
-          color: const Color(0xFFE65100),
-          onTap: () => context.push('/todofuken-quiz'),
-        ),
       ],
     );
 

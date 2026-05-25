@@ -182,7 +182,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('账户删除'),
+        title: const Text('账号注销'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1547,7 +1547,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         ListTile(
                           leading: Icon(Icons.delete_forever_rounded,
                               color: Theme.of(context).colorScheme.error),
-                          title: Text('账户删除',
+                          title: Text('账号注销',
                               style: TextStyle(
                                   color: Theme.of(context).colorScheme.error)),
                           subtitle: const Text('永久删除账户及所有数据'),

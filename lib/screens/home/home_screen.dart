@@ -10,6 +10,7 @@ import '../../services/api_service.dart';
 import '../../services/sync_service.dart';
 import '../../services/membership_service.dart';
 import '../../services/guest_service.dart';
+import '../../services/word_widget_service.dart';
 import '../../models/models.dart';
 import '../../l10n/app_localizations.dart';
 import '../../utils/japanese_text_utils.dart';
@@ -127,13 +128,6 @@ const _allFeatures = <String,
     sub: '趣味闯关',
     path: '/game',
     color: Color(0xFFE91E63)
-  ),
-  'todofuken': (
-    icon: Icons.map_rounded,
-    label: '都道府県',
-    sub: '地理测验',
-    path: '/todofuken-quiz',
-    color: Color(0xFFE65100)
   ),
   'wrong-answers': (
     icon: Icons.assignment_late_rounded,
@@ -281,6 +275,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _loadFavFeatures();
     _loadFeatureToggles();
     _loadAll(fromCache: true);
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _handleWidgetDeepLink());
     // 后台静默同步服务端内容版本
     Future.microtask(() => syncService.checkContentVersion());
   }
@@ -315,6 +311,64 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       apiService.invalidateCache();
       _loadAll(fromCache: false);
       _refreshUnreadNotif();
+      _handleWidgetDeepLink();
+    }
+  }
+
+  Future<void> _handleWidgetDeepLink() async {
+    final link = await WordWidgetService.instance.consumePendingDeepLink();
+    if (!mounted || link == null || link.isEmpty) return;
+    final uri = Uri.tryParse(link);
+    if (uri == null || uri.scheme != 'kotabi') return;
+    switch (uri.host) {
+      case 'dictionary':
+        context.push('/dictionary');
+        break;
+      case 'checkin':
+        await _checkInFromWidgetLink();
+        break;
+      case 'word-widget':
+        if (_wordPool.isNotEmpty) {
+          context.push('/vocabulary/${_wordPool[_wordIndex].id}');
+        }
+        break;
+    }
+  }
+
+  Future<void> _checkInFromWidgetLink() async {
+    if (_checkingIn || _checkedInToday || guestService.isGuest) return;
+    setState(() => _checkingIn = true);
+    try {
+      final res = await apiService.checkin();
+      final newStreak = res['streak_days'] as int? ?? (_user?.streakDays ?? 0);
+      if (!mounted) return;
+      setState(() {
+        _checkedInToday = true;
+        _checkingIn = false;
+      });
+      await WordWidgetService.instance.markCheckedIn(
+        streakDays: newStreak,
+        currentWord: _wordPool.isEmpty ? null : _wordPool[_wordIndex],
+        level: _user?.level ?? 'N5',
+      );
+      _loadDailyGoals();
+      _loadUser();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('签到成功！连续 $newStreak 天 +5XP'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _checkingIn = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('签到失败，请检查网络'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -500,6 +554,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _wordRevealed = false;
             _wordLoading = false;
           });
+          _syncWordWidget();
         }
       } else {
         if (mounted) setState(() => _wordLoading = false);
@@ -520,7 +575,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _wordIndex = newIdx;
         _wordRevealed = false;
       });
+      _syncWordWidget();
     }
+  }
+
+  Future<void> _syncWordWidget() async {
+    final word = _wordPool.isEmpty ? null : _wordPool[_wordIndex];
+    await WordWidgetService.instance.sync(
+      word: word,
+      checkedInToday: _checkedInToday,
+      streakDays: _dailyGoals?['streak_days'] ?? _user?.streakDays ?? 0,
+      level: _user?.level ?? 'N5',
+    );
   }
 
   // ── 常用功能持久化 ──
@@ -893,6 +959,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                       );
                                       _loadDailyGoals();
                                       _loadUser();
+                                      _syncWordWidget();
                                     }
                                   } catch (_) {
                                     if (mounted) {
@@ -1039,19 +1106,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     !_user!.trialActivated)
                   _TrialPromptBanner(
                       onTap: () => context.push('/membership', extra: false)),
-                // ── 今日一词 ────────────────────────────────────
-                _SectionTitle(title: '今日一词', icon: Icons.auto_awesome_rounded),
-                const SizedBox(height: 10),
-                if (_wordLoading)
-                  _WordOfDayShimmer(cs: cs)
-                else if (_wordPool.isNotEmpty)
-                  _WordOfDayCard(
-                    word: _wordPool[_wordIndex],
-                    revealed: _wordRevealed,
-                    onReveal: () => setState(() => _wordRevealed = true),
-                    onNext: _nextWord,
-                  ),
-                const SizedBox(height: 16),
                 // ── 辞书検索 ──────────────────────────────────────
                 _SectionTitle(title: '辞书検索', icon: Icons.manage_search_rounded),
                 const SizedBox(height: 10),
@@ -2064,8 +2118,8 @@ class _WordOfDayCardState extends State<_WordOfDayCard> {
                                             cs.primary.withValues(alpha: 0.12),
                                         shape: BoxShape.circle,
                                         border: Border.all(
-                                          color:
-                                              cs.primary.withValues(alpha: 0.14),
+                                          color: cs.primary
+                                              .withValues(alpha: 0.14),
                                         ),
                                       ),
                                       child: Icon(

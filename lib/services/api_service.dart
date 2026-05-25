@@ -27,7 +27,10 @@ class _MemCache {
 
   dynamic get(String key) {
     final e = _store[key];
-    if (e == null || !e.isValid) { _store.remove(key); return null; }
+    if (e == null || !e.isValid) {
+      _store.remove(key);
+      return null;
+    }
     return e.data;
   }
 
@@ -51,10 +54,10 @@ class ApiService {
 
   final _storage = const FlutterSecureStorage();
   late final Dio _dio;
-  late final Dio _refreshDio;  // 独立实例，不带拦截器，专门用于 token 刷新
+  late final Dio _refreshDio; // 独立实例，不带拦截器，专门用于 token 刷新
   Dio get dio => _dio;
   final _cache = _MemCache();
-  Completer<bool>? _refreshCompleter;  // 并发刷新锁
+  Completer<bool>? _refreshCompleter; // 并发刷新锁
   VoidCallback? _onSessionReplaced;
 
   /// 会员限制回调：返回 { error, feature, message, used, limit }
@@ -95,7 +98,8 @@ class ApiService {
         // 生产建议：
         //   1. 使用 Let's Encrypt 等认证机构的有效证书
         //   2. 实现证书固定 (Certificate Pinning) 防止中间人攻击
-        client.badCertificateCallback = (X509Certificate cert, String host, int port) {
+        client.badCertificateCallback =
+            (X509Certificate cert, String host, int port) {
           // 仅对已知服务器主机名放宽验证
           final knownHosts = ['139.196.44.6', 'localhost', '127.0.0.1'];
           final isKnownHost = knownHosts.contains(host);
@@ -114,7 +118,8 @@ class ApiService {
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
-        options.headers['X-Client-Date'] = DateTime.now().toIso8601String().split('T').first;
+        options.headers['X-Client-Date'] =
+            DateTime.now().toIso8601String().split('T').first;
         handler.next(options);
       },
       onError: (error, handler) async {
@@ -151,7 +156,9 @@ class ApiService {
         // 处理 403 会员限制错误
         if (error.response?.statusCode == 403) {
           final data = error.response?.data;
-          if (data is Map && (data['error'] == 'MEMBERSHIP_REQUIRED' || data['error'] == 'DAILY_LIMIT_REACHED')) {
+          if (data is Map &&
+              (data['error'] == 'MEMBERSHIP_REQUIRED' ||
+                  data['error'] == 'DAILY_LIMIT_REACHED')) {
             _onMembershipLimit?.call(Map<String, dynamic>.from(data));
           }
         }
@@ -195,7 +202,8 @@ class ApiService {
         _refreshCompleter!.complete(false);
         return false;
       }
-      final res = await _refreshDio.post('/auth/refresh', data: {'refreshToken': refreshToken});
+      final res = await _refreshDio
+          .post('/auth/refresh', data: {'refreshToken': refreshToken});
       await _storage.write(key: 'access_token', value: res.data['accessToken']);
       _refreshCompleter!.complete(true);
       return true;
@@ -214,12 +222,12 @@ class ApiService {
   /// ✅ 新增：检查存储权限和磁盘空间
   Future<String> downloadToTempFile(String url, {int maxRetries = 3}) async {
     final dir = await getTemporaryDirectory();
-    
+
     // ✅ 改进缓存策略：使用音频 UUID（比使用完整 URL hash 更稳定）
     // 从 URL 中提取音频 UUID：/uploads/audio/{uuid}.{ext}
     String cacheKey = url.hashCode.abs().toString();
     String audioId = '';
-    
+
     if (url.contains('/uploads/audio/')) {
       try {
         // 从 URL 提取音频文件名（UUID + 扩展名）
@@ -227,29 +235,31 @@ class ApiService {
         if (parts.length > 1) {
           audioId = parts[1].split('?').first; // 移除查询参数
           if (audioId.isNotEmpty) {
-            cacheKey = audioId.replaceAll('.', '_'); // UUID.ext → UUID_ext（文件名安全）
+            cacheKey =
+                audioId.replaceAll('.', '_'); // UUID.ext → UUID_ext（文件名安全）
           }
         }
       } catch (_) {
         // 解析失败，回退到 URL hash
       }
     }
-    
-    final ext = url.contains('.') ? '.${url.split('.').last.split('?').first}' : '.mp3';
+
+    final ext =
+        url.contains('.') ? '.${url.split('.').last.split('?').first}' : '.mp3';
     final fileName = 'audio_$cacheKey$ext';
     final file = File('${dir.path}/$fileName');
-    
+
     if (await file.exists()) {
       // ✅ 新增：验证缓存文件可读性
       try {
         await file.readAsBytes();
-        return file.path;  // 已缓存且可读，直接返回
+        return file.path; // 已缓存且可读，直接返回
       } catch (e) {
         print('【缓存】缓存文件无法读取，将重新下载: $e');
-        await file.delete().catchError((_) => file);  // 尝试删除损坏的缓存
+        await file.delete().catchError((_) => file); // 尝试删除损坏的缓存
       }
     }
-    
+
     int attempts = 0;
     Exception? lastError;
     while (attempts < maxRetries) {
@@ -269,26 +279,27 @@ class ApiService {
             }
           },
         );
-        
+
         // ✅ 下载后验证文件有效性
         final fileSize = await file.length();
         if (fileSize == 0) {
           throw Exception('下载的音频文件为空（0 字节）');
         }
-        
-        print('【缓存】音频已保存: $fileName (${(fileSize / 1024).toStringAsFixed(1)} KB)');
+
+        print(
+            '【缓存】音频已保存: $fileName (${(fileSize / 1024).toStringAsFixed(1)} KB)');
         return file.path;
       } catch (e) {
         attempts++;
         lastError = Exception('音频下载失败 (尝试 $attempts/$maxRetries): $e');
-        
+
         // 如果是权限或磁盘错误，不再重试
-        if (e.toString().contains('Permission') || 
+        if (e.toString().contains('Permission') ||
             e.toString().contains('space') ||
             e.toString().contains('磁盘')) {
           rethrow;
         }
-        
+
         if (attempts >= maxRetries) rethrow;
         // 指数退避：500ms → 1000ms → 2000ms
         final delayMs = 500 * attempts;
@@ -326,8 +337,10 @@ class ApiService {
     await _dio.post('/auth/send-register-code', data: {'email': email});
   }
 
-  Future<Map<String, dynamic>> login({required String email, required String password}) async {
-    final res = await _dio.post('/auth/login', data: {'email': email, 'password': password, 'platform': 'app'});
+  Future<Map<String, dynamic>> login(
+      {required String email, required String password}) async {
+    final res = await _dio.post('/auth/login',
+        data: {'email': email, 'password': password, 'platform': 'app'});
     await _saveTokens(res.data);
     return res.data;
   }
@@ -337,19 +350,26 @@ class ApiService {
   }
 
   Future<void> verifyResetCode(String email, String code) async {
-    await _dio.post('/auth/verify-reset-code', data: {'email': email, 'code': code});
+    await _dio
+        .post('/auth/verify-reset-code', data: {'email': email, 'code': code});
   }
 
-  Future<void> resetPassword({required String email, required String code, required String newPassword}) async {
-    await _dio.post('/auth/reset-password', data: {'email': email, 'code': code, 'newPassword': newPassword});
+  Future<void> resetPassword(
+      {required String email,
+      required String code,
+      required String newPassword}) async {
+    await _dio.post('/auth/reset-password',
+        data: {'email': email, 'code': code, 'newPassword': newPassword});
   }
 
   Future<void> sendLoginCode(String email) async {
     await _dio.post('/auth/send-login-code', data: {'email': email});
   }
 
-  Future<Map<String, dynamic>> loginWithCode({required String email, required String code}) async {
-    final res = await _dio.post('/auth/login-with-code', data: {'email': email, 'code': code, 'platform': 'app'});
+  Future<Map<String, dynamic>> loginWithCode(
+      {required String email, required String code}) async {
+    final res = await _dio.post('/auth/login-with-code',
+        data: {'email': email, 'code': code, 'platform': 'app'});
     await _saveTokens(res.data);
     return res.data;
   }
@@ -416,15 +436,18 @@ class ApiService {
 
   Future<Map<String, dynamic>> getUserPreferences() async {
     final res = await _dio.get('/users/preferences');
-    return Map<String, dynamic>.from(res.data['preferences'] as Map? ?? const {});
+    return Map<String, dynamic>.from(
+        res.data['preferences'] as Map? ?? const {});
   }
 
-  Future<Map<String, dynamic>> updateUserPreferences(Map<String, dynamic> preferences) async {
+  Future<Map<String, dynamic>> updateUserPreferences(
+      Map<String, dynamic> preferences) async {
     _cache.remove('me');
     final res = await _dio.put('/users/preferences', data: {
       'preferences': preferences,
     });
-    return Map<String, dynamic>.from(res.data['preferences'] as Map? ?? const {});
+    return Map<String, dynamic>.from(
+        res.data['preferences'] as Map? ?? const {});
   }
 
   /// 更新用户设置（daily_goal_minutes / notification_enabled / level 等）
@@ -436,9 +459,10 @@ class ApiService {
   }) async {
     _cache.remove('me');
     final res = await _dio.put('/users/profile', data: {
-      if (dailyGoalMinutes  != null) 'daily_goal_minutes':   dailyGoalMinutes,
-      if (notificationEnabled != null) 'notification_enabled': notificationEnabled,
-      if (level    != null) 'level':    level,
+      if (dailyGoalMinutes != null) 'daily_goal_minutes': dailyGoalMinutes,
+      if (notificationEnabled != null)
+        'notification_enabled': notificationEnabled,
+      if (level != null) 'level': level,
       if (username != null) 'username': username,
     });
     final user = UserModel.fromJson(res.data);
@@ -446,7 +470,8 @@ class ApiService {
     return user;
   }
 
-  Future<UserModel> uploadAvatarBytes(Uint8List bytes, {String fileName = 'avatar.png'}) async {
+  Future<UserModel> uploadAvatarBytes(Uint8List bytes,
+      {String fileName = 'avatar.png'}) async {
     _cache.remove('me');
     final formData = FormData.fromMap({
       'avatar': MultipartFile.fromBytes(bytes, filename: fileName),
@@ -458,10 +483,11 @@ class ApiService {
   }
 
   /// 修改密码
-  Future<void> changePassword(String currentPassword, String newPassword) async {
+  Future<void> changePassword(
+      String currentPassword, String newPassword) async {
     await _dio.put('/users/change-password', data: {
       'currentPassword': currentPassword,
-      'newPassword':     newPassword,
+      'newPassword': newPassword,
     });
   }
 
@@ -506,7 +532,8 @@ class ApiService {
       'proof': MultipartFile.fromBytes(imageBytes, filename: fileName),
       'plan_id': planId,
       'channel': channel,
-      if (userNote != null && userNote.trim().isNotEmpty) 'user_note': userNote.trim(),
+      if (userNote != null && userNote.trim().isNotEmpty)
+        'user_note': userNote.trim(),
     });
     final res = await _dio.post('/payment/qrcode/submit', data: formData);
     return Map<String, dynamic>.from(res.data);
@@ -520,12 +547,14 @@ class ApiService {
 
   /// 申请退款（仅首次订阅 7 天内有效）
   Future<Map<String, dynamic>> applyRefund({required String reason}) async {
-    final res = await _dio.post('/payment/refund/apply', data: {'reason': reason});
+    final res =
+        await _dio.post('/payment/refund/apply', data: {'reason': reason});
     return Map<String, dynamic>.from(res.data);
   }
 
   // ─── 消息通知 ─────────────────────────────────────────
-  Future<Map<String, dynamic>> getNotifications({int page = 1, int limit = 20, bool unreadOnly = false}) async {
+  Future<Map<String, dynamic>> getNotifications(
+      {int page = 1, int limit = 20, bool unreadOnly = false}) async {
     final res = await _dio.get('/notifications', queryParameters: {
       'page': page,
       'limit': limit,
@@ -557,13 +586,15 @@ class ApiService {
 
   /// Stripe: 创建 Checkout Session，返回 { url, sessionId }
   Future<Map<String, dynamic>> createStripeCheckout(String planId) async {
-    final res = await _dio.post('/stripe/create-checkout-session', data: {'planId': planId});
+    final res = await _dio
+        .post('/stripe/create-checkout-session', data: {'planId': planId});
     return Map<String, dynamic>.from(res.data);
   }
 
   /// Stripe: 查询支付状态
   Future<Map<String, dynamic>> getStripeSessionStatus(String sessionId) async {
-    final res = await _dio.get('/stripe/session-status', queryParameters: {'session_id': sessionId});
+    final res = await _dio.get('/stripe/session-status',
+        queryParameters: {'session_id': sessionId});
     return Map<String, dynamic>.from(res.data);
   }
 
@@ -591,8 +622,10 @@ class ApiService {
     return Map<String, dynamic>.from(resp.data);
   }
 
-  Future<Map<String, dynamic>> getLatestPublishedAppRelease({String platform = 'android'}) async {
-    final resp = await _dio.get('/admin/app/latest', queryParameters: {'platform': platform});
+  Future<Map<String, dynamic>> getLatestPublishedAppRelease(
+      {String platform = 'android'}) async {
+    final resp = await _dio
+        .get('/admin/app/latest', queryParameters: {'platform': platform});
     return Map<String, dynamic>.from(resp.data['data'] as Map);
   }
 
@@ -615,7 +648,9 @@ class ApiService {
         'page': page,
         'limit': limit,
       });
-      final data = (res.data['data'] as List).map((e) => VocabularyModel.fromJson(e)).toList();
+      final data = (res.data['data'] as List)
+          .map((e) => VocabularyModel.fromJson(e))
+          .toList();
       final result = <String, dynamic>{
         'total': res.data['total'],
         'data': data,
@@ -630,7 +665,10 @@ class ApiService {
       // 离线回退：从本地缓存读取
       if (level != null && category == null) {
         final local = await localDb.getCachedVocabulary(
-          level: level, query: query, page: page, limit: limit,
+          level: level,
+          query: query,
+          page: page,
+          limit: limit,
         );
         if ((local['total'] as int) > 0) return local;
       }
@@ -688,7 +726,7 @@ class ApiService {
     try {
       final vocabs = await getVocabularyByLevel(level);
       int successCount = 0, failCount = 0;
-      
+
       for (final vocab in vocabs) {
         if (vocab.audioUrl != null && vocab.audioUrl!.isNotEmpty) {
           try {
@@ -701,7 +739,7 @@ class ApiService {
           }
         }
       }
-      
+
       print('【预加载完成】$level: 成功 $successCount，失败 $failCount');
       return {'success': successCount, 'failed': failCount};
     } catch (e) {
@@ -713,7 +751,8 @@ class ApiService {
   // ─── Dictionary ───────────────────────────────────────────────────────────
   /// Search using Jisho API (proxied through backend)
   /// Returns list of DictionaryEntry
-  Future<DictionarySearchResult> searchDictionary(String query, {int page = 1, String lang = 'zh'}) async {
+  Future<DictionarySearchResult> searchDictionary(String query,
+      {int page = 1, String lang = 'zh'}) async {
     final res = await _dio.get('/dictionary/search', queryParameters: {
       'q': query,
       'page': page,
@@ -728,12 +767,14 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> kanjiDetail(String char) async {
-    final res = await _dio.get('/dictionary/kanji/${Uri.encodeComponent(char)}');
+    final res =
+        await _dio.get('/dictionary/kanji/${Uri.encodeComponent(char)}');
     return res.data as Map<String, dynamic>;
   }
 
   // ─── Grammar ─────────────────────────────────────────────────────────────
-  Future<Map<String, dynamic>> getGrammarLessons({String? level, String? query, int page = 1, int limit = 20}) async {
+  Future<Map<String, dynamic>> getGrammarLessons(
+      {String? level, String? query, int page = 1, int limit = 20}) async {
     final key = 'grammar:$level:$query:$page:$limit';
     final cached = _cache.get(key);
     if (cached != null) return cached as Map<String, dynamic>;
@@ -744,7 +785,9 @@ class ApiService {
         'page': page,
         'limit': limit,
       });
-      final data = (res.data['data'] as List).map((e) => GrammarLessonModel.fromJson(e)).toList();
+      final data = (res.data['data'] as List)
+          .map((e) => GrammarLessonModel.fromJson(e))
+          .toList();
       final result = <String, dynamic>{
         'total': res.data['total'],
         'data': data,
@@ -758,7 +801,8 @@ class ApiService {
     } catch (e) {
       // 离线回退
       if (level != null) {
-        final local = await localDb.getCachedGrammar(level: level, page: page, limit: limit);
+        final local = await localDb.getCachedGrammar(
+            level: level, page: page, limit: limit);
         if ((local['total'] as int) > 0) return local;
       }
       rethrow;
@@ -775,7 +819,9 @@ class ApiService {
     final res = await _dio.get('/srs/due', queryParameters: {'limit': limit});
     return {
       'due_count': res.data['due_count'],
-      'cards': (res.data['cards'] as List).map((e) => SrsCardModel.fromJson(e)).toList(),
+      'cards': (res.data['cards'] as List)
+          .map((e) => SrsCardModel.fromJson(e))
+          .toList(),
     };
   }
 
@@ -801,12 +847,14 @@ class ApiService {
 
   // SRS 写操作后手动清 stats 缓存
   Future<void> submitSrsReview(String cardId, int quality) async {
-    await _dio.post('/srs/review', data: {'card_id': cardId, 'quality': quality});
+    await _dio
+        .post('/srs/review', data: {'card_id': cardId, 'quality': quality});
     _cache.invalidate('srs:');
     _cache.invalidate('progress:');
   }
 
-  Future<void> addSrsCard(String refId, {String cardType = 'vocabulary'}) async {
+  Future<void> addSrsCard(String refId,
+      {String cardType = 'vocabulary'}) async {
     await _dio.post('/srs/add', data: {'ref_id': refId, 'card_type': cardType});
     _cache.invalidate('srs:');
     _cache.invalidate('progress:');
@@ -881,7 +929,8 @@ class ApiService {
   // ─── Listening ────────────────────────────────────────────────────────────
 
   /// 获取磨耳朵视频列表（带缓存）
-  Future<Map<String, dynamic>> getImmersionVideos({int page = 1, int limit = 20, bool forceRefresh = false}) async {
+  Future<Map<String, dynamic>> getImmersionVideos(
+      {int page = 1, int limit = 20, bool forceRefresh = false}) async {
     final key = 'immersion:$page:$limit';
     if (forceRefresh) {
       _cache.invalidate('immersion:');
@@ -914,7 +963,8 @@ class ApiService {
     final res = await _dio.post('/listening-channels/my/channels', data: {
       'channel_url': channelUrl,
       if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
-      if (description != null && description.trim().isNotEmpty) 'description': description.trim(),
+      if (description != null && description.trim().isNotEmpty)
+        'description': description.trim(),
       'max_videos': maxVideos,
     });
     _cache.invalidate('immersion:');
@@ -926,7 +976,8 @@ class ApiService {
     _cache.invalidate('immersion:');
   }
 
-  Future<Map<String, dynamic>> getListeningTracks({String? level, String? category, int page = 1, int limit = 200}) async {
+  Future<Map<String, dynamic>> getListeningTracks(
+      {String? level, String? category, int page = 1, int limit = 200}) async {
     final key = 'listening:$level:$category:$page:$limit';
     final cached = _cache.get(key);
     if (cached != null) return cached as Map<String, dynamic>;
@@ -952,7 +1003,10 @@ class ApiService {
       'source': source,
     });
     final data = res.data['data'] as List<dynamic>? ?? [];
-    return data.map((e) => ListeningExerciseQuestion.fromJson(e as Map<String, dynamic>)).toList();
+    return data
+        .map((e) =>
+            ListeningExerciseQuestion.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   /// 获取听力练习统计
@@ -967,7 +1021,8 @@ class ApiService {
   }
 
   // ─── News ─────────────────────────────────────────────────────────────────
-  Future<List<NewsArticleModel>> getNews({String? difficulty, String? query, int page = 1}) async {
+  Future<List<NewsArticleModel>> getNews(
+      {String? difficulty, String? query, int page = 1}) async {
     final key = 'news:$difficulty:$query:$page';
     final cached = _cache.get(key);
     if (cached != null) return cached as List<NewsArticleModel>;
@@ -976,7 +1031,9 @@ class ApiService {
       if (query != null) 'q': query,
       'page': page,
     });
-    final list = (res.data['data'] as List).map((e) => NewsArticleModel.fromJson(e)).toList();
+    final list = (res.data['data'] as List)
+        .map((e) => NewsArticleModel.fromJson(e))
+        .toList();
     _cache.set(key, list, AppConfig.cacheTtlLong);
     return list;
   }
@@ -989,7 +1046,9 @@ class ApiService {
   // ─── 新闻收藏 ───────────────────────────────────────────────────────────────
   Future<List<NewsFavoriteModel>> getNewsFavorites() async {
     final res = await _dio.get('/news/favorites');
-    return (res.data['data'] as List).map((e) => NewsFavoriteModel.fromJson(e)).toList();
+    return (res.data['data'] as List)
+        .map((e) => NewsFavoriteModel.fromJson(e))
+        .toList();
   }
 
   Future<bool> checkNewsFavorite(String newsType, String newsId) async {
@@ -1106,12 +1165,15 @@ class ApiService {
   }
 
   /// 获取 NHK 历史新闻（分页）
-  Future<Map<String, dynamic>> getNhkNewsHistory({String? category, int page = 1, int limit = 20}) async {
+  Future<Map<String, dynamic>> getNhkNewsHistory(
+      {String? category, int page = 1, int limit = 20}) async {
     final params = <String, dynamic>{'page': page, 'limit': limit};
     if (category != null) params['category'] = category;
     final res = await dio.get('/news/nhk/history', queryParameters: params);
     final data = (res.data['data'] as List?) ?? [];
-    final articles = data.map((j) => NewsArticleModel.fromJson(j as Map<String, dynamic>)).toList();
+    final articles = data
+        .map((j) => NewsArticleModel.fromJson(j as Map<String, dynamic>))
+        .toList();
     return {'total': res.data['total'] ?? 0, 'data': articles};
   }
 
@@ -1159,7 +1221,7 @@ class ApiService {
   }) async {
     int retries = 0;
     const maxRetries = 3;
-    
+
     while (retries <= maxRetries) {
       try {
         final res = await _dio.get('/shared-vocab/decks', queryParameters: {
@@ -1184,7 +1246,7 @@ class ApiService {
         rethrow;
       }
     }
-    
+
     throw Exception('加载共享词库失败：超过最大重试次数');
   }
 
@@ -1192,6 +1254,8 @@ class ApiService {
     final res = await _dio.get('/shared-vocab/default-decks');
     return Map<String, dynamic>.from(res.data as Map);
   }
+
+  Future<String?> getAccessToken() => _storage.read(key: 'access_token');
 
   Future<Map<String, dynamic>> createSharedVocabDeck({
     required String title,
@@ -1205,8 +1269,10 @@ class ApiService {
   }) async {
     final res = await _dio.post('/shared-vocab/decks', data: {
       'title': title,
-      if (description != null && description.trim().isNotEmpty) 'description': description.trim(),
-      if (coverBase64 != null && coverBase64.isNotEmpty) 'cover_image_base64': coverBase64,
+      if (description != null && description.trim().isNotEmpty)
+        'description': description.trim(),
+      if (coverBase64 != null && coverBase64.isNotEmpty)
+        'cover_image_base64': coverBase64,
       'source_type': sourceType,
       'visibility': visibility,
       if (jlptLevel != null && jlptLevel.isNotEmpty) 'jlpt_level': jlptLevel,
@@ -1227,7 +1293,8 @@ class ApiService {
         filename: file.path.split(Platform.pathSeparator).last,
       ),
     });
-    final res = await _dio.post('/shared-vocab/audio/upload', 
+    final res = await _dio.post(
+      '/shared-vocab/audio/upload',
       data: formData,
       onSendProgress: onProgress,
     );
@@ -1276,6 +1343,7 @@ class ApiService {
       }
       return data;
     }
+
     try {
       final res = await _dio.post('/progress/checkin');
       return await _handleResult(res);
@@ -1315,7 +1383,8 @@ class ApiService {
     return Map<String, dynamic>.from(res.data as Map);
   }
 
-  Future<Map<String, dynamic>> getStudyPlanQueue({String? level, int? dailyTarget}) async {
+  Future<Map<String, dynamic>> getStudyPlanQueue(
+      {String? level, int? dailyTarget}) async {
     final res = await _dio.get(
       '/progress/study-plan/queue',
       queryParameters: {
@@ -1354,7 +1423,8 @@ class ApiService {
 
   /// 翻译日语文本
   Future<String> aiTranslate(String text, {String targetLang = 'zh'}) async {
-    final res = await _dio.post('/ai/translate',
+    final res = await _dio.post(
+      '/ai/translate',
       data: {'text': text, 'targetLang': targetLang},
       options: Options(receiveTimeout: _aiTimeout),
     );
@@ -1363,7 +1433,8 @@ class ApiService {
 
   /// 日语句子词法分析
   Future<List<Map<String, dynamic>>> aiAnalyze(String text) async {
-    final res = await _dio.post('/ai/analyze',
+    final res = await _dio.post(
+      '/ai/analyze',
       data: {'text': text},
       options: Options(receiveTimeout: _aiTimeout),
     );
@@ -1371,8 +1442,10 @@ class ApiService {
   }
 
   /// 单词详解
-  Future<Map<String, dynamic>> aiWordDetail(String word, {String? pos, String? sentence}) async {
-    final res = await _dio.post('/ai/word-detail',
+  Future<Map<String, dynamic>> aiWordDetail(String word,
+      {String? pos, String? sentence}) async {
+    final res = await _dio.post(
+      '/ai/word-detail',
       data: {
         'word': word,
         if (pos != null) 'pos': pos,

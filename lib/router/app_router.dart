@@ -36,7 +36,6 @@ import '../screens/study/pronunciation_screen.dart';
 import '../screens/news/news_list_screen.dart';
 import '../screens/news/news_detail_screen.dart';
 import '../screens/news/nhk_detail_screen.dart';
-import '../screens/tools/todofuken_quiz_screen.dart';
 import '../screens/tools/translate_screen.dart';
 import '../screens/tools/study_plan_screen.dart';
 import '../screens/tools/study_plan_detail_screen.dart';
@@ -72,6 +71,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isOnAuthPage = state.matchedLocation == '/login' ||
           state.matchedLocation == '/register' ||
           state.matchedLocation == '/forgot-password';
+
+      if (state.uri.path == '/') {
+        return isAuth || isGuest ? '/home' : '/login';
+      }
 
       // 游客模式：允许访问非账户功能，拦截需要登录的路径
       if (!isAuth && isGuest) {
@@ -220,9 +223,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-              path: '/todofuken-quiz',
-              builder: (_, __) => const TodofukenQuizScreen()),
-          GoRoute(
               path: '/translate', builder: (_, __) => const TranslateScreen()),
           GoRoute(
               path: '/study-plan', builder: (_, __) => const StudyPlanScreen()),
@@ -335,7 +335,6 @@ class _MainShellState extends State<MainShell> {
     }
     if (location.startsWith('/dictionary') ||
         location.startsWith('/anki') ||
-        location.startsWith('/todofuken') ||
         location.startsWith('/translate') ||
         location.startsWith('/study-plan') ||
         location.startsWith('/wrong-answers') ||

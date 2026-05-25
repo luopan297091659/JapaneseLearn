@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_word_description">今日一词、签到和辞书搜索</string>
+    <string name="widget_dictionary_search_description">辞书检索搜索框</string>
+</resources>

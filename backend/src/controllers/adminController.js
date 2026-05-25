@@ -2299,8 +2299,12 @@ async function saveAiSettings(req, res) {
     if (typeof enabled === 'boolean') current.enabled = enabled;
     if (api_key !== undefined && api_key !== '') current.api_key = String(api_key);
     if (provider) current.provider = String(provider);
-    if (base_url) current.base_url = String(base_url);
-    if (model) current.model = String(model);
+    if (base_url) {
+      current.base_url = String(base_url).trim().replace(/\/chat\/completions\/?$/, '').replace(/\/+$/, '');
+    }
+    if (model) {
+      current.model = String(model).replace(/（.*?）|\(.*?\)/g, '').trim();
+    }
     if (daily_limit !== undefined) current.daily_limit = Math.max(0, parseInt(daily_limit, 10) || 0);
     if (alert_threshold !== undefined) current.alert_threshold = Math.min(100, Math.max(0, parseInt(alert_threshold, 10) || 80));
     current.updated_at = new Date().toISOString();

@@ -44,8 +44,7 @@ nav .nav-link {
 }
 nav .nav-link:hover { color: var(--primary); background: var(--primary-light); }
 nav .nav-link.active { color: var(--primary); }
-.auth-slot { width: 148px; min-height: 32px; display: flex; justify-content: flex-end; align-items: center; visibility: hidden; }
-body.auth-ready .auth-slot { visibility: visible; }
+.auth-slot { width: 148px; min-height: 32px; flex: 0 0 148px; }
 
 .page-header {
   margin-top: var(--nav-h); padding: 48px clamp(16px,6vw,80px) 36px;
@@ -158,7 +157,7 @@ footer {
 }
 </style>
 </head>
-<body class="auth-ready">
+<body>
 
 <nav>
   <div class="logo" onclick="location.href='/'">
@@ -168,12 +167,10 @@ footer {
   <div class="spacer"></div>
   <a class="nav-link" href="/">首页</a>
   <a class="nav-link" href="/membership">会员</a>
-  <a class="nav-link active" href="/support">支持</a>
   <a class="nav-link" href="/tools">工具箱</a>
   <a class="nav-link" href="/jlpt">JLPT真题</a>
-  <div class="auth-slot">
-    <a class="nav-link" id="loginBtn" href="javascript:void(0)" onclick="showAuthModal()">登录</a>
-  </div>
+  <a class="nav-link active" href="/support">支持</a>
+  <div class="auth-slot" aria-hidden="true"></div>
 </nav>
 
 <section class="page-header">

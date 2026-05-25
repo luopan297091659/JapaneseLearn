@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/dictionary_search_widget"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_search_shell"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="14dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="10dp">
+
+    <LinearLayout
+        android:id="@+id/dictionary_search_bar"
+        android:layout_width="0dp"
+        android:layout_height="42dp"
+        android:layout_marginEnd="10dp"
+        android:layout_weight="1"
+        android:background="@drawable/widget_search_bar"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="14dp"
+        android:paddingEnd="12dp">
+
+        <TextView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:background="@drawable/widget_search_icon_chip"
+            android:gravity="center"
+            android:text="⌕"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/dictionary_search_label"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="9dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="搜索 辞书"
+            android:textColor="#172033"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/dictionary_search_mic"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
+        android:background="@drawable/widget_search_round_button"
+        android:gravity="center"
+        android:text="あ"
+        android:textColor="#0F766E"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+</LinearLayout>
