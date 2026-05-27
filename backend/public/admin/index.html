@@ -471,22 +471,22 @@ tbody tr:hover td{background:#f8faff}
     <!-- 基本信息 -->
     <div style="border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin-bottom:12px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="form-row"><label>标题 *</label><input id="mg-title-input" placeholder="e.g. ～ている" /></div>
+        <div class="form-row"><label>文法 *</label><input id="mg-title-input" placeholder="e.g. ～ている" /></div>
         <div class="form-row"><label>级别</label>
           <select id="mg-level"><option>N5</option><option>N4</option><option>N3</option><option>N2</option><option>N1</option></select>
         </div>
       </div>
-      <div class="form-row"><label>说明 / 解释</label><textarea id="mg-desc" rows="3" placeholder="文型的中文说明和用法注解"></textarea></div>
+      <div class="form-row"><label>说明 *</label><textarea id="mg-desc" rows="3" placeholder="文型的中文说明和用法注解"></textarea></div>
     </div>
 
     <!-- 例句（带音频） -->
     <div style="border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <label style="display:block"><b>💡 例句（含音频）</b></label>
+        <label style="display:block"><b>💡 例句 *</b></label>
         <button class="btn btn-ghost btn-sm" onclick="addGrammarExampleRow()">➕ 添加例句</button>
       </div>
       <div id="mg-examples-container"></div>
-      <div style="font-size:12px;color:#999;margin-top:4px">每行包含：日文例句 | 中文释义，可选上传音频</div>
+      <div style="font-size:12px;color:#999;margin-top:4px">必填：日文例句 | 中文释义。音频可选。</div>
     </div>
 
     <div class="modal-actions">
@@ -3522,19 +3522,31 @@ async function editGrammar(id){
 
 async function saveGrammar(){
   const id=document.getElementById('mg-id').value;
+  const title = document.getElementById('mg-title-input').value.trim();
+  const description = document.getElementById('mg-desc').value.trim();
+  if (!title) return toast('请填写文法', true);
+  if (!description) return toast('请填写说明', true);
   
   // 收集例句
   const exampleRows = document.querySelectorAll('#mg-examples-container .example-row');
-  const examples = Array.from(exampleRows).map(row => ({
-    sentence: row.querySelector('.gex-jp').value.trim(),
-    meaning_zh: row.querySelector('.gex-zh').value.trim(),
-    audio_url: row.querySelector('.gex-audio').value.trim() || null,
-  })).filter(ex => ex.sentence);
+  const examples = [];
+  for (const row of exampleRows) {
+    const sentence = row.querySelector('.gex-jp').value.trim();
+    const meaning_zh = row.querySelector('.gex-zh').value.trim();
+    const audio_url = row.querySelector('.gex-audio').value.trim() || null;
+    if (!sentence && !meaning_zh && !audio_url) continue;
+    if (!sentence) return toast('请填写例句', true);
+    if (!meaning_zh) return toast('请填写例句中文释义', true);
+    examples.push({ sentence, meaning_zh, audio_url });
+  }
+  if (!examples.length) return toast('请至少填写一条例句', true);
   
   const body={
-    title: document.getElementById('mg-title-input').value.trim(),
-    jlpt_level: document.getElementById('mg-level').value,
-    explanation_zh: document.getElementById('mg-desc').value.trim(),
+    title,
+    pattern: title,
+    jlpt_level: document.getElementById('mg-level').value || 'N5',
+    explanation: description,
+    explanation_zh: description,
     examples,
   };
   try{

@@ -615,11 +615,20 @@ async function getGrammar(req, res) {
   }
 }
 
+function normalizeGrammarLessonData(data) {
+  const normalized = { ...data };
+  if (!normalized.pattern && normalized.title) normalized.pattern = normalized.title;
+  if (!normalized.explanation && normalized.explanation_zh) normalized.explanation = normalized.explanation_zh;
+  if (!normalized.explanation_zh && normalized.explanation) normalized.explanation_zh = normalized.explanation;
+  if (!normalized.jlpt_level) normalized.jlpt_level = 'N5';
+  return normalized;
+}
+
 async function createGrammar(req, res) {
   const t = await sequelize.transaction();
   try {
     const { examples = [], ...lessonData } = req.body;
-    const lesson = await GrammarLesson.create({ id: uuidv4(), ...lessonData }, { transaction: t });
+    const lesson = await GrammarLesson.create({ id: uuidv4(), ...normalizeGrammarLessonData(lessonData) }, { transaction: t });
     if (examples.length) {
       await GrammarExample.bulkCreate(examples.map(ex => ({ id: uuidv4(), grammar_lesson_id: lesson.id, ...ex })), { transaction: t });
     }
@@ -639,7 +648,7 @@ async function updateGrammar(req, res) {
     const lesson = await GrammarLesson.findByPk(req.params.id, { transaction: t });
     if (!lesson) { await t.rollback(); return res.status(404).json({ error: 'Not found' }); }
     const { examples, ...lessonData } = req.body;
-    await lesson.update(lessonData, { transaction: t });
+    await lesson.update(normalizeGrammarLessonData(lessonData), { transaction: t });
     if (Array.isArray(examples)) {
       await GrammarExample.destroy({ where: { grammar_lesson_id: lesson.id }, transaction: t });
       if (examples.length) {
