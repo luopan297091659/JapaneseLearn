@@ -5568,6 +5568,7 @@ async function activateTrial() {
 let _payChannel = null;
 let _payQrConfig = null;
 let _payProofFile = null;
+let _payChannelsConfig = {};
 
 async function showPaymentModal() {
   // 先加载套餐和QR配置
@@ -5577,13 +5578,18 @@ async function showPaymentModal() {
     plans = (data.plans || []).filter(p => p.enabled);
   } catch { plans = []; }
   try { _payQrConfig = await GET('/payment/qrcode/config'); } catch { _payQrConfig = null; }
+  try {
+    const payData = await GET('/payment/plans');
+    _payChannelsConfig = payData.channels || {};
+  } catch { _payChannelsConfig = {}; }
 
   _payChannel = null;
   _payProofFile = null;
 
   // 可用渠道
   const channels = [];
-  if (_payQrConfig && _payQrConfig.alipay && _payQrConfig.alipay.enabled) channels.push({ key: 'qrcode_alipay', icon: '💚', label: '支付宝' });
+  if (_payChannelsConfig.alipay_online) channels.push({ key: 'alipay_online', icon: '💙', label: '支付宝在线' });
+  if (!_payChannelsConfig.alipay_online && _payQrConfig && _payQrConfig.alipay && _payQrConfig.alipay.enabled) channels.push({ key: 'qrcode_alipay', icon: '💚', label: '支付宝' });
   if (_payQrConfig && _payQrConfig.wechat && _payQrConfig.wechat.enabled) channels.push({ key: 'qrcode_wechat', icon: '💬', label: '微信支付' });
   channels.push({ key: 'stripe', icon: '💳', label: 'Stripe 银行卡' });
 
@@ -5643,7 +5649,15 @@ function switchPayChannel(ch, btn) {
 
 function renderPayChannelBody() {
   const body = document.getElementById('payChannelBody');
-  if (_payChannel === 'stripe') {
+  if (_payChannel === 'alipay_online') {
+    body.innerHTML = `
+      <div style="text-align:center;padding:12px 0">
+        <p style="font-size:13px;color:var(--text-sub)">点击下方按钮跳转至支付宝线上支付</p>
+        <p style="font-size:11px;color:var(--text-hint);margin-top:4px">支付成功后会员将自动开通，无需上传截图</p>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;background:#1677ff;border-color:#1677ff" onclick="doAlipayCheckout()">前往支付宝支付</button>
+      ${_payQrConfig && _payQrConfig.alipay && _payQrConfig.alipay.enabled ? '<button class="btn" style="width:100%;justify-content:center;margin-top:8px" onclick="switchPayChannel(\'qrcode_alipay\',this)">使用二维码备用付款</button>' : ''}`;
+  } else if (_payChannel === 'stripe') {
     body.innerHTML = `
       <div style="text-align:center;padding:12px 0">
         <p style="font-size:13px;color:var(--text-sub)">点击下方按钮跳转至 Stripe 安全支付页面</p>
@@ -5714,6 +5728,18 @@ async function doSubmitQrProof() {
     toast(err.message);
   } finally {
     btn.disabled = false; btn.textContent = '提交付款截图';
+  }
+}
+
+async function doAlipayCheckout() {
+  const planId = getSelectedPlanId();
+  if (!planId) { toast('请选择套餐'); return; }
+  try {
+    const data = await POST('/payment/alipay/create-order', { plan_id: planId, pay_type: 'page' });
+    if (data.payment_url) window.location.href = data.payment_url;
+    else toast('无法创建支付宝订单');
+  } catch (err) {
+    toast(err.message || '支付宝支付请求失败');
   }
 }
 

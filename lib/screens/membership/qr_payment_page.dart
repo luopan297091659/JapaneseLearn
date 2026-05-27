@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
 import '../../services/payment_service.dart';
 
@@ -19,8 +20,10 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
   bool _loading = true;
   Map<String, dynamic> _alipay = {};
   Map<String, dynamic> _wechat = {};
+  bool _alipayOnlineEnabled = false;
   bool _stripeEnabled = false;
-  String _selectedChannel = ''; // 'qrcode_alipay' | 'qrcode_wechat' | 'stripe'
+  String _selectedChannel =
+      ''; // 'alipay_online' | 'qrcode_alipay' | 'qrcode_wechat' | 'stripe'
   Uint8List? _proofImage;
   String? _proofFileName;
   bool _submitting = false;
@@ -46,9 +49,13 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
         setState(() {
           _alipay = Map<String, dynamic>.from(qrConfig['alipay'] ?? {});
           _wechat = Map<String, dynamic>.from(qrConfig['wechat'] ?? {});
+          // 当前支付宝仅开通电脑网站支付，Android App 内暂不展示线上支付宝，避免调用 WAP 接口失败。
+          _alipayOnlineEnabled = false;
           _stripeEnabled = channels['stripe'] == true;
-          // 自动选择第一个可用渠道：优先 Stripe
-          if (_stripeEnabled) {
+          // 自动选择第一个可用渠道：优先支付宝线上支付
+          if (_alipayOnlineEnabled) {
+            _selectedChannel = 'alipay_online';
+          } else if (_stripeEnabled) {
             _selectedChannel = 'stripe';
           } else if (_alipay['enabled'] == true) {
             _selectedChannel = 'qrcode_alipay';
@@ -65,7 +72,8 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1200, imageQuality: 85);
+    final picked = await picker.pickImage(
+        source: ImageSource.gallery, maxWidth: 1200, imageQuality: 85);
     if (picked != null) {
       final bytes = await picked.readAsBytes();
       if (mounted) {
@@ -97,7 +105,10 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
       if (mounted) {
         setState(() => _submitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('提交失败：${e.toString().replaceAll('Exception: ', '')}'), backgroundColor: Colors.red),
+          SnackBar(
+              content:
+                  Text('提交失败：${e.toString().replaceAll('Exception: ', '')}'),
+              backgroundColor: Colors.red),
         );
       }
     }
@@ -128,10 +139,13 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
                     const SizedBox(height: 20),
                     _buildChannelSelector(cs),
                     const SizedBox(height: 20),
-                    if (_selectedChannel == 'stripe')
+                    if (_selectedChannel == 'alipay_online')
+                      _buildAlipayOnlineSection(cs)
+                    else if (_selectedChannel == 'stripe')
                       _buildStripeSection(cs)
                     else ...[
-                      if (_selectedChannel.isNotEmpty) _buildQrCodeSection(cs, price),
+                      if (_selectedChannel.isNotEmpty)
+                        _buildQrCodeSection(cs, price),
                       const SizedBox(height: 24),
                       _buildUploadSection(cs),
                       const SizedBox(height: 24),
@@ -143,7 +157,8 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
     );
   }
 
-  Widget _buildPlanSummary(ColorScheme cs, Map<String, dynamic> plan, int price) {
+  Widget _buildPlanSummary(
+      ColorScheme cs, Map<String, dynamic> plan, int price) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -160,39 +175,71 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(plan['name']?.toString() ?? '', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(plan['name']?.toString() ?? '',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text(plan['description']?.toString() ?? '', style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12)),
+                Text(plan['description']?.toString() ?? '',
+                    style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontSize: 12)),
               ],
             ),
           ),
-          Text('¥$price', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+          Text('¥$price',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900)),
         ],
       ),
     );
   }
 
   Widget _buildChannelSelector(ColorScheme cs) {
-    final alipayEnabled = _alipay['enabled'] == true;
+    final alipayEnabled = !_alipayOnlineEnabled && _alipay['enabled'] == true;
     final wechatEnabled = _wechat['enabled'] == true;
-    final anyEnabled = alipayEnabled || wechatEnabled || _stripeEnabled;
+    final anyEnabled = _alipayOnlineEnabled ||
+        alipayEnabled ||
+        wechatEnabled ||
+        _stripeEnabled;
     if (!anyEnabled) {
       return Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: cs.errorContainer, borderRadius: BorderRadius.circular(12)),
-        child: Text('暂无可用支付渠道，请联系客服', style: TextStyle(color: cs.onErrorContainer)),
+        decoration: BoxDecoration(
+            color: cs.errorContainer, borderRadius: BorderRadius.circular(12)),
+        child: Text('暂无可用支付渠道，请联系客服',
+            style: TextStyle(color: cs.onErrorContainer)),
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('选择支付方式', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: cs.onSurface)),
+        Text('选择支付方式',
+            style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: cs.onSurface)),
         const SizedBox(height: 10),
         Wrap(
           spacing: 10,
           runSpacing: 10,
           children: [
+            if (_alipayOnlineEnabled)
+              SizedBox(
+                width: double.infinity,
+                child: _ChannelChip(
+                  label: '支付宝在线支付',
+                  icon: Icons.account_balance_wallet,
+                  color: const Color(0xFF1677FF),
+                  selected: _selectedChannel == 'alipay_online',
+                  onTap: () =>
+                      setState(() => _selectedChannel = 'alipay_online'),
+                ),
+              ),
             if (_stripeEnabled)
               SizedBox(
                 width: alipayEnabled || wechatEnabled
@@ -214,7 +261,8 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
                   icon: Icons.account_balance_wallet,
                   color: const Color(0xFF1677FF),
                   selected: _selectedChannel == 'qrcode_alipay',
-                  onTap: () => setState(() => _selectedChannel = 'qrcode_alipay'),
+                  onTap: () =>
+                      setState(() => _selectedChannel = 'qrcode_alipay'),
                 ),
               ),
             if (wechatEnabled)
@@ -225,13 +273,123 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
                   icon: Icons.chat_bubble,
                   color: const Color(0xFF07C160),
                   selected: _selectedChannel == 'qrcode_wechat',
-                  onTap: () => setState(() => _selectedChannel = 'qrcode_wechat'),
+                  onTap: () =>
+                      setState(() => _selectedChannel = 'qrcode_wechat'),
                 ),
               ),
           ],
         ),
       ],
     );
+  }
+
+  Widget _buildAlipayOnlineSection(ColorScheme cs) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1677FF).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.account_balance_wallet,
+                size: 28, color: Color(0xFF1677FF)),
+          ),
+          const SizedBox(height: 16),
+          const Text('支付宝在线支付',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(
+            '支付完成后会自动开通会员，无需上传截图。若支付后页面未刷新，可返回会员页下拉刷新。',
+            style: TextStyle(
+                fontSize: 13, color: cs.onSurfaceVariant, height: 1.5),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _submitting ? null : _goAlipayOnline,
+              icon: _submitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.open_in_new_rounded, size: 18),
+              label: Text(_submitting ? '正在打开...' : '前往支付宝支付'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF1677FF),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                textStyle:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          if (_alipay['enabled'] == true) ...[
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () =>
+                  setState(() => _selectedChannel = 'qrcode_alipay'),
+              icon: const Icon(Icons.qr_code_2_rounded, size: 18),
+              label: const Text('使用二维码备用付款'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _goAlipayOnline() async {
+    setState(() => _submitting = true);
+    try {
+      final result = await apiService.createAlipayOrder(
+        planId: widget.plan['id'] ?? '',
+      );
+      final url = result['payment_url']?.toString() ?? '';
+      if (url.isEmpty) throw Exception('支付链接为空');
+      final uri = Uri.parse(url);
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok) throw Exception('无法打开支付宝支付链接');
+      if (mounted) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已打开支付宝，支付完成后请返回刷新会员状态')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('打开支付宝失败：${_paymentErrorText(e)}'),
+              backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  String _paymentErrorText(Object error) {
+    final dynamic e = error;
+    final data = e.response?.data;
+    if (data is Map) {
+      final message = data['error'] ?? data['message'];
+      if (message != null && message.toString().trim().isNotEmpty) {
+        return message.toString();
+      }
+    }
+    return error.toString().replaceAll('Exception: ', '');
   }
 
   Widget _buildStripeSection(ColorScheme cs) {
@@ -251,14 +409,17 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
               color: const Color(0xFF635BFF).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.credit_card, size: 28, color: Color(0xFF635BFF)),
+            child: const Icon(Icons.credit_card,
+                size: 28, color: Color(0xFF635BFF)),
           ),
           const SizedBox(height: 16),
-          const Text('安全银行卡支付', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text('安全银行卡支付',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Text(
             '支持 Visa、Mastercard、银联等国际卡\n由 Stripe 安全处理，支付成功即刻开通',
-            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant, height: 1.5),
+            style: TextStyle(
+                fontSize: 13, color: cs.onSurfaceVariant, height: 1.5),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
@@ -267,15 +428,21 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
             child: FilledButton.icon(
               onPressed: _submitting ? null : _goStripeCheckout,
               icon: _submitting
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.lock_outlined, size: 18),
               label: Text(_submitting ? '跳转中...' : '前往安全支付'),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF635BFF),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                textStyle:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -285,7 +452,8 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
             children: [
               Icon(Icons.verified_user, size: 14, color: cs.outline),
               const SizedBox(width: 4),
-              Text('SSL 加密 · 无需人工审核 · 即时开通', style: TextStyle(fontSize: 11, color: cs.outline)),
+              Text('SSL 加密 · 无需人工审核 · 即时开通',
+                  style: TextStyle(fontSize: 11, color: cs.outline)),
             ],
           ),
         ],
@@ -315,7 +483,10 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
       if (mounted) {
         setState(() => _submitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('打开支付页失败：${e.toString().replaceAll('Exception: ', '')}'), backgroundColor: Colors.red),
+          SnackBar(
+              content:
+                  Text('打开支付页失败：${e.toString().replaceAll('Exception: ', '')}'),
+              backgroundColor: Colors.red),
         );
       }
     }
@@ -324,7 +495,8 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
   Widget _buildQrCodeSection(ColorScheme cs, int price) {
     final isAlipay = _selectedChannel == 'qrcode_alipay';
     final qrUrl = isAlipay ? _alipay['qr_url'] : _wechat['qr_url'];
-    final channelColor = isAlipay ? const Color(0xFF1677FF) : const Color(0xFF07C160);
+    final channelColor =
+        isAlipay ? const Color(0xFF1677FF) : const Color(0xFF07C160);
     final channelName = isAlipay ? '支付宝' : '微信';
 
     return Container(
@@ -336,9 +508,14 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
       ),
       child: Column(
         children: [
-          Text('请使用$channelName扫描下方二维码', style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
+          Text('请使用$channelName扫描下方二维码',
+              style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
           const SizedBox(height: 4),
-          Text('支付金额：¥$price', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: channelColor)),
+          Text('支付金额：¥$price',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: channelColor)),
           const SizedBox(height: 16),
           // QR 码图片
           Container(
@@ -347,7 +524,8 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: channelColor.withValues(alpha: 0.3), width: 2),
+              border: Border.all(
+                  color: channelColor.withValues(alpha: 0.3), width: 2),
             ),
             child: qrUrl != null && qrUrl.toString().startsWith('http')
                 ? ClipRRect(
@@ -361,7 +539,9 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
                           children: [
                             Icon(Icons.qr_code_2, size: 48, color: cs.outline),
                             const SizedBox(height: 8),
-                            Text('二维码加载失败', style: TextStyle(fontSize: 12, color: cs.outline)),
+                            Text('二维码加载失败',
+                                style:
+                                    TextStyle(fontSize: 12, color: cs.outline)),
                           ],
                         ),
                       ),
@@ -373,7 +553,8 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
                       children: [
                         Icon(Icons.qr_code_2, size: 48, color: cs.outline),
                         const SizedBox(height: 8),
-                        Text('二维码配置中', style: TextStyle(fontSize: 12, color: cs.outline)),
+                        Text('二维码配置中',
+                            style: TextStyle(fontSize: 12, color: cs.outline)),
                       ],
                     ),
                   ),
@@ -387,12 +568,14 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline, size: 16, color: Color(0xFF92400E)),
+                const Icon(Icons.info_outline,
+                    size: 16, color: Color(0xFF92400E)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     '支付完成后，请截图保存支付凭证，并在下方上传',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+                    style:
+                        const TextStyle(fontSize: 12, color: Color(0xFF92400E)),
                   ),
                 ),
               ],
@@ -407,7 +590,11 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('上传支付截图', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: cs.onSurface)),
+        Text('上传支付截图',
+            style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: cs.onSurface)),
         const SizedBox(height: 10),
         GestureDetector(
           onTap: _pickImage,
@@ -420,7 +607,8 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
               border: Border.all(
                 color: _proofImage != null ? Colors.green : cs.outlineVariant,
                 width: _proofImage != null ? 2 : 1,
-                style: _proofImage != null ? BorderStyle.solid : BorderStyle.none,
+                style:
+                    _proofImage != null ? BorderStyle.solid : BorderStyle.none,
               ),
             ),
             child: _proofImage != null
@@ -428,7 +616,8 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.memory(_proofImage!, width: double.infinity, fit: BoxFit.cover),
+                        child: Image.memory(_proofImage!,
+                            width: double.infinity, fit: BoxFit.cover),
                       ),
                       Positioned(
                         top: 8,
@@ -437,8 +626,10 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
                           onTap: _pickImage,
                           child: Container(
                             padding: const EdgeInsets.all(6),
-                            decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                            child: const Icon(Icons.refresh, color: Colors.white, size: 18),
+                            decoration: const BoxDecoration(
+                                color: Colors.black54, shape: BoxShape.circle),
+                            child: const Icon(Icons.refresh,
+                                color: Colors.white, size: 18),
                           ),
                         ),
                       ),
@@ -448,11 +639,15 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.cloud_upload_outlined, size: 36, color: cs.outline),
+                        Icon(Icons.cloud_upload_outlined,
+                            size: 36, color: cs.outline),
                         const SizedBox(height: 8),
-                        Text('点击选择支付截图', style: TextStyle(fontSize: 13, color: cs.outline)),
+                        Text('点击选择支付截图',
+                            style: TextStyle(fontSize: 13, color: cs.outline)),
                         const SizedBox(height: 2),
-                        Text('支持 JPG、PNG 格式', style: TextStyle(fontSize: 11, color: cs.outlineVariant)),
+                        Text('支持 JPG、PNG 格式',
+                            style: TextStyle(
+                                fontSize: 11, color: cs.outlineVariant)),
                       ],
                     ),
                   ),
@@ -463,20 +658,26 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
   }
 
   Widget _buildSubmitButton(ColorScheme cs) {
-    final canSubmit = _proofImage != null && _selectedChannel.isNotEmpty && !_submitting;
+    final canSubmit =
+        _proofImage != null && _selectedChannel.isNotEmpty && !_submitting;
     return SizedBox(
       width: double.infinity,
       child: FilledButton.icon(
         onPressed: canSubmit ? _submit : null,
         icon: _submitting
-            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white))
             : const Icon(Icons.upload_file_rounded, size: 20),
         label: Text(_submitting ? '提交中...' : '提交支付凭证'),
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFFF59E0B),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           disabledBackgroundColor: cs.surfaceContainerHighest,
         ),
@@ -498,22 +699,27 @@ class _QrPaymentPageState extends State<QrPaymentPage> {
                 color: const Color(0xFF10B981).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Center(child: Text('✅', style: TextStyle(fontSize: 40))),
+              child: const Center(
+                  child: Text('✅', style: TextStyle(fontSize: 40))),
             ),
             const SizedBox(height: 24),
-            const Text('支付凭证已提交', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text('支付凭证已提交',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Text(
               '管理员将在24小时内审核您的订单\n审核通过后会员权益将自动生效',
-              style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant, height: 1.6),
+              style: TextStyle(
+                  fontSize: 14, color: cs.onSurfaceVariant, height: 1.6),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
             FilledButton(
               onPressed: () => context.pop(),
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
               child: const Text('返回'),
             ),
@@ -551,20 +757,27 @@ class _ChannelChip extends StatelessWidget {
           color: selected ? color.withValues(alpha: 0.1) : null,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? color : Theme.of(context).colorScheme.outlineVariant,
+            color:
+                selected ? color : Theme.of(context).colorScheme.outlineVariant,
             width: selected ? 2 : 1,
           ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 20, color: selected ? color : Theme.of(context).colorScheme.outline),
+            Icon(icon,
+                size: 20,
+                color:
+                    selected ? color : Theme.of(context).colorScheme.outline),
             const SizedBox(width: 8),
-            Text(label, style: TextStyle(
-              fontSize: 14,
-              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-              color: selected ? color : Theme.of(context).colorScheme.onSurface,
-            )),
+            Text(label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                  color: selected
+                      ? color
+                      : Theme.of(context).colorScheme.onSurface,
+                )),
           ],
         ),
       ),
@@ -580,7 +793,8 @@ class DashedBorderContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _DashedBorderPainter(color: Theme.of(context).colorScheme.outlineVariant),
+      painter: _DashedBorderPainter(
+          color: Theme.of(context).colorScheme.outlineVariant),
       child: SizedBox(
         width: double.infinity,
         height: 120,
@@ -602,14 +816,18 @@ class _DashedBorderPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
     const dashWidth = 6.0;
     const dashSpace = 4.0;
-    final rrect = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(14));
+    final rrect =
+        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(14));
     final path = Path()..addRRect(rrect);
     final metrics = path.computeMetrics();
     for (final metric in metrics) {
       double distance = 0;
       while (distance < metric.length) {
         final end = distance + dashWidth;
-        canvas.drawPath(metric.extractPath(distance, end > metric.length ? metric.length : end), paint);
+        canvas.drawPath(
+            metric.extractPath(
+                distance, end > metric.length ? metric.length : end),
+            paint);
         distance = end + dashSpace;
       }
     }

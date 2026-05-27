@@ -337,6 +337,15 @@ footer { text-align: center; padding: 28px 16px; font-size: 12px; color: var(--t
   </div>
 </div>
 
+<div class="modal-overlay" id="paymentModal">
+  <div class="modal" style="position:relative;">
+    <button class="modal-close" onclick="closePaymentModal()">✕</button>
+    <h2>选择支付方式</h2>
+    <p class="subtitle" id="paymentPlanTitle">请选择本次支付渠道</p>
+    <div id="paymentMethods" style="display:flex;flex-direction:column;gap:10px;margin-top:16px"></div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -589,11 +598,16 @@ function currentUserRank() {
   return planRankOf(currentUser.membership_plan);
 }
 let _plansCache = [];
+let _paymentChannels = {};
 
 // ── Load Plans ──
 async function loadPlans() {
   try {
     const data = await fetch(API + '/sync/membership-plans').then(r => r.json());
+    try {
+      const payData = await fetch(API + '/payment/plans').then(r => r.json());
+      _paymentChannels = payData.channels || {};
+    } catch { _paymentChannels = {}; }
     const plans = (data.plans || []).filter(p => p.enabled);
     _plansCache = plans;
     renderPlans(plans);
@@ -665,13 +679,66 @@ function handleBuy(planId) {
     showAuthModal();
     return;
   }
-  startCheckout(planId);
+  showPaymentModal(planId);
 }
 
-async function startCheckout(planId) {
+function showPaymentModal(planId) {
+  const plan = _plansCache.find(p => p.id === planId) || {};
+  const methods = [];
+  if (_paymentChannels.alipay_online) {
+    methods.push({
+      key: 'alipay',
+      title: '支付宝在线支付',
+      desc: '推荐使用，支付成功后自动开通',
+      color: '#1677ff',
+      icon: '💙',
+    });
+  }
+  if (_paymentChannels.stripe !== false) {
+    methods.push({
+      key: 'stripe',
+      title: 'Stripe 银行卡支付',
+      desc: '支持 Visa / Mastercard / JCB 等银行卡',
+      color: '#635bff',
+      icon: '💳',
+    });
+  }
+
+  if (!methods.length) {
+    showToast('暂无可用支付渠道', 'error');
+    return;
+  }
+
+  document.getElementById('paymentPlanTitle').textContent =
+    `${plan.name || '会员套餐'} · ¥${plan.price || ''}`;
+  document.getElementById('paymentMethods').innerHTML = methods.map(m => `
+    <button class="modal-btn" onclick="startCheckout('${esc(planId)}','${m.key}')" style="background:${m.color};display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;padding:13px 14px">
+      <span>
+        <strong style="display:block;font-size:14px">${m.icon} ${m.title}</strong>
+        <small style="display:block;font-size:11px;opacity:.85;margin-top:2px">${m.desc}</small>
+      </span>
+      <span>继续</span>
+    </button>
+  `).join('');
+  document.getElementById('paymentModal').classList.add('show');
+}
+
+function closePaymentModal() {
+  document.getElementById('paymentModal').classList.remove('show');
+}
+
+async function startCheckout(planId, channel = 'alipay') {
   const btns = document.querySelectorAll('.plan-btn-primary');
   btns.forEach(b => { b.disabled = true; b.classList.add('btn-loading'); });
   try {
+    if (channel === 'alipay') {
+      const alipay = await apiCall('POST', '/payment/alipay/create-order', { plan_id: planId, pay_type: 'page' });
+      if (alipay.payment_url) {
+        window.location.href = alipay.payment_url;
+        return;
+      }
+    }
+    closePaymentModal();
     const data = await apiCall('POST', '/stripe/create-checkout-session', { planId });
     if (data.url) {
       window.location.href = data.url;

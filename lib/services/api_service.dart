@@ -514,6 +514,22 @@ class ApiService {
     return Map<String, dynamic>.from(res.data);
   }
 
+  /// 创建支付宝线上支付订单
+  Future<Map<String, dynamic>> createAlipayOrder({
+    required String planId,
+  }) async {
+    final res = await _dio.post('/payment/alipay/create-order', data: {
+      'plan_id': planId,
+    });
+    return Map<String, dynamic>.from(res.data);
+  }
+
+  /// 查询支付宝线上支付订单状态
+  Future<Map<String, dynamic>> getAlipayOrderStatus(String orderId) async {
+    final res = await _dio.get('/payment/alipay/order/$orderId');
+    return Map<String, dynamic>.from(res.data);
+  }
+
   /// 获取二维码收款配置
   Future<Map<String, dynamic>> getQrCodeConfig() async {
     final res = await _dio.get('/payment/qrcode/config');

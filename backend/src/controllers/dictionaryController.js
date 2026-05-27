@@ -347,6 +347,16 @@ async function lookupWithAI(query) {
   }
 }
 
+// ─── 清理 reading 中的括号 ──────────────────────────────────────────────────────
+/**
+ * 去除 reading 中的 [] 或【】 括号
+ * 例如: "[しゃいん]" -> "しゃいん", "社員[しゃいん]" -> "社員しゃいん"
+ */
+function cleanReading(reading) {
+  if (!reading) return '';
+  return reading.replace(/[\[\【]/g, '').replace(/[\]\】]/g, '');
+}
+
 /**
  * 将 DictEntry 数据库行转为前端兼容的结果格式
  */
@@ -367,15 +377,17 @@ function dictEntryToResult(row) {
     });
   }
 
+  const cleanedReading = cleanReading(row.reading || '');
+  
   return {
-    slug: row.kanji || row.reading,
+    slug: row.kanji || cleanedReading,
     url: '',
     is_common: row.priority >= 4,
     tags: [],
     jlpt: row.jlpt ? [`jlpt-n${row.jlpt}`] : [],
-    japanese: [{ word: row.kanji, reading: row.reading }],
-    word: row.kanji || row.reading,
-    reading: row.reading || '',
+    japanese: [{ word: row.kanji, reading: cleanedReading }],
+    word: row.kanji || cleanedReading,
+    reading: cleanedReading,
     meanings,
     attribution: {},
     source: 'local',
@@ -405,15 +417,16 @@ function fetchJisho(url) {
 function normalizeJishoEntry(entry) {
   const japanese = entry.japanese || [];
   const senses = entry.senses || [];
+  const cleanedReading = cleanReading(japanese[0]?.reading || '');
   return {
     slug: entry.slug,
     url: `https://jisho.org/word/${entry.slug}`,
     is_common: entry.is_common || false,
     tags: entry.tags || [],
     jlpt: entry.jlpt || [],
-    japanese: japanese.map(j => ({ word: j.word, reading: j.reading })),
+    japanese: japanese.map(j => ({ word: j.word, reading: cleanReading(j.reading || '') })),
     word: japanese[0]?.word || entry.slug,
-    reading: japanese[0]?.reading || '',
+    reading: cleanedReading,
     meanings: senses.map(s => ({
       parts_of_speech: s.parts_of_speech || [],
       english_definitions: s.english_definitions || [],

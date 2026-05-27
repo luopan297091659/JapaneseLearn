@@ -2,4 +2,5 @@
 <resources>
     <string name="widget_word_description">今日一词、签到和辞书搜索</string>
     <string name="widget_dictionary_search_description">辞书检索搜索框</string>
+    <string name="widget_jlpt_countdown_description">JLPT 考试倒计时</string>
 </resources>

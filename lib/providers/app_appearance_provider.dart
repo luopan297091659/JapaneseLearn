@@ -41,16 +41,21 @@ extension AppAppearanceModeX on AppAppearanceMode {
     }
   }
 
-  static AppAppearanceMode fromValue(String? value) {
+  static AppAppearanceMode? tryParse(String? value) {
     switch (value) {
       case 'anime':
         return AppAppearanceMode.anime;
       case 'sakura':
         return AppAppearanceMode.sakura;
+      case 'classic':
+        return AppAppearanceMode.classic;
       default:
-        return _defaultAppearanceMode;
+        return null;
     }
   }
+
+  static AppAppearanceMode fromValue(String? value) =>
+      tryParse(value) ?? _defaultAppearanceMode;
 }
 
 const _kAppearanceModeKey = 'app_appearance_mode';
@@ -77,9 +82,21 @@ class AppAppearanceNotifier extends Notifier<AppAppearanceMode> {
   }
 
   Future<void> applySavedValue(String? value) async {
-    final mode = AppAppearanceModeX.fromValue(value);
-    state = mode;
+    final mode = AppAppearanceModeX.tryParse(value);
+    if (mode == null) return;
     final prefs = await SharedPreferences.getInstance();
+    final localValue = prefs.getString(_kAppearanceModeKey);
+    final pendingValue = prefs.getString(_kPendingAppearanceModeSyncKey);
+    if (pendingValue != null && pendingValue.isNotEmpty) {
+      return;
+    }
+    if (localValue != null &&
+        localValue.isNotEmpty &&
+        localValue != mode.value) {
+      await syncCurrentModeToRemote();
+      return;
+    }
+    state = mode;
     await prefs.setString(_kAppearanceModeKey, mode.value);
     await prefs.remove(_kPendingAppearanceModeSyncKey);
   }

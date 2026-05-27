@@ -19,6 +19,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const { sendOrderNotification } = require('../services/emailService');
 const { handleAppleNotification } = require('../services/appleNotifications');
 
@@ -41,6 +42,154 @@ function readConfig() {
 function readPlans() {
   const config = readConfig();
   return (config.plans || []).filter(p => p.enabled !== false && p.id !== 'free');
+}
+
+function resolveProjectPath(filePath) {
+  if (!filePath) return '';
+  return path.isAbsolute(filePath) ? filePath : path.join(__dirname, '../../', filePath);
+}
+
+function readSecretValue(value, filePath) {
+  if (value && String(value).trim()) return String(value).replace(/\\n/g, '\n').trim();
+  const resolved = resolveProjectPath(filePath);
+  if (resolved && fs.existsSync(resolved)) return fs.readFileSync(resolved, 'utf8').trim();
+  return '';
+}
+
+function normalizePem(raw, label) {
+  const text = String(raw || '').replace(/\\n/g, '\n').trim();
+  if (!text) return '';
+  if (text.includes('BEGIN ')) return text;
+  const body = text.replace(/\s+/g, '').match(/.{1,64}/g)?.join('\n') || text;
+  return `-----BEGIN ${label}-----\n${body}\n-----END ${label}-----`;
+}
+
+function getBaseUrl(req) {
+  return (process.env.BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+}
+
+function getAlipayConfig(req) {
+  const payment = readConfig().payment || {};
+  const appId = process.env.ALIPAY_APP_ID || payment.alipay_appid || '';
+  const privateKey = normalizePem(
+    readSecretValue(process.env.ALIPAY_APP_PRIVATE_KEY, process.env.ALIPAY_APP_PRIVATE_KEY_PATH),
+    'PRIVATE KEY',
+  );
+  const publicKey = normalizePem(
+    readSecretValue(process.env.ALIPAY_PUBLIC_KEY, process.env.ALIPAY_PUBLIC_KEY_PATH),
+    'PUBLIC KEY',
+  );
+  const baseUrl = getBaseUrl(req);
+  const envDisabled = process.env.ALIPAY_ENABLED === 'false';
+  const adminEnabled = !!payment.alipay_enabled && !!payment.alipay_online_enabled;
+  return {
+    enabled: !envDisabled && adminEnabled,
+    appId,
+    privateKey,
+    publicKey,
+    gateway: process.env.ALIPAY_GATEWAY || payment.alipay_gateway || 'https://openapi.alipay.com/gateway.do',
+    notifyUrl: process.env.ALIPAY_NOTIFY_URL || payment.alipay_notify_url || `${baseUrl}/api/v1/payment/alipay/notify`,
+    returnUrl: process.env.ALIPAY_RETURN_URL || payment.alipay_return_url || `${baseUrl}/membership?status=success`,
+  };
+}
+
+function isAlipayOnlineReady(req) {
+  const cfg = getAlipayConfig(req);
+  return !!(cfg.enabled && cfg.appId && cfg.privateKey && cfg.publicKey);
+}
+
+function buildSignContent(params) {
+  return Object.keys(params)
+    .filter(key => params[key] !== undefined && params[key] !== null && params[key] !== '' && key !== 'sign')
+    .sort()
+    .map(key => `${key}=${params[key]}`)
+    .join('&');
+}
+
+function signAlipayParams(params, privateKey) {
+  const signer = crypto.createSign('RSA-SHA256');
+  signer.update(buildSignContent(params), 'utf8');
+  signer.end();
+  return signer.sign(privateKey, 'base64');
+}
+
+function verifyAlipayNotify(params, publicKey) {
+  const sign = params.sign;
+  if (!sign) return false;
+  const verifier = crypto.createVerify('RSA-SHA256');
+  verifier.update(buildSignContent(params), 'utf8');
+  verifier.end();
+  return verifier.verify(publicKey, sign, 'base64');
+}
+
+function getAlipayPayConfig(payType) {
+  if (payType === 'page') {
+    return {
+      method: 'alipay.trade.page.pay',
+      productCode: 'FAST_INSTANT_TRADE_PAY',
+    };
+  }
+  return {
+    method: 'alipay.trade.wap.pay',
+    productCode: 'QUICK_WAP_WAY',
+  };
+}
+
+function buildAlipayFormParams({ cfg, order, plan, returnUrl, payType }) {
+  const payConfig = getAlipayPayConfig(payType);
+  const params = {
+    app_id: cfg.appId,
+    method: payConfig.method,
+    charset: 'utf-8',
+    sign_type: 'RSA2',
+    timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+    version: '1.0',
+    notify_url: cfg.notifyUrl,
+    return_url: returnUrl || cfg.returnUrl,
+    biz_content: JSON.stringify({
+      out_trade_no: order.alipay_out_trade_no,
+      total_amount: Number(plan.price).toFixed(2),
+      subject: `Kotabi会员-${plan.name || plan.id}`,
+      product_code: payConfig.productCode,
+      timeout_express: '30m',
+    }),
+  };
+  params.sign = signAlipayParams(params, cfg.privateKey);
+  return params;
+}
+
+function renderAlipayAutoSubmitPage(gateway, params) {
+  const charset = params.charset || 'utf-8';
+  const actionUrl = `${gateway}${gateway.includes('?') ? '&' : '?'}charset=${encodeURIComponent(charset)}`;
+  const inputs = Object.entries(params)
+    .filter(([key]) => key !== 'charset')
+    .map(([key, value]) => `<input type="hidden" name="${escapeHtml(key)}" value="${escapeHtml(value)}" />`)
+    .join('\n');
+  return `<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>支付宝支付</title></head>
+<body>
+  <p>正在跳转到支付宝支付...</p>
+  <form id="alipay-form" method="post" accept-charset="${escapeHtml(charset)}" action="${escapeHtml(actionUrl)}">
+    ${inputs}
+    <button type="submit">如果没有自动跳转，请点击这里继续支付</button>
+  </form>
+  <script>
+    window.addEventListener('load', function () {
+      document.getElementById('alipay-form').submit();
+    });
+  </script>
+</body>
+</html>`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function calcExpire(period, baseDate) {
@@ -86,6 +235,7 @@ router.get('/plans', asyncHandler(async (req, res) => {
   const config = readConfig();
   const plans = (config.plans || []).filter(p => p.enabled !== false);
   const payment = config.payment || {};
+  const alipayOnlineReady = isAlipayOnlineReady(req);
   res.json({
     plans: plans.map(p => ({
       id: p.id,
@@ -97,12 +247,132 @@ router.get('/plans', asyncHandler(async (req, res) => {
       apple_product_id: p.apple_product_id || null,
     })),
     channels: {
+      alipay_online: alipayOnlineReady,
       apple_iap: !!payment.apple_iap_enabled,
       stripe: !!payment.stripe_enabled,
-      qrcode_alipay: !!payment.alipay_enabled && !!payment.alipay_qr_url,
+      qrcode_alipay: !alipayOnlineReady && !!payment.alipay_enabled && !!payment.alipay_qr_url,
       qrcode_wechat: !!payment.wechat_enabled && !!payment.wechat_qr_url,
     },
     notice: config.notice || '',
+  });
+}));
+
+// ── Alipay online payment ───────────────────────────────────────────────────
+router.post('/alipay/create-order', authenticate, asyncHandler(async (req, res) => {
+  const { plan_id, pay_type } = req.body || {};
+  if (!plan_id) throw new HttpError(400, '请选择套餐');
+  const payType = pay_type === 'page' ? 'page' : 'wap';
+
+  const cfg = getAlipayConfig(req);
+  if (!cfg.enabled || !cfg.appId || !cfg.privateKey || !cfg.publicKey) {
+    throw new HttpError(500, '支付宝线上支付未配置完整');
+  }
+
+  const plans = readPlans();
+  const plan = plans.find(p => p.id === plan_id);
+  if (!plan) throw new HttpError(400, '无效的套餐');
+
+  const outTradeNo = `ALI${Date.now()}${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+  const order = await MembershipOrder.create({
+    user_id: req.user.id,
+    plan_id: plan.id,
+    amount: plan.price,
+    currency: 'cny',
+    channel: 'alipay_online',
+    status: 'pending',
+    alipay_out_trade_no: outTradeNo,
+  });
+
+  res.json({
+    ok: true,
+    order_id: order.id,
+    out_trade_no: outTradeNo,
+    payment_url: `${getBaseUrl(req)}/api/v1/payment/alipay/pay/${order.id}?type=${payType}`,
+  });
+}));
+
+router.get('/alipay/pay/:orderId', asyncHandler(async (req, res) => {
+  const payType = req.query.type === 'page' ? 'page' : 'wap';
+  const cfg = getAlipayConfig(req);
+  if (!cfg.enabled || !cfg.appId || !cfg.privateKey) throw new HttpError(500, '支付宝线上支付未配置完整');
+
+  const order = await MembershipOrder.findByPk(req.params.orderId);
+  if (!order || order.channel !== 'alipay_online') throw new HttpError(404, '订单不存在');
+  if (order.status === 'paid') {
+    return res.redirect(cfg.returnUrl);
+  }
+  if (order.status !== 'pending') throw new HttpError(400, '订单状态不可支付');
+
+  const plan = readPlans().find(p => p.id === order.plan_id);
+  if (!plan) throw new HttpError(400, '套餐已失效');
+
+  const returnUrl = cfg.returnUrl;
+  const params = buildAlipayFormParams({ cfg, order, plan, returnUrl, payType });
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'; form-action https:; base-uri 'none'");
+  res.send(renderAlipayAutoSubmitPage(cfg.gateway, params));
+}));
+
+router.post('/alipay/notify', asyncHandler(async (req, res) => {
+  const params = { ...(req.body || {}) };
+  const cfg = getAlipayConfig(req);
+  if (!cfg.publicKey || !verifyAlipayNotify(params, cfg.publicKey)) {
+    logger.warn(`Alipay notify signature failed: out_trade_no=${params.out_trade_no || ''}`);
+    return res.status(400).send('fail');
+  }
+
+  if (cfg.appId && params.app_id && params.app_id !== cfg.appId) {
+    logger.warn(`Alipay notify app_id mismatch: ${params.app_id}`);
+    return res.status(400).send('fail');
+  }
+
+  if (!['TRADE_SUCCESS', 'TRADE_FINISHED'].includes(params.trade_status)) {
+    return res.send('success');
+  }
+
+  const order = await MembershipOrder.findOne({
+    where: { alipay_out_trade_no: params.out_trade_no, channel: 'alipay_online' },
+  });
+  if (!order) {
+    logger.warn(`Alipay notify order not found: ${params.out_trade_no}`);
+    return res.status(404).send('fail');
+  }
+  if (order.status === 'paid') return res.send('success');
+
+  const paidAmount = Number(params.total_amount);
+  const expectedAmount = Number(order.amount);
+  if (!Number.isFinite(paidAmount) || Math.abs(paidAmount - expectedAmount) > 0.01) {
+    logger.warn(`Alipay amount mismatch: order=${order.id}, paid=${params.total_amount}, expected=${order.amount}`);
+    return res.status(400).send('fail');
+  }
+
+  const plan = readPlans().find(p => p.id === order.plan_id);
+  if (!plan) {
+    logger.warn(`Alipay notify plan not found: ${order.plan_id}`);
+    return res.status(400).send('fail');
+  }
+
+  await order.update({
+    alipay_trade_no: params.trade_no || order.alipay_trade_no,
+    paid_at: new Date(),
+  });
+  await activateMembership(order.user_id, plan.id, plan.period, order.id);
+  logger.info(`Alipay payment success: order=${order.id}, out_trade_no=${params.out_trade_no}, trade_no=${params.trade_no}`);
+  res.send('success');
+}));
+
+router.get('/alipay/order/:orderId', authenticate, asyncHandler(async (req, res) => {
+  const order = await MembershipOrder.findOne({
+    where: { id: req.params.orderId, user_id: req.user.id, channel: 'alipay_online' },
+  });
+  if (!order) throw new HttpError(404, '订单不存在');
+  res.json({
+    ok: true,
+    order_id: order.id,
+    status: order.status,
+    plan_id: order.plan_id,
+    paid_at: order.paid_at,
+    expire_at: order.expire_at,
   });
 }));
 

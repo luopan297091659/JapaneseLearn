@@ -605,7 +605,7 @@ const MembershipOrder = sequelize.define('MembershipOrder', {
   plan_id:         { type: DataTypes.STRING(50), allowNull: false, comment: 'monthly / yearly / lifetime' },
   amount:          { type: DataTypes.FLOAT, allowNull: false, comment: '订单金额' },
   currency:        { type: DataTypes.STRING(10), defaultValue: 'cny' },
-  channel:         { type: DataTypes.STRING(30), allowNull: false, comment: 'apple_iap / stripe / qrcode_alipay / qrcode_wechat' },
+  channel:         { type: DataTypes.STRING(30), allowNull: false, comment: 'apple_iap / stripe / alipay_online / qrcode_alipay / qrcode_wechat' },
   status:          { type: DataTypes.ENUM('pending', 'paid', 'rejected', 'expired', 'refunded'), defaultValue: 'pending' },
   // Apple IAP 字段
   apple_transaction_id:           { type: DataTypes.STRING(200), allowNull: true },
@@ -617,6 +617,9 @@ const MembershipOrder = sequelize.define('MembershipOrder', {
   apple_receipt:                  { type: DataTypes.TEXT('medium'), allowNull: true },
   // Stripe 字段
   stripe_session_id:     { type: DataTypes.STRING(200), allowNull: true },
+  // Alipay online 字段
+  alipay_out_trade_no:   { type: DataTypes.STRING(100), allowNull: true, comment: '支付宝商户订单号' },
+  alipay_trade_no:       { type: DataTypes.STRING(100), allowNull: true, comment: '支付宝交易号' },
   // 二维码付款截图
   proof_image_url:       { type: DataTypes.STRING(500), allowNull: true, comment: '用户上传的付款截图' },
   user_note:       { type: DataTypes.TEXT, allowNull: true, comment: '用户提交时的文字说明' },
@@ -636,6 +639,8 @@ const MembershipOrder = sequelize.define('MembershipOrder', {
     { fields: ['apple_transaction_id'] },
     { fields: ['apple_original_transaction_id'] },
     { fields: ['stripe_session_id'] },
+    { fields: ['alipay_out_trade_no'] },
+    { fields: ['alipay_trade_no'] },
   ],
 });
 

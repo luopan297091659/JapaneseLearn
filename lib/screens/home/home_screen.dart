@@ -332,6 +332,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           context.push('/vocabulary/${_wordPool[_wordIndex].id}');
         }
         break;
+      case 'study-plan':
+        context.push('/study-plan');
+        break;
     }
   }
 

@@ -22,6 +22,7 @@ import '../screens/quiz/quiz_result_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/home/srs_review_screen.dart';
 import '../screens/vocabulary/dictionary_screen.dart';
+import '../screens/vocabulary/saved_dictionary_screen.dart';
 import '../screens/vocabulary/anki_import_screen.dart';
 import '../screens/vocabulary/local_vocab_screen.dart';
 import '../screens/vocabulary/local_vocab_detail_screen.dart';
@@ -171,6 +172,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, state) => DictionaryScreen(
               initialQuery: state.uri.queryParameters['q'],
             ),
+          ),
+          GoRoute(
+            path: '/vocabulary/saved-dictionary',
+            builder: (_, __) => const SavedDictionaryScreen(),
           ),
           GoRoute(
               path: '/anki-import',

@@ -104,8 +104,119 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     if (_hasSearched && _searchCtrl.text.trim().isNotEmpty) _search();
   }
 
+  void _showSaveDialog() {
+    final totalCount = _results.length + _vocabResults.length;
+    final maxToSave = 200;
+    final canSave = totalCount > 0;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('保存搜索结果'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('找到 $totalCount 个结果，最多可保存 $maxToSave 条到本地'),
+            const SizedBox(height: 12),
+            Text(
+              '将保存：${totalCount <= maxToSave ? totalCount : maxToSave} 条',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            const Text('保存后可在我的词库中查看',
+                style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          FilledButton(
+            onPressed: canSave
+                ? () async {
+                    Navigator.pop(ctx);
+                    await _saveResults();
+                  }
+                : null,
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveResults() async {
+    try {
+      final entries = <Map<String, dynamic>>[];
+
+      // 收集系统词库结果
+      for (final vocab in _vocabResults) {
+        entries.add({
+          'word': vocab.word,
+          'reading': vocab.reading,
+          'meaning_zh': vocab.meaningZh,
+          'meaning_en': vocab.meaningEn,
+          'pos': vocab.partOfSpeech,
+          'jlpt': vocab.jlptLevel,
+          'slug': vocab.word,
+          'source': 'vocab',
+        });
+      }
+
+      // 收集辞书结果
+      for (final entry in _results) {
+        entries.add({
+          'word': entry.displayWord,
+          'reading': entry.displayReading,
+          'meaning_zh': entry.meanings.isNotEmpty
+              ? (entry.meanings.first.chineseDefinitions.isNotEmpty
+                  ? entry.meanings.first.chineseDefinitions.first
+                  : entry.meanings.first.englishDefinitions.join('; '))
+              : '',
+          'meaning_en': entry.meanings.isNotEmpty
+              ? entry.meanings.first.englishDefinitions.join('; ')
+              : '',
+          'pos': entry.meanings.isNotEmpty &&
+                  entry.meanings.first.partsOfSpeech.isNotEmpty
+              ? entry.meanings.first.partsOfSpeech.first
+              : '',
+          'jlpt': entry.jlpt.isNotEmpty ? entry.jlpt.first : '',
+          'slug': entry.slug,
+          'source': 'jisho',
+        });
+      }
+
+      // 只保存前200条
+      final toSave = entries.take(200).toList();
+
+      final count = await localDb.saveDictEntries(toSave);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('成功保存 $count 条到本地库'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('保存失败，请重试'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _showSavedEntries() {
+    context.push('/vocabulary/saved-dictionary');
+  }
+
   void _onScroll() {
-    if (_scrollCtrl.position.pixels >= _scrollCtrl.position.maxScrollExtent - 200) {
+    if (_scrollCtrl.position.pixels >=
+        _scrollCtrl.position.maxScrollExtent - 200) {
       if (!_loading && _hasMore) _loadMore();
     }
   }
@@ -117,12 +228,20 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       _page = 1;
       _hasMore = true;
     }
-    setState(() { _loading = true; _error = null; if (reset) { _results = []; _vocabResults = []; } });
+    setState(() {
+      _loading = true;
+      _error = null;
+      if (reset) {
+        _results = [];
+        _vocabResults = [];
+      }
+    });
 
     // 先返回本地缓存词库结果，减少首屏等待
     if (reset) {
       try {
-        final localQuick = await localDb.searchCachedVocabularyQuick(query: q, limit: 8);
+        final localQuick =
+            await localDb.searchCachedVocabularyQuick(query: q, limit: 8);
         if (!mounted) return;
         setState(() {
           _vocabResults = localQuick;
@@ -144,7 +263,11 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 
         // 判断是否有精确匹配（单词完全一致）
         final exactVocab = remoteVocab
-            .where((v) => v.word == q || v.reading == q || v.meaningZh == q || v.meaningEn == q)
+            .where((v) =>
+                v.word == q ||
+                v.reading == q ||
+                v.meaningZh == q ||
+                v.meaningEn == q)
             .toList();
         final hasExactMatch = exactVocab.isNotEmpty;
 
@@ -159,7 +282,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
           });
         } else {
           // 未精确匹配，继续搜索辞书
-          final dictResult = await apiService.searchDictionary(q, page: _page, lang: _lang);
+          final dictResult =
+              await apiService.searchDictionary(q, page: _page, lang: _lang);
           setState(() {
             _results = dictResult.data;
             if (remoteVocab.isNotEmpty) {
@@ -171,7 +295,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
           });
         }
       } else {
-        final result = await apiService.searchDictionary(q, page: _page, lang: _lang);
+        final result =
+            await apiService.searchDictionary(q, page: _page, lang: _lang);
         setState(() {
           _results.addAll(result.data);
           _hasMore = result.data.length >= 20;
@@ -209,10 +334,14 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       if (first.meanings.isNotEmpty) {
         final m = first.meanings.first;
         pos = m.partsOfSpeech.isNotEmpty ? m.partsOfSpeech.first : '';
-        final defs = m.chineseDefinitions.isNotEmpty ? m.chineseDefinitions : m.englishDefinitions;
+        final defs = m.chineseDefinitions.isNotEmpty
+            ? m.chineseDefinitions
+            : m.englishDefinitions;
         meaning = defs.join('；');
       }
-      jlpt = first.jlpt.isNotEmpty ? first.jlpt.first.toUpperCase().replaceAll('JLPT-', '') : '';
+      jlpt = first.jlpt.isNotEmpty
+          ? first.jlpt.first.toUpperCase().replaceAll('JLPT-', '')
+          : '';
     } else if (_vocabResults.isNotEmpty) {
       final first = _vocabResults.first;
       word = first.word;
@@ -221,7 +350,14 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       meaning = first.meaningZh;
       jlpt = first.jlptLevel;
     }
-    localDb.insertDictHistory(word: word, reading: reading, pos: pos, meaning: meaning, jlpt: jlpt).then((_) => _loadHistory());
+    localDb
+        .insertDictHistory(
+            word: word,
+            reading: reading,
+            pos: pos,
+            meaning: meaning,
+            jlpt: jlpt)
+        .then((_) => _loadHistory());
   }
 
   void _searchWord(String word) {
@@ -238,16 +374,33 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
           tooltip: '返回',
-          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/home'),
         ),
         actions: [
           // 语言切换按钮
           _LangToggle(lang: _lang, onChanged: _setLang),
           const SizedBox(width: 4),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
-            onPressed: () {},
+          // 保存搜索结果按钮
+          if (_hasSearched && (_results.isNotEmpty || _vocabResults.isNotEmpty))
+            IconButton(
+              icon: const Icon(Icons.save_rounded),
+              tooltip: '保存搜索结果',
+              onPressed: _showSaveDialog,
+            ),
+          // 更多菜单
+          PopupMenuButton(
+            icon: const Icon(Icons.more_vert),
+            itemBuilder: (ctx) => [
+              PopupMenuItem(
+                child: const Row(children: [
+                  Icon(Icons.bookmark, size: 18),
+                  SizedBox(width: 8),
+                  Text('查看保存的词条'),
+                ]),
+                onTap: () => _showSavedEntries(),
+              ),
+            ],
           ),
         ],
         bottom: PreferredSize(
@@ -267,11 +420,16 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                             icon: const Icon(Icons.clear),
                             onPressed: () {
                               _searchCtrl.clear();
-                              setState(() { _results = []; _vocabResults = []; _hasSearched = false; });
+                              setState(() {
+                                _results = [];
+                                _vocabResults = [];
+                                _hasSearched = false;
+                              });
                             })
                         : null,
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                    contentPadding:
+                        const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
                   ),
                   textInputAction: TextInputAction.search,
                   onSubmitted: (_) => _search(),
@@ -312,13 +470,13 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
             ),
           ]),
           ...(_historyRecords.map((r) => _DictHistoryTile(
-            record: r,
-            onTap: () => _searchWord(r['word'] as String),
-            onDelete: () async {
-              await localDb.deleteDictHistory(r['id'] as int);
-              _loadHistory();
-            },
-          ))),
+                record: r,
+                onTap: () => _searchWord(r['word'] as String),
+                onDelete: () async {
+                  await localDb.deleteDictHistory(r['id'] as int);
+                  _loadHistory();
+                },
+              ))),
         ],
       ]);
     }
@@ -344,7 +502,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(Icons.search_off_rounded, size: 64, color: cs.outline),
           const SizedBox(height: 16),
-          Text('未找到「${_searchCtrl.text}」的結果', style: TextStyle(color: cs.outline)),
+          Text('未找到「${_searchCtrl.text}」的結果',
+              style: TextStyle(color: cs.outline)),
           const SizedBox(height: 8),
           const Text('換個詞試試？'),
         ]),
@@ -352,7 +511,8 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     }
 
     final vocabCount = _vocabResults.length;
-    final totalCount = vocabCount + _results.length + (_loading || _hasMore ? 1 : 0);
+    final totalCount =
+        vocabCount + _results.length + (_loading || _hasMore ? 1 : 0);
 
     return ListView.separated(
       controller: _scrollCtrl,
@@ -364,13 +524,20 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         if (i < vocabCount) {
           final vocab = _vocabResults[i];
           final id = 'vocab_$i';
-          return _VocabResultCard(vocab: vocab, playingId: _playingId, itemId: id, onPlay: (word) => _playWord(word, id: id, audioUrl: vocab.audioUrl));
+          return _VocabResultCard(
+              vocab: vocab,
+              playingId: _playingId,
+              itemId: id,
+              onPlay: (word) =>
+                  _playWord(word, id: id, audioUrl: vocab.audioUrl));
         }
         final dictIndex = i - vocabCount;
         if (dictIndex == _results.length) {
           return _loading
-              ? const Padding(padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+              ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child:
+                      Center(child: CircularProgressIndicator(strokeWidth: 2)))
               : const SizedBox.shrink();
         }
         final dictId = 'dict_$dictIndex';
@@ -402,11 +569,14 @@ class _QuickSearchBar extends StatelessWidget {
         const Text('快速搜索示例', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Wrap(
-          spacing: 8, runSpacing: 6,
-          children: _examples.map((w) => InputChip(
-            label: Text(w),
-            onPressed: () => onSearch(w),
-          )).toList(),
+          spacing: 8,
+          runSpacing: 6,
+          children: _examples
+              .map((w) => InputChip(
+                    label: Text(w),
+                    onPressed: () => onSearch(w),
+                  ))
+              .toList(),
         ),
       ],
     );
@@ -438,15 +608,22 @@ class _SearchTipsCard extends StatelessWidget {
               // ('#kanji 字', '搜索指定漢字的詳細信息'),
               // ('#jlpt-n5', '搜索指定 JLPT 等級單詞'),
             ].map((tip) => Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(width: 90, child: Text(tip.$1, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13))),
-                  Expanded(child: Text(tip.$2, style: const TextStyle(fontSize: 13, color: Colors.grey))),
-                ],
-              ),
-            )),
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                          width: 90,
+                          child: Text(tip.$1,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w500, fontSize: 13))),
+                      Expanded(
+                          child: Text(tip.$2,
+                              style: const TextStyle(
+                                  fontSize: 13, color: Colors.grey))),
+                    ],
+                  ),
+                )),
           ],
         ),
       ),
@@ -505,7 +682,13 @@ class _DictionaryEntryCard extends StatefulWidget {
   final String itemId;
   final void Function(String) onPlay;
   final void Function(String) onWordTap;
-  const _DictionaryEntryCard({required this.entry, required this.lang, required this.playingId, required this.itemId, required this.onPlay, required this.onWordTap});
+  const _DictionaryEntryCard(
+      {required this.entry,
+      required this.lang,
+      required this.playingId,
+      required this.itemId,
+      required this.onPlay,
+      required this.onWordTap});
 
   @override
   State<_DictionaryEntryCard> createState() => __DictionaryEntryCardState();
@@ -539,26 +722,39 @@ class __DictionaryEntryCardState extends State<_DictionaryEntryCard> {
                       children: [
                         // Word + badges
                         Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Word (clickable for sub-search)
-                            GestureDetector(
-                              onLongPress: () {
-                                Clipboard.setData(ClipboardData(text: entry.displayWord));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('已复制到剪贴板'),
-                                      behavior: SnackBarBehavior.floating, duration: Duration(seconds: 1)));
-                              },
-                              child: Text(
-                                entry.displayWord,
-                                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                            Flexible(
+                              child: GestureDetector(
+                                onLongPress: () {
+                                  Clipboard.setData(
+                                      ClipboardData(text: entry.displayWord));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text('已复制到剪贴板'),
+                                          behavior: SnackBarBehavior.floating,
+                                          duration: Duration(seconds: 1)));
+                                },
+                                child: Text(
+                                  entry.displayWord,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    height: 1.15,
+                                  ),
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            // Common badge
-                            if (entry.isCommon)
-                              const _Badge('常用', Colors.green),
+                            if (entry.isCommon) ...[
+                              const SizedBox(width: 8),
+                              const Padding(
+                                padding: EdgeInsets.only(top: 4),
+                                child: _Badge('常用', Colors.green),
+                              ),
+                            ],
                           ],
                         ),
                         // Reading
@@ -568,22 +764,27 @@ class __DictionaryEntryCardState extends State<_DictionaryEntryCard> {
                             onTap: () => widget.onWordTap(entry.displayReading),
                             child: Text(
                               entry.displayReading,
-                              style: TextStyle(fontSize: 18, color: cs.primary, height: 1.4),
+                              style: TextStyle(
+                                  fontSize: 18, color: cs.primary, height: 1.4),
                             ),
                           ),
                         // JLPT badges
                         if (entry.jlpt.isNotEmpty) ...[
                           const SizedBox(height: 4),
-                          Row(children: [
-                            ...entry.jlpt.map((j) => Padding(
-                              padding: const EdgeInsets.only(right: 4),
-                              child: _Badge(j.toUpperCase().replaceAll('JLPT-', ''), cs.primary),
-                            )),
-                            ...entry.tags.take(2).map((t) => Padding(
-                              padding: const EdgeInsets.only(right: 4),
-                              child: _Badge(t, Colors.orange),
-                            )),
-                          ]),
+                          Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            children: [
+                              ...entry.jlpt.map(
+                                (j) => _Badge(
+                                    j.toUpperCase().replaceAll('JLPT-', ''),
+                                    cs.primary),
+                              ),
+                              ...entry.tags
+                                  .take(2)
+                                  .map((t) => _Badge(t, Colors.orange)),
+                            ],
+                          ),
                         ],
                       ],
                     ),
@@ -599,7 +800,11 @@ class __DictionaryEntryCardState extends State<_DictionaryEntryCard> {
               const SizedBox(height: 10),
               // ── First meaning (always visible) ─────────────────────────
               if (entry.meanings.isNotEmpty)
-                _MeaningRow(meaning: entry.meanings[0], index: 0, showPos: true, lang: widget.lang),
+                _MeaningRow(
+                    meaning: entry.meanings[0],
+                    index: 0,
+                    showPos: true,
+                    lang: widget.lang),
               // ── Expand button ───────────────────────────────────────────
               if (entry.meanings.length > 1 || entry.japanese.length > 1)
                 InkWell(
@@ -608,7 +813,9 @@ class __DictionaryEntryCardState extends State<_DictionaryEntryCard> {
                     padding: const EdgeInsets.only(top: 6),
                     child: Row(children: [
                       Text(
-                        _expanded ? '收起' : '展開更多 (${entry.meanings.length} 個義項)',
+                        _expanded
+                            ? '收起'
+                            : '展開更多 (${entry.meanings.length} 個義項)',
                         style: TextStyle(fontSize: 12, color: cs.primary),
                       ),
                       Icon(_expanded ? Icons.expand_less : Icons.expand_more,
@@ -621,20 +828,32 @@ class __DictionaryEntryCardState extends State<_DictionaryEntryCard> {
                 const Divider(height: 16),
                 // All meanings
                 ...entry.meanings.asMap().entries.skip(1).map((e) =>
-                    _MeaningRow(meaning: e.value, index: e.key, showPos: true, lang: widget.lang)),
+                    _MeaningRow(
+                        meaning: e.value,
+                        index: e.key,
+                        showPos: true,
+                        lang: widget.lang)),
                 // All Japanese forms
                 if (entry.japanese.length > 1) ...[
                   const SizedBox(height: 8),
-                  Text('其他形式', style: TextStyle(fontWeight: FontWeight.bold, color: cs.outline, fontSize: 13)),
+                  Text('其他形式',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: cs.outline,
+                          fontSize: 13)),
                   const SizedBox(height: 4),
                   Wrap(
                     spacing: 8,
-                    children: entry.japanese.skip(1).map((j) => ActionChip(
-                      label: Text(j.word != null
-                          ? '${j.word}【${j.reading ?? ''}】'
-                          : j.reading ?? ''),
-                      onPressed: () => widget.onWordTap(j.word ?? j.reading ?? ''),
-                    )).toList(),
+                    children: entry.cleanedJapanese
+                        .skip(1)
+                        .map((j) => ActionChip(
+                              label: Text(j.word != null
+                                  ? '${j.word}【${j.reading ?? ''}】'
+                                  : j.reading ?? ''),
+                              onPressed: () =>
+                                  widget.onWordTap(j.word ?? j.reading ?? ''),
+                            ))
+                        .toList(),
                   ),
                 ],
                 // Actions
@@ -643,22 +862,22 @@ class __DictionaryEntryCardState extends State<_DictionaryEntryCard> {
                   OutlinedButton.icon(
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: entry.displayWord));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('已复制'),
-                            behavior: SnackBarBehavior.floating,
-                            duration: Duration(seconds: 1)));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('已复制'),
+                          behavior: SnackBarBehavior.floating,
+                          duration: Duration(seconds: 1)));
                     },
                     icon: const Icon(Icons.copy, size: 16),
                     label: const Text('复制'),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
                   if (entry.url != null) ...[
                     const SizedBox(width: 8),
-
                   ],
                 ]),
               ],
@@ -676,7 +895,11 @@ class _VocabResultCard extends StatelessWidget {
   final String? playingId;
   final String itemId;
   final void Function(String) onPlay;
-  const _VocabResultCard({required this.vocab, required this.playingId, required this.itemId, required this.onPlay});
+  const _VocabResultCard(
+      {required this.vocab,
+      required this.playingId,
+      required this.itemId,
+      required this.onPlay});
 
   @override
   Widget build(BuildContext context) {
@@ -699,19 +922,41 @@ class _VocabResultCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(vocab.word, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                            Flexible(
+                              child: Text(
+                                vocab.word,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.15,
+                                ),
+                              ),
+                            ),
                             const SizedBox(width: 8),
-                            _Badge('常用', Colors.green),
-                            const SizedBox(width: 4),
-                            if (vocab.jlptLevel.isNotEmpty)
-                              _Badge(vocab.jlptLevel, cs.primary),
+                            const Padding(
+                              padding: EdgeInsets.only(top: 4),
+                              child: _Badge('常用', Colors.green),
+                            ),
+                            if (vocab.jlptLevel.isNotEmpty) ...[
+                              const SizedBox(width: 4),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: _Badge(vocab.jlptLevel, cs.primary),
+                              ),
+                            ],
                           ],
                         ),
-                        if (vocab.reading.isNotEmpty && vocab.reading != vocab.word)
-                          Text(vocab.reading, style: TextStyle(fontSize: 18, color: cs.primary, height: 1.4)),
+                        if (vocab.reading.isNotEmpty &&
+                            vocab.reading != vocab.word)
+                          Text(vocab.reading,
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  color: cs.primary,
+                                  height: 1.4)),
                       ],
                     ),
                   ),
@@ -727,7 +972,8 @@ class _VocabResultCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: cs.primaryContainer,
                       borderRadius: BorderRadius.circular(4),
@@ -736,7 +982,9 @@ class _VocabResultCard extends StatelessWidget {
                         style: TextStyle(fontSize: 12, color: cs.primary)),
                   ),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(vocab.meaningZh, style: const TextStyle(fontSize: 15))),
+                  Expanded(
+                      child: Text(vocab.meaningZh,
+                          style: const TextStyle(fontSize: 15))),
                 ],
               ),
             ],
@@ -753,7 +1001,11 @@ class _MeaningRow extends StatelessWidget {
   final int index;
   final bool showPos;
   final String lang;
-  const _MeaningRow({required this.meaning, required this.index, this.showPos = true, this.lang = 'zh'});
+  const _MeaningRow(
+      {required this.meaning,
+      required this.index,
+      this.showPos = true,
+      this.lang = 'zh'});
 
   @override
   Widget build(BuildContext context) {
@@ -767,7 +1019,8 @@ class _MeaningRow extends StatelessWidget {
         children: [
           // Index circle
           Container(
-            width: 20, height: 20,
+            width: 20,
+            height: 20,
             margin: const EdgeInsets.only(top: 2, right: 8),
             decoration: BoxDecoration(
               color: cs.primaryContainer,
@@ -775,7 +1028,10 @@ class _MeaningRow extends StatelessWidget {
             ),
             child: Center(
               child: Text('${index + 1}',
-                  style: TextStyle(fontSize: 11, color: cs.primary, fontWeight: FontWeight.bold)),
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: cs.primary,
+                      fontWeight: FontWeight.bold)),
             ),
           ),
           Expanded(
@@ -787,11 +1043,14 @@ class _MeaningRow extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 2),
                     child: Text(meaning.posZh,
-                        style: TextStyle(fontSize: 11, color: cs.outline,
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: cs.outline,
                             fontStyle: FontStyle.italic)),
                   ),
                 // Definitions
-                Text(defs.join(lang == 'zh' ? '；' : '; '), style: const TextStyle(fontSize: 15)),
+                Text(defs.join(lang == 'zh' ? '；' : '; '),
+                    style: const TextStyle(fontSize: 15)),
                 // Additional info
                 if (meaning.info.isNotEmpty)
                   Text(meaning.info.join(', '),
@@ -819,7 +1078,8 @@ Widget _circleAudioBtn({
       height: size + 8,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: playing ? cs.primary.withValues(alpha: 0.15) : Colors.transparent,
+        color:
+            playing ? cs.primary.withValues(alpha: 0.15) : Colors.transparent,
       ),
       child: Icon(
         playing ? Icons.volume_up_rounded : Icons.play_circle_outline_rounded,
@@ -846,7 +1106,9 @@ class _Badge extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
-      child: Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 10, color: color, fontWeight: FontWeight.bold)),
     );
   }
 }
@@ -856,7 +1118,8 @@ class _DictHistoryTile extends StatelessWidget {
   final Map<String, dynamic> record;
   final VoidCallback onTap;
   final VoidCallback onDelete;
-  const _DictHistoryTile({required this.record, required this.onTap, required this.onDelete});
+  const _DictHistoryTile(
+      {required this.record, required this.onTap, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -883,10 +1146,13 @@ class _DictHistoryTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      Text(word, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(word,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
                       if (reading.isNotEmpty && reading != word) ...[
                         const SizedBox(width: 6),
-                        Text(reading, style: TextStyle(fontSize: 13, color: cs.primary)),
+                        Text(reading,
+                            style: TextStyle(fontSize: 13, color: cs.primary)),
                       ],
                       if (jlpt.isNotEmpty) ...[
                         const SizedBox(width: 6),
@@ -899,19 +1165,23 @@ class _DictHistoryTile extends StatelessWidget {
                         child: Row(children: [
                           if (pos.isNotEmpty) ...[
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 1),
                               decoration: BoxDecoration(
                                 color: cs.primaryContainer,
                                 borderRadius: BorderRadius.circular(3),
                               ),
-                              child: Text(pos, style: TextStyle(fontSize: 10, color: cs.primary)),
+                              child: Text(pos,
+                                  style: TextStyle(
+                                      fontSize: 10, color: cs.primary)),
                             ),
                             const SizedBox(width: 6),
                           ],
                           Expanded(
                             child: Text(
                               meaning,
-                              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                              style: TextStyle(
+                                  fontSize: 13, color: cs.onSurfaceVariant),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),

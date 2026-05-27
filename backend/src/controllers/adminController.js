@@ -2039,8 +2039,11 @@ const DEFAULT_MEMBERSHIP = {
   },
   payment: {
     alipay_enabled: false,
+    alipay_online_enabled: false,
     alipay_appid: '',
     alipay_notify_url: '',
+    alipay_gateway: 'https://openapi.alipay.com/gateway.do',
+    alipay_return_url: '',
     wechat_enabled: false,
     wechat_appid: '',
     wechat_mchid: '',

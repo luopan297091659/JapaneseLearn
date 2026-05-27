@@ -15,6 +15,9 @@ class SyncService {
   static const _slowSpeedKey = 'slow_speed';
   static const _languageKey = 'app_language';
   static const _appearanceModeKey = 'app_appearance_mode';
+  static const _pendingAppearanceModeSyncKey =
+      'pending_app_appearance_mode_sync';
+  static const _validAppearanceModes = {'classic', 'anime', 'sakura'};
 
   bool _syncing = false;
 
@@ -58,14 +61,16 @@ class SyncService {
   }
 
   /// 从服务端拉取功能分级配置（会员/免费差异）
-  Future<List<Map<String, dynamic>>> fetchFeatureTiers({bool force = false}) async {
+  Future<List<Map<String, dynamic>>> fetchFeatureTiers(
+      {bool force = false}) async {
     if (_featureTiers != null && !force) return _featureTiers!;
     final prefs = await SharedPreferences.getInstance();
     try {
       final resp = await apiService.get('/sync/tiers');
       final tiers = (resp['tiers'] as List<dynamic>?)
-          ?.map((e) => Map<String, dynamic>.from(e as Map))
-          .toList() ?? [];
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          [];
       _featureTiers = tiers;
       await prefs.setString('feature_tiers', jsonEncode(tiers));
       return tiers;
@@ -101,11 +106,14 @@ class SyncService {
   }) async {
     final prefs = await SharedPreferences.getInstance();
     return {
-      'daily_goal_minutes': dailyGoalMinutes ?? (prefs.getInt('daily_goal_minutes') ?? 15),
-      'notification_enabled': notificationEnabled ?? (prefs.getBool('notification_enabled') ?? true),
+      'daily_goal_minutes':
+          dailyGoalMinutes ?? (prefs.getInt('daily_goal_minutes') ?? 15),
+      'notification_enabled': notificationEnabled ??
+          (prefs.getBool('notification_enabled') ?? true),
       'slow_speed': slowSpeed ?? (prefs.getDouble(_slowSpeedKey) ?? 0.5),
       'locale': locale ?? (prefs.getString(_languageKey) ?? 'zh'),
-      'appearance_mode': appearanceMode ?? (prefs.getString(_appearanceModeKey) ?? 'classic'),
+      'appearance_mode':
+          appearanceMode ?? (prefs.getString(_appearanceModeKey) ?? 'classic'),
     };
   }
 
@@ -126,24 +134,40 @@ class SyncService {
     return apiService.updateUserPreferences(payload);
   }
 
-  Future<Map<String, dynamic>> fetchUserPreferences({bool persistLocal = true}) async {
+  Future<Map<String, dynamic>> fetchUserPreferences(
+      {bool persistLocal = true}) async {
     final remote = await apiService.getUserPreferences();
     if (persistLocal) {
       final prefs = await SharedPreferences.getInstance();
       if (remote['daily_goal_minutes'] is num) {
-        await prefs.setInt('daily_goal_minutes', (remote['daily_goal_minutes'] as num).round());
+        await prefs.setInt('daily_goal_minutes',
+            (remote['daily_goal_minutes'] as num).round());
       }
       if (remote['notification_enabled'] is bool) {
-        await prefs.setBool('notification_enabled', remote['notification_enabled'] == true);
+        await prefs.setBool(
+            'notification_enabled', remote['notification_enabled'] == true);
       }
       if (remote['slow_speed'] is num) {
-        await prefs.setDouble(_slowSpeedKey, (remote['slow_speed'] as num).toDouble());
+        await prefs.setDouble(
+            _slowSpeedKey, (remote['slow_speed'] as num).toDouble());
       }
       if (remote['locale'] is String) {
         await prefs.setString(_languageKey, remote['locale'] as String);
       }
       if (remote['appearance_mode'] is String) {
-        await prefs.setString(_appearanceModeKey, remote['appearance_mode'] as String);
+        final remoteAppearance = remote['appearance_mode'] as String;
+        final localAppearance = prefs.getString(_appearanceModeKey);
+        final pendingAppearance =
+            prefs.getString(_pendingAppearanceModeSyncKey);
+        final canApplyRemoteAppearance =
+            _validAppearanceModes.contains(remoteAppearance) &&
+                (pendingAppearance == null || pendingAppearance.isEmpty) &&
+                (localAppearance == null ||
+                    localAppearance.isEmpty ||
+                    localAppearance == remoteAppearance);
+        if (canApplyRemoteAppearance) {
+          await prefs.setString(_appearanceModeKey, remoteAppearance);
+        }
       }
     }
     return remote;
@@ -155,13 +179,14 @@ class SyncService {
   /// 已在同步时直接返回 null，避免重复触发。
   Future<SyncResult?> syncVocabulary({
     String? jlptLevel,
-    String partOfSpeech  = 'other',
+    String partOfSpeech = 'other',
     String? deckName,
   }) async {
     if (_syncing) return null;
     _syncing = true;
     try {
-      final pending = await localDb.pendingCards(limit: 20000, deckName: deckName);
+      final pending =
+          await localDb.pendingCards(limit: 20000, deckName: deckName);
       if (pending.isEmpty) {
         return SyncResult(uploaded: 0, failed: 0, skipped: 0);
       }
@@ -179,26 +204,27 @@ class SyncService {
 
       for (final entry in byDeck.entries) {
         final deckName = entry.key;
-        final cards    = entry.value;
+        final cards = entry.value;
 
         // 取第一张卡的元数据当代表值（同一牌组相同）
         final level = cards.first['jlpt_level'] as String? ?? jlptLevel;
-        final pos   = cards.first['part_of_speech'] as String? ?? partOfSpeech;
+        final pos = cards.first['part_of_speech'] as String? ?? partOfSpeech;
 
         const chunkSize = 800;
         for (int i = 0; i < cards.length; i += chunkSize) {
-          final chunk = cards.sublist(i, (i + chunkSize).clamp(0, cards.length));
+          final chunk =
+              cards.sublist(i, (i + chunkSize).clamp(0, cards.length));
           try {
             final result = await _bulkImportVocabularyWithRetry(
-              cards:        chunk,
-              deckName:     deckName,
-              jlptLevel:    level,
+              cards: chunk,
+              deckName: deckName,
+              jlptLevel: level,
               partOfSpeech: pos,
             );
             final syncedIds = chunk.map((c) => c['id'] as String).toList();
             await localDb.markSynced(syncedIds);
-            uploaded += (result['imported'] as int?)  ?? chunk.length;
-            skipped  += (result['failed']   as int?)  ?? 0;
+            uploaded += (result['imported'] as int?) ?? chunk.length;
+            skipped += (result['failed'] as int?) ?? 0;
             if (i + chunkSize < cards.length) {
               await Future.delayed(const Duration(milliseconds: 350));
             }
@@ -270,7 +296,8 @@ class SyncService {
         final localVocabVer = prefs.getInt('vocab_version') ?? 0;
         final localGrammarVer = prefs.getInt('grammar_version') ?? 0;
         final serverVocabVer = (resp['vocab_version'] as num?)?.toInt() ?? 0;
-        final serverGrammarVer = (resp['grammar_version'] as num?)?.toInt() ?? 0;
+        final serverGrammarVer =
+            (resp['grammar_version'] as num?)?.toInt() ?? 0;
 
         if (serverVocabVer > localVocabVer) {
           await localDb.clearCachedVocabulary();
@@ -303,7 +330,7 @@ class SyncResult {
   });
 
   bool get hasError => failed > 0;
-  bool get allDone  => failed == 0;
+  bool get allDone => failed == 0;
 }
 
 // ─── 全局单例 ──────────────────────────────────────────────────────────────────

@@ -4492,8 +4492,14 @@ function _buildMembershipUI() {
           <input type="checkbox" id="pay-ali-enabled" style="width:auto" ${payment.alipay_enabled?'checked':''} />
           <label style="margin:0;font-size:13px">启用支付宝</label>
         </div>
+        <div class="form-row" style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <input type="checkbox" id="pay-ali-online-enabled" style="width:auto" ${payment.alipay_online_enabled?'checked':''} />
+          <label style="margin:0;font-size:13px">优先使用支付宝线上支付</label>
+        </div>
         <div class="form-row"><label>App ID</label><input id="pay-ali-appid" value="${esc(payment.alipay_appid||'')}" placeholder="2021XXXXXXXX" /></div>
         <div class="form-row"><label>回调地址</label><input id="pay-ali-notify" value="${esc(payment.alipay_notify_url||'')}" placeholder="https://api.yourdomain.com/pay/alipay/notify" /></div>
+        <div class="form-row"><label>支付宝网关</label><input id="pay-ali-gateway" value="${esc(payment.alipay_gateway||'https://openapi.alipay.com/gateway.do')}" placeholder="https://openapi.alipay.com/gateway.do" /></div>
+        <div class="form-row"><label>返回地址</label><input id="pay-ali-return" value="${esc(payment.alipay_return_url||'')}" placeholder="https://www.kotabi.top/membership?status=success" /></div>
       </div>
       <div>
         <div style="font-weight:600;margin-bottom:12px;color:#555">📱 微信支付</div>
@@ -4660,8 +4666,11 @@ async function saveAllMembership() {
   const _pv = (id, cached) => { const v = document.getElementById(id)?.value.trim(); return v || cached || ''; };
   _memCfg.payment = {
     alipay_enabled:    document.getElementById('pay-ali-enabled').checked,
+    alipay_online_enabled: document.getElementById('pay-ali-online-enabled')?.checked || false,
     alipay_appid:      document.getElementById('pay-ali-appid').value.trim(),
     alipay_notify_url: document.getElementById('pay-ali-notify').value.trim(),
+    alipay_gateway:    document.getElementById('pay-ali-gateway')?.value.trim() || 'https://openapi.alipay.com/gateway.do',
+    alipay_return_url: document.getElementById('pay-ali-return')?.value.trim() || '',
     wechat_enabled:    document.getElementById('pay-wx-enabled').checked,
     wechat_appid:      document.getElementById('pay-wx-appid').value.trim(),
     wechat_mchid:      document.getElementById('pay-wx-mchid').value.trim(),
@@ -4701,7 +4710,7 @@ async function loadOrdersList() {
       const l = { pending:'待审核', paid:'已通过', rejected:'已拒绝', expired:'已过期', refunded:'已退款' };
       return `<span class="badge ${m[s]||''}">${l[s]||s}</span>`;
     };
-    const channelLabel = c => ({ apple_iap:'Apple IAP', stripe:'Stripe', qrcode_alipay:'支付宝二维码', qrcode_wechat:'微信二维码', qrcode_bank:'银行卡', apple_iap_failed:'支付截图补单', refund_request:'退款申请' }[c] || c);
+    const channelLabel = c => ({ apple_iap:'Apple IAP', stripe:'Stripe', alipay_online:'支付宝线上', qrcode_alipay:'支付宝二维码', qrcode_wechat:'微信二维码', qrcode_bank:'银行卡', apple_iap_failed:'支付截图补单', refund_request:'退款申请' }[c] || c);
     const rows = orders.map(o => `<tr>
       <td style="font-size:11px;color:#999">${esc(o.id?.substring(0,8))}…</td>
       <td><b>${esc(o.user?.username||'')}</b><br/><small style="color:#999">${esc(o.user?.email||'')}</small></td>
@@ -4729,6 +4738,7 @@ async function loadOrdersList() {
           </select>
           <select onchange="_ordersFilter.channel=this.value;_ordersPage=1;loadOrdersList()" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:7px;font-size:13px">
             <option value="">全部渠道</option>
+            <option value="alipay_online" ${_ordersFilter.channel==='alipay_online'?'selected':''}>支付宝线上</option>
             <option value="qrcode_alipay" ${_ordersFilter.channel==='qrcode_alipay'?'selected':''}>支付宝二维码</option>
             <option value="qrcode_wechat" ${_ordersFilter.channel==='qrcode_wechat'?'selected':''}>微信二维码</option>
             <option value="apple_iap" ${_ordersFilter.channel==='apple_iap'?'selected':''}>Apple IAP</option>

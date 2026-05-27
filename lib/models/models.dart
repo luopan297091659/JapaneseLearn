@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../utils/japanese_text_utils.dart';
+
 // ─── User Model ──────────────────────────────────────────────────────────────
 class UserModel {
   final String id;
@@ -721,7 +723,19 @@ class DictionaryEntry {
       meanings.expand((m) => m.englishDefinitions).toList();
 
   String get displayWord => word.isNotEmpty ? word : (japanese.isNotEmpty ? (japanese[0].word ?? slug) : slug);
-  String get displayReading => japanese.isNotEmpty ? (japanese[0].reading ?? reading) : reading;
+
+  /// 获取清理后的日文形式列表
+  List<JapaneseForm> get cleanedJapanese => japanese
+      .map((j) => JapaneseForm(
+            word: j.word,
+            reading: j.reading != null ? cleanDisplayReading(j.reading!) : null,
+          ))
+      .toList();
+  String get displayReading {
+    final raw = japanese.isNotEmpty ? (japanese[0].reading ?? reading) : reading;
+    return cleanDisplayReading(raw);
+  }
+
   String get jishoUrl => 'https://jisho.org/word/${Uri.encodeComponent(slug)}';
 }
 
@@ -793,4 +807,3 @@ class DictionaryMeaning {
     return pos;
   }
 }
-

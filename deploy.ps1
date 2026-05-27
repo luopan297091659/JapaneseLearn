@@ -65,7 +65,18 @@ function Remote-Upload-File([string]$Local, [string]$RemoteFile) {
 
 # 步骤 1: 创建远程目录
 Write-Host "[1/5] 创建远程目录..." -ForegroundColor Yellow
-Remote-Run "mkdir -p $RemotePath/config"
+Remote-Run "mkdir -p $RemotePath/config $RemotePath/certs/alipay"
+
+# 保护线上敏感配置：这些文件只在服务器维护，部署脚本不得覆盖或删除
+Write-Host "[1.1/5] 检查并保留远程敏感配置..." -ForegroundColor Yellow
+$ProtectedRemoteFiles = @(
+    "$RemotePath/.env",
+    "$RemotePath/certs/alipay/app-private-key.pem",
+    "$RemotePath/certs/alipay/alipay-public-key.pem"
+)
+foreach ($ProtectedFile in $ProtectedRemoteFiles) {
+    Remote-Run "if [ -f $ProtectedFile ]; then echo '保留 $ProtectedFile'; else echo '提示：$ProtectedFile 当前不存在，请在服务器手动配置'; fi"
+}
 
 # 步骤 2: 上传代码
 Write-Host "[2/5] 上传文件..." -ForegroundColor Yellow
@@ -73,7 +84,7 @@ Remote-Upload-Dir  "$LocalBackend\src"          "$RemotePath/"
 Remote-Upload-Dir  "$LocalBackend\public"       "$RemotePath/"
 Remote-Upload-Dir  "$LocalBackend\scripts"      "$RemotePath/"
 Remote-Upload-File "$LocalBackend\package.json" "$RemotePath/package.json"
-Remote-Upload-File "$LocalBackend\.env"         "$RemotePath/.env"
+Write-Host "  保留远程 .env，不上传本地 backend\.env" -ForegroundColor Gray
 
 # 步骤 2.3: 备份和恢复配置文件（保留用户自定义配置）
 Write-Host "[2.3/5] 备份和恢复用户配置..." -ForegroundColor Yellow
@@ -117,15 +128,13 @@ Write-Host "[2.5/5] 修复SVG文件名编码..." -ForegroundColor Yellow
 Remote-Run "which convmv >/dev/null 2>&1 || dnf install -y convmv >/dev/null 2>&1"
 Remote-Run "cd $RemotePath/public/app/svg/kana/hiragana && convmv -f euc-jp -t utf-8 --notest *.svg 2>/dev/null; cd $RemotePath/public/app/svg/kana/katakana && convmv -f euc-jp -t utf-8 --notest *.svg 2>/dev/null; echo done"
 
-# 步骤 2.7: 生产环境修补远程 .env（ALLOWED_ORIGINS / 禁用 SSL）
+# 步骤 2.7: 生产环境修补远程 .env（ALLOWED_ORIGINS / 禁用 Node HTTPS）
 if ($Config.UseNginx) {
     Write-Host "[2.7] 修补远程 .env [prod]..." -ForegroundColor Yellow
     $Origins = $Config.AllowedOrigins
     Remote-Run "sed -i 's|^ALLOWED_ORIGINS=.*|ALLOWED_ORIGINS=$Origins|' $RemotePath/.env"
     Remote-Run "sed -i 's|^SSL_CERT_PATH=.*|#SSL_CERT_PATH=|; s|^SSL_KEY_PATH=.*|#SSL_KEY_PATH=|' $RemotePath/.env"
-    # 移除 certs 目录，防止 app.js 检测到证书文件后启用 HTTPS
-    Remote-Run "rm -rf $RemotePath/certs 2>/dev/null; echo 'certs removed'"
-    Write-Host "  生产模式：SSL 由 Nginx 处理，Node 运行 HTTP" -ForegroundColor Gray
+    Write-Host "  生产模式：SSL 由 Nginx 处理，Node 运行 HTTP；保留远程 certs/alipay 密钥" -ForegroundColor Gray
 }
 
 # 步骤 3: npm install
@@ -149,8 +158,8 @@ Remote-Run "cd $RemotePath; npm install --production 2>&1 | tail -n 5"
 
 # 步骤 5: pm2 启动/重启
 Write-Host "[5/6] 启动服务..." -ForegroundColor Yellow
-# 先尝试 restart，失败则 delete + start
-Remote-Run "cd $RemotePath && pm2 restart japanese-learn 2>/dev/null || pm2 start src/app.js --name japanese-learn"
+# 线上历史进程名可能是 japanese；优先重启正在使用的进程，避免部署后服务仍跑旧代码
+Remote-Run "cd $RemotePath && (pm2 describe japanese >/dev/null 2>&1 && pm2 restart japanese || (pm2 describe japanese-learn >/dev/null 2>&1 && pm2 restart japanese-learn || pm2 start src/app.js --name japanese))"
 Remote-Run "pm2 save --force"
 Remote-Run "pm2 list"
 

@@ -47,8 +47,11 @@
   },
   "payment": {
     "alipay_enabled": true,
+    "alipay_online_enabled": true,
     "alipay_appid": "",
     "alipay_notify_url": "",
+    "alipay_gateway": "https://openapi.alipay.com/gateway.do",
+    "alipay_return_url": "",
     "alipay_qr_url": "https://placeholder.alipay.qr",
     "wechat_enabled": true,
     "wechat_appid": "",

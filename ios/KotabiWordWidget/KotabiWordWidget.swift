@@ -248,6 +248,7 @@ struct KotabiWidgetBundle: WidgetBundle {
     var body: some Widget {
         KotabiWordWidget()
         KotabiDictionarySearchWidget()
+        KotabiJlptCountdownWidget()
     }
 }
 
@@ -322,6 +323,110 @@ struct KotabiDictionarySearchWidget: Widget {
         .configurationDisplayName("辞书检索")
         .description("快速打开辞书检索。")
         .supportedFamilies([.systemMedium])
+    }
+}
+
+struct JlptEntry: TimelineEntry {
+    let date: Date
+    let label: String
+    let examDate: Date
+    let days: Int
+}
+
+struct JlptProvider: TimelineProvider {
+    func placeholder(in context: Context) -> JlptEntry {
+        makeEntry(on: Date())
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (JlptEntry) -> Void) {
+        completion(makeEntry(on: Date()))
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<JlptEntry>) -> Void) {
+        let entry = makeEntry(on: Date())
+        let tomorrow = Calendar.current.startOfDay(for: Date()).addingTimeInterval(60 * 60 * 24)
+        completion(Timeline(entries: [entry], policy: .after(tomorrow)))
+    }
+
+    private func makeEntry(on date: Date) -> JlptEntry {
+        let exam = Self.nextExam(after: date)
+        let start = Calendar.current.startOfDay(for: date)
+        let end = Calendar.current.startOfDay(for: exam.date)
+        let days = max(0, Calendar.current.dateComponents([.day], from: start, to: end).day ?? 0)
+        return JlptEntry(date: date, label: exam.label, examDate: exam.date, days: days)
+    }
+
+    private static func nextExam(after date: Date) -> (label: String, date: Date) {
+        let calendar = Calendar.current
+        let exams: [(String, Date)] = [
+            ("JLPT 7月", calendar.date(from: DateComponents(year: 2026, month: 7, day: 5))!),
+            ("JLPT 12月", calendar.date(from: DateComponents(year: 2026, month: 12, day: 6))!),
+        ]
+        if let exam = exams.first(where: { calendar.startOfDay(for: $0.1) >= calendar.startOfDay(for: date) }) {
+            return exam
+        }
+        var next = calendar.date(from: DateComponents(year: calendar.component(.year, from: date) + 1, month: 7, day: 1))!
+        while calendar.component(.weekday, from: next) != 1 {
+            next = calendar.date(byAdding: .day, value: 1, to: next)!
+        }
+        return ("JLPT 7月", next)
+    }
+}
+
+struct KotabiJlptCountdownWidgetView: View {
+    let entry: JlptEntry
+
+    var body: some View {
+        VStack(spacing: 7) {
+            Text(entry.label)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color(red: 0.88, green: 0.11, blue: 0.28))
+                .clipShape(Capsule())
+            Text("\(entry.days)")
+                .font(.system(size: 42, weight: .black, design: .rounded))
+                .foregroundStyle(Color(red: 0.12, green: 0.16, blue: 0.22))
+                .minimumScaleFactor(0.65)
+                .lineLimit(1)
+            Text(entry.days == 0 ? "今天考试" : "天后考试")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(Color(red: 0.21, green: 0.26, blue: 0.33))
+            Text(dateLabel(entry.examDate))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .widgetURL(URL(string: "kotabi://study-plan"))
+        .containerBackground(for: .widget) {
+            LinearGradient(
+                colors: [
+                    Color(red: 1.0, green: 0.97, blue: 0.91),
+                    Color(red: 0.98, green: 0.87, blue: 0.95),
+                    Color(red: 0.88, green: 0.96, blue: 1.0)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
+
+    private func dateLabel(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy.MM.dd"
+        return formatter.string(from: date)
+    }
+}
+
+struct KotabiJlptCountdownWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "KotabiJlptCountdownWidget", provider: JlptProvider()) { entry in
+            KotabiJlptCountdownWidgetView(entry: entry)
+        }
+        .configurationDisplayName("JLPT 倒计时")
+        .description("显示下一场 JLPT 考试倒计天数。")
+        .supportedFamilies([.systemSmall])
     }
 }
 

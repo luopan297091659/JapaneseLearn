@@ -18,6 +18,23 @@ String cleanReading(String raw) {
   return s.trim();
 }
 
+/// Clean a reading for display. Bracket furigana such as 漢字[かんじ]
+/// becomes the phonetic reading instead of leaving the kanji behind.
+String cleanDisplayReading(String raw) {
+  var s = raw.trim();
+  if (s.isEmpty) return s;
+  final wrapped = RegExp(r'^[\[【]([^\]】]*)[\]】]$').firstMatch(s);
+  if (wrapped != null) return cleanDisplayReading(wrapped.group(1)!);
+  if (s.contains(RegExp(r'[^\[\]]+\[[^\]]+\]'))) {
+    s = normalizeJapaneseTtsText(s);
+  } else {
+    s = cleanReading(s);
+  }
+  s = s.replaceAll(RegExp(r'[【】]'), '');
+  s = s.replaceAll(RegExp(r'\s+'), ' ');
+  return s.trim();
+}
+
 /// Convert bracket furigana text to a TTS-friendly reading.
 /// Example: 鉛[えん] 筆[ぴつ] -> えんぴつ
 String normalizeJapaneseTtsText(String raw) {
