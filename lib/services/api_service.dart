@@ -1457,6 +1457,25 @@ class ApiService {
     return (res.data['tokens'] as List).cast<Map<String, dynamic>>();
   }
 
+  /// 日语句子分析：一次请求返回翻译和词法分析，减少 NHK 阅读页等待时间
+  Future<Map<String, dynamic>> aiSentenceAnalysis(String text,
+      {String targetLang = 'zh'}) async {
+    final res = await _dio.post(
+      '/ai/sentence-analysis',
+      data: {'text': text, 'targetLang': targetLang},
+      options: Options(receiveTimeout: _aiTimeout),
+    );
+    final data = Map<String, dynamic>.from(res.data as Map);
+    final rawTokens = (data['tokens'] as List?) ?? const [];
+    return {
+      'translation': (data['translation'] as String?) ?? '',
+      'tokens': rawTokens
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList(),
+    };
+  }
+
   /// 单词详解
   Future<Map<String, dynamic>> aiWordDetail(String word,
       {String? pos, String? sentence}) async {

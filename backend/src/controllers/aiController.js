@@ -319,7 +319,7 @@ async function analyze(req, res) {
 
 句子：${text.trim()}`;
 
-    const result = await callAI(prompt, 4096);
+    const result = await callAI(prompt, 2048);
     let tokens;
     try {
       tokens = extractJson(result);
@@ -336,6 +336,54 @@ async function analyze(req, res) {
 }
 
 // ── POST /api/v1/ai/word-detail ──────────────────────────────────────────────
+// POST /api/v1/ai/sentence-analysis
+// One compact AI call for reading UI: translation + token analysis together.
+async function sentenceAnalysis(req, res) {
+  const { text, targetLang = 'zh' } = req.body;
+  const sentence = String(text || '').trim();
+  if (!sentence) return res.status(400).json({ error: '请提供要分析的日语文本' });
+
+  const clipped = sentence.length > 900 ? sentence.substring(0, 900) : sentence;
+  const langMap = { zh: '中文', en: 'English', ko: '韩语' };
+  const lang = langMap[targetLang] || '中文';
+
+  try {
+    const prompt = `请分析下面的日语文本，返回严格 JSON 对象，不要 Markdown，不要解释。
+JSON 格式：
+{
+  "translation": "${lang}自然翻译",
+  "tokens": [
+    {"word":"原文词语","pos":"日语词性","furigana":"假名读音，没有则空","romaji":"罗马音","meaning":"${lang}简短释义"}
+  ]
+}
+要求：
+1. tokens 按原文顺序拆分，助动词尽量与对应动词合并。
+2. 识别时态、活用、助词。标点可作为 {"word":"。","pos":"記号","furigana":"","romaji":"","meaning":""}。
+3. 只返回可解析 JSON。
+
+文本：${clipped}`;
+
+    const result = await callAI(prompt, 2048);
+    let parsed;
+    try {
+      parsed = extractJson(result);
+    } catch (parseErr) {
+      logger.error('AI sentence-analysis JSON parse failed, raw:', result.substring(0, 500));
+      return res.status(502).json({ error: 'AI 返回格式异常，请重试' });
+    }
+
+    const tokens = Array.isArray(parsed?.tokens) ? parsed.tokens : [];
+    res.json({
+      translation: String(parsed?.translation || '').trim(),
+      tokens,
+    });
+  } catch (err) {
+    const msg = err?.message || 'AI 分析服务异常';
+    logger.error('AI sentence-analysis error: ' + msg);
+    res.status(err?.status || 500).json({ error: msg });
+  }
+}
+
 async function wordDetail(req, res) {
   const { word, pos, sentence } = req.body;
   if (!word) return res.status(400).json({ error: '请提供要查询的词语' });
@@ -370,4 +418,4 @@ async function wordDetail(req, res) {
   }
 }
 
-module.exports = { translate, analyze, wordDetail, callAI };
+module.exports = { translate, analyze, sentenceAnalysis, wordDetail, callAI };

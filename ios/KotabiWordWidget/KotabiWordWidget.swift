@@ -116,23 +116,23 @@ struct KotabiWordWidgetView: View {
     }
 
     private var smallView: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 4) {
             titleBar
             Text(entry.word)
-                .font(.system(size: 28, weight: .bold))
+                .font(.system(size: 24, weight: .bold))
                 .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .minimumScaleFactor(0.65)
             if !entry.reading.isEmpty {
                 Text(entry.reading)
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             tags
             Text(entry.meaning)
-                .font(.system(size: 14, weight: .semibold))
-                .lineLimit(2)
-            Spacer(minLength: 2)
+                .font(.system(size: 12, weight: .semibold))
+                .lineLimit(1)
+            Spacer(minLength: 0)
             checkinButton
         }
         .widgetURL(URL(string: "kotabi://word-widget"))
@@ -164,19 +164,10 @@ struct KotabiWordWidgetView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
 
             VStack(spacing: 8) {
-                checkinButton
-                Link(destination: URL(string: "kotabi://dictionary")!) {
-                    Label("辞书搜索", systemImage: "magnifyingglass")
-                        .font(.caption.weight(.bold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color(red: 0.48, green: 0.18, blue: 0.18))
-                .background(Color(red: 0.97, green: 0.86, blue: 0.83))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
+                checkinTile
+                dictionaryTile
             }
-            .frame(width: 100)
+            .frame(width: 82)
         }
         .widgetURL(URL(string: "kotabi://word-widget"))
         .containerBackground(for: .widget) { background }
@@ -210,8 +201,8 @@ struct KotabiWordWidgetView: View {
             Button(intent: CheckinIntent()) {
                 Label(entry.checkedInToday ? "已签到" : "签到", systemImage: "checkmark.circle")
                     .font(.caption.weight(.bold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
+                .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7)
             }
             .buttonStyle(.plain)
             .foregroundStyle(.white)
@@ -222,13 +213,66 @@ struct KotabiWordWidgetView: View {
                 Label(entry.checkedInToday ? "已签到" : "签到", systemImage: "checkmark.circle")
                     .font(.caption.weight(.bold))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
+                    .padding(.vertical, 7)
             }
             .buttonStyle(.plain)
             .foregroundStyle(.white)
             .background(entry.checkedInToday ? Color(red: 0.44, green: 0.55, blue: 0.40) : Color(red: 0.82, green: 0.23, blue: 0.23))
             .clipShape(RoundedRectangle(cornerRadius: 14))
         }
+    }
+
+    @ViewBuilder
+    private var checkinTile: some View {
+        if #available(iOSApplicationExtension 17.0, *) {
+            Button(intent: CheckinIntent()) {
+                VStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 18, weight: .bold))
+                    Text(entry.checkedInToday ? "已签到" : "签到")
+                        .font(.caption.weight(.bold))
+                        .lineLimit(1)
+                }
+                .frame(width: 72, height: 62)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white)
+            .background(entry.checkedInToday ? Color(red: 0.44, green: 0.55, blue: 0.40) : Color(red: 0.82, green: 0.23, blue: 0.23))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        } else {
+            Link(destination: URL(string: "kotabi://checkin")!) {
+                VStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 18, weight: .bold))
+                    Text(entry.checkedInToday ? "已签到" : "签到")
+                        .font(.caption.weight(.bold))
+                        .lineLimit(1)
+                }
+                .frame(width: 72, height: 62)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white)
+            .background(entry.checkedInToday ? Color(red: 0.44, green: 0.55, blue: 0.40) : Color(red: 0.82, green: 0.23, blue: 0.23))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
+
+    private var dictionaryTile: some View {
+        Link(destination: URL(string: "kotabi://dictionary")!) {
+            VStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 18, weight: .bold))
+                Text("辞书搜索")
+                    .font(.caption.weight(.bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(width: 72, height: 62)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color(red: 0.48, green: 0.18, blue: 0.18))
+        .background(Color(red: 0.97, green: 0.86, blue: 0.83))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private var background: some View {
@@ -398,7 +442,7 @@ struct KotabiJlptCountdownWidgetView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .widgetURL(URL(string: "kotabi://study-plan"))
+        .widgetURL(URL(string: "kotabi://home"))
         .containerBackground(for: .widget) {
             LinearGradient(
                 colors: [

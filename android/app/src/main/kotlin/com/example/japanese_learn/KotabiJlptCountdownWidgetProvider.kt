@@ -3,6 +3,7 @@ package com.example.japanese_learn
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -16,6 +17,30 @@ class KotabiJlptCountdownWidgetProvider : AppWidgetProvider() {
         ids.forEach { manager.updateAppWidget(it, buildViews(context)) }
     }
 
+    override fun onEnabled(context: Context) {
+        updateAll(context)
+    }
+
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        when (intent.action) {
+            Intent.ACTION_DATE_CHANGED,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+            Intent.ACTION_BOOT_COMPLETED,
+            AppWidgetManager.ACTION_APPWIDGET_UPDATE -> updateAll(context)
+        }
+    }
+
+    companion object {
+        fun updateAll(context: Context) {
+            val manager = AppWidgetManager.getInstance(context)
+            val ids = manager.getAppWidgetIds(ComponentName(context, KotabiJlptCountdownWidgetProvider::class.java))
+            val provider = KotabiJlptCountdownWidgetProvider()
+            ids.forEach { manager.updateAppWidget(it, provider.buildViews(context)) }
+        }
+    }
+
     private fun buildViews(context: Context): RemoteViews {
         val exam = nextExam()
         val days = ChronoUnit.DAYS.between(LocalDate.now(), exam.date).coerceAtLeast(0)
@@ -27,14 +52,14 @@ class KotabiJlptCountdownWidgetProvider : AppWidgetProvider() {
                 R.id.jlpt_countdown_date,
                 "${exam.date.year}.${exam.date.monthValue.toString().padStart(2, '0')}.${exam.date.dayOfMonth.toString().padStart(2, '0')}"
             )
-            setOnClickPendingIntent(R.id.jlpt_countdown_widget, openStudyPlanIntent(context))
+            setOnClickPendingIntent(R.id.jlpt_countdown_widget, openHomeIntent(context))
         }
     }
 
-    private fun openStudyPlanIntent(context: Context): PendingIntent {
+    private fun openHomeIntent(context: Context): PendingIntent {
         val intent = Intent(context, MainActivity::class.java)
             .setAction(Intent.ACTION_VIEW)
-            .setData(Uri.parse("kotabi://study-plan"))
+            .setData(Uri.parse("kotabi://home"))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0

@@ -10,6 +10,7 @@ class MainActivity: FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         pendingDeepLink = intent?.dataString
+        KotabiJlptCountdownWidgetProvider.updateAll(this)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "kotabi/word_widget")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -21,6 +22,7 @@ class MainActivity: FlutterActivity() {
                         }
                         KotabiWordWidgetProvider.savePayload(this, args)
                         KotabiWordWidgetProvider.updateAll(this)
+                        KotabiJlptCountdownWidgetProvider.updateAll(this)
                         result.success(null)
                     }
                     "consumePendingDeepLink" -> {

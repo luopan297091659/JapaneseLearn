@@ -9,6 +9,7 @@ router.use(authenticate);
 
 router.post('/translate', checkMembership('ai_features'), aiController.translate);
 router.post('/analyze', checkMembership('ai_features'), aiController.analyze);
+router.post('/sentence-analysis', checkMembership('ai_features'), aiController.sentenceAnalysis);
 router.post('/word-detail', checkMembership('ai_features'), aiController.wordDetail);
 
 module.exports = router;

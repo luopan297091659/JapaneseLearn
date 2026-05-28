@@ -104,116 +104,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     if (_hasSearched && _searchCtrl.text.trim().isNotEmpty) _search();
   }
 
-  void _showSaveDialog() {
-    final totalCount = _results.length + _vocabResults.length;
-    final maxToSave = 200;
-    final canSave = totalCount > 0;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('保存搜索结果'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('找到 $totalCount 个结果，最多可保存 $maxToSave 条到本地'),
-            const SizedBox(height: 12),
-            Text(
-              '将保存：${totalCount <= maxToSave ? totalCount : maxToSave} 条',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            const Text('保存后可在我的词库中查看',
-                style: TextStyle(fontSize: 12, color: Colors.grey)),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          FilledButton(
-            onPressed: canSave
-                ? () async {
-                    Navigator.pop(ctx);
-                    await _saveResults();
-                  }
-                : null,
-            child: const Text('保存'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _saveResults() async {
-    try {
-      final entries = <Map<String, dynamic>>[];
-
-      // 收集系统词库结果
-      for (final vocab in _vocabResults) {
-        entries.add({
-          'word': vocab.word,
-          'reading': vocab.reading,
-          'meaning_zh': vocab.meaningZh,
-          'meaning_en': vocab.meaningEn,
-          'pos': vocab.partOfSpeech,
-          'jlpt': vocab.jlptLevel,
-          'slug': vocab.word,
-          'source': 'vocab',
-        });
-      }
-
-      // 收集辞书结果
-      for (final entry in _results) {
-        entries.add({
-          'word': entry.displayWord,
-          'reading': entry.displayReading,
-          'meaning_zh': entry.meanings.isNotEmpty
-              ? (entry.meanings.first.chineseDefinitions.isNotEmpty
-                  ? entry.meanings.first.chineseDefinitions.first
-                  : entry.meanings.first.englishDefinitions.join('; '))
-              : '',
-          'meaning_en': entry.meanings.isNotEmpty
-              ? entry.meanings.first.englishDefinitions.join('; ')
-              : '',
-          'pos': entry.meanings.isNotEmpty &&
-                  entry.meanings.first.partsOfSpeech.isNotEmpty
-              ? entry.meanings.first.partsOfSpeech.first
-              : '',
-          'jlpt': entry.jlpt.isNotEmpty ? entry.jlpt.first : '',
-          'slug': entry.slug,
-          'source': 'jisho',
-        });
-      }
-
-      // 只保存前200条
-      final toSave = entries.take(200).toList();
-
-      final count = await localDb.saveDictEntries(toSave);
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('成功保存 $count 条到本地库'),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('保存失败，请重试'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
-  void _showSavedEntries() {
-    context.push('/vocabulary/saved-dictionary');
-  }
-
   void _onScroll() {
     if (_scrollCtrl.position.pixels >=
         _scrollCtrl.position.maxScrollExtent - 200) {
@@ -380,28 +270,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         actions: [
           // 语言切换按钮
           _LangToggle(lang: _lang, onChanged: _setLang),
-          const SizedBox(width: 4),
-          // 保存搜索结果按钮
-          if (_hasSearched && (_results.isNotEmpty || _vocabResults.isNotEmpty))
-            IconButton(
-              icon: const Icon(Icons.save_rounded),
-              tooltip: '保存搜索结果',
-              onPressed: _showSaveDialog,
-            ),
-          // 更多菜单
-          PopupMenuButton(
-            icon: const Icon(Icons.more_vert),
-            itemBuilder: (ctx) => [
-              PopupMenuItem(
-                child: const Row(children: [
-                  Icon(Icons.bookmark, size: 18),
-                  SizedBox(width: 8),
-                  Text('查看保存的词条'),
-                ]),
-                onTap: () => _showSavedEntries(),
-              ),
-            ],
-          ),
+          const SizedBox(width: 12),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),

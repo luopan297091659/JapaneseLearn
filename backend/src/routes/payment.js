@@ -98,9 +98,10 @@ function isAlipayOnlineReady(req) {
   return !!(cfg.enabled && cfg.appId && cfg.privateKey && cfg.publicKey);
 }
 
-function buildSignContent(params) {
+function buildSignContent(params, excludeKeys = ['sign']) {
+  const excluded = new Set(excludeKeys);
   return Object.keys(params)
-    .filter(key => params[key] !== undefined && params[key] !== null && params[key] !== '' && key !== 'sign')
+    .filter(key => params[key] !== undefined && params[key] !== null && params[key] !== '' && !excluded.has(key))
     .sort()
     .map(key => `${key}=${params[key]}`)
     .join('&');
@@ -117,7 +118,7 @@ function verifyAlipayNotify(params, publicKey) {
   const sign = params.sign;
   if (!sign) return false;
   const verifier = crypto.createVerify('RSA-SHA256');
-  verifier.update(buildSignContent(params), 'utf8');
+  verifier.update(buildSignContent(params, ['sign', 'sign_type']), 'utf8');
   verifier.end();
   return verifier.verify(publicKey, sign, 'base64');
 }
