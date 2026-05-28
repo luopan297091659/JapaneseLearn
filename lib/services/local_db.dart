@@ -23,7 +23,6 @@ class LocalDb {
   static const tableCachedGrammar = 'cached_grammar';
   static const tableTranslateHistory = 'translate_history';
   static const tableDictHistory = 'dict_search_history';
-  static const tableDictSaved = 'dict_saved_entries';
 
   // ─── 初始化 ─────────────────────────────────────────────────────────────
   Future<Database> get db async {
@@ -123,9 +122,6 @@ class LocalDb {
               AND d.source_type IN ('apkg', 'txt', 'csv', 'tsv', 'paste', 'legacy')
           )
       ''');
-    }
-    if (oldVersion < 11) {
-      await _createDictSavedTable(db);
     }
   }
 
@@ -929,26 +925,6 @@ class LocalDb {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_dh_time ON $tableDictHistory (created_at DESC)');
   }
 
-  Future<void> _createDictSavedTable(Database db) async {
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS $tableDictSaved (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        word        TEXT    NOT NULL,
-        reading     TEXT    NOT NULL DEFAULT '',
-        pos         TEXT    NOT NULL DEFAULT '',
-        meaning_zh  TEXT    NOT NULL DEFAULT '',
-        meaning_en  TEXT    NOT NULL DEFAULT '',
-        jlpt        TEXT    NOT NULL DEFAULT '',
-        slug        TEXT,
-        source      TEXT    DEFAULT 'jisho',
-        is_favorite INTEGER NOT NULL DEFAULT 0,
-        created_at  INTEGER NOT NULL
-      )
-    ''');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_ds_word ON $tableDictSaved (word)');
-    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_ds_unique ON $tableDictSaved (word, reading)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_ds_time ON $tableDictSaved (created_at DESC)');
-  }
 
   Future<void> insertDictHistory({
     required String word,
@@ -1008,113 +984,6 @@ class LocalDb {
   Future<void> clearDictHistory() async {
     final database = await db;
     await database.delete(tableDictHistory);
-  }
-
-  // ─── 保存词条到本地库 ──────────────────────────────────────────────────────
-  /// 保存单个词条
-  Future<int> saveDictEntry({
-    required String word,
-    String reading = '',
-    String pos = '',
-    String meaningZh = '',
-    String meaningEn = '',
-    String jlpt = '',
-    String? slug,
-    String source = 'jisho',
-  }) async {
-    final database = await db;
-    try {
-      // 尝试更新，如果不存在则插入
-      final id = await database.insert(
-        tableDictSaved,
-        {
-          'word': word,
-          'reading': reading,
-          'pos': pos,
-          'meaning_zh': meaningZh,
-          'meaning_en': meaningEn,
-          'jlpt': jlpt,
-          'slug': slug,
-          'source': source,
-          'is_favorite': 0,
-          'created_at': DateTime.now().millisecondsSinceEpoch,
-        },
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
-      return id;
-    } catch (e) {
-      return -1;
-    }
-  }
-
-  /// 批量保存词条
-  Future<int> saveDictEntries(List<Map<String, dynamic>> entries) async {
-    final database = await db;
-    int count = 0;
-    for (final entry in entries) {
-      try {
-        await database.insert(
-          tableDictSaved,
-          {
-            'word': entry['word'] ?? '',
-            'reading': entry['reading'] ?? '',
-            'pos': entry['pos'] ?? '',
-            'meaning_zh': entry['meaning_zh'] ?? '',
-            'meaning_en': entry['meaning_en'] ?? '',
-            'jlpt': entry['jlpt'] ?? '',
-            'slug': entry['slug'],
-            'source': entry['source'] ?? 'jisho',
-            'is_favorite': 0,
-            'created_at': DateTime.now().millisecondsSinceEpoch,
-          },
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
-        count++;
-      } catch (_) {}
-    }
-    return count;
-  }
-
-  /// 获取已保存的词条
-  Future<List<Map<String, dynamic>>> getSavedDictEntries({int limit = 200, int offset = 0}) async {
-    final database = await db;
-    return database.query(
-      tableDictSaved,
-      orderBy: 'created_at DESC',
-      limit: limit,
-      offset: offset,
-    );
-  }
-
-  /// 检查词条是否已保存
-  Future<bool> isDictEntrySaved(String word, String reading) async {
-    final database = await db;
-    final result = await database.query(
-      tableDictSaved,
-      where: 'word = ? AND reading = ?',
-      whereArgs: [word, reading],
-      limit: 1,
-    );
-    return result.isNotEmpty;
-  }
-
-  /// 删除保存的词条
-  Future<void> deleteSavedDictEntry(int id) async {
-    final database = await db;
-    await database.delete(tableDictSaved, where: 'id = ?', whereArgs: [id]);
-  }
-
-  /// 清空所有保存的词条
-  Future<void> clearSavedDictEntries() async {
-    final database = await db;
-    await database.delete(tableDictSaved);
-  }
-
-  /// 获取已保存词条数量
-  Future<int> getSavedDictEntriesCount() async {
-    final database = await db;
-    final result = await database.rawQuery('SELECT COUNT(*) as count FROM $tableDictSaved');
-    return result.first['count'] as int? ?? 0;
   }
 
   // ─── 关闭 ────────────────────────────────────────────────────────────────

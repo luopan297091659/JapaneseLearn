@@ -507,6 +507,17 @@ class _AiAnalysisSheetState extends State<_AiAnalysisSheet> {
         });
       }
     } catch (e) {
+      final isMembershipLimit = e is DioException &&
+          e.response?.statusCode == 403 &&
+          e.response?.data is Map &&
+          ((e.response?.data as Map)['error'] == 'MEMBERSHIP_REQUIRED' ||
+              (e.response?.data as Map)['error'] == 'DAILY_LIMIT_REACHED');
+
+      if (isMembershipLimit) {
+        if (mounted) Navigator.of(context).pop();
+        return;
+      }
+
       if (mounted) {
         String msg = 'AI 分析失败';
         if (e is DioException && e.response?.data is Map) {
