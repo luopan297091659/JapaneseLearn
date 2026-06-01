@@ -152,28 +152,41 @@ body.auth-ready .auth-slot { visibility: visible; }
 .section-title h2 { font-size: clamp(20px,3.5vw,26px); font-weight: 800; }
 .section-title p { font-size: 14px; color: var(--text-sub); margin-top: 4px; }
 
-/* ── Features ── */
-.features {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 16px; max-width: 960px; margin: -30px auto 0; padding: 0 clamp(12px,4vw,48px);
-  position: relative; z-index: 1;
+/* ── App overview ── */
+.products { max-width: 1080px; margin: 44px auto 0; padding: 0 clamp(12px,4vw,48px); scroll-margin-top: calc(var(--nav-h) + 18px); }
+.product-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; align-items: stretch; }
+@media (max-width: 840px) { .product-grid { grid-template-columns: 1fr; } }
+.product-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 24px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+  min-height: 330px; display: flex; flex-direction: column; gap: 16px;
 }
-@media (max-width: 768px) { .features { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 480px) { .features { grid-template-columns: 1fr; gap: 12px; } }
-.feat-card {
-  background: var(--surface); border-radius: var(--radius); padding: 22px 18px;
-  box-shadow: var(--shadow); transition: transform .2s, box-shadow .2s;
-  opacity: 0; transform: translateY(30px); cursor: default;
-}
-.feat-card.visible { opacity: 1; transform: translateY(0); transition: opacity .5s ease, transform .5s ease; }
-.feat-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
-.feat-card .icon { font-size: 28px; margin-bottom: 8px; }
-.feat-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
-.feat-card p { font-size: 12.5px; color: var(--text-sub); line-height: 1.5; }
-.feat-tag { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--primary-light); color: var(--primary); font-weight: 600; margin-bottom: 8px; }
-
+.product-card.kotabi { border-top: 5px solid var(--primary); }
+.product-card.tokyo { border-top: 5px solid #c2644f; background: linear-gradient(180deg,#fffaf6 0%,#fff 78%); }
+.product-head { display: flex; align-items: center; gap: 14px; }
+.product-icon { width: 58px; height: 58px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; background: var(--primary-light); color: var(--primary); flex-shrink: 0; object-fit: cover; }
+.product-card.tokyo .product-icon { background: #ffe8d8; color: #9c3f33; }
+.product-type { display: inline-flex; width: fit-content; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; background: var(--primary-light); color: var(--primary); margin-bottom: 7px; }
+.product-card.tokyo .product-type { background: #ffe8d8; color: #9c3f33; }
+.product-title h3 { font-size: 22px; font-weight: 900; line-height: 1.2; }
+.product-title span { display: block; font-size: 12px; color: var(--text-sub); margin-top: 3px; }
+.product-desc { color: var(--text-sub); font-size: 14px; }
+.product-points { display: grid; gap: 8px; }
+.product-points li { font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 7px; }
+.product-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: auto; }
+.product-actions a { padding: 9px 15px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; }
+.product-actions .primary { background: var(--primary); color: #fff; }
+.product-card.tokyo .product-actions .primary { background: #c2644f; }
+.product-actions .ghost { background: var(--surface2); color: var(--text-sub); border: 1px solid var(--border); }
+.download { max-width: 1080px; }
+.download-group { margin-bottom: 28px; padding: 22px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.download-group.kotabi { border-left: 5px solid var(--primary); }
+.download-group.tokyo { border-left: 5px solid #c2644f; background: #fffaf6; }
+.download-group h3 { font-size: 18px; font-weight: 900; margin-bottom: 8px; text-align: left; }
+.download-group p { font-size: 13px; color: var(--text-sub); margin-bottom: 14px; text-align: left; }
+.dl-card .product-name { font-size: 12px; color: var(--text-sub); font-weight: 600; }
 /* ── Download ── */
-.download { max-width: 800px; margin: 48px auto; padding: 0 clamp(12px,4vw,48px); text-align: center; }
+.download { max-width: 1040px; margin: 48px auto; padding: 0 clamp(12px,4vw,48px); text-align: center; }
 .dl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 @media (max-width: 520px) { .dl-grid { grid-template-columns: 1fr; } }
 .dl-card {
@@ -248,102 +261,110 @@ footer {
     <h1>轻松开启<span>日语学习</span>之旅</h1>
     <p>假名、词汇、语法、听力、AI 对话、AnKi 词库、SRS 间隔复习、游戏闯关 — 一站式日语学习，从零到 N1。</p>
     <div class="hero-cta">
-      <a class="cta-primary" href="#download">立即下载 ↓</a>
+      <a class="cta-primary" href="#download">查看下载 ↓</a>
       <a class="cta-secondary" href="/app">在线体验 →</a>
     </div>
   </div>
 </section>
 
-<!-- Features -->
-<section style="padding-top:48px;">
-  <div class="section-title">
-    <h2>为什么选择言旅？</h2>
-    <p>9 大核心功能，覆盖日语学习全链路</p>
-  </div>
-  <div class="features">
-    <div class="feat-card">
-      <span class="feat-tag">入门必备</span>
-      <div class="icon">🎌</div>
-      <h3>五十音速成</h3>
-      <p>平假名 · 片假名 · 浊音 · 拗音全覆盖，配合读音朗读与书写练习，3 天拿下五十音。</p>
-    </div>
-    <div class="feat-card">
-      <span class="feat-tag">系统学习</span>
-      <div class="icon">📖</div>
-      <h3>N5–N1 词汇语法</h3>
-      <p>按 JLPT 等级精编，配套例句、释义与 AI 语音朗读，考前冲刺利器。</p>
-    </div>
-    <div class="feat-card">
-      <span class="feat-tag">定制计划</span>
-      <div class="icon">📅</div>
-      <h3>学习计划</h3>
-      <p>智能制定每日学习目标，自动追踪进度，养成打卡习惯，告别三天打鱼。</p>
-    </div>
-    <div class="feat-card">
-      <span class="feat-tag">高效记忆</span>
-      <div class="icon">🔄</div>
-      <h3>SRS 间隔复习</h3>
-      <p>基于遗忘曲线自动推送复习，越难的词越频繁，高效对抗遗忘。</p>
-    </div>
-    <div class="feat-card">
-      <span class="feat-tag">查漏补缺</span>
-      <div class="icon">📝</div>
-      <h3>错题集</h3>
-      <p>自动收集答错题目，专项攻克薄弱环节，让每次犯错都变成进步。</p>
-    </div>
-    <div class="feat-card">
-      <span class="feat-tag">沉浸听力</span>
-      <div class="icon">🎧</div>
-      <h3>磨耳朵</h3>
-      <p>精选日语播客 · 有声读物 · 多难度听力素材，碎片时间磨出日语耳朵。</p>
-    </div>
-    <div class="feat-card">
-      <span class="feat-tag">实时资讯</span>
-      <div class="icon">📰</div>
-      <h3>NHK 新闻</h3>
-      <p>每日更新 NHK 简明新闻，真实语料阅读 + 听力双重训练，中上级必练。</p>
-    </div>
-    <div class="feat-card">
-      <span class="feat-tag">即查即用</span>
-      <div class="icon">🔍</div>
-      <h3>辞书检索</h3>
-      <p>内置日中 · 日英词典，支持假名、汉字、罗马音多方式查词，生词一键收藏。</p>
-    </div>
-    <div class="feat-card">
-      <span class="feat-tag">趣味闯关</span>
-      <div class="icon">🎮</div>
-      <h3>游戏化学习</h3>
-      <p>方块闯关 + AI 私教，边玩边练助词、动词变形，让肌肉记忆替你记住语法。</p>
-    </div>
+<!-- Products -->
+<section class="products" id="products">
+  <div class="product-grid">
+    <article class="product-card kotabi">
+      <div class="product-head">
+        <img class="product-icon" src="/home/app_icon.png" alt="言旅 App">
+        <div class="product-title">
+          <span class="product-type">学习工具 APP</span>
+          <h3>言旅 Kotabi</h3>
+          <span>日语学习与 JLPT 备考</span>
+        </div>
+      </div>
+      <p class="product-desc">适合每天系统学习：从五十音、词汇语法、听力阅读到 AI 对话和 SRS 复习，覆盖从零基础到 N1 的长期路径。</p>
+      <ul class="product-points">
+        <li>✓ N5-N1 词汇语法与例句音频</li>
+        <li>✓ JLPT 真题、错题本、学习计划</li>
+        <li>✓ AI 对话、听力频道、Anki 词库导入</li>
+      </ul>
+      <div class="product-actions">
+        <a class="primary" href="#download-kotabi">下载言旅</a>
+        <a class="ghost" href="/app">在线体验</a>
+      </div>
+    </article>
+    <article class="product-card tokyo">
+      <div class="product-head">
+        <div class="product-icon">🗼</div>
+        <div class="product-title">
+          <span class="product-type">剧情游戏 APP</span>
+          <h3>东京留学物语</h3>
+          <span>东京生活日语模拟</span>
+        </div>
+      </div>
+      <p class="product-desc">适合准备赴日、留学和打工生活场景练习：把住民登记、银行开户、语言学校、便利店打工、车站问路做成可玩的生活任务。</p>
+      <ul class="product-points">
+        <li>✓ 主线任务 + 支线生活事件</li>
+        <li>✓ 场景化日语对话与角色扮演</li>
+        <li>✓ 生存数值、打工排班、东京日常沉浸体验</li>
+      </ul>
+      <div class="product-actions">
+        <a class="primary" href="#download-tokyo">下载东京留学</a>
+        <a class="ghost" href="#download-tokyo">查看上架状态</a>
+      </div>
+    </article>
   </div>
 </section>
-
 <!-- Download -->
 <section class="download" id="download">
   <div class="section-title">
     <h2>立即下载</h2>
-    <p>扫码下载或点击按钮，开始你的日语之旅</p>
+    <p>选择你要使用的 App，扫码或点击按钮下载</p>
   </div>
-  <div class="dl-grid">
-    <div class="dl-card" id="androidCard">
-      <div class="platform"><span class="os-icon">🤖</span>Android</div>
-      <div class="qr-box" id="androidQrBox">
-        <div class="qr-loading"><div class="spinner"></div><span style="font-size:11px;color:var(--text-hint)">加载中</span></div>
+  <div class="download-group kotabi" id="download-kotabi">
+    <h3>言旅 Kotabi</h3>
+    <p>系统学习、备考和在线工具入口。</p>
+    <div class="dl-grid">
+      <div class="dl-card" id="kotabiAndroidCard">
+        <div class="product-name">言旅 Kotabi</div>
+        <div class="platform"><span class="os-icon">🤖</span>Android</div>
+        <div class="qr-box" id="kotabiAndroidQrBox">
+          <div class="qr-loading"><div class="spinner"></div><span style="font-size:11px;color:var(--text-hint)">加载中</span></div>
+        </div>
+        <div class="version" id="kotabiAndroidVersion">检测中...</div>
+        <button class="dl-btn dl-btn-android" id="kotabiAndroidBtn" onclick="downloadProduct('kotabiAndroid')">下载 APK</button>
       </div>
-      <div class="version" id="androidVersion">检测中...</div>
-      <button class="dl-btn dl-btn-android" id="androidBtn" onclick="downloadAndroid()">下载 APK</button>
+      <div class="dl-card" id="kotabiIosCard">
+        <div class="product-name">言旅 Kotabi</div>
+        <div class="platform"><span class="os-icon">🍎</span>iOS</div>
+        <div class="qr-box" id="kotabiIosQrBox">
+          <div class="qr-loading"><div class="spinner"></div><span style="font-size:11px;color:var(--text-hint)">加载中</span></div>
+        </div>
+        <div class="version" id="kotabiIosVersion">检测中...</div>
+        <button class="dl-btn dl-btn-ios" id="kotabiIosBtn" onclick="downloadProduct('kotabiIos')">前往下载</button>
+      </div>
     </div>
-    <div class="dl-card" id="iosCard">
-      <div class="platform"><span class="os-icon">🍎</span>iOS</div>
-      <div class="qr-box" id="iosQrBox">
-        <div class="qr-loading"><div class="spinner"></div><span style="font-size:11px;color:var(--text-hint)">加载中</span></div>
+  </div>
+  <div class="download-group tokyo" id="download-tokyo">
+    <h3>东京留学物语</h3>
+    <p>沉浸式剧情生活日语 App，适合准备赴日、留学和打工生活场景练习。</p>
+    <div class="dl-grid">
+      <div class="dl-card" id="tokyoAndroidCard">
+        <div class="product-name">东京留学物语</div>
+        <div class="platform"><span class="os-icon">🤖</span>Android</div>
+        <div class="qr-box" id="tokyoAndroidQrBox">
+          <div class="qr-loading"><div class="spinner"></div><span style="font-size:11px;color:var(--text-hint)">加载中</span></div>
+        </div>
+        <div class="version" id="tokyoAndroidVersion">检测中...</div>
+        <button class="dl-btn dl-btn-android" id="tokyoAndroidBtn" onclick="downloadProduct('tokyoAndroid')">下载 APK</button>
       </div>
-      <div class="version" id="iosVersion">检测中...</div>
-      <button class="dl-btn dl-btn-ios" id="iosBtn" onclick="downloadIos()">前往下载</button>
+      <div class="dl-card" id="tokyoIosCard">
+        <div class="product-name">东京留学物语</div>
+        <div class="platform"><span class="os-icon">🍎</span>iOS</div>
+        <div class="qr-box" id="tokyoIosQrBox"><div class="placeholder">App Store<br>暂未上架</div></div>
+        <div class="version" id="tokyoIosVersion">苹果版本暂未上架</div>
+        <button class="dl-btn dl-btn-disabled" id="tokyoIosBtn" disabled>暂未上架</button>
+      </div>
     </div>
   </div>
 </section>
-
 <footer>© 2026 言旅 Kotabi — 让日语学习成为一段美好旅程<br><a href="/app/terms.html" style="color:#8B4513;text-decoration:none">用户协议</a> <span style="margin:0 4px;color:#9ca3af">·</span> <a href="/app/privacy.html" style="color:#8B4513;text-decoration:none">隐私政策</a> <span style="margin:0 4px;color:#9ca3af">·</span> <a href="/app/tokusho.html" style="color:#8B4513;text-decoration:none">特定商取引法</a></footer>
 
 <!-- Auth Modal -->
@@ -475,31 +496,21 @@ footer {
   resize(); init(); loop();
 })();
 
-/* ── Scroll reveal ── */
-(function(){
-  const obs = new IntersectionObserver(entries => {
-    entries.forEach((e,i) => { if(e.isIntersecting){setTimeout(()=>e.target.classList.add('visible'),i*80);obs.unobserve(e.target);} });
-  }, {threshold:.15});
-  document.querySelectorAll('.feat-card').forEach(el=>obs.observe(el));
-})();
-
 /* ── App Download QR ── */
-let androidDownloadUrl = '';
-let iosDownloadUrl = '';
+const downloadUrls = {};
 
 async function loadAppRelease(platform, options) {
-  const { versionId, buttonId, qrBoxId, buttonText, emptyButtonText, activeClass } = options;
+  const { key, versionId, buttonId, qrBoxId, buttonText, emptyButtonText, activeClass, unavailableText } = options;
   try {
-    const res = await fetch('/api/v1/admin/app/latest?platform=' + platform);
+    const res = await fetch('/api/v1/admin/app/latest?platform=' + encodeURIComponent(platform));
     if (!res.ok) throw new Error('not found');
     const { data } = await res.json();
     const dlPath = data.download_url || ('/api/v1/admin/downloadApp/' + data.id);
-    if (platform === 'ios') iosDownloadUrl = dlPath;
-    else androidDownloadUrl = dlPath;
-    const fullUrl = location.origin + dlPath;
-    document.getElementById(versionId).textContent = (platform === 'ios' && data.version === 'iOS' ? '已发布' : 'v' + data.version) + (data.published_at ? ' · ' + new Date(data.published_at).toLocaleDateString('zh-CN') : '');
+    downloadUrls[key] = dlPath;
+    const fullUrl = /^https?:\/\//i.test(dlPath) ? dlPath : location.origin + dlPath;
+    document.getElementById(versionId).textContent = (platform.endsWith('ios') && data.version === 'iOS' ? '已发布' : 'v' + data.version) + (data.published_at ? ' · ' + new Date(data.published_at).toLocaleDateString('zh-CN') : '');
     const box = document.getElementById(qrBoxId);
-    const canvasId = platform + 'Qr';
+    const canvasId = key + 'Qr';
     box.innerHTML = '<canvas id="' + canvasId + '"></canvas>';
     QRCode.toCanvas(document.getElementById(canvasId), fullUrl, { width:140, margin:1, color:{dark:'#1a1c2e',light:'#ffffff'} });
     const btn = document.getElementById(buttonId);
@@ -508,7 +519,7 @@ async function loadAppRelease(platform, options) {
     btn.classList.remove('dl-btn-disabled');
     btn.classList.add(activeClass);
   } catch {
-    document.getElementById(versionId).textContent = '暂无发布版本';
+    document.getElementById(versionId).textContent = unavailableText || '暂无发布版本';
     const btn = document.getElementById(buttonId);
     btn.disabled = true;
     btn.textContent = emptyButtonText;
@@ -518,25 +529,22 @@ async function loadAppRelease(platform, options) {
   }
 }
 
-function loadAndroidRelease() {
-  return loadAppRelease('android', {
-    versionId: 'androidVersion', buttonId: 'androidBtn', qrBoxId: 'androidQrBox',
-    buttonText: '下载 APK', emptyButtonText: '暂无版本', activeClass: 'dl-btn-android'
-  });
+function downloadProduct(key) {
+  if (downloadUrls[key]) window.open(downloadUrls[key], '_blank');
 }
 
-function loadIosRelease() {
-  return loadAppRelease('ios', {
-    versionId: 'iosVersion', buttonId: 'iosBtn', qrBoxId: 'iosQrBox',
-    buttonText: '前往下载', emptyButtonText: '暂无版本', activeClass: 'dl-btn-ios'
-  });
-}
-
-function downloadAndroid() { if (androidDownloadUrl) window.open(androidDownloadUrl,'_blank'); }
-function downloadIos() { if (iosDownloadUrl) window.open(iosDownloadUrl,'_blank'); }
-loadAndroidRelease();
-loadIosRelease();
-
+loadAppRelease('android', {
+  key: 'kotabiAndroid', versionId: 'kotabiAndroidVersion', buttonId: 'kotabiAndroidBtn', qrBoxId: 'kotabiAndroidQrBox',
+  buttonText: '下载 APK', emptyButtonText: '暂无版本', activeClass: 'dl-btn-android'
+});
+loadAppRelease('ios', {
+  key: 'kotabiIos', versionId: 'kotabiIosVersion', buttonId: 'kotabiIosBtn', qrBoxId: 'kotabiIosQrBox',
+  buttonText: '前往下载', emptyButtonText: '暂无版本', activeClass: 'dl-btn-ios'
+});
+loadAppRelease('tokyo_android', {
+  key: 'tokyoAndroid', versionId: 'tokyoAndroidVersion', buttonId: 'tokyoAndroidBtn', qrBoxId: 'tokyoAndroidQrBox',
+  buttonText: '下载 APK', emptyButtonText: '暂无版本', activeClass: 'dl-btn-android'
+});
 /* ── Auth & User Badge ── */
 const API = '/api/v1';
 let accessToken = localStorage.getItem('kotabi_token');

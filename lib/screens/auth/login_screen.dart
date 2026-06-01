@@ -14,11 +14,6 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-const _emailSuffixes = [
-  '@qq.com', '@163.com','@gmail.com', '@outlook.com', 
-  '@126.com', '@yahoo.com', '@hotmail.com', '@icloud.com',
-];
-
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
@@ -30,14 +25,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _useCode = false; // false=密码登录, true=验证码登录
   bool _codeSent = false;
   int _countdown = 0;
-
-  void _appendSuffix(String suffix) {
-    final text = _emailCtrl.text;
-    final at = text.indexOf('@');
-    final prefix = at >= 0 ? text.substring(0, at) : text;
-    _emailCtrl.text = '$prefix$suffix';
-    _emailCtrl.selection = TextSelection.collapsed(offset: _emailCtrl.text.length);
-  }
 
   String _extractError(dynamic e) {
     if (e is DioException && e.response?.data is Map) {
@@ -52,11 +39,17 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _error = S.of(context).pleaseEnterEmail);
       return;
     }
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       await apiService.sendLoginCode(email);
       if (!mounted) return;
-      setState(() { _codeSent = true; _countdown = 60; });
+      setState(() {
+        _codeSent = true;
+        _countdown = 60;
+      });
       _startCountdown();
     } catch (e) {
       if (mounted) setState(() => _error = _extractError(e));
@@ -76,17 +69,24 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       if (_useCode) {
-        await apiService.loginWithCode(email: _emailCtrl.text.trim(), code: _codeCtrl.text.trim());
+        await apiService.loginWithCode(
+            email: _emailCtrl.text.trim(), code: _codeCtrl.text.trim());
       } else {
-        await apiService.login(email: _emailCtrl.text.trim(), password: _passwordCtrl.text);
+        await apiService.login(
+            email: _emailCtrl.text.trim(), password: _passwordCtrl.text);
       }
       await guestService.disableGuestMode();
       if (mounted) context.go('/home');
     } catch (e) {
-      if (mounted) setState(() => _error = _useCode ? _extractError(e) : S.of(context).loginError);
+      if (mounted)
+        setState(() =>
+            _error = _useCode ? _extractError(e) : S.of(context).loginError);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -120,7 +120,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 40),
                 Center(
                   child: Container(
-                    width: 88, height: 88,
+                    width: 88,
+                    height: 88,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(22),
                       boxShadow: [
@@ -133,20 +134,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(22),
-                      child: Image.asset('assets/images/app_icon.png', fit: BoxFit.cover),
+                      child: Image.asset('assets/images/app_icon.png',
+                          fit: BoxFit.cover),
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(s.appTitle, textAlign: TextAlign.center,
+                Text(s.appTitle,
+                    textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    )),
-                Text(s.appSubtitle, textAlign: TextAlign.center,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        )),
+                Text(s.appSubtitle,
+                    textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.8),
-                    )),
+                          color: Colors.white.withValues(alpha: 0.8),
+                        )),
                 const SizedBox(height: 36),
                 Container(
                   padding: const EdgeInsets.all(24),
@@ -165,26 +169,48 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       // 登录方式切换
                       Row(children: [
-                        Expanded(child: GestureDetector(
-                          onTap: () => setState(() { _useCode = false; _error = null; }),
+                        Expanded(
+                            child: GestureDetector(
+                          onTap: () => setState(() {
+                            _useCode = false;
+                            _error = null;
+                          }),
                           child: Column(children: [
-                            Text('密码登录', style: TextStyle(
-                              fontSize: 15, fontWeight: _useCode ? FontWeight.normal : FontWeight.bold,
-                              color: _useCode ? cs.outline : cs.primary,
-                            )),
+                            Text('密码登录',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: _useCode
+                                      ? FontWeight.normal
+                                      : FontWeight.bold,
+                                  color: _useCode ? cs.outline : cs.primary,
+                                )),
                             const SizedBox(height: 4),
-                            Container(height: 2, color: _useCode ? Colors.transparent : cs.primary),
+                            Container(
+                                height: 2,
+                                color:
+                                    _useCode ? Colors.transparent : cs.primary),
                           ]),
                         )),
-                        Expanded(child: GestureDetector(
-                          onTap: () => setState(() { _useCode = true; _error = null; }),
+                        Expanded(
+                            child: GestureDetector(
+                          onTap: () => setState(() {
+                            _useCode = true;
+                            _error = null;
+                          }),
                           child: Column(children: [
-                            Text('验证码登录', style: TextStyle(
-                              fontSize: 15, fontWeight: _useCode ? FontWeight.bold : FontWeight.normal,
-                              color: _useCode ? cs.primary : cs.outline,
-                            )),
+                            Text('验证码登录',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: _useCode
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: _useCode ? cs.primary : cs.outline,
+                                )),
                             const SizedBox(height: 4),
-                            Container(height: 2, color: _useCode ? cs.primary : Colors.transparent),
+                            Container(
+                                height: 2,
+                                color:
+                                    _useCode ? cs.primary : Colors.transparent),
                           ]),
                         )),
                       ]),
@@ -198,19 +224,16 @@ class _LoginScreenState extends State<LoginScreen> {
                               keyboardType: TextInputType.emailAddress,
                               decoration: InputDecoration(
                                 labelText: s.email,
-                                prefixIcon: Icon(Icons.email_outlined, color: cs.primary),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                prefixIcon: Icon(Icons.email_outlined,
+                                    color: cs.primary),
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12)),
                                 filled: true,
-                                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-                                suffixIcon: PopupMenuButton<String>(
-                                  icon: Icon(Icons.alternate_email, color: cs.primary),
-                                  tooltip: '选择邮箱后缀',
-                                  onSelected: _appendSuffix,
-                                  itemBuilder: (_) => _emailSuffixes.map((s) =>
-                                    PopupMenuItem(value: s, child: Text(s))).toList(),
-                                ),
+                                fillColor: cs.surfaceContainerHighest
+                                    .withValues(alpha: 0.3),
                               ),
-                              validator: (v) => v!.isEmpty ? s.pleaseEnterEmail : null,
+                              validator: (v) =>
+                                  v!.isEmpty ? s.pleaseEnterEmail : null,
                             ),
                             const SizedBox(height: 16),
                             if (!_useCode)
@@ -219,16 +242,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                 obscureText: _obscure,
                                 decoration: InputDecoration(
                                   labelText: s.password,
-                                  prefixIcon: Icon(Icons.lock_outline, color: cs.primary),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  prefixIcon: Icon(Icons.lock_outline,
+                                      color: cs.primary),
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12)),
                                   filled: true,
-                                  fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                                  fillColor: cs.surfaceContainerHighest
+                                      .withValues(alpha: 0.3),
                                   suffixIcon: IconButton(
-                                    icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
-                                    onPressed: () => setState(() => _obscure = !_obscure),
+                                    icon: Icon(_obscure
+                                        ? Icons.visibility_off
+                                        : Icons.visibility),
+                                    onPressed: () =>
+                                        setState(() => _obscure = !_obscure),
                                   ),
                                 ),
-                                validator: (v) => v!.isEmpty ? s.pleaseEnterPassword : null,
+                                validator: (v) =>
+                                    v!.isEmpty ? s.pleaseEnterPassword : null,
                               ),
                             if (_useCode)
                               TextFormField(
@@ -238,15 +268,26 @@ class _LoginScreenState extends State<LoginScreen> {
                                 decoration: InputDecoration(
                                   labelText: '验证码',
                                   counterText: '',
-                                  prefixIcon: Icon(Icons.pin_outlined, color: cs.primary),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  prefixIcon: Icon(Icons.pin_outlined,
+                                      color: cs.primary),
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12)),
                                   filled: true,
-                                  fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                                  fillColor: cs.surfaceContainerHighest
+                                      .withValues(alpha: 0.3),
                                   suffixIcon: TextButton(
-                                    onPressed: (_loading || _countdown > 0) ? null : _sendCode,
+                                    onPressed: (_loading || _countdown > 0)
+                                        ? null
+                                        : _sendCode,
                                     child: Text(
-                                      _countdown > 0 ? '${_countdown}s' : (_codeSent ? '重新发送' : '发送验证码'),
-                                      style: TextStyle(fontSize: 13, color: (_loading || _countdown > 0) ? cs.outline : cs.primary),
+                                      _countdown > 0
+                                          ? '${_countdown}s'
+                                          : (_codeSent ? '重新发送' : '发送验证码'),
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: (_loading || _countdown > 0)
+                                              ? cs.outline
+                                              : cs.primary),
                                     ),
                                   ),
                                 ),
@@ -257,7 +298,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       if (_error != null) ...[
                         const SizedBox(height: 12),
-                        Text(_error!, style: TextStyle(color: cs.error, fontSize: 13), textAlign: TextAlign.center),
+                        Text(_error!,
+                            style: TextStyle(color: cs.error, fontSize: 13),
+                            textAlign: TextAlign.center),
                       ],
                       const SizedBox(height: 8),
                       SizedBox(
@@ -266,11 +309,19 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: FilledButton(
                           onPressed: _loading ? null : _login,
                           style: FilledButton.styleFrom(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
                           ),
                           child: _loading
-                              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                              : Text(s.login, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white))
+                              : Text(s.login,
+                                  style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600)),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -278,24 +329,30 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           if (!_useCode)
                             TextButton(
-                              onPressed: _loading ? null : () => context.go('/forgot-password'),
+                              onPressed: _loading
+                                  ? null
+                                  : () => context.go('/forgot-password'),
                               style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 4, vertical: 8),
                                 minimumSize: Size.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
                               child: Text(
                                 s.forgotPassword,
-                                style: TextStyle(fontSize: 13, color: cs.primary),
+                                style:
+                                    TextStyle(fontSize: 13, color: cs.primary),
                               ),
                             )
                           else
                             const SizedBox(width: 4),
                           const Spacer(),
                           TextButton(
-                            onPressed: _loading ? null : () => context.go('/register'),
+                            onPressed:
+                                _loading ? null : () => context.go('/register'),
                             style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 8),
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
@@ -313,22 +370,27 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (Platform.isIOS)
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     TextButton(
-                      onPressed: _loading ? null : () async {
-                        await guestService.enableGuestMode();
-                        if (mounted) context.go('/home');
-                      },
+                      onPressed: _loading
+                          ? null
+                          : () async {
+                              await guestService.enableGuestMode();
+                              if (mounted) context.go('/home');
+                            },
                       child: Text('游客模式', style: TextStyle(color: cs.outline)),
                     ),
-                ]),
+                  ]),
                 if (false) ...[
                   const SizedBox(height: 8),
                   Center(
                     child: TextButton(
-                      onPressed: _loading ? null : () async {
-                        await guestService.enableGuestMode();
-                        if (mounted) context.go('/home');
-                      },
-                      child: Text('游客模式',
+                      onPressed: _loading
+                          ? null
+                          : () async {
+                              await guestService.enableGuestMode();
+                              if (mounted) context.go('/home');
+                            },
+                      child: Text(
+                        '游客模式',
                         style: TextStyle(fontSize: 14, color: cs.outline),
                       ),
                     ),
@@ -340,8 +402,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   spacing: 4,
                   runSpacing: 4,
                   children: [
-                    _legalLink('《用户协议》', '${AppConfig.serverRoot}/app/terms.html'),
-                    _legalLink('《隐私政策》', '${AppConfig.serverRoot}/app/privacy.html'),
+                    _legalLink(
+                        '《用户协议》', '${AppConfig.serverRoot}/app/terms.html'),
+                    _legalLink(
+                        '《隐私政策》', '${AppConfig.serverRoot}/app/privacy.html'),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -356,11 +420,13 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _legalLink(String label, String url) {
     return GestureDetector(
       onTap: () => Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => LegalWebViewPage(title: label.replaceAll('《', '').replaceAll('》', ''), url: url),
+        builder: (_) => LegalWebViewPage(
+            title: label.replaceAll('《', '').replaceAll('》', ''), url: url),
       )),
       child: Text(
         label,
-        style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary),
+        style: TextStyle(
+            fontSize: 12, color: Theme.of(context).colorScheme.primary),
       ),
     );
   }

@@ -2,6 +2,7 @@ const { body, validationResult } = require('express-validator');
 const crypto = require('crypto');
 const User = require('../models/User');
 const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../utils/jwt');
+const { normalizeSessionPlatform } = require('../utils/authSession');
 const HttpError = require('../utils/httpError');
 const { Op } = require('sequelize');
 
@@ -51,9 +52,10 @@ async function register(req, res) {
     inviterId = inviter.id;
   }
 
-  const platform = req.body.platform === 'app' ? 'app' : 'web';
+  const sessionPlatform = normalizeSessionPlatform(req.body.platform);
+  const platform = sessionPlatform.tokenPlatform;
   const loginToken = crypto.randomUUID();
-  const user = await User.create({ username, email, password_hash: password, level: level || 'N5', invited_by: inviterId, [`${platform}_login_token`]: loginToken });
+  const user = await User.create({ username, email, password_hash: password, level: level || 'N5', invited_by: inviterId, [sessionPlatform.loginTokenField]: loginToken });
   await registerCodeRecord.update({ used: true });
   await PasswordResetCode.update({ used: true }, { where: { email, used: false } });
   const accessToken = signAccessToken({ id: user.id, email: user.email, loginToken, platform });
@@ -82,9 +84,10 @@ async function login(req, res) {
   if (!(await user.validatePassword(password))) {
     throw new HttpError(401, '密码错误，请重新输入');
   }
-  const platform = req.body.platform === 'app' ? 'app' : 'web';
+  const sessionPlatform = normalizeSessionPlatform(req.body.platform);
+  const platform = sessionPlatform.tokenPlatform;
   const loginToken = crypto.randomUUID();
-  await user.update({ [`${platform}_login_token`]: loginToken });
+  await user.update({ [sessionPlatform.loginTokenField]: loginToken });
   const accessToken = signAccessToken({ id: user.id, email: user.email, loginToken, platform });
   const refreshToken = signRefreshToken({ id: user.id, loginToken, platform });
   res.json({ user, accessToken, refreshToken });
@@ -98,8 +101,9 @@ async function refreshToken(req, res) {
     const user = await User.findByPk(decoded.id);
     if (!user) throw new HttpError(401, 'User not found');
     // 校验登录令牌是否仍有效（未被其他设备顶替）
-    const platform = decoded.platform || 'web';
-    const field = platform === 'app' ? 'app_login_token' : 'web_login_token';
+    const sessionPlatform = normalizeSessionPlatform(decoded.platform);
+    const platform = sessionPlatform.tokenPlatform;
+    const field = sessionPlatform.loginTokenField;
     if (decoded.loginToken && user[field] !== decoded.loginToken) {
       return res.status(401).json({ error: 'SESSION_REPLACED', message: '你的账号已在其他设备登录' });
     }
@@ -245,9 +249,10 @@ async function loginWithCode(req, res) {
   if (!user) throw new HttpError(404, '用户不存在');
 
   await record.update({ used: true });
-  const platform = req.body.platform === 'app' ? 'app' : 'web';
+  const sessionPlatform = normalizeSessionPlatform(req.body.platform);
+  const platform = sessionPlatform.tokenPlatform;
   const loginToken = crypto.randomUUID();
-  await user.update({ [`${platform}_login_token`]: loginToken });
+  await user.update({ [sessionPlatform.loginTokenField]: loginToken });
   const accessToken = signAccessToken({ id: user.id, email: user.email, loginToken, platform });
   const refreshToken = signRefreshToken({ id: user.id, loginToken, platform });
   res.json({ user, accessToken, refreshToken });

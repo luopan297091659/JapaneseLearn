@@ -407,6 +407,21 @@ const GameConfig = sequelize.define('GameConfig', {
   updated_by:   { type: DataTypes.STRING(100) },
 }, { tableName: 'game_configs' });
 
+const GameLifeSave = sequelize.define('GameLifeSave', {
+  user_id: { type: DataTypes.UUID, primaryKey: true, allowNull: false },
+  save_data: { type: DataTypes.JSON, allowNull: false },
+  revision: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+  client_updated_at: { type: DataTypes.DATE, allowNull: true },
+  device_id: { type: DataTypes.STRING(120), allowNull: true },
+  app_version: { type: DataTypes.STRING(40), allowNull: true },
+}, {
+  tableName: 'game_life_saves',
+  indexes: [
+    { fields: ['updated_at'] },
+    { fields: ['client_updated_at'] },
+  ],
+});
+
 // ────────── API Request Log (traffic monitoring) ──────────
 const ApiLog = sequelize.define('ApiLog', {
   id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true },
@@ -675,6 +690,7 @@ module.exports = {
   AppConfig,
   GameScore,
   GameConfig,
+  GameLifeSave,
   MembershipPlan,
   MembershipOrder,
   DictEntry,

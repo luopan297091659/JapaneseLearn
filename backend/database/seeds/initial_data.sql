@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS users (
   is_active           TINYINT(1) NOT NULL DEFAULT 1,
   notification_enabled TINYINT(1) NOT NULL DEFAULT 1,
   daily_goal_minutes  INT     NOT NULL DEFAULT 15,
+  web_login_token      VARCHAR(36) NULL,
+  app_login_token      VARCHAR(36) NULL,
+  tokyo_app_login_token VARCHAR(36) NULL,
   created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

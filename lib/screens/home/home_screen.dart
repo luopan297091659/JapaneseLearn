@@ -1167,6 +1167,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  bool _showExpandedHeaderStats(bool isGuestMode) => false;
+
   // ── Sliver App Bar ─────────────────────────────────────────────────────────
   Widget _buildSliverHeader(
       ColorScheme cs, int totalXp, int streakDays, int todayXp) {
@@ -1206,6 +1208,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             letterSpacing: 1.2,
           )),
       actions: [
+        if (!isGuestMode)
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              _StatBadge(
+                  icon: Icons.star,
+                  color: Colors.amber,
+                  label: _user?.level ?? 'N5'),
+              const SizedBox(width: 6),
+              _StatBadge(
+                  icon: Icons.diamond_rounded,
+                  color: Colors.amberAccent,
+                  label: '${totalXp}XP'),
+              const SizedBox(width: 6),
+              _StatBadge(
+                  icon: Icons.trending_up_rounded,
+                  color: Colors.greenAccent,
+                  label: '+$todayXp'),
+            ]),
+          ),
         GestureDetector(
           onTap: () async {
             if (isGuestMode) {
@@ -1367,7 +1389,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                   const SizedBox(height: 8),
                   // 统计数据行（紧凑）
-                  if (!isGuestMode)
+                  if (_showExpandedHeaderStats(isGuestMode))
                     Row(children: [
                       _StatBadge(
                           icon: Icons.star,

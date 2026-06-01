@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/database');
-const { GameScore, GameConfig } = require('../models');
+const { GameScore, GameConfig, GameLifeSave } = require('../models');
 const { verifyAccessToken } = require('../utils/jwt');
 
 // 从请求头中可选解析用户ID（排行榜匿名用）
@@ -19,6 +19,82 @@ function maskName(name) {
   if (!name || name.length <= 1) return '***';
   if (name.length === 2) return name[0] + '*';
   return name[0] + '*'.repeat(Math.min(name.length - 2, 4)) + name[name.length - 1];
+}
+
+function normalizeLifeSavePayload(body = {}) {
+  const saveData = body.save_data || body.saveData || body.data;
+  if (!saveData || typeof saveData !== 'object' || Array.isArray(saveData)) {
+    const err = new Error('save_data must be a JSON object');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const clientUpdatedAt = body.client_updated_at || body.clientUpdatedAt || saveData.updatedAt;
+  const parsedClientUpdatedAt = clientUpdatedAt ? new Date(clientUpdatedAt) : null;
+  if (parsedClientUpdatedAt && Number.isNaN(parsedClientUpdatedAt.getTime())) {
+    const err = new Error('client_updated_at must be a valid date');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  return {
+    saveData,
+    clientUpdatedAt: parsedClientUpdatedAt,
+    deviceId: body.device_id || body.deviceId || null,
+    appVersion: body.app_version || body.appVersion || null,
+  };
+}
+
+function serializeLifeSave(row) {
+  if (!row) return { ok: true, save: null };
+  return {
+    ok: true,
+    save: {
+      save_data: row.save_data,
+      revision: row.revision,
+      client_updated_at: row.client_updated_at,
+      updated_at: row.updated_at,
+      device_id: row.device_id,
+      app_version: row.app_version,
+    },
+  };
+}
+
+// GET /api/v1/game/life-save  (auth required)
+async function getLifeSave(req, res) {
+  try {
+    const row = await GameLifeSave.findByPk(req.user.id);
+    res.json(serializeLifeSave(row));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+}
+
+// PUT /api/v1/game/life-save  (auth required)
+async function putLifeSave(req, res) {
+  try {
+    const { saveData, clientUpdatedAt, deviceId, appVersion } = normalizeLifeSavePayload(req.body);
+    const current = await GameLifeSave.findByPk(req.user.id);
+    const nextRevision = current ? current.revision + 1 : 1;
+    const payload = {
+      user_id: req.user.id,
+      save_data: saveData,
+      revision: nextRevision,
+      client_updated_at: clientUpdatedAt,
+      device_id: deviceId ? String(deviceId).substring(0, 120) : null,
+      app_version: appVersion ? String(appVersion).substring(0, 40) : null,
+    };
+
+    if (current) {
+      await current.update(payload);
+      return res.json(serializeLifeSave(current));
+    }
+
+    const created = await GameLifeSave.create(payload);
+    res.status(201).json(serializeLifeSave(created));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message });
+  }
 }
 
 // POST /api/v1/game/score  (auth required)
@@ -219,4 +295,13 @@ async function updateConfig(req, res) {
   }
 }
 
-module.exports = { saveScore, getLeaderboard, getGlobalLeaderboard, getConfig, updateConfig, getMyProgress };
+module.exports = {
+  saveScore,
+  getLeaderboard,
+  getGlobalLeaderboard,
+  getConfig,
+  updateConfig,
+  getMyProgress,
+  getLifeSave,
+  putLifeSave,
+};

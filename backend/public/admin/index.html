@@ -265,6 +265,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item" onclick="nav('feature-toggles')" id="nav-feature-toggles"><span class="icon">🔀</span><span class="nav-label">功能开关</span></div>
   <div class="nav-item" onclick="nav('sync')" id="nav-sync"><span class="icon">🔄</span><span class="nav-label">全局同步</span></div>
   <div class="nav-item" onclick="nav('app')" id="nav-app"><span class="icon">📱</span><span class="nav-label">App管理</span></div>
+  <div class="nav-item" onclick="nav('tokyo-app')" id="nav-tokyo-app"><span class="icon">🗼</span><span class="nav-label">东京留学APP</span></div>
   <div class="nav-item" onclick="nav('ai-settings')" id="nav-ai-settings"><span class="icon">🤖</span><span class="nav-label">AI设置</span></div>
   <div class="nav-item" onclick="nav('kokoro-settings')" id="nav-kokoro-settings"><span class="icon">🎤</span><span class="nav-label">Kokoro TTS</span></div>
   <div class="nav-item" onclick="nav('email-settings')" id="nav-email-settings"><span class="icon">✉️</span><span class="nav-label">邮件配置</span></div>
@@ -667,7 +668,7 @@ function showApp(){
   nav('dashboard');
 }
 function applySidebarPermissions(){
-  const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-ai-settings','nav-kokoro-settings','nav-email-settings','nav-support-channels','nav-admin-mgmt'];
+  const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-tokyo-app','nav-ai-settings','nav-kokoro-settings','nav-email-settings','nav-support-channels','nav-admin-mgmt'];
   const permNavMap = {
     'nav-vocab': 'vocabulary', 'nav-shared-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-jlpt-exams': 'vocabulary', 'nav-jlpt-resources': 'vocabulary', 'nav-kana': 'vocabulary', 'nav-tracks': 'tracks',
     'nav-channels': 'tracks', 'nav-users': 'users', 'nav-reports': 'reports',
@@ -699,7 +700,7 @@ const PAGE_TITLES = {
   'stat-behavior':'行为分析',
   'stat-tools':'官网工具统计',
   membership:'会员配置', orders:'订单审核', import:'内容导入', sync:'全局同步', 'feature-tiers':'功能分级',
-  app:'App管理', 'feature-toggles':'功能开关', 'ai-settings':'AI设置', 'kokoro-settings':'Kokoro TTS设置',
+  app:'App管理', 'tokyo-app':'东京留学APP', 'feature-toggles':'功能开关', 'ai-settings':'AI设置', 'kokoro-settings':'Kokoro TTS设置',
   'email-settings':'邮件配置', 'support-channels':'支持渠道',
   'admin-mgmt':'权限管理'
 };
@@ -712,7 +713,7 @@ const PAGE_ICONS = {
   'stat-behavior':'🧠',
   'stat-tools':'🧰',
   membership:'👑', orders:'💰', import:'📥', sync:'🔄', 'feature-tiers':'🎯',
-  app:'📱', 'feature-toggles':'🔀', 'ai-settings':'🤖', 'kokoro-settings':'🎤',
+  app:'📱', 'tokyo-app':'🗼', 'feature-toggles':'🔀', 'ai-settings':'🤖', 'kokoro-settings':'🎤',
   'email-settings':'✉️', 'support-channels':'🤝', 'admin-mgmt':'🔐'
 };
 const PAGE_DESCS = {
@@ -724,7 +725,7 @@ const PAGE_DESCS = {
   'stat-behavior':'用户行为数据分析',
   'stat-tools':'官网工具箱使用次数统计',
   membership:'会员套餐管理', orders:'审核用户付款订单', import:'Anki/CSV导入', sync:'内容版本发布', 'feature-tiers':'会员功能分级配置',
-  app:'App上传下载', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量', 'kokoro-settings':'Kokoro TTS 合成参数配置',
+  app:'App上传下载', 'tokyo-app':'东京留学 APP 上传、发布与下载', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量', 'kokoro-settings':'Kokoro TTS 合成参数配置',
   'email-settings':'SMTP 邮件发送配置', 'support-channels':'管理微信/钉钉/LINE/飞书等支持群组',
   'admin-mgmt':'管理员权限配置'
 };
@@ -759,7 +760,7 @@ const PAGE_FNS = {
   'stat-behavior': renderStatBehavior,
   'stat-tools': renderStatTools,
   membership: renderMembership, orders: renderOrders, import: renderImport, sync: renderSync,
-  app: renderAppManage, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings, 'kokoro-settings': renderKokoroSettings,
+  app: renderAppManage, 'tokyo-app': renderTokyoAppManage, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings, 'kokoro-settings': renderKokoroSettings,
   'email-settings': renderEmailSettings,
   'support-channels': renderSupportChannels,
   'admin-mgmt': renderAdminMgmt, reports: renderReports,
@@ -2244,17 +2245,48 @@ async function ftSave() {
 }
 
 /* ─────────────────────────── APP 管理 ───────────────────────────────────── */
-async function renderAppManage() {
+function appManageConfig(appKey) {
+  if (appKey === 'tokyo-study') {
+    return {
+      appKey: 'tokyo-study',
+      title: '🗼 东京留学 APP 上传',
+      listTitle: '📦 东京留学版本列表',
+      androidPlatform: 'tokyo_android',
+      iosPlatform: 'tokyo_ios',
+      note: '用于管理东京留学独立 APP 的安装包、iOS 链接和发布版本。',
+    };
+  }
+  return {
+    appKey: 'kotabi',
+    title: '📱 App 上传',
+    listTitle: '📦 App 版本列表',
+    androidPlatform: 'android',
+    iosPlatform: 'ios',
+    note: '用于管理言旅 Kotabi 主 APP 的安装包、iOS 链接和发布版本。',
+  };
+}
+function appPlatformLabel(platform) {
+  return {
+    android: 'Kotabi Android', ios: 'Kotabi iOS',
+    tokyo_android: '东京留学 Android', tokyo_ios: '东京留学 iOS',
+  }[platform] || platform;
+}
+async function renderTokyoAppManage() {
+  return renderAppManage('tokyo-study');
+}
+async function renderAppManage(appKey) {
+  const cfg = appManageConfig(appKey);
   document.getElementById('content').innerHTML = `
     <div class="panel" style="max-width:740px;margin-bottom:24px">
-      <div class="panel-header"><h3>📱 App 上传</h3></div>
+      <div class="panel-header"><h3>${cfg.title}</h3></div>
+      <p style="margin:0 0 14px;color:#64748b;font-size:13px">${cfg.note}</p>
       <form id="app-upload-form" enctype="multipart/form-data">
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
           <div class="form-row" style="flex:1;min-width:160px">
             <label>平台</label>
             <select id="app-platform" name="platform">
-              <option value="android">Android</option>
-              <option value="ios">iOS</option>
+              <option value="${cfg.androidPlatform}">Android</option>
+              <option value="${cfg.iosPlatform}">iOS</option>
             </select>
           </div>
           <div class="form-row" style="flex:1;min-width:160px">
@@ -2289,7 +2321,7 @@ async function renderAppManage() {
       </form>
     </div>
     <div class="panel" style="max-width:1080px">
-      <div class="panel-header"><h3>📦 App 版本列表</h3></div>
+      <div class="panel-header"><h3>${cfg.listTitle}</h3></div>
       <table><thead><tr><th>平台</th><th>版本号</th><th>发布状态</th><th>上传时间</th><th>下载次数</th><th>下载直链</th><th>操作</th></tr></thead>
       <tbody id="app-list-body"><tr><td colspan="7" style="text-align:center;color:#aaa">加载中…</td></tr></tbody></table>
     </div>
@@ -2304,7 +2336,7 @@ async function renderAppManage() {
   const linkInput = document.getElementById('app-external-url');
 
   function syncAppFormMode() {
-    const isIos = platformSelect.value === 'ios';
+    const isIos = platformSelect.value.endsWith('ios');
     fileRow.style.display = isIos ? 'none' : '';
     linkRow.style.display = isIos ? '' : 'none';
     fileInput.required = !isIos;
@@ -2368,7 +2400,7 @@ async function renderAppManage() {
         document.getElementById('app-file-name').textContent = '';
         syncAppFormMode();
         setTimeout(() => { wrap.style.display = 'none'; }, 3000);
-        loadAppList();
+        loadAppList(cfg.appKey);
       } else {
         let msg = '上传失败';
         try { msg = JSON.parse(xhr.responseText).message || msg; } catch(_){}
@@ -2393,12 +2425,14 @@ async function renderAppManage() {
     xhr.send(fd);
   };
 
-  loadAppList();
+  loadAppList(cfg.appKey);
 }
 
-async function loadAppList() {
+async function loadAppList(appKey) {
+  const cfg = appManageConfig(appKey);
+  const platforms = encodeURIComponent([cfg.androidPlatform, cfg.iosPlatform].join(','));
   try {
-    const d = await api('GET', '/admin/listAppReleases');
+    const d = await api('GET', `/admin/listAppReleases?platforms=${platforms}`);
     const rows = (d.data||[]).map(r => {
       const sid = esc(String(r.id));
       const published = !!r.is_published;
@@ -2406,7 +2440,7 @@ async function loadAppList() {
         ? `<span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:#dcfce7;color:#166534;font-size:12px;font-weight:700">已发布</span>`
         : `<span style="display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:12px;font-weight:700">未发布</span>`;
       return `<tr>
-        <td>${esc(r.platform)}</td>
+        <td>${esc(appPlatformLabel(r.platform))}</td>
         <td><b>${esc(r.version)}</b></td>
         <td>${statusHtml}</td>
         <td>${new Date(r.upload_time||r.createdAt).toLocaleString('zh-CN')}</td>
@@ -2417,9 +2451,9 @@ async function loadAppList() {
             onclick="this.select();document.execCommand('copy');toast('已复制直链')" title="点击复制" />
         </td>
         <td>
-          ${published ? '' : `<button class="btn btn-primary btn-sm" onclick="publishAppRelease('${sid}')">发布</button>`}
+          ${published ? '' : `<button class="btn btn-primary btn-sm" onclick="publishAppRelease('${sid}','${cfg.appKey}')">发布</button>`}
           <a class="btn btn-ghost btn-sm" href="/api/v1/admin/downloadApp/${sid}" target="_blank">下载</a>
-          <button class="btn btn-danger btn-sm" onclick="deleteAppRelease('${sid}')">删除</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteAppRelease('${sid}','${cfg.appKey}')">删除</button>
         </td>
       </tr>`;
     }).join('');
@@ -2428,19 +2462,19 @@ async function loadAppList() {
     const alBody2 = document.getElementById('app-list-body'); if(alBody2) alBody2.innerHTML = `<tr><td colspan="7" style="color:#e74c3c;text-align:center">${esc(e.message)}</td></tr>`;
   }
 }
-async function publishAppRelease(id) {
+async function publishAppRelease(id, appKey) {
   if (!confirm('确认将该版本设为当前已发布版本？同平台旧发布版本会自动下线。')) return;
   try {
     await api('POST', `/admin/app/${id}/publish`);
     toast('已发布');
-    loadAppList();
+    loadAppList(appKey);
   } catch(e) {
     toast(e.message, true);
   }
 }
-async function deleteAppRelease(id) {
+async function deleteAppRelease(id, appKey) {
   if (!confirm('确认删除该版本？磁盘文件也会被清理。')) return;
-  try { await api('DELETE', `/admin/app/${id}`); toast('已删除'); loadAppList(); } catch(e) { toast(e.message, true); }
+  try { await api('DELETE', `/admin/app/${id}`); toast('已删除'); loadAppList(appKey); } catch(e) { toast(e.message, true); }
 }
 function nav(page){
   // 清理编辑缓存，防止内存泄漏

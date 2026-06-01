@@ -2152,11 +2152,13 @@ async function uploadApp(req, res) {
   const externalUrl = String(req.body.external_url || req.body.file_url || '').trim();
   const changelog = req.body.changelog;
   if (!platform) return res.status(400).json({ error: '缺少平台' });
-  if (!['android', 'ios'].includes(platform)) return res.status(400).json({ error: '平台仅支持 android / ios' });
+  const allowedPlatforms = ['android', 'ios', 'tokyo_android', 'tokyo_ios'];
+  if (!allowedPlatforms.includes(platform)) return res.status(400).json({ error: '平台仅支持 android / ios / tokyo_android / tokyo_ios' });
 
   let fileUrl = '';
   let releaseVersion = version;
-  if (platform === 'ios' && externalUrl) {
+  const isIosPlatform = platform.endsWith('ios');
+  if (isIosPlatform && externalUrl) {
     if (!/^https?:\/\//i.test(externalUrl)) return res.status(400).json({ error: 'iOS 链接必须以 http:// 或 https:// 开头' });
     fileUrl = externalUrl;
     releaseVersion = version || 'iOS';
@@ -2179,8 +2181,14 @@ async function uploadApp(req, res) {
 
 // ─── 获取所有 App 版本 ─────────────────────────────────────────────────────
 async function listAppReleases(req, res) {
-  const { platform } = req.query;
-  const where = platform ? { platform } : {};
+  const { platform, platforms } = req.query;
+  let where = {};
+  if (platform) {
+    where = { platform };
+  } else if (platforms) {
+    const list = String(platforms).split(',').map(s => s.trim()).filter(Boolean);
+    if (list.length) where = { platform: list };
+  }
   const list = await AppRelease.findAll({ where, order: [['is_published', 'DESC'], ['published_at', 'DESC'], ['upload_time', 'DESC']] });
   res.json({ data: list });
 }

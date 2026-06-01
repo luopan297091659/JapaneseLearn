@@ -7,6 +7,8 @@ const ctrl             = require('../controllers/gameController');
 
 router.post('/score',                authenticate, checkMembership('game_levels'), ctrl.saveScore);
 router.get('/my-progress',           authenticate,            ctrl.getMyProgress);
+router.get('/life-save',             authenticate,            ctrl.getLifeSave);
+router.put('/life-save',             authenticate,            ctrl.putLifeSave);
 router.get('/leaderboard',                                    ctrl.getLeaderboard);
 router.get('/leaderboard/global',                             ctrl.getGlobalLeaderboard);
 router.get('/config',                                         ctrl.getConfig);

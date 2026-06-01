@@ -1,5 +1,6 @@
 const { verifyAccessToken } = require('../utils/jwt');
 const User = require('../models/User');
+const { normalizeSessionPlatform } = require('../utils/authSession');
 
 async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -16,8 +17,7 @@ async function authenticate(req, res, next) {
     }
     // 多端登录校验：检查 JWT 中的 loginToken 是否与数据库一致
     if (decoded.loginToken) {
-      const platform = decoded.platform || 'web';
-      const field = platform === 'app' ? 'app_login_token' : 'web_login_token';
+      const field = normalizeSessionPlatform(decoded.platform).loginTokenField;
       if (user[field] !== decoded.loginToken) {
         return res.status(401).json({ error: 'SESSION_REPLACED', message: '你的账号已在其他设备登录' });
       }

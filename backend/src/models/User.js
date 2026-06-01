@@ -36,6 +36,7 @@ const User = sequelize.define('User', {
   },
   web_login_token: { type: DataTypes.STRING(36), allowNull: true },
   app_login_token: { type: DataTypes.STRING(36), allowNull: true },
+  tokyo_app_login_token: { type: DataTypes.STRING(36), allowNull: true },
   invite_code: { type: DataTypes.STRING(8), allowNull: true, unique: true },
   invited_by: { type: DataTypes.UUID, allowNull: true },
 }, {
@@ -66,6 +67,9 @@ User.prototype.toJSON = function () {
   values.preference_summary = summarizeUserPreferences(values.preferences);
   delete values.preferences_json;
   delete values.password_hash;
+  delete values.web_login_token;
+  delete values.app_login_token;
+  delete values.tokyo_app_login_token;
   return values;
 };
 
