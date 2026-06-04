@@ -25,6 +25,7 @@ const {
   listReports, getReport, updateReport, deleteReport,
   getStudyPlanStats,
   generateSingleAudio,
+  listTokyoDialogues, syncTokyoDialogues, generateTokyoDialogueAudio,
   listOrders, reviewOrder, uploadQrCode,
   getEmailSettings, saveEmailSettings, testEmailSettings,
   getSupportChannels, saveSupportChannel, deleteSupportChannel, uploadSupportQrCode,
@@ -265,6 +266,11 @@ router.post('/settings/email/test', superAdminAuth, asyncHandler(testEmailSettin
 
 // 五十音管理 - 具体路由必须在参数化路由之前
 router.post('/kana/batch-audio',         permissionCheck('vocabulary'), asyncHandler(batchGenerateKanaAudio));
+
+// 东京留学模拟器场景对话
+router.get('/tokyo-dialogues',             permissionCheck('grammar'), asyncHandler(listTokyoDialogues));
+router.post('/tokyo-dialogues/sync',       permissionCheck('grammar'), asyncHandler(syncTokyoDialogues));
+router.post('/tokyo-dialogues/:id/generate-audio', permissionCheck('grammar'), asyncHandler(generateTokyoDialogueAudio));
 
 // 通用单条TTS生成（持久化）
 router.post('/tts/generate-single',      permissionCheck('vocabulary'), asyncHandler(generateSingleAudio));

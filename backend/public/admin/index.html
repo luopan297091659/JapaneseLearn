@@ -266,6 +266,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item" onclick="nav('sync')" id="nav-sync"><span class="icon">🔄</span><span class="nav-label">全局同步</span></div>
   <div class="nav-item" onclick="nav('app')" id="nav-app"><span class="icon">📱</span><span class="nav-label">App管理</span></div>
   <div class="nav-item" onclick="nav('tokyo-app')" id="nav-tokyo-app"><span class="icon">🗼</span><span class="nav-label">东京留学APP</span></div>
+  <div class="nav-item" onclick="nav('tokyo-dialogues')" id="nav-tokyo-dialogues"><span class="icon">💬</span><span class="nav-label">东京对话</span></div>
   <div class="nav-item" onclick="nav('ai-settings')" id="nav-ai-settings"><span class="icon">🤖</span><span class="nav-label">AI设置</span></div>
   <div class="nav-item" onclick="nav('kokoro-settings')" id="nav-kokoro-settings"><span class="icon">🎤</span><span class="nav-label">Kokoro TTS</span></div>
   <div class="nav-item" onclick="nav('email-settings')" id="nav-email-settings"><span class="icon">✉️</span><span class="nav-label">邮件配置</span></div>
@@ -700,7 +701,7 @@ const PAGE_TITLES = {
   'stat-behavior':'行为分析',
   'stat-tools':'官网工具统计',
   membership:'会员配置', orders:'订单审核', import:'内容导入', sync:'全局同步', 'feature-tiers':'功能分级',
-  app:'App管理', 'tokyo-app':'东京留学APP', 'feature-toggles':'功能开关', 'ai-settings':'AI设置', 'kokoro-settings':'Kokoro TTS设置',
+  app:'App管理', 'tokyo-app':'东京留学APP', 'tokyo-dialogues':'东京场景对话', 'feature-toggles':'功能开关', 'ai-settings':'AI设置', 'kokoro-settings':'Kokoro TTS设置',
   'email-settings':'邮件配置', 'support-channels':'支持渠道',
   'admin-mgmt':'权限管理'
 };
@@ -713,7 +714,7 @@ const PAGE_ICONS = {
   'stat-behavior':'🧠',
   'stat-tools':'🧰',
   membership:'👑', orders:'💰', import:'📥', sync:'🔄', 'feature-tiers':'🎯',
-  app:'📱', 'tokyo-app':'🗼', 'feature-toggles':'🔀', 'ai-settings':'🤖', 'kokoro-settings':'🎤',
+  app:'📱', 'tokyo-app':'🗼', 'tokyo-dialogues':'💬', 'feature-toggles':'🔀', 'ai-settings':'🤖', 'kokoro-settings':'🎤',
   'email-settings':'✉️', 'support-channels':'🤝', 'admin-mgmt':'🔐'
 };
 const PAGE_DESCS = {
@@ -725,7 +726,7 @@ const PAGE_DESCS = {
   'stat-behavior':'用户行为数据分析',
   'stat-tools':'官网工具箱使用次数统计',
   membership:'会员套餐管理', orders:'审核用户付款订单', import:'Anki/CSV导入', sync:'内容版本发布', 'feature-tiers':'会员功能分级配置',
-  app:'App上传下载', 'tokyo-app':'东京留学 APP 上传、发布与下载', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量', 'kokoro-settings':'Kokoro TTS 合成参数配置',
+  app:'App上传下载', 'tokyo-app':'东京留学 APP 上传、发布与下载', 'tokyo-dialogues':'同步场景对话，管理 NPC 台词音频与 Kokoro 一键生成', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量', 'kokoro-settings':'Kokoro TTS 合成参数配置',
   'email-settings':'SMTP 邮件发送配置', 'support-channels':'管理微信/钉钉/LINE/飞书等支持群组',
   'admin-mgmt':'管理员权限配置'
 };
@@ -760,7 +761,7 @@ const PAGE_FNS = {
   'stat-behavior': renderStatBehavior,
   'stat-tools': renderStatTools,
   membership: renderMembership, orders: renderOrders, import: renderImport, sync: renderSync,
-  app: renderAppManage, 'tokyo-app': renderTokyoAppManage, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings, 'kokoro-settings': renderKokoroSettings,
+  app: renderAppManage, 'tokyo-app': renderTokyoAppManage, 'tokyo-dialogues': renderTokyoDialogues, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings, 'kokoro-settings': renderKokoroSettings,
   'email-settings': renderEmailSettings,
   'support-channels': renderSupportChannels,
   'admin-mgmt': renderAdminMgmt, reports: renderReports,
@@ -2939,6 +2940,129 @@ function playAudio(url){
 }
 
 // === Kokoro单项音频生成（持久化到本地） ===
+
+let _tokyoDialogues = [];
+let _tokyoDialogueStats = { total: 0, with_audio: 0, missing_audio: 0, scenes: [] };
+let _tokyoDialogueFilter = { scene: '', q: '', audio: 'all' };
+
+function jsArg(value) {
+  return JSON.stringify(String(value || '')).replace(/</g, '\\u003c');
+}
+
+async function renderTokyoDialogues() {
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="card"><div class="text-muted">正在加载东京场景对话...</div></div>';
+  try {
+    const params = new URLSearchParams();
+    if (_tokyoDialogueFilter.scene) params.set('scene', _tokyoDialogueFilter.scene);
+    if (_tokyoDialogueFilter.q) params.set('q', _tokyoDialogueFilter.q);
+    const res = await api('GET', '/admin/tokyo-dialogues' + (params.toString() ? '?' + params.toString() : ''));
+    _tokyoDialogues = res.data || [];
+    _tokyoDialogueStats = res.stats || _tokyoDialogueStats;
+    buildTokyoDialogues();
+  } catch (e) {
+    content.innerHTML = '<div class="card"><div class="text-danger">加载失败：' + esc(e.message) + '</div></div>';
+  }
+}
+
+function tokyoDialogueAudioProgress(item) {
+  const lines = Array.isArray(item.dialogue_lines) && item.dialogue_lines.length
+    ? item.dialogue_lines
+    : [{ key: 'npc_line', text: item.npc_line, audio_url: item.audio_url }];
+  const total = lines.length || 1;
+  const done = lines.filter(line => !!line.audio_url).length;
+  const firstAudio = item.audio_url || (lines.find(line => !!line.audio_url) || {}).audio_url || '';
+  return { total, done, complete: done >= total, firstAudio };
+}
+
+function buildTokyoDialogues() {
+  const scenes = _tokyoDialogueStats.scenes || [...new Set(_tokyoDialogues.map(item => item.scene || item.scene_title).filter(Boolean))];
+  let rows = _tokyoDialogues.slice();
+  if (_tokyoDialogueFilter.audio === 'missing') rows = rows.filter(item => !tokyoDialogueAudioProgress(item).complete);
+  if (_tokyoDialogueFilter.audio === 'ready') rows = rows.filter(item => tokyoDialogueAudioProgress(item).complete);
+
+  const sceneOptions = ['<option value="">全部场景</option>']
+    .concat(scenes.map(scene => '<option value="' + esc(scene) + '" ' + (_tokyoDialogueFilter.scene === scene ? 'selected' : '') + '>' + esc(scene) + '</option>'))
+    .join('');
+
+  const body = rows.map(item => {
+    const audioReady = !!item.audio_url;
+    const playButton = audioReady ? '<button class="btn btn-ghost btn-sm" onclick=\'playAudio(' + jsArg(item.audio_url) + ')\'>🔊 试听</button>' : '';
+    return '<tr>'
+      + '<td><div class="fw-bold">' + esc(item.scene_title || item.scene || '-') + '</div><div class="text-muted small">' + esc(item.id) + '</div></td>'
+      + '<td><span class="badge">' + esc(item.role || 'NPC') + '</span></td>'
+      + '<td><div class="fw-bold">' + esc(item.npc_line || '-') + '</div><div class="text-muted small">提示：' + esc(item.cue || '-') + '</div></td>'
+      + '<td>' + (audioReady ? '<span class="badge badge-success">已生成</span>' : '<span class="badge badge-warning">缺失</span>') + '<div class="text-muted small">' + esc(item.audio_url || '') + '</div></td>'
+      + '<td class="text-right">' + playButton + '<button class="btn btn-primary btn-sm" onclick=\'generateTokyoDialogueAudio(' + jsArg(item.id) + ', this)\'>Kokoro生成</button></td>'
+      + '</tr>';
+  }).join('') || '<tr><td colspan="5" class="text-muted text-center">暂无对话数据，请先从 JapaneseLifeSimulator 同步。</td></tr>';
+
+  document.getElementById('content').innerHTML =
+    '<div class="card">'
+    + '<div class="toolbar" style="gap:8px; flex-wrap:wrap;">'
+    + '<select class="input" style="max-width:220px" onchange="setTokyoDialogueScene(this.value)">' + sceneOptions + '</select>'
+    + '<select class="input" style="max-width:140px" onchange="setTokyoDialogueAudioFilter(this.value)">'
+    + '<option value="all" ' + (_tokyoDialogueFilter.audio === 'all' ? 'selected' : '') + '>全部音频</option>'
+    + '<option value="missing" ' + (_tokyoDialogueFilter.audio === 'missing' ? 'selected' : '') + '>只看缺失</option>'
+    + '<option value="ready" ' + (_tokyoDialogueFilter.audio === 'ready' ? 'selected' : '') + '>只看已生成</option>'
+    + '</select>'
+    + '<input class="input" style="max-width:260px" placeholder="搜索场景、角色、台词" value="' + esc(_tokyoDialogueFilter.q) + '" onkeydown="if(event.key===&quot;Enter&quot;) setTokyoDialogueQuery(this.value)">'
+    + '<button class="btn btn-ghost btn-sm" onclick="renderTokyoDialogues()">刷新</button>'
+    + '<button class="btn btn-primary btn-sm" onclick="generateMissingTokyoDialogueAudio(this)">一键生成缺失音频</button>'
+    + '</div>'
+    + '<div class="stats-grid" style="margin-top:12px; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">'
+    + '<div class="stat-card"><div class="stat-value">' + (_tokyoDialogueStats.total || 0) + '</div><div class="stat-label">同步对话</div></div>'
+    + '<div class="stat-card"><div class="stat-value">' + (_tokyoDialogueStats.with_audio || 0) + '</div><div class="stat-label">已有音频</div></div>'
+    + '<div class="stat-card"><div class="stat-value">' + (_tokyoDialogueStats.missing_audio || 0) + '</div><div class="stat-label">待生成</div></div>'
+    + '</div>'
+    + '<div class="table-wrap" style="margin-top:12px;"><table class="table">'
+    + '<thead><tr><th>场景</th><th>角色</th><th>NPC台词</th><th>音频</th><th class="text-right">操作</th></tr></thead>'
+    + '<tbody>' + body + '</tbody></table></div>'
+    + '</div>';
+}
+
+function setTokyoDialogueScene(value) { _tokyoDialogueFilter.scene = value; renderTokyoDialogues(); }
+function setTokyoDialogueAudioFilter(value) { _tokyoDialogueFilter.audio = value; buildTokyoDialogues(); }
+function setTokyoDialogueQuery(value) { _tokyoDialogueFilter.q = value.trim(); renderTokyoDialogues(); }
+
+async function generateTokyoDialogueAudio(id, btnEl) {
+  const oldText = btnEl ? btnEl.textContent : '';
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = '生成中...'; }
+  try {
+    const res = await api('POST', '/admin/tokyo-dialogues/' + encodeURIComponent(id) + '/generate-audio');
+    const index = _tokyoDialogues.findIndex(item => item.id === id);
+    if (index >= 0 && res.dialogue) _tokyoDialogues[index] = res.dialogue;
+    toast('音频已生成');
+    await renderTokyoDialogues();
+    return res.audio_url;
+  } catch (e) {
+    toast('生成失败：' + e.message, true);
+    return null;
+  } finally {
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = oldText; }
+  }
+}
+
+async function generateMissingTokyoDialogueAudio(btnEl) {
+  const missing = _tokyoDialogues.filter(item => !tokyoDialogueAudioProgress(item).complete);
+  if (!missing.length) { toast('没有缺失音频'); return; }
+  const oldText = btnEl ? btnEl.textContent : '';
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = '生成中 0/' + missing.length; }
+  let done = 0;
+  for (const item of missing) {
+    try {
+      await api('POST', '/admin/tokyo-dialogues/' + encodeURIComponent(item.id) + '/generate-audio');
+      done += 1;
+      if (btnEl) btnEl.textContent = '生成中 ' + done + '/' + missing.length;
+    } catch (e) {
+      console.warn('[TokyoDialogues] generate failed:', item.id, e);
+    }
+  }
+  if (btnEl) { btnEl.disabled = false; btnEl.textContent = oldText; }
+  toast('已生成 ' + done + '/' + missing.length + ' 条音频');
+  renderTokyoDialogues();
+}
+
 async function _kokoroSpeak(text, btnEl, subdir = 'vocab') {
   if (!text) { toast('请输入文本内容', true); return null; }
   const orig = btnEl ? btnEl.textContent : '';

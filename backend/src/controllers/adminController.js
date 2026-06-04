@@ -59,7 +59,218 @@ async function bumpVersion(field = 'version') {
   } catch (e) { /* ignore */ }
 }
 
-// ─── 仪表板统计 ───────────────────────────────────────────────────────────────
+
+const TOKYO_DIALOGUES_KEY = 'tokyo_dialogues';
+
+function parseJsonValue(value, fallback) {
+  if (!value) return fallback;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed == null ? fallback : parsed;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+async function readTokyoDialogues() {
+  const row = await AppConfig.findOne({ where: { key: TOKYO_DIALOGUES_KEY } });
+  const data = parseJsonValue(row?.value, []);
+  return Array.isArray(data) ? data : [];
+}
+
+async function writeTokyoDialogues(dialogues) {
+  await AppConfig.upsert({ key: TOKYO_DIALOGUES_KEY, value: JSON.stringify(dialogues) });
+}
+
+function normalizeTokyoDialogueLines(raw, existing = {}) {
+  const existingLines = Array.isArray(existing.dialogue_lines) ? existing.dialogue_lines : [];
+  const existingByKey = new Map(existingLines.map(line => [String(line.key || ''), line]));
+  const incomingLines = Array.isArray(raw?.dialogue_lines)
+    ? raw.dialogue_lines
+    : (Array.isArray(raw?.dialogueLines) ? raw.dialogueLines : []);
+  const fallbackNextLines = Array.isArray(raw?.next_lines)
+    ? raw.next_lines
+    : (Array.isArray(raw?.nextLines) ? raw.nextLines : (existing.next_lines || []));
+  const baseLines = incomingLines.length ? incomingLines : [
+    { key: 'npc_line', role: 'npc', text: raw?.npc_line || raw?.npcLine || existing.npc_line || '', audio_url: raw?.audio_url || raw?.audioUrl || existing.audio_url || null },
+    ...fallbackNextLines.map((text, index) => ({ key: `next_${index}`, role: 'npc', text })),
+  ];
+  return baseLines
+    .map((line, index) => {
+      const key = String(line?.key || (index === 0 ? 'npc_line' : `next_${index - 1}`));
+      const existingLine = existingByKey.get(key) || {};
+      const incomingAudio = line?.audio_url || line?.audioUrl || '';
+      return {
+        key,
+        role: String(line?.role || existingLine.role || 'npc'),
+        text: String(line?.text || line?.line || existingLine.text || ''),
+        audio_url: incomingAudio || existingLine.audio_url || null,
+        audio_url_type: incomingAudio ? (line?.audio_url_type || line?.audioUrlType || existingLine.audio_url_type || 'synced') : (existingLine.audio_url_type || null),
+        audio_generated_at: existingLine.audio_generated_at || null,
+      };
+    })
+    .filter(line => line.text.trim());
+}
+
+function normalizeTokyoDialogue(raw, existing = {}) {
+  const id = String(raw?.id || existing.id || '').trim();
+  if (!id) return null;
+  const incomingAudio = raw?.audio_url || raw?.audioUrl || '';
+  const dialogueLines = normalizeTokyoDialogueLines(raw, existing);
+  const firstLine = dialogueLines.find(line => line.key === 'npc_line') || dialogueLines[0];
+  return {
+    id,
+    scene: String(raw?.scene || existing.scene || ''),
+    scene_title: String(raw?.scene_title || raw?.sceneTitle || existing.scene_title || raw?.scene || ''),
+    role: String(raw?.role || existing.role || ''),
+    npc_line: String(raw?.npc_line || raw?.npcLine || existing.npc_line || firstLine?.text || ''),
+    cue: String(raw?.cue || existing.cue || ''),
+    better_answer: String(raw?.better_answer || raw?.betterAnswer || existing.better_answer || ''),
+    feedback: String(raw?.feedback || existing.feedback || ''),
+    next_lines: Array.isArray(raw?.next_lines) ? raw.next_lines : (Array.isArray(raw?.nextLines) ? raw.nextLines : (existing.next_lines || [])),
+    dialogue_lines: dialogueLines,
+    npc: raw?.npc ?? existing.npc ?? null,
+    affinity_delta: Number(raw?.affinity_delta ?? raw?.affinityDelta ?? existing.affinity_delta ?? 0),
+    flag: raw?.flag ?? existing.flag ?? null,
+    closing_line: String(raw?.closing_line || raw?.closingLine || existing.closing_line || ''),
+    reward_bonus: Number(raw?.reward_bonus ?? raw?.rewardBonus ?? existing.reward_bonus ?? 0),
+    audio_url: incomingAudio || firstLine?.audio_url || existing.audio_url || null,
+    audio_url_type: incomingAudio ? (raw?.audio_url_type || raw?.audioUrlType || existing.audio_url_type || 'synced') : (firstLine?.audio_url_type || existing.audio_url_type || null),
+    audio_generated_at: firstLine?.audio_generated_at || existing.audio_generated_at || null,
+    source: raw?.source || existing.source || 'JapaneseLifeSimulator',
+    synced_at: new Date().toISOString(),
+  };
+}
+
+function extractTokyoDialogueSpeech(dialogueOrText) {
+  const raw = String(typeof dialogueOrText === 'string' ? dialogueOrText : (dialogueOrText?.npc_line || dialogueOrText?.text || '')).trim();
+  const quoted = raw.match(new RegExp('\\u300c([^\\u300d]+)\\u300d'));
+  const text = quoted ? quoted[1] : raw.replace(new RegExp('^[^\\u3040-\\u309f\\u30a0-\\u30ff\\u4e00-\\u9fa5]+[:\\uff1a]\\\\s*'), '');
+  return text.trim();
+}
+
+function tokyoDialogueLines(dialogue) {
+  if (Array.isArray(dialogue?.dialogue_lines) && dialogue.dialogue_lines.length) {
+    return dialogue.dialogue_lines;
+  }
+  const lines = [{ key: 'npc_line', role: 'npc', text: dialogue?.npc_line || '', audio_url: dialogue?.audio_url || null }];
+  const nextLines = Array.isArray(dialogue?.next_lines) ? dialogue.next_lines : [];
+  nextLines.forEach((text, index) => lines.push({ key: `next_${index}`, role: 'npc', text, audio_url: null }));
+  return lines.filter(line => String(line.text || '').trim());
+}
+
+async function generateKokoroAudioFile(text, subdir = 'tokyo-dialogues') {
+  const safeSubdir = String(subdir || '').replace(/\\/g, '/');
+  const allowedDirs = ['vocab', 'kana', 'grammar/audio', 'tokyo-dialogues'];
+  if (!allowedDirs.includes(safeSubdir)) throw apiError('无效的音频目录', 400);
+  const { voice, emotion, engine, speed } = await getKokoroConfig();
+  const serviceUrl = process.env.KOKORO_SERVICE_URL || 'http://127.0.0.1:8010';
+  const ttsResp = await axios.post(
+    `${serviceUrl}/api/v1/tts/kokoro`,
+    { text: text.trim(), voice, emotion, engine, speed },
+    { timeout: 30000 }
+  );
+  const kokoroUrl = ttsResp.data?.audio_url;
+  if (!kokoroUrl) throw apiError('TTS未返回音频URL', 500);
+  const audioDir = path.join(__dirname, '../../uploads/audio', safeSubdir);
+  if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
+  const downloadUrl = kokoroUrl.startsWith('http://') || kokoroUrl.startsWith('https://') ? kokoroUrl : `${serviceUrl}${kokoroUrl}`;
+  const audioResp = await axios.get(downloadUrl, { responseType: 'arraybuffer', timeout: 10000 });
+  const filename = path.basename(new URL(downloadUrl, serviceUrl).pathname) || `${Date.now()}.mp3`;
+  fs.writeFileSync(path.join(audioDir, filename), audioResp.data);
+  return `/uploads/audio/${safeSubdir}/${filename}`;
+}
+
+async function listTokyoDialogues(req, res) {
+  const { scene, role, q } = req.query;
+  const all = await readTokyoDialogues();
+  let rows = all;
+  if (scene) rows = rows.filter(item => item.scene === scene || item.scene_title === scene);
+  if (role) rows = rows.filter(item => item.role === role);
+  if (q) {
+    const needle = String(q).toLowerCase();
+    rows = rows.filter(item => [item.scene, item.scene_title, item.role, item.npc_line, item.cue, item.better_answer]
+      .some(value => String(value || '').toLowerCase().includes(needle)));
+  }
+  rows = rows.slice().sort((a, b) => `${a.scene || ''}:${a.id}`.localeCompare(`${b.scene || ''}:${b.id}`));
+  res.json({
+    data: rows,
+    stats: {
+      total: all.length,
+      with_audio: all.flatMap(tokyoDialogueLines).filter(line => !!line.audio_url).length,
+      missing_audio: all.flatMap(tokyoDialogueLines).filter(line => !line.audio_url).length,
+      scenes: [...new Set(all.map(item => item.scene || item.scene_title).filter(Boolean))],
+    },
+  });
+}
+
+async function syncTokyoDialogues(req, res) {
+  const incoming = Array.isArray(req.body?.dialogues) ? req.body.dialogues : (Array.isArray(req.body) ? req.body : []);
+  if (!incoming.length) return res.status(400).json({ error: 'dialogues????' });
+  const source = String(req.body?.source || 'JapaneseLifeSimulator');
+  const replaceSource = req.body?.replace === true || req.body?.mode === 'replace';
+  const current = await readTokyoDialogues();
+  const byId = new Map(current.map(item => [item.id, item]));
+  const incomingIds = new Set();
+  let created = 0;
+  let updated = 0;
+  for (const raw of incoming) {
+    const id = String(raw?.id || '').trim();
+    if (!id) continue;
+    incomingIds.add(id);
+    const existing = byId.get(id);
+    const normalized = normalizeTokyoDialogue({ ...raw, source: raw?.source || source }, existing);
+    if (!normalized) continue;
+    if (existing) updated += 1;
+    else created += 1;
+    byId.set(id, normalized);
+  }
+  let removed = 0;
+  if (replaceSource) {
+    for (const [id, row] of byId.entries()) {
+      if ((row.source || source) === source && !incomingIds.has(id)) {
+        byId.delete(id);
+        removed += 1;
+      }
+    }
+  }
+  const rows = [...byId.values()].sort((a, b) => ((a.scene || '') + ':' + a.id).localeCompare((b.scene || '') + ':' + b.id));
+  await writeTokyoDialogues(rows);
+  res.json({ ok: true, created, updated, removed, total: rows.length });
+}
+
+async function generateTokyoDialogueAudio(req, res) {
+  const id = String(req.params.id || '').trim();
+  const rows = await readTokyoDialogues();
+  const index = rows.findIndex(item => item.id === id);
+  if (index < 0) return res.status(404).json({ error: 'dialogue not found, sync first' });
+  const dialogue = rows[index];
+  const targetLineKey = req.body?.line_key || req.query?.line_key || req.body?.key || req.query?.key;
+  const lines = tokyoDialogueLines(dialogue);
+  let generated = 0;
+  for (const line of lines) {
+    if (targetLineKey && line.key !== targetLineKey) continue;
+    if (line.audio_url && !targetLineKey) continue;
+    const text = extractTokyoDialogueSpeech(line.text);
+    if (!text) continue;
+    const audioUrl = await generateKokoroAudioFile(text, 'tokyo-dialogues');
+    line.audio_url = audioUrl;
+    line.audio_url_type = 'kokoro';
+    line.audio_generated_at = new Date().toISOString();
+    generated += 1;
+  }
+  const firstLine = lines.find(line => line.key === 'npc_line') || lines[0];
+  rows[index] = {
+    ...dialogue,
+    dialogue_lines: lines,
+    audio_url: firstLine?.audio_url || dialogue.audio_url || null,
+    audio_url_type: firstLine?.audio_url_type || dialogue.audio_url_type || null,
+    audio_generated_at: firstLine?.audio_generated_at || dialogue.audio_generated_at || null,
+  };
+  await writeTokyoDialogues(rows);
+  res.json({ ok: true, generated, audio_url: rows[index].audio_url, dialogue: rows[index] });
+}
+
 async function getDashboard(req, res) {
   try {
     const [vocabCount, grammarCount, trackCount, userCount, recentUsers, grammarExampleCount] = await Promise.all([
@@ -2914,7 +3125,7 @@ async function generateSingleAudio(req, res) {
   const { text, subdir = 'vocab' } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ error: '文本不能为空' });
 
-  const allowedDirs = ['vocab', 'kana', 'grammar/audio'];
+  const allowedDirs = ['vocab', 'kana', 'grammar/audio', 'tokyo-dialogues'];
   if (!allowedDirs.includes(subdir)) return res.status(400).json({ error: '无效的subdir' });
 
   // 读取管理员TTS配置
@@ -3346,6 +3557,7 @@ module.exports = {
   listReports, getReport, updateReport, deleteReport,
   getStudyPlanStats,
   generateSingleAudio,
+  listTokyoDialogues, syncTokyoDialogues, generateTokyoDialogueAudio,
   listOrders, reviewOrder, uploadQrCode,
   getEmailSettings, saveEmailSettings, testEmailSettings,
   getSupportChannels, saveSupportChannel, deleteSupportChannel, uploadSupportQrCode, getPublicSupportChannels,
