@@ -20,12 +20,38 @@ const fs = require('fs');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
+const axios = require('axios');
 const { sendOrderNotification } = require('../services/emailService');
 const { handleAppleNotification } = require('../services/appleNotifications');
 
 // ── Apple App Store Server Notifications V2 webhook ──────────────────────────
 // 必须无需鉴权，URL 在 App Store Connect 的 App Information 中配置
 router.post('/apple/notifications', asyncHandler(handleAppleNotification));
+
+router.get('/exchange-rates', asyncHandler(async (req, res) => {
+  const quote = String(req.query.quote || 'CNY').toUpperCase();
+  const bases = String(req.query.bases || req.query.base || '')
+    .split(',')
+    .map(s => s.trim().toUpperCase())
+    .filter(Boolean);
+
+  if (!bases.length) throw new HttpError(400, 'Missing base currency');
+  const uniqueBases = [...new Set(bases)].slice(0, 12);
+  const rates = {};
+  const meta = {};
+
+  for (const base of uniqueBases) {
+    const item = await getFrankfurterRate(base, quote);
+    rates[base] = item.rate;
+    meta[base] = {
+      date: item.date,
+      source: item.source,
+      cached: item.cached === true,
+    };
+  }
+
+  res.json({ quote, rates, meta });
+}));
 
 // ── 配置读取 ─────────────────────────────────────────────────────────────────
 const PLANS_FILE = path.join(__dirname, '../../config/membership.json');
@@ -42,6 +68,49 @@ function readConfig() {
 function readPlans() {
   const config = readConfig();
   return (config.plans || []).filter(p => p.enabled !== false && p.id !== 'free');
+}
+
+const exchangeRateCache = new Map();
+const EXCHANGE_RATE_TTL_MS = 6 * 60 * 60 * 1000;
+
+async function getFrankfurterRate(base, quote) {
+  const normalizedBase = String(base || '').trim().toUpperCase();
+  const normalizedQuote = String(quote || 'CNY').trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(normalizedBase) || !/^[A-Z]{3}$/.test(normalizedQuote)) {
+    throw new HttpError(400, 'Invalid currency code');
+  }
+  if (normalizedBase === normalizedQuote) {
+    return {
+      base: normalizedBase,
+      quote: normalizedQuote,
+      rate: 1,
+      date: new Date().toISOString().slice(0, 10),
+      source: 'identity',
+    };
+  }
+
+  const cacheKey = `${normalizedBase}:${normalizedQuote}`;
+  const cached = exchangeRateCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < EXCHANGE_RATE_TTL_MS) {
+    return { ...cached.value, cached: true };
+  }
+
+  const url = `https://api.frankfurter.dev/v2/rate/${normalizedBase}/${normalizedQuote}`;
+  const { data } = await axios.get(url, { timeout: 5000 });
+  const rate = Number(data?.rate);
+  if (!Number.isFinite(rate) || rate <= 0) {
+    throw new HttpError(502, 'Exchange rate unavailable');
+  }
+
+  const value = {
+    base: normalizedBase,
+    quote: normalizedQuote,
+    rate,
+    date: data.date || new Date().toISOString().slice(0, 10),
+    source: 'frankfurter',
+  };
+  exchangeRateCache.set(cacheKey, { value, fetchedAt: Date.now() });
+  return { ...value, cached: false };
 }
 
 function resolveProjectPath(filePath) {

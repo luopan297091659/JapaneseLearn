@@ -499,6 +499,25 @@ class ApiService {
     return Map<String, dynamic>.from(res.data);
   }
 
+  Future<Map<String, double>> getCnyExchangeRates(List<String> bases) async {
+    final uniqueBases = bases
+        .map((e) => e.trim().toUpperCase())
+        .where((e) => e.isNotEmpty && e != 'CNY')
+        .toSet()
+        .toList();
+    if (uniqueBases.isEmpty) return {};
+    final res = await _dio.get('/payment/exchange-rates', queryParameters: {
+      'bases': uniqueBases.join(','),
+      'quote': 'CNY',
+    });
+    final rawRates = (res.data as Map)['rates'] as Map? ?? const {};
+    return rawRates.map((key, value) {
+      final rate =
+          value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
+      return MapEntry('$key'.toUpperCase(), rate);
+    })..removeWhere((_, value) => value <= 0);
+  }
+
   /// Apple IAP 收据验证
   Future<Map<String, dynamic>> verifyApplePurchase({
     required String receiptData,

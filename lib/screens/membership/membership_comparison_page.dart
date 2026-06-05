@@ -35,6 +35,7 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
   String _purchasingPlanId = '';
   int _selectedPlanIndex = -1; // 选中的套餐索引（默认选中推荐/年度）
   String? _membershipPlan; // 当前用户会员类型：monthly/yearly/lifetime/trial/null
+  Map<String, double> _exchangeRates = {}; // currency code -> CNY rate
 
   // 会员等级：年度 > 月度；终身独立可留。体验不计入等级。
   static const Map<String, int> _planRank = {
@@ -92,12 +93,90 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
       // iOS: 初始化 IAP 并加载产品价格（须在 _plans 赋值后、_loading=false 前完成）
       if (Platform.isIOS) {
         await _initIAP();
+        // Load exchange rates for non-CNY currencies
+        await _loadExchangeRates();
       }
       if (mounted) setState(() => _loading = false);
     } catch (_) {
       if (Platform.isIOS) await _initIAP();
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _loadExchangeRates() async {
+    try {
+      // Collect all possible currency codes from localized prices
+      final currencies = <String>{};
+      for (final plan in _plans) {
+        final appleId = plan['apple_product_id'] as String? ?? '';
+        if (appleId.isEmpty) continue;
+        final iapPrice = paymentService.getLocalizedPrice(appleId);
+        if (iapPrice == null) continue;
+        final currencyCode = _extractCurrencyCode(iapPrice);
+        if (currencyCode != null && currencyCode != 'CNY') {
+          currencies.add(currencyCode);
+        }
+      }
+      if (currencies.isEmpty) return;
+      
+      final rates = await apiService.getCnyExchangeRates(currencies.toList());
+      if (mounted) {
+        setState(() => _exchangeRates = rates);
+      }
+    } catch (_) {
+      // Silently ignore exchange rate errors
+    }
+  }
+
+  /// Extract currency code from localized price string (e.g., "¥7,000" -> "JPY", "$9.99" -> "USD")
+  String? _extractCurrencyCode(String price) {
+    // Common currency symbol mappings
+    const Map<String, String> symbolToCurrency = {
+      '¥': 'JPY', // Japanese Yen / Chinese Yuan (context-dependent)
+      '\$': 'USD',
+      '€': 'EUR',
+      '£': 'GBP',
+      'CHF': 'CHF',
+      'SEK': 'SEK',
+      'kr': 'NOK',
+      'R\$': 'BRL',
+      '₹': 'INR',
+      '₽': 'RUB',
+      '₩': 'KRW',
+      '฿': 'THB',
+      'php': 'PHP',
+      'rp': 'IDR',
+    };
+    
+    for (final entry in symbolToCurrency.entries) {
+      if (price.contains(entry.key)) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
+
+  /// Extract numeric value from localized price string (e.g., "¥7,000" -> 7000, "$9.99" -> 9.99)
+  double? _extractPriceValue(String price) {
+    // Remove all non-numeric characters except decimal point
+    final numStr = price.replaceAll(RegExp(r'[^\d.]'), '');
+    return double.tryParse(numStr);
+  }
+
+  /// Calculate CNY reference price from localized price
+  String? _calculateCnyRefPrice(String localizedPrice) {
+    final currencyCode = _extractCurrencyCode(localizedPrice);
+    final priceValue = _extractPriceValue(localizedPrice);
+    
+    if (currencyCode == null || currencyCode == 'CNY' || priceValue == null || priceValue <= 0) {
+      return null;
+    }
+    
+    final rate = _exchangeRates[currencyCode];
+    if (rate == null || rate <= 0) return null;
+    
+    final cnyValue = priceValue * rate;
+    return '约 ¥${cnyValue.toStringAsFixed(0)}';
   }
 
   Future<void> _initIAP() async {
@@ -174,9 +253,11 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
   /// 自动续费协议确认对话框（iOS 月/年订阅前必读）
   Future<bool?> _showAutoRenewAgreementDialog(Map<String, dynamic> plan) async {
     final cs = Theme.of(context).colorScheme;
+    final screenWidth = MediaQuery.of(context).size.width;
     final period = plan['period'] == 'year' ? '年' : '月';
     final iapPrice = paymentService.getLocalizedPrice(plan['apple_product_id'] as String? ?? '');
     final price = iapPrice ?? ((plan['price'] is num) ? '¥${(plan['price'] as num).toInt()}' : '');
+    final cnyRefPrice = iapPrice != null ? _calculateCnyRefPrice(iapPrice) : null;
     bool checked = false;
 
     return showDialog<bool>(
@@ -185,14 +266,73 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
           title: const Text('自动续费服务说明'),
+          contentPadding: EdgeInsets.fromLTRB(
+            screenWidth < 350 ? 16 : 24,
+            16,
+            screenWidth < 350 ? 16 : 24,
+            8,
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${plan['name']} · $period订阅',
+                        style: TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.bold,
+                          color: cs.onSurface,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              price,
+                              style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w900,
+                                color: cs.primary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (cnyRefPrice != null) ...[
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                cnyRefPrice,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: cs.outlineVariant,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
                 Text(
-                  '您即将订阅「${plan['name']}」（$price / $period）。请在订阅前确认以下条款：',
-                  style: const TextStyle(fontSize: 14),
+                  '请在订阅前确认以下条款：',
+                  style: TextStyle(fontSize: 13, color: cs.onSurface, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 12),
                 _agreementBullet('订阅成功后立即生效，享受对应会员权益'),
@@ -664,6 +804,12 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenWidth < 380;
+    final isTablet = screenWidth >= 600;
+    final contentPadding = isSmallScreen ? 12.0 : isTablet ? 24.0 : 16.0;
+    
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -674,30 +820,38 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-              children: [
-                // Header banner
-                _buildHeaderBanner(cs),
-                const SizedBox(height: 16),
-                // Trial section
-                _buildTrialSection(cs),
-                const SizedBox(height: 20),
-                // Comparison table
-                _buildComparisonTable(cs),
-                const SizedBox(height: 24),
-                // Membership plans
-                _buildPlansSection(cs),
-                const SizedBox(height: 32),
-              ],
+          : SingleChildScrollView(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(contentPadding, contentPadding, contentPadding, 0),
+                    child: Column(
+                      children: [
+                        // Header banner
+                        _buildHeaderBanner(cs, isSmallScreen),
+                        const SizedBox(height: 16),
+                        // Trial section
+                        _buildTrialSection(cs),
+                        const SizedBox(height: 20),
+                        // Comparison table
+                        _buildComparisonTable(cs, isSmallScreen),
+                        const SizedBox(height: 24),
+                        // Membership plans
+                        _buildPlansSection(cs),
+                        const SizedBox(height: 120),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-      bottomNavigationBar: _loading ? null : _buildBottomCheckoutBar(cs),
+      bottomNavigationBar: _loading ? null : _buildBottomCheckoutBar(cs, isSmallScreen),
     );
   }
 
-  Widget _buildHeaderBanner(ColorScheme cs) {
+  Widget _buildHeaderBanner(ColorScheme cs, bool isSmallScreen) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [const Color(0xFFF59E0B), const Color(0xFFD97706)],
@@ -715,13 +869,13 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
       ),
       child: Column(
         children: [
-          const Text('👑', style: TextStyle(fontSize: 40)),
+          Text('👑', style: TextStyle(fontSize: isSmallScreen ? 32 : 40)),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             '升级会员，解锁全部功能',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 20,
+              fontSize: isSmallScreen ? 18 : 20,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -874,7 +1028,7 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
     }
   }
 
-  Widget _buildComparisonTable(ColorScheme cs) {
+  Widget _buildComparisonTable(ColorScheme cs, bool isSmallScreen) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -1066,6 +1220,7 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
           final appleId = p['apple_product_id'] as String? ?? '';
           final iapPrice = isIOS ? paymentService.getLocalizedPrice(appleId) : null;
           final price = iapPrice ?? ((p['price'] is num) ? '¥${(p['price'] as num).toInt()}' : '¥0');
+          final cnyRefPrice = iapPrice != null ? _calculateCnyRefPrice(iapPrice) : null;
           final period = periodLabels[p['period']] ?? '';
           final disabled = _isPlanDisabled(p);
           final isCurrent = _isMember && !_isTrial &&
@@ -1076,6 +1231,7 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
             child: _PlanCard(
               name: p['name']?.toString() ?? '',
               price: price,
+              cnyRefPrice: cnyRefPrice,
               period: period,
               tagline: (p['description'] as String?) ?? _defaultTagline(i),
               color: colorMap[i % 3] ?? cs.primary,
@@ -1201,7 +1357,7 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
   }
 
   // ── 底部固定开通栏 ──
-  Widget _buildBottomCheckoutBar(ColorScheme cs) {
+  Widget _buildBottomCheckoutBar(ColorScheme cs, bool isSmallScreen) {
     final isIOS = Platform.isIOS;
     final plans = _plans.where((p) => p['enabled'] != false && p['id'] != 'free').toList();
     final usePlans = plans.isNotEmpty
@@ -1243,7 +1399,7 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        padding: EdgeInsets.fromLTRB(isSmallScreen ? 12 : 16, 8, isSmallScreen ? 12 : 16, 12),
         decoration: BoxDecoration(
           color: Theme.of(context).scaffoldBackgroundColor,
           border: Border(top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4))),
@@ -1291,6 +1447,7 @@ class _PlanCard extends StatelessWidget {
   final bool disabled;
   final bool isCurrent;
   final String? badge;
+  final String? cnyRefPrice; // CNY reference price, shown as small text below main price
   final VoidCallback? onTap;
 
   const _PlanCard({
@@ -1303,12 +1460,16 @@ class _PlanCard extends StatelessWidget {
     this.disabled = false,
     this.isCurrent = false,
     this.badge,
+    this.cnyRefPrice,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 380;
+    
     final borderColor = disabled
         ? cs.outlineVariant.withValues(alpha: 0.5)
         : selected
@@ -1334,7 +1495,7 @@ class _PlanCard extends StatelessWidget {
               border: Border.all(color: borderColor, width: selected ? 2 : 1),
               color: bgColor,
             ),
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+            padding: EdgeInsets.fromLTRB(isSmallScreen ? 12 : 14, isSmallScreen ? 12 : 14, isSmallScreen ? 12 : 14, isSmallScreen ? 12 : 14),
             child: Row(
                   children: [
                     // 选中圆点
@@ -1356,10 +1517,14 @@ class _PlanCard extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Text(name,
-                                style: TextStyle(
-                                  fontSize: 15, fontWeight: FontWeight.bold,
-                                  color: textColor ?? cs.onSurface,
+                              Flexible(
+                                child: Text(name,
+                                  style: TextStyle(
+                                    fontSize: isSmallScreen ? 14 : 15, fontWeight: FontWeight.bold,
+                                    color: textColor ?? cs.onSurface,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               if (isCurrent) ...[
@@ -1389,44 +1554,64 @@ class _PlanCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (badge != null) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: color,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(badge!,
-                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                        ],
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(price,
-                              style: TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.w900,
-                                color: textColor ?? color,
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (badge != null) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: color,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(badge!,
+                                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                               ),
                             ),
-                            if (period.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 2),
-                                child: Text(period,
+                            const SizedBox(height: 4),
+                          ],
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Flexible(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(price,
+                                      style: TextStyle(
+                                        fontSize: isSmallScreen ? 16 : 18, fontWeight: FontWeight.w900,
+                                        color: textColor ?? color,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (cnyRefPrice != null && cnyRefPrice!.isNotEmpty)
+                                      Text(cnyRefPrice!,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: textColor ?? cs.outlineVariant,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              if (period.isNotEmpty) ...[
+                                const SizedBox(width: 4),
+                                Text(period,
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 11,
                                     color: textColor ?? color.withValues(alpha: 0.7),
                                   ),
                                 ),
-                              ),
-                          ],
-                        ),
-                      ],
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
