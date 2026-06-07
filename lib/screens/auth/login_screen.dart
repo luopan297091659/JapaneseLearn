@@ -8,6 +8,11 @@ import '../../services/guest_service.dart';
 import '../../config/app_config.dart';
 import '../common/legal_webview_page.dart';
 
+const _emailSuffixes = [
+  '@qq.com', '@163.com', '@gmail.com', '@outlook.com',
+  '@126.com', '@yahoo.com', '@hotmail.com', '@icloud.com',
+];
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
   @override
@@ -31,6 +36,15 @@ class _LoginScreenState extends State<LoginScreen> {
       return (e.response!.data as Map)['error']?.toString() ?? '操作失败';
     }
     return '操作失败';
+  }
+
+  void _appendSuffix(String suffix) {
+    final text = _emailCtrl.text;
+    final at = text.indexOf('@');
+    final prefix = at >= 0 ? text.substring(0, at) : text;
+    _emailCtrl.text = '$prefix$suffix';
+    _emailCtrl.selection =
+        TextSelection.collapsed(offset: _emailCtrl.text.length);
   }
 
   Future<void> _sendCode() async {
@@ -231,6 +245,18 @@ class _LoginScreenState extends State<LoginScreen> {
                                 filled: true,
                                 fillColor: cs.surfaceContainerHighest
                                     .withValues(alpha: 0.3),
+                                suffixIcon: PopupMenuButton<String>(
+                                  icon: Icon(Icons.alternate_email,
+                                      color: cs.primary),
+                                  tooltip: '选择邮箱后缀',
+                                  onSelected: _appendSuffix,
+                                  itemBuilder: (_) => _emailSuffixes
+                                      .map((suffix) => PopupMenuItem(
+                                            value: suffix,
+                                            child: Text(suffix),
+                                          ))
+                                      .toList(),
+                                ),
                               ),
                               validator: (v) =>
                                   v!.isEmpty ? s.pleaseEnterEmail : null,

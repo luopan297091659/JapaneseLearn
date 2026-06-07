@@ -23,7 +23,7 @@ class VocabularyDetailScreen extends StatefulWidget {
     super.key,
     required this.id,
     this.wordIds,
-    this.initialShowAnswer = false,
+    this.initialShowAnswer = true,
   });
   @override
   State<VocabularyDetailScreen> createState() => _VocabularyDetailScreenState();
@@ -352,7 +352,7 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
       _currentId = id;
       _loading = true;
       _error = null;
-      _showAnswer = false;
+      _showAnswer = true;
       _addedToSrs = false;
       _srsCardId = null;
       _srsRepetitions = 0;

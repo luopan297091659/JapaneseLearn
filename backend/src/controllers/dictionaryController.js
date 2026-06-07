@@ -275,16 +275,66 @@ function rankDictionaryResult(entry, query) {
   return 100;
 }
 
-function extractJson(text) {
-  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch) return JSON.parse(fenceMatch[1].trim());
-  const jsonStart = text.search(/[\[{]/);
-  if (jsonStart >= 0) {
-    const candidate = text.slice(jsonStart);
-    const lastBracket = Math.max(candidate.lastIndexOf(']'), candidate.lastIndexOf('}'));
-    if (lastBracket >= 0) return JSON.parse(candidate.slice(0, lastBracket + 1));
+function sanitizeJsonText(text) {
+  return String(text || '')
+    .replace(/```(?:json)?\s*/gi, '')
+    .replace(/```/g, '')
+    .replace(/\/\/.*$/gm, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/,\s*([}\]])/g, '$1')
+    .trim();
+}
+
+function extractBalancedJson(text, startIndex) {
+  const open = text[startIndex];
+  if (open !== '{' && open !== '[') return null;
+  const close = open === '{' ? '}' : ']';
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = startIndex; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escape) escape = false;
+      else if (ch === '\\') escape = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === open) depth += 1;
+    else if (ch === close) {
+      depth -= 1;
+      if (depth === 0) return text.slice(startIndex, i + 1);
+    }
   }
-  return JSON.parse(text.trim());
+  return null;
+}
+
+function extractJson(text) {
+  const cleaned = sanitizeJsonText(text);
+  try {
+    return JSON.parse(cleaned);
+  } catch (_) {}
+
+  const startIndex = cleaned.search(/[\[{]/);
+  if (startIndex >= 0) {
+    const balanced = extractBalancedJson(cleaned, startIndex);
+    if (balanced) {
+      try {
+        return JSON.parse(balanced);
+      } catch (_) {}
+    }
+
+    const candidate = cleaned.slice(startIndex);
+    const lastBracket = Math.max(candidate.lastIndexOf(']'), candidate.lastIndexOf('}'));
+    if (lastBracket >= 0) {
+      const trimmed = candidate.slice(0, lastBracket + 1).replace(/,\s*([}\]])/g, '$1');
+      return JSON.parse(trimmed);
+    }
+  }
+
+  throw new Error('无法从 AI 回复中提取有效 JSON');
 }
 
 async function lookupWithAI(query) {

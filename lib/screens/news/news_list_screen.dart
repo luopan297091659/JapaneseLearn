@@ -85,7 +85,7 @@ class _NewsListScreenState extends State<NewsListScreen> with SingleTickerProvid
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('日本語ニュース'),
+        title: const Text('NHK ニュース'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded),
           tooltip: '返回',
