@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -243,10 +244,9 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
       _index += 1;
       if (_index < _queue.length) {
         await _ensureCurrentLoaded();
-        // 切换到下一张词汇卡时自动播放音频
         final nextItem = _queue[_index];
         if (nextItem['card_type']?.toString() == 'vocabulary') {
-          _playAudio(isExample: false);
+          _playAudio(isExample: false, autoPlayExampleAfterWord: true);
         }
       }
 
@@ -526,15 +526,18 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
   }
 
   /// 播放音频：有 audio_url 用 just_audio，否则回退到 TTS
-  Future<void> _playAudio({required bool isExample, bool slow = false}) async {
+  Future<void> _playAudio({
+    required bool isExample,
+    bool slow = false,
+    bool autoPlayExampleAfterWord = false,
+  }) async {
     final v = _index < _queue.length
         ? _vocabCache[_queue[_index]['ref_id']?.toString() ?? '']
         : null;
     if (v == null) return;
     final url = isExample ? v.exampleAudioUrl : v.audioUrl;
 
-    // TTS 回退
-    if (url == null) {
+    if (url == null || url.isEmpty) {
       String? text;
       if (isExample) {
         text = v.exampleSentence;
@@ -543,6 +546,12 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
       }
       if (text == null || text.isEmpty) return;
       await _speakTts(text, isExample: isExample, slow: slow);
+      if (!isExample &&
+          autoPlayExampleAfterWord &&
+          v.exampleAudioUrl != null &&
+          v.exampleAudioUrl!.isNotEmpty) {
+        await _playAudio(isExample: true, slow: slow);
+      }
       return;
     }
 
@@ -605,6 +614,7 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
         });
       }
       await player.play();
+      await _waitForPlaybackCompletion(player);
       if (mounted) {
         setState(() {
           if (isExample) {
@@ -613,6 +623,12 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
             _ttsPlaying = false;
           }
         });
+      }
+      if (!isExample &&
+          autoPlayExampleAfterWord &&
+          v.exampleAudioUrl != null &&
+          v.exampleAudioUrl!.isNotEmpty) {
+        await _playAudio(isExample: true, slow: slow);
       }
     } catch (e) {
       debugPrint('Audio play error: $e');
@@ -630,8 +646,18 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
     }
   }
 
+  Future<void> _waitForPlaybackCompletion(AudioPlayer player) async {
+    try {
+      await player.playerStateStream.firstWhere((state) {
+        return state.processingState == ProcessingState.completed ||
+            state.processingState == ProcessingState.idle;
+      });
+    } catch (_) {}
+  }
+
   Future<void> _speakTts(String text,
       {bool isExample = false, bool slow = false}) async {
+    final completer = Completer<void>();
     await _wordPlayer?.stop();
     await _examplePlayer?.stop();
     await _tts.stop();
@@ -661,8 +687,22 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
           });
         }
         _tts.setSpeechRate(0.5);
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      });
+      _tts.setCancelHandler(() {
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      });
+      _tts.setErrorHandler((_) {
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
       });
       await TtsHelper.speakJapanese(_tts, text);
+      await completer.future;
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -672,6 +712,9 @@ class _StudyPlanRunScreenState extends State<StudyPlanRunScreen> {
             _ttsPlaying = false;
           }
         });
+      }
+      if (!completer.isCompleted) {
+        completer.complete();
       }
     }
   }

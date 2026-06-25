@@ -358,9 +358,11 @@ footer {
       <div class="dl-card" id="tokyoIosCard">
         <div class="product-name">东京留学物语</div>
         <div class="platform"><span class="os-icon">🍎</span>iOS</div>
-        <div class="qr-box" id="tokyoIosQrBox"><div class="placeholder">App Store<br>暂未上架</div></div>
-        <div class="version" id="tokyoIosVersion">苹果版本暂未上架</div>
-        <button class="dl-btn dl-btn-disabled" id="tokyoIosBtn" disabled>暂未上架</button>
+        <div class="qr-box" id="tokyoIosQrBox">
+          <div class="qr-loading"><div class="spinner"></div><span style="font-size:11px;color:var(--text-hint)">加载中</span></div>
+        </div>
+        <div class="version" id="tokyoIosVersion">检测中...</div>
+        <button class="dl-btn dl-btn-disabled" id="tokyoIosBtn"  onclick="downloadProduct('tokyoIos')">前往下载</button>
       </div>
     </div>
   </div>
@@ -544,6 +546,10 @@ loadAppRelease('ios', {
 loadAppRelease('tokyo_android', {
   key: 'tokyoAndroid', versionId: 'tokyoAndroidVersion', buttonId: 'tokyoAndroidBtn', qrBoxId: 'tokyoAndroidQrBox',
   buttonText: '下载 APK', emptyButtonText: '暂无版本', activeClass: 'dl-btn-android'
+});
+loadAppRelease('tokyo_ios', {
+  key: 'tokyoIos', versionId: 'tokyoIosVersion', buttonId: 'tokyoIosBtn', qrBoxId: 'tokyoIosQrBox',
+  buttonText: '前往下载', emptyButtonText: '暂无版本', activeClass: 'dl-btn-ios'
 });
 /* ── Auth & User Badge ── */
 const API = '/api/v1';
