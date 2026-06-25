@@ -164,19 +164,35 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
   }
 
   /// Calculate CNY reference price from localized price
-  String? _calculateCnyRefPrice(String localizedPrice) {
+  double? _calculateCnyAmount(String localizedPrice) {
     final currencyCode = _extractCurrencyCode(localizedPrice);
     final priceValue = _extractPriceValue(localizedPrice);
-    
+
     if (currencyCode == null || currencyCode == 'CNY' || priceValue == null || priceValue <= 0) {
       return null;
     }
-    
+
     final rate = _exchangeRates[currencyCode];
     if (rate == null || rate <= 0) return null;
-    
-    final cnyValue = priceValue * rate;
-    return '约 ¥${cnyValue.toStringAsFixed(0)}';
+
+    return priceValue * rate;
+  }
+
+  String _buildPrimaryDisplayPrice(String? localizedPrice) {
+    if (!Platform.isIOS || localizedPrice == null || localizedPrice.isEmpty) {
+      return localizedPrice ?? '';
+    }
+
+    final cnyValue = _calculateCnyAmount(localizedPrice);
+    if (cnyValue == null) return localizedPrice;
+    return '￥${cnyValue.toStringAsFixed(0)}';
+  }
+
+  String? _buildSecondaryDisplayPrice(String? localizedPrice) {
+    if (!Platform.isIOS || localizedPrice == null || localizedPrice.isEmpty) {
+      return null;
+    }
+    return localizedPrice;
   }
 
   Future<void> _initIAP() async {
@@ -256,8 +272,8 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final period = plan['period'] == 'year' ? '年' : '月';
     final iapPrice = paymentService.getLocalizedPrice(plan['apple_product_id'] as String? ?? '');
-    final price = iapPrice ?? ((plan['price'] is num) ? '¥${(plan['price'] as num).toInt()}' : '');
-    final cnyRefPrice = iapPrice != null ? _calculateCnyRefPrice(iapPrice) : null;
+    final price = _buildPrimaryDisplayPrice(iapPrice ?? ((plan['price'] is num) ? '¥${(plan['price'] as num).toInt()}' : ''));
+    final cnyRefPrice = Platform.isIOS && iapPrice != null ? _buildSecondaryDisplayPrice(iapPrice) : null;
     bool checked = false;
 
     return showDialog<bool>(
@@ -1219,8 +1235,8 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
           final p = e.value;
           final appleId = p['apple_product_id'] as String? ?? '';
           final iapPrice = isIOS ? paymentService.getLocalizedPrice(appleId) : null;
-          final price = iapPrice ?? ((p['price'] is num) ? '¥${(p['price'] as num).toInt()}' : '¥0');
-          final cnyRefPrice = iapPrice != null ? _calculateCnyRefPrice(iapPrice) : null;
+          final price = _buildPrimaryDisplayPrice(iapPrice ?? ((p['price'] is num) ? '¥${(p['price'] as num).toInt()}' : '¥0'));
+          final cnyRefPrice = isIOS && iapPrice != null ? _buildSecondaryDisplayPrice(iapPrice) : null;
           final period = periodLabels[p['period']] ?? '';
           final disabled = _isPlanDisabled(p);
           final isCurrent = _isMember && !_isTrial &&
@@ -1373,7 +1389,7 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
     final selected = usePlans[_selectedPlanIndex];
     final appleId = selected['apple_product_id'] as String? ?? '';
     final iapPrice = isIOS ? paymentService.getLocalizedPrice(appleId) : null;
-    final price = iapPrice ?? ((selected['price'] is num) ? '¥${(selected['price'] as num).toInt()}' : '¥0');
+    final price = _buildPrimaryDisplayPrice(iapPrice ?? ((selected['price'] is num) ? '¥${(selected['price'] as num).toInt()}' : '¥0'));
     final disabled = _isPlanDisabled(selected);
     final isCurrent = _isMember && !_isTrial &&
         _membershipPlan == selected['id'];

@@ -22,6 +22,7 @@ import '../../l10n/app_localizations.dart';
 import '../../providers/locale_provider.dart';
 import '../../providers/app_appearance_provider.dart';
 import '../../utils/tts_helper.dart';
+import '../../utils/version_utils.dart';
 import '../../services/plan_reminder_service.dart';
 import '../common/legal_webview_page.dart';
 
@@ -440,26 +441,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
   }
 
-  int _compareVersions(String current, String latest) {
-    List<int> parse(String input) {
-      final normalized = input.split('+').first.trim();
-      return normalized
-          .split('.')
-          .map((part) => int.tryParse(part) ?? 0)
-          .toList();
-    }
-
-    final left = parse(current);
-    final right = parse(latest);
-    final maxLen = left.length > right.length ? left.length : right.length;
-    for (var i = 0; i < maxLen; i++) {
-      final a = i < left.length ? left[i] : 0;
-      final b = i < right.length ? right[i] : 0;
-      if (a != b) return a.compareTo(b);
-    }
-    return 0;
-  }
-
   Future<void> _checkAppUpdate() async {
     if (_checkingUpdate) return;
     setState(() => _checkingUpdate = true);
@@ -473,9 +454,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       final downloadUrl = rawDownloadUrl.startsWith('http')
           ? rawDownloadUrl
           : '${AppConfig.serverRoot}$rawDownloadUrl';
-      final currentVersion = _appVersion.split('+').first;
+      final currentVersion = _appVersion.trim();
       final needUpdate = latestVersion.isNotEmpty &&
-          _compareVersions(currentVersion, latestVersion) < 0;
+          compareVersions(currentVersion, latestVersion) < 0;
 
       if (!mounted) return;
 
