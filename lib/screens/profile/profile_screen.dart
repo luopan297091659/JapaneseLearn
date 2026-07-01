@@ -26,6 +26,50 @@ import '../../utils/version_utils.dart';
 import '../../services/plan_reminder_service.dart';
 import '../common/legal_webview_page.dart';
 
+class UsernameEditor extends StatelessWidget {
+  const UsernameEditor({
+    super.key,
+    required this.username,
+    required this.onEdit,
+  });
+
+  final String username;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onEdit,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                username.isNotEmpty ? username : '未设置',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.edit_outlined,
+              size: 16,
+              color: theme.colorScheme.primary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
   @override
@@ -1085,10 +1129,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                             ],
                           ),
                           const SizedBox(height: 12),
-                          Text(
-                            _user?.username ?? '',
-                            style: const TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold),
+                          UsernameEditor(
+                            username: _user?.username ?? '',
+                            onEdit: _editPersonalInfo,
                           ),
                           const SizedBox(height: 2),
                           Text(
