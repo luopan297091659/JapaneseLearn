@@ -100,9 +100,9 @@ async function getById(req, res) {
 }
 
 function normalizeJlpt(level) {
-  if (!level) return 'N5';
+  if (!level) return '';
   const text = String(level).toUpperCase();
-  return ['N5', 'N4', 'N3', 'N2', 'N1'].includes(text) ? text : 'N5';
+  return ['N5', 'N4', 'N3', 'N2', 'N1'].includes(text) ? text : '';
 }
 
 function sharedCardToVocabulary(card) {

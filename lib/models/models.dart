@@ -172,7 +172,7 @@ class VocabularyModel {
         meaningEn: json['meaning_en'],
         partOfSpeech: json['part_of_speech'] ?? 'noun',
         partOfSpeechRaw: json['part_of_speech_raw'],
-        jlptLevel: json['jlpt_level'],
+        jlptLevel: json['jlpt_level']?.toString() ?? '',
         exampleSentence: json['example_sentence'] ?? (examples.isNotEmpty ? examples.first.sentence : null),
         exampleReading: json['example_reading'] ?? (examples.isNotEmpty ? examples.first.reading : null),
         exampleMeaningZh: json['example_meaning_zh'] ?? (examples.isNotEmpty ? examples.first.meaningZh : null),
@@ -642,7 +642,7 @@ class ListeningExerciseQuestion {
       options: optionsList,
       grammarTitle: json['grammar_title']?.toString(),
       word: json['word']?.toString(),
-      jlptLevel: json['jlpt_level']?.toString() ?? 'N5',
+        jlptLevel: json['jlpt_level']?.toString() ?? '',
     );
   }
 

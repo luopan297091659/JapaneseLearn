@@ -3524,6 +3524,23 @@ async function toggleDefaultSharedVocabDeckAdmin(req, res) {
   res.json({ success: true, deck: deck.toJSON() });
 }
 
+async function updateSharedVocabDeckLevelAdmin(req, res) {
+  const deck = await SharedVocabDeck.findByPk(req.params.id);
+  if (!deck || deck.status === 'archived') return res.status(404).json({ error: 'Deck not found or archived' });
+  const level = req.body?.jlpt_level;
+  if (level == null) {
+    await deck.update({ jlpt_level: null });
+    return res.json({ success: true, deck: deck.toJSON() });
+  }
+  const normalized = String(level).trim().toUpperCase();
+  const validLevels = ['N5', 'N4', 'N3', 'N2', 'N1', ''];
+  if (!validLevels.includes(normalized)) {
+    return res.status(400).json({ error: '级别无效' });
+  }
+  await deck.update({ jlpt_level: normalized || null });
+  res.json({ success: true, deck: deck.toJSON() });
+}
+
 async function unshareSharedVocabDeckAdmin(req, res) {
   const deck = await SharedVocabDeck.findByPk(req.params.id);
   if (!deck || deck.status === 'archived') return res.status(404).json({ error: '词库不存在或已下架' });
@@ -3543,6 +3560,7 @@ module.exports = {
   getToolUsage,
   getMembershipConfig, saveMembershipConfig,
   listKana, batchGenerateKanaAudio, getKanaList, getKanaById, createKanaItem, updateKanaItem, deleteKanaItem, bulkDeleteKanaItems,  // ✅ 五十音CRUD
+  listSharedVocabDecksAdmin, updateSharedVocabDeckLevelAdmin, toggleDefaultSharedVocabDeckAdmin, unshareSharedVocabDeckAdmin,
   getFeatureToggles, saveFeatureToggles,
   getFeatureTiers, saveFeatureTiers,
   uploadApp,

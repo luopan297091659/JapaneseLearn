@@ -2746,7 +2746,16 @@ async function loadSharedVocab(){
         </td>
         <td>${esc(owner.username || owner.email || deck.owner_user_id || '—')}</td>
         <td>${deck.card_count || 0}</td>
-        <td>${deck.jlpt_level ? `<span class="badge badge-blue">${esc(deck.jlpt_level)}</span>` : '—'}</td>
+        <td>
+          <select class="input" style="min-width:80px;padding:4px 8px;font-size:12px;border-radius:8px;border:1px solid #d1d5db;background:#fff" onchange="updateSharedVocabDeckLevel('${esc(String(deck.id))}', this.value)">
+            <option value="" ${deck.jlpt_level ? '' : 'selected'}>—</option>
+            <option value="N5" ${deck.jlpt_level==='N5'?'selected':''}>N5</option>
+            <option value="N4" ${deck.jlpt_level==='N4'?'selected':''}>N4</option>
+            <option value="N3" ${deck.jlpt_level==='N3'?'selected':''}>N3</option>
+            <option value="N2" ${deck.jlpt_level==='N2'?'selected':''}>N2</option>
+            <option value="N1" ${deck.jlpt_level==='N1'?'selected':''}>N1</option>
+          </select>
+        </td>
         <td>${esc(deck.source_type || 'manual')}</td>
         <td>${deck.import_count || 0}</td>
         <td>${statusBadge}</td>
@@ -2766,6 +2775,16 @@ function sharedVocabFilterStatus(){ svState.page=1; svState.status=document.getE
 async function adminUnshareDeck(id){
   if(!confirm('确定取消该词库分享？取消后用户将无法从共享词库继续导入。')) return;
   try{ await api('DELETE', `/admin/shared-vocab/decks/${id}`); toast('已取消分享'); loadSharedVocab(); }catch(e){ toast(e.message,true) }
+}
+
+async function updateSharedVocabDeckLevel(id, level){
+  try{
+    const payload = { jlpt_level: level === '' ? null : level };
+    await api('PATCH', `/admin/shared-vocab/decks/${id}`, payload);
+    toast('级别已保存');
+  }catch(e){
+    toast(e.message || '更新失败', true);
+  }
 }
 
 // 初始化例句行

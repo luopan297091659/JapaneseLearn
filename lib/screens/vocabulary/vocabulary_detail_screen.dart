@@ -654,10 +654,12 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
                   const SizedBox(height: 12),
                   // ── 级别 + 词性 + 喇叭按钮 ──
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    _chip(v.jlptLevel, cs.primary),
+                    if (v.jlptLevel.trim().isNotEmpty) _chip(v.jlptLevel, cs.primary),
+                    if (v.jlptLevel.trim().isNotEmpty &&
+                        (v.partOfSpeechRaw != null || v.partOfSpeech.isNotEmpty))
+                      const SizedBox(width: 8),
                     if (v.partOfSpeechRaw != null ||
                         v.partOfSpeech.isNotEmpty) ...[
-                      const SizedBox(width: 8),
                       _chip(
                           v.partOfSpeechRaw != null
                               ? _formatPosRaw(v.partOfSpeechRaw!)

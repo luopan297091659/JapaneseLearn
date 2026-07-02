@@ -405,6 +405,7 @@ class _VocabCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs    = Theme.of(context).colorScheme;
+    final hasLevel = word.jlptLevel.trim().isNotEmpty;
     final lvCol = _levelColors[word.jlptLevel] ?? cs.primary;
     return Material(
       color: cs.surface,
@@ -420,24 +421,24 @@ class _VocabCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Level badge
-              Container(
-                width: 38,
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                decoration: BoxDecoration(
-                  color: lvCol.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: lvCol.withValues(alpha: 0.3)),
-                ),
-                child: Text(
-                  word.jlptLevel,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: lvCol, fontWeight: FontWeight.bold, fontSize: 11,
+              if (hasLevel)
+                Container(
+                  width: 38,
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  decoration: BoxDecoration(
+                    color: lvCol.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: lvCol.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    word.jlptLevel,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: lvCol, fontWeight: FontWeight.bold, fontSize: 11,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
+              if (hasLevel) const SizedBox(width: 12),
               // Word info
               Expanded(
                 child: Column(
