@@ -104,7 +104,54 @@ struct CheckinIntent: AppIntent {
 
 struct KotabiWordWidgetView: View {
     @Environment(\.widgetFamily) private var family
+    @Environment(\.colorScheme) private var colorScheme
     let entry: WordWidgetEntry
+
+    private var titleTextColor: Color {
+        colorScheme == .dark ? .white : Color(red: 0.09, green: 0.13, blue: 0.20)
+    }
+
+    private var tagsTextColor: Color {
+        colorScheme == .dark ? Color(red: 0.98, green: 0.82, blue: 0.82) : Color(red: 0.48, green: 0.18, blue: 0.18)
+    }
+
+    private var cardBackground: Color {
+        colorScheme == .dark ? Color(red: 0.12, green: 0.14, blue: 0.20) : Color(red: 0.93, green: 0.95, blue: 0.98)
+    }
+
+    private var cardOverlayBackground: Color {
+        colorScheme == .dark ? Color(red: 0.16, green: 0.18, blue: 0.28) : Color(red: 0.98, green: 0.90, blue: 0.94)
+    }
+
+    private var dictionaryTextColor: Color {
+        colorScheme == .dark ? Color(red: 0.96, green: 0.84, blue: 0.84) : Color(red: 0.48, green: 0.18, blue: 0.18)
+    }
+
+    private var dictionaryBackground: Color {
+        colorScheme == .dark ? Color(red: 0.22, green: 0.14, blue: 0.20) : Color(red: 0.97, green: 0.86, blue: 0.83)
+    }
+
+    private var widgetBackground: some View {
+        if colorScheme == .dark {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.12, green: 0.14, blue: 0.20),
+                    Color(red: 0.15, green: 0.16, blue: 0.26)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        } else {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.93, green: 0.95, blue: 0.98),
+                    Color(red: 0.98, green: 0.90, blue: 0.94)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
 
     var body: some View {
         switch family {
@@ -160,7 +207,7 @@ struct KotabiWordWidgetView: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .background(Color(red: 1.0, green: 0.99, blue: 0.97))
+            .background(cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 16))
 
             VStack(spacing: 8) {
@@ -176,7 +223,7 @@ struct KotabiWordWidgetView: View {
     private var tags: some View {
         Text([entry.jlptLevel, entry.partOfSpeech].filter { !$0.isEmpty }.joined(separator: " · "))
             .font(.caption2.weight(.bold))
-            .foregroundStyle(Color(red: 0.48, green: 0.18, blue: 0.18))
+            .foregroundStyle(tagsTextColor)
             .lineLimit(1)
     }
 
@@ -186,11 +233,11 @@ struct KotabiWordWidgetView: View {
                 .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(Color(red: 0.05, green: 0.58, blue: 0.91))
                 .frame(width: 22, height: 22)
-                .background(Color(red: 0.88, green: 0.97, blue: 1.0))
+                .background(colorScheme == .dark ? Color(red: 0.14, green: 0.24, blue: 0.40) : Color(red: 0.88, green: 0.97, blue: 1.0))
                 .clipShape(RoundedRectangle(cornerRadius: 4))
             Text("今日一词")
                 .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(Color(red: 0.09, green: 0.13, blue: 0.20))
+                .foregroundStyle(titleTextColor)
                 .lineLimit(1)
         }
     }
@@ -270,20 +317,13 @@ struct KotabiWordWidgetView: View {
             .frame(width: 72, height: 62)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(Color(red: 0.48, green: 0.18, blue: 0.18))
-        .background(Color(red: 0.97, green: 0.86, blue: 0.83))
+        .foregroundStyle(colorScheme == .dark ? Color(red: 0.96, green: 0.84, blue: 0.84) : Color(red: 0.48, green: 0.18, blue: 0.18))
+        .background(colorScheme == .dark ? Color(red: 0.30, green: 0.20, blue: 0.18) : Color(red: 0.97, green: 0.86, blue: 0.83))
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private var background: some View {
-        LinearGradient(
-            colors: [
-                Color(red: 0.93, green: 0.95, blue: 0.98),
-                Color(red: 0.98, green: 0.90, blue: 0.94)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        widgetBackground
     }
 }
 
@@ -326,6 +366,24 @@ struct SearchProvider: TimelineProvider {
 }
 
 struct KotabiDictionarySearchWidgetView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var titleTextColor: Color {
+        colorScheme == .dark ? .white : Color(red: 0.09, green: 0.13, blue: 0.20)
+    }
+
+    private var containerColor: Color {
+        colorScheme == .dark ? Color(red: 0.16, green: 0.10, blue: 0.18) : Color(red: 0.95, green: 0.84, blue: 0.95)
+    }
+
+    private var cardColor: Color {
+        colorScheme == .dark ? Color(red: 0.22, green: 0.12, blue: 0.18) : Color(red: 0.97, green: 0.79, blue: 0.94)
+    }
+
+    private var accentTextColor: Color {
+        colorScheme == .dark ? Color(red: 0.90, green: 0.80, blue: 0.90) : Color(red: 0.09, green: 0.13, blue: 0.20)
+    }
+
     var body: some View {
         HStack(spacing: 10) {
             HStack(spacing: 8) {
@@ -337,12 +395,12 @@ struct KotabiDictionarySearchWidgetView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 Text("搜索 辞书")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(Color(red: 0.09, green: 0.13, blue: 0.20))
+                    .foregroundStyle(accentTextColor)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 14)
             .frame(height: 42)
-            .background(Color(red: 0.97, green: 0.79, blue: 0.94))
+            .background(cardColor)
             .clipShape(Capsule())
 
             Text("あ")
@@ -354,7 +412,7 @@ struct KotabiDictionarySearchWidgetView: View {
         }
         .widgetURL(URL(string: "kotabi://dictionary"))
         .containerBackground(for: .widget) {
-            Color(red: 0.95, green: 0.84, blue: 0.95)
+            containerColor
         }
     }
 }
@@ -418,7 +476,40 @@ struct JlptProvider: TimelineProvider {
 }
 
 struct KotabiJlptCountdownWidgetView: View {
+    @Environment(\.colorScheme) private var colorScheme
     let entry: JlptEntry
+
+    private var primaryTextColor: Color {
+        colorScheme == .dark ? .white : Color(red: 0.12, green: 0.16, blue: 0.22)
+    }
+
+    private var secondaryTextColor: Color {
+        colorScheme == .dark ? Color(red: 0.82, green: 0.84, blue: 0.88) : Color(red: 0.21, green: 0.26, blue: 0.33)
+    }
+
+    private var countdownBackground: some View {
+        if colorScheme == .dark {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.12, green: 0.14, blue: 0.18),
+                    Color(red: 0.16, green: 0.12, blue: 0.18),
+                    Color(red: 0.10, green: 0.12, blue: 0.18)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        } else {
+            LinearGradient(
+                colors: [
+                    Color(red: 1.0, green: 0.97, blue: 0.91),
+                    Color(red: 0.98, green: 0.87, blue: 0.95),
+                    Color(red: 0.88, green: 0.96, blue: 1.0)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
 
     var body: some View {
         VStack(spacing: 7) {
@@ -431,12 +522,12 @@ struct KotabiJlptCountdownWidgetView: View {
                 .clipShape(Capsule())
             Text("\(entry.days)")
                 .font(.system(size: 42, weight: .black, design: .rounded))
-                .foregroundStyle(Color(red: 0.12, green: 0.16, blue: 0.22))
+                .foregroundStyle(primaryTextColor)
                 .minimumScaleFactor(0.65)
                 .lineLimit(1)
             Text(entry.days == 0 ? "今天考试" : "天后考试")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(Color(red: 0.21, green: 0.26, blue: 0.33))
+                .foregroundStyle(secondaryTextColor)
             Text(dateLabel(entry.examDate))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -444,15 +535,7 @@ struct KotabiJlptCountdownWidgetView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .widgetURL(URL(string: "kotabi://home"))
         .containerBackground(for: .widget) {
-            LinearGradient(
-                colors: [
-                    Color(red: 1.0, green: 0.97, blue: 0.91),
-                    Color(red: 0.98, green: 0.87, blue: 0.95),
-                    Color(red: 0.88, green: 0.96, blue: 1.0)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            countdownBackground
         }
     }
 
