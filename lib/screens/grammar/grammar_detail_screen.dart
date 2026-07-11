@@ -194,9 +194,10 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
                         children: [
                           FuriganaText(
                             text: _lesson!.pattern,
-                            fontSize: 28,
+                            fontSize: 24,
                             color: cs.primary,
                             textAlign: TextAlign.start,
+                            maxLines: 1,
                           ),
                           if (subtitle != null) ...[
                             const SizedBox(height: 4),

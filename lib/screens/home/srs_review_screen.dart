@@ -193,21 +193,7 @@ class _SrsReviewScreenState extends State<SrsReviewScreen> {
       }
     }
     if (mounted) {
-      final label = quality == 0
-          ? '重来'
-          : quality <= 3
-              ? '困难'
-              : quality == 4
-                  ? '良好'
-                  : '简单';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('已标记为「$label」，已更新复习计划'),
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.only(bottom: 80, left: 16, right: 16),
-          duration: const Duration(seconds: 1),
-        ),
-      );
+      // 成功复习不再显示提示，避免打断复习流。
     }
     if (_current + 1 >= _cards.length) {
       _finishSession();

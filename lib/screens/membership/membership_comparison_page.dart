@@ -35,8 +35,6 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
   String _purchasingPlanId = '';
   int _selectedPlanIndex = -1; // 选中的套餐索引（默认选中推荐/年度）
   String? _membershipPlan; // 当前用户会员类型：monthly/yearly/lifetime/trial/null
-  Map<String, double> _exchangeRates = {}; // currency code -> CNY rate
-
   // 会员等级：年度 > 月度；终身独立可留。体验不计入等级。
   static const Map<String, int> _planRank = {
     'monthly': 1,
@@ -90,11 +88,9 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
           _trialDesc = trialCfg['description'] as String? ?? '';
         });
       }
-      // iOS: 初始化 IAP 并加载产品价格（须在 _plans 赋值后、_loading=false 前完成）
+      // iOS: 初始化 IAP，确保 Apple 内购产品已加载
       if (Platform.isIOS) {
         await _initIAP();
-        // Load exchange rates for non-CNY currencies
-        await _loadExchangeRates();
       }
       if (mounted) setState(() => _loading = false);
     } catch (_) {
@@ -103,96 +99,20 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
     }
   }
 
-  Future<void> _loadExchangeRates() async {
-    try {
-      // Collect all possible currency codes from localized prices
-      final currencies = <String>{};
-      for (final plan in _plans) {
-        final appleId = plan['apple_product_id'] as String? ?? '';
-        if (appleId.isEmpty) continue;
-        final iapPrice = paymentService.getLocalizedPrice(appleId);
-        if (iapPrice == null) continue;
-        final currencyCode = _extractCurrencyCode(iapPrice);
-        if (currencyCode != null && currencyCode != 'CNY') {
-          currencies.add(currencyCode);
-        }
-      }
-      if (currencies.isEmpty) return;
-      
-      final rates = await apiService.getCnyExchangeRates(currencies.toList());
-      if (mounted) {
-        setState(() => _exchangeRates = rates);
-      }
-    } catch (_) {
-      // Silently ignore exchange rate errors
+  String _formatCnyPrice(num price) {
+    if (price == 0) return '免费';
+    if (price == price.toInt()) {
+      return '￥${price.toInt()}';
     }
+    return '￥${price.toStringAsFixed(2)}';
   }
 
-  /// Extract currency code from localized price string (e.g., "¥7,000" -> "JPY", "$9.99" -> "USD")
-  String? _extractCurrencyCode(String price) {
-    // Common currency symbol mappings
-    const Map<String, String> symbolToCurrency = {
-      '¥': 'JPY', // Japanese Yen / Chinese Yuan (context-dependent)
-      '\$': 'USD',
-      '€': 'EUR',
-      '£': 'GBP',
-      'CHF': 'CHF',
-      'SEK': 'SEK',
-      'kr': 'NOK',
-      'R\$': 'BRL',
-      '₹': 'INR',
-      '₽': 'RUB',
-      '₩': 'KRW',
-      '฿': 'THB',
-      'php': 'PHP',
-      'rp': 'IDR',
-    };
-    
-    for (final entry in symbolToCurrency.entries) {
-      if (price.contains(entry.key)) {
-        return entry.value;
-      }
+  String _getPlanDisplayPrice(Map<String, dynamic> plan) {
+    final price = plan['price'];
+    if (price is num) {
+      return _formatCnyPrice(price);
     }
-    return null;
-  }
-
-  /// Extract numeric value from localized price string (e.g., "¥7,000" -> 7000, "$9.99" -> 9.99)
-  double? _extractPriceValue(String price) {
-    // Remove all non-numeric characters except decimal point
-    final numStr = price.replaceAll(RegExp(r'[^\d.]'), '');
-    return double.tryParse(numStr);
-  }
-
-  /// Calculate CNY reference price from localized price
-  double? _calculateCnyAmount(String localizedPrice) {
-    final currencyCode = _extractCurrencyCode(localizedPrice);
-    final priceValue = _extractPriceValue(localizedPrice);
-
-    if (currencyCode == null || currencyCode == 'CNY' || priceValue == null || priceValue <= 0) {
-      return null;
-    }
-
-    final rate = _exchangeRates[currencyCode];
-    if (rate == null || rate <= 0) return null;
-
-    return priceValue * rate;
-  }
-
-  String _buildPrimaryDisplayPrice(String? localizedPrice) {
-    if (!Platform.isIOS || localizedPrice == null || localizedPrice.isEmpty) {
-      return localizedPrice ?? '';
-    }
-
-    final cnyValue = _calculateCnyAmount(localizedPrice);
-    if (cnyValue == null) return localizedPrice;
-    return '￥${cnyValue.toStringAsFixed(0)}';
-  }
-
-  String? _buildSecondaryDisplayPrice(String? localizedPrice) {
-    if (!Platform.isIOS || localizedPrice == null || localizedPrice.isEmpty) {
-      return null;
-    }
-    return localizedPrice;
+    return '';
   }
 
   Future<void> _initIAP() async {
@@ -271,9 +191,8 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
     final cs = Theme.of(context).colorScheme;
     final screenWidth = MediaQuery.of(context).size.width;
     final period = plan['period'] == 'year' ? '年' : '月';
-    final iapPrice = paymentService.getLocalizedPrice(plan['apple_product_id'] as String? ?? '');
-    final price = _buildPrimaryDisplayPrice(iapPrice ?? ((plan['price'] is num) ? '¥${(plan['price'] as num).toInt()}' : ''));
-    final cnyRefPrice = Platform.isIOS && iapPrice != null ? _buildSecondaryDisplayPrice(iapPrice) : null;
+    final price = _getPlanDisplayPrice(plan);
+    final String? cnyRefPrice = null;
     bool checked = false;
 
     return showDialog<bool>(
@@ -1234,9 +1153,8 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
           final i = e.key;
           final p = e.value;
           final appleId = p['apple_product_id'] as String? ?? '';
-          final iapPrice = isIOS ? paymentService.getLocalizedPrice(appleId) : null;
-          final price = _buildPrimaryDisplayPrice(iapPrice ?? ((p['price'] is num) ? '¥${(p['price'] as num).toInt()}' : '¥0'));
-          final cnyRefPrice = isIOS && iapPrice != null ? _buildSecondaryDisplayPrice(iapPrice) : null;
+          final price = _getPlanDisplayPrice(p);
+          final String? cnyRefPrice = null;
           final period = periodLabels[p['period']] ?? '';
           final disabled = _isPlanDisabled(p);
           final isCurrent = _isMember && !_isTrial &&
@@ -1388,8 +1306,7 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
     }
     final selected = usePlans[_selectedPlanIndex];
     final appleId = selected['apple_product_id'] as String? ?? '';
-    final iapPrice = isIOS ? paymentService.getLocalizedPrice(appleId) : null;
-    final price = _buildPrimaryDisplayPrice(iapPrice ?? ((selected['price'] is num) ? '¥${(selected['price'] as num).toInt()}' : '¥0'));
+    final price = _getPlanDisplayPrice(selected);
     final disabled = _isPlanDisabled(selected);
     final isCurrent = _isMember && !_isTrial &&
         _membershipPlan == selected['id'];

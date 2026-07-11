@@ -67,6 +67,7 @@ class FuriganaText extends StatelessWidget {
   final Color? color;
   final FontWeight fontWeight;
   final TextAlign textAlign;
+  final int? maxLines;
 
   const FuriganaText({
     super.key,
@@ -75,6 +76,7 @@ class FuriganaText extends StatelessWidget {
     this.color,
     this.fontWeight = FontWeight.bold,
     this.textAlign = TextAlign.center,
+    this.maxLines,
   });
 
   @override
@@ -114,13 +116,24 @@ class FuriganaText extends StatelessWidget {
             children: [
               Padding(
                 padding: EdgeInsets.only(top: readingSize + 2),
-                child: Text(p.base, style: baseStyle),
+                child: Text(
+                  p.base,
+                  style: baseStyle,
+                  maxLines: maxLines,
+                  overflow: maxLines != null ? TextOverflow.ellipsis : TextOverflow.visible,
+                ),
               ),
               Positioned(
                 top: 0, left: 0, right: 0,
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(p.reading!, style: readingStyle, textAlign: TextAlign.center),
+                  child: Text(
+                    p.reading!,
+                    style: readingStyle,
+                    textAlign: TextAlign.center,
+                    maxLines: maxLines,
+                    overflow: maxLines != null ? TextOverflow.ellipsis : TextOverflow.visible,
+                  ),
                 ),
               ),
             ],
@@ -128,7 +141,12 @@ class FuriganaText extends StatelessWidget {
         } else {
           return Padding(
             padding: EdgeInsets.only(top: readingSize + 2),
-            child: Text(p.base, style: baseStyle),
+            child: Text(
+              p.base,
+              style: baseStyle,
+              maxLines: maxLines,
+              overflow: maxLines != null ? TextOverflow.ellipsis : TextOverflow.visible,
+            ),
           );
         }
       }).toList(),
