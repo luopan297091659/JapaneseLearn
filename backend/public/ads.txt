@@ -1,0 +1,3 @@
+# Google AdSense ads.txt
+# Publisher ID for kotabi.top
+google.com, pub-5858977826294206, DIRECT, f08c47fec0942fa0
