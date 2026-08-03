@@ -358,7 +358,17 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 .download-panel .dl-card .product-name { display:none; }
 .download-panel .dl-card .qr-box { display:flex; grid-column:1; grid-row:1/4; width:92px; height:92px; border:0; border-radius:10px; }
 .download-panel .dl-card .qr-box canvas { width:84px!important; height:84px!important; }
-.download-panel .dl-card .platform { grid-column:2; font-size:14px; }
+.download-panel .dl-card .platform { grid-column:2; display:flex; align-items:center; gap:8px; font-size:14px; line-height:1.2; }
+.download-panel .dl-card .platform-mark { width:30px; height:30px; display:grid; place-items:center; border-radius:9px; color:#fff; flex:0 0 auto; }
+.download-panel .dl-card .platform-mark svg { width:19px; height:19px; display:block; }
+.download-panel .dl-card .platform strong { display:block; font-size:13px; }
+.download-panel .dl-card .platform small { display:block; margin-top:3px; color:#7b847f; font-size:10px; font-weight:600; }
+.download-panel .dl-card.android-card { border:2px solid rgba(52,168,83,.22); }
+.download-panel .dl-card.ios-card { border:2px solid rgba(21,34,29,.16); }
+.download-panel .android-card .platform-mark { background:#34a853; }
+.download-panel .ios-card .platform-mark { background:#111827; }
+.download-panel .android-card .qr-box { outline:3px solid rgba(52,168,83,.12); }
+.download-panel .ios-card .qr-box { outline:3px solid rgba(17,24,39,.1); }
 .download-panel .dl-card .version { grid-column:2; }
 .download-panel .dl-card .dl-btn { grid-column:2; width:100%; justify-content:center; margin-top:3px; }
 .trust-grid { display:grid; grid-template-columns:1fr 1fr; gap:70px; }
@@ -556,15 +566,15 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
       <div class="download-group kotabi" id="download-kotabi">
         <h3>言旅 Kotabi</h3><p>系统课程、JLPT 备考与每日复习。</p>
         <div class="dl-grid">
-          <div class="dl-card" id="kotabiAndroidCard"><div class="product-name">言旅 Kotabi</div><div class="platform">Android</div><div class="qr-box" id="kotabiAndroidQrBox"><div class="qr-loading"><div class="spinner"></div></div></div><div class="version" id="kotabiAndroidVersion">检测中...</div><button class="dl-btn dl-btn-android" id="kotabiAndroidBtn" onclick="downloadProduct('kotabiAndroid')">下载 APK</button></div>
-          <div class="dl-card" id="kotabiIosCard"><div class="product-name">言旅 Kotabi</div><div class="platform">iOS</div><div class="qr-box" id="kotabiIosQrBox"><div class="qr-loading"><div class="spinner"></div></div></div><div class="version" id="kotabiIosVersion">检测中...</div><button class="dl-btn dl-btn-ios" id="kotabiIosBtn" onclick="downloadProduct('kotabiIos')">前往下载</button></div>
+          <div class="dl-card android-card" id="kotabiAndroidCard"><div class="product-name">言旅 Kotabi</div><div class="platform"><span class="platform-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9h10a2 2 0 0 1 2 2v6H5v-6a2 2 0 0 1 2-2Z"/><path d="m8 9-1.5-3M16 9l1.5-3M8 17v3M16 17v3M3 11v5M21 11v5"/><path d="M9 12h.01M15 12h.01" stroke-width="2.6"/></svg></span><span><strong>Android 安卓版</strong><small>扫码或直接下载 APK</small></span></div><div class="qr-box" id="kotabiAndroidQrBox" aria-label="言旅 Android 下载二维码"><div class="qr-loading"><div class="spinner"></div></div></div><div class="version" id="kotabiAndroidVersion">检测中...</div><button class="dl-btn dl-btn-android" id="kotabiAndroidBtn" aria-label="下载言旅 Android 版" onclick="downloadProduct('kotabiAndroid')">Android 下载</button></div>
+          <div class="dl-card ios-card" id="kotabiIosCard"><div class="product-name">言旅 Kotabi</div><div class="platform"><span class="platform-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.7 12.7c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.8-2-1.6-.2-3.1 1-3.9 1-.8 0-2-1-3.3-1-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.4-.8 1.5 0 2 .8 3.3.8 1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.7-1-2.7-3.9ZM14 5.1c.7-.9 1.2-2.1 1.1-3.3-1.1.1-2.4.7-3.2 1.6-.7.8-1.3 2-1.1 3.2 1.2.1 2.4-.6 3.2-1.5Z"/></svg></span><span><strong>iPhone / iPad</strong><small>扫码前往 App Store</small></span></div><div class="qr-box" id="kotabiIosQrBox" aria-label="言旅 iOS App Store 下载二维码"><div class="qr-loading"><div class="spinner"></div></div></div><div class="version" id="kotabiIosVersion">检测中...</div><button class="dl-btn dl-btn-ios" id="kotabiIosBtn" aria-label="前往 App Store 下载言旅" onclick="downloadProduct('kotabiIos')">App Store 下载</button></div>
         </div>
       </div>
       <div class="download-group tokyo" id="download-tokyo">
         <h3>东京留学物语</h3><p>在剧情任务中练习赴日生活会话。</p>
         <div class="dl-grid">
-          <div class="dl-card" id="tokyoAndroidCard"><div class="product-name">东京留学物语</div><div class="platform">Android</div><div class="qr-box" id="tokyoAndroidQrBox"><div class="qr-loading"><div class="spinner"></div></div></div><div class="version" id="tokyoAndroidVersion">检测中...</div><button class="dl-btn dl-btn-android" id="tokyoAndroidBtn" onclick="downloadProduct('tokyoAndroid')">下载 APK</button></div>
-          <div class="dl-card" id="tokyoIosCard"><div class="product-name">东京留学物语</div><div class="platform">iOS</div><div class="qr-box" id="tokyoIosQrBox"><div class="qr-loading"><div class="spinner"></div></div></div><div class="version" id="tokyoIosVersion">检测中...</div><button class="dl-btn dl-btn-disabled" id="tokyoIosBtn" onclick="downloadProduct('tokyoIos')">前往下载</button></div>
+          <div class="dl-card android-card" id="tokyoAndroidCard"><div class="product-name">东京留学物语</div><div class="platform"><span class="platform-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9h10a2 2 0 0 1 2 2v6H5v-6a2 2 0 0 1 2-2Z"/><path d="m8 9-1.5-3M16 9l1.5-3M8 17v3M16 17v3M3 11v5M21 11v5"/><path d="M9 12h.01M15 12h.01" stroke-width="2.6"/></svg></span><span><strong>Android 安卓版</strong><small>扫码或直接下载 APK</small></span></div><div class="qr-box" id="tokyoAndroidQrBox" aria-label="东京留学物语 Android 下载二维码"><div class="qr-loading"><div class="spinner"></div></div></div><div class="version" id="tokyoAndroidVersion">检测中...</div><button class="dl-btn dl-btn-android" id="tokyoAndroidBtn" aria-label="下载东京留学物语 Android 版" onclick="downloadProduct('tokyoAndroid')">Android 下载</button></div>
+          <div class="dl-card ios-card" id="tokyoIosCard"><div class="product-name">东京留学物语</div><div class="platform"><span class="platform-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.7 12.7c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.8-2-1.6-.2-3.1 1-3.9 1-.8 0-2-1-3.3-1-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.4-.8 1.5 0 2 .8 3.3.8 1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.7-1-2.7-3.9ZM14 5.1c.7-.9 1.2-2.1 1.1-3.3-1.1.1-2.4.7-3.2 1.6-.7.8-1.3 2-1.1 3.2 1.2.1 2.4-.6 3.2-1.5Z"/></svg></span><span><strong>iPhone / iPad</strong><small>扫码前往 App Store</small></span></div><div class="qr-box" id="tokyoIosQrBox" aria-label="东京留学物语 iOS App Store 下载二维码"><div class="qr-loading"><div class="spinner"></div></div></div><div class="version" id="tokyoIosVersion">检测中...</div><button class="dl-btn dl-btn-disabled" id="tokyoIosBtn" aria-label="前往 App Store 下载东京留学物语" onclick="downloadProduct('tokyoIos')">App Store 下载</button></div>
         </div>
       </div>
     </div>
@@ -764,19 +774,19 @@ function downloadProduct(key) {
 
 loadAppRelease('android', {
   key: 'kotabiAndroid', versionId: 'kotabiAndroidVersion', buttonId: 'kotabiAndroidBtn', qrBoxId: 'kotabiAndroidQrBox',
-  buttonText: '下载 APK', emptyButtonText: '暂无版本', activeClass: 'dl-btn-android'
+  buttonText: 'Android 下载', emptyButtonText: 'Android 暂无版本', activeClass: 'dl-btn-android'
 });
 loadAppRelease('ios', {
   key: 'kotabiIos', versionId: 'kotabiIosVersion', buttonId: 'kotabiIosBtn', qrBoxId: 'kotabiIosQrBox',
-  buttonText: '前往下载', emptyButtonText: '暂无版本', activeClass: 'dl-btn-ios'
+  buttonText: 'App Store 下载', emptyButtonText: 'iOS 暂无版本', activeClass: 'dl-btn-ios'
 });
 loadAppRelease('tokyo_android', {
   key: 'tokyoAndroid', versionId: 'tokyoAndroidVersion', buttonId: 'tokyoAndroidBtn', qrBoxId: 'tokyoAndroidQrBox',
-  buttonText: '下载 APK', emptyButtonText: '暂无版本', activeClass: 'dl-btn-android'
+  buttonText: 'Android 下载', emptyButtonText: 'Android 暂无版本', activeClass: 'dl-btn-android'
 });
 loadAppRelease('tokyo_ios', {
   key: 'tokyoIos', versionId: 'tokyoIosVersion', buttonId: 'tokyoIosBtn', qrBoxId: 'tokyoIosQrBox',
-  buttonText: '前往下载', emptyButtonText: '暂无版本', activeClass: 'dl-btn-ios'
+  buttonText: 'App Store 下载', emptyButtonText: 'iOS 暂无版本', activeClass: 'dl-btn-ios'
 });
 /* ── Auth & User Badge ── */
 const API = '/api/v1';
