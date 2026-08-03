@@ -208,6 +208,9 @@ app.get('/forum', (req, res) => res.sendFile(path.join(__dirname, '../public/for
 // Support page
 app.use('/support', express.static(path.join(__dirname, '../public/support')));
 app.get('/support', (req, res) => res.sendFile(path.join(__dirname, '../public/support/index.html')));
+// Public Japanese learning guides
+app.use('/learn', express.static(path.join(__dirname, '../public/learn')));
+app.get('/learn', (req, res) => res.sendFile(path.join(__dirname, '../public/learn/index.html')));
 // JLPT real past papers
 app.use('/jlpt', express.static(path.join(__dirname, '../public/jlpt-papers')));
 app.get('/jlpt', (req, res) => res.sendFile(path.join(__dirname, '../public/jlpt-papers/index.html')));
