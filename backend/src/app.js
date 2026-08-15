@@ -211,6 +211,10 @@ app.get('/support', (req, res) => res.sendFile(path.join(__dirname, '../public/s
 // Public Japanese learning guides
 app.use('/learn', express.static(path.join(__dirname, '../public/learn')));
 app.get('/learn', (req, res) => res.sendFile(path.join(__dirname, '../public/learn/index.html')));
+app.use('/about', express.static(path.join(__dirname, '../public/about')));
+app.get('/about', (req, res) => res.sendFile(path.join(__dirname, '../public/about/index.html')));
+app.use('/editorial-policy', express.static(path.join(__dirname, '../public/editorial-policy')));
+app.get('/editorial-policy', (req, res) => res.sendFile(path.join(__dirname, '../public/editorial-policy/index.html')));
 // JLPT real past papers
 app.use('/jlpt', express.static(path.join(__dirname, '../public/jlpt-papers')));
 app.get('/jlpt', (req, res) => res.sendFile(path.join(__dirname, '../public/jlpt-papers/index.html')));

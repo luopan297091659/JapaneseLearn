@@ -7,16 +7,17 @@
 <meta name="description" content="言旅 Kotabi 提供五十音、JLPT N5-N1 词汇语法、听力、阅读、SRS 复习与情景会话。查看免费学习路线、每日微课并在线体验。">
 <meta name="keywords" content="日语学习,JLPT,五十音,日语语法,日语词汇,SRS,言旅,Kotabi">
 <meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="google-adsense-account" content="ca-pub-5858977826294206">
 <meta name="theme-color" content="#f7f2e8">
-<link rel="canonical" href="https://www.kotabi.top/">
+<link rel="canonical" href="https://kotabi.top/">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:title" content="言旅 Kotabi｜把日语学进真实生活">
 <meta property="og:description" content="从五十音到 JLPT N1：学习、练习、复习、应用，形成完整闭环。">
-<meta property="og:url" content="https://www.kotabi.top/">
-<meta property="og:image" content="https://www.kotabi.top/home/app_icon.png">
-<link rel="icon" type="image/png" href="/app/favicon.png">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"EducationalOrganization","name":"言旅 Kotabi","url":"https://www.kotabi.top/","logo":"https://www.kotabi.top/home/app_icon.png","description":"面向中文日语学习者的系统学习平台，覆盖五十音、JLPT N5-N1 词汇语法、听力阅读与间隔复习。","email":"kotabi@163.com","sameAs":[]}</script>
+<meta property="og:url" content="https://kotabi.top/">
+<meta property="og:image" content="https://kotabi.top/home/app_icon.png">
+<link rel="icon" type="image/png" href="/home/app_icon.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"EducationalOrganization","name":"言旅 Kotabi","url":"https://kotabi.top/","logo":"https://kotabi.top/home/app_icon.png","description":"面向中文日语学习者的系统学习平台，覆盖五十音、JLPT N5-N1 词汇语法、听力阅读与间隔复习。","email":"kotabi@163.com","sameAs":[]}</script>
 <style>
 :root {
   --primary: #4361ee;
@@ -263,8 +264,18 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 .site-nav .nav-link:hover,.site-nav .nav-link.active { background:transparent; color:var(--red); }
 .site-nav .nav-cta { background:var(--ink); color:#fff; border-radius:999px; padding:8px 16px; }
 .site-nav .nav-cta:hover { color:#fff; background:var(--green); }
-.mobile-menu-button { display:none; border:0; background:transparent; font-size:23px; cursor:pointer; color:var(--ink); }
+.mobile-menu-button { display:none; align-items:center; gap:7px; height:38px; padding:0 10px; border:1px solid var(--line); border-radius:10px; background:rgba(255,255,255,.45); color:var(--ink); font:800 13px/1 var(--sans); cursor:pointer; }
+.mobile-menu-button .menu-icon { position:relative; width:18px; height:14px; flex:0 0 auto; }
+.mobile-menu-button .menu-icon i { position:absolute; left:0; width:18px; height:2px; border-radius:2px; background:currentColor; transition:transform .2s ease,top .2s ease,opacity .2s ease; }
+.mobile-menu-button .menu-icon i:nth-child(1) { top:0; }
+.mobile-menu-button .menu-icon i:nth-child(2) { top:6px; }
+.mobile-menu-button .menu-icon i:nth-child(3) { top:12px; }
+.mobile-menu-button[aria-expanded="true"] .menu-icon i:nth-child(1) { top:6px; transform:rotate(45deg); }
+.mobile-menu-button[aria-expanded="true"] .menu-icon i:nth-child(2) { opacity:0; }
+.mobile-menu-button[aria-expanded="true"] .menu-icon i:nth-child(3) { top:6px; transform:rotate(-45deg); }
 .mobile-start { display:none; }
+.mobile-nav-backdrop { display:none; }
+.mobile-nav-panel { display:none; }
 .page-shell { max-width:1180px; margin:0 auto; padding:0 24px; }
 .eyebrow { display:flex; align-items:center; gap:10px; color:var(--red); font-size:12px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
 .eyebrow::before { content:""; width:28px; height:2px; background:currentColor; }
@@ -410,10 +421,21 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 @media (max-width: 600px) {
   .site-nav { padding:0 16px; height:64px; overflow:visible; }
   .site-nav .logo { font-size:17px; }
+  .site-nav .logo sub { display:none; }
   .site-nav .nav-cta { display:none; }
-  .site-nav .mobile-start { display:block; margin-left:auto; color:var(--red); font-weight:900; }
-  .mobile-menu-button { display:block; margin-left:auto; }
+  .site-nav .mobile-start { display:none; }
+  .mobile-menu-button { display:inline-flex; margin-left:auto; }
   .site-nav .auth-slot { margin-left:0; }
+  .mobile-nav-backdrop { position:fixed; display:block; inset:64px 0 0; background:rgba(21,34,29,.3); opacity:0; visibility:hidden; pointer-events:none; transition:opacity .2s ease,visibility .2s ease; backdrop-filter:blur(2px); }
+  .mobile-nav-backdrop.open { opacity:1; visibility:visible; pointer-events:auto; }
+  .mobile-nav-panel { position:absolute; display:grid; grid-template-columns:1fr 1fr; gap:8px; top:calc(100% + 1px); left:12px; right:12px; padding:14px; background:#fffdf8; border:1px solid var(--line); border-radius:0 0 18px 18px; box-shadow:0 20px 42px rgba(21,34,29,.18); opacity:0; visibility:hidden; pointer-events:none; transform:translateY(-8px); transition:opacity .2s ease,transform .2s ease,visibility .2s ease; }
+  .mobile-nav-panel.open { opacity:1; visibility:visible; pointer-events:auto; transform:translateY(0); }
+  .mobile-nav-panel a { min-height:52px; display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:12px; color:var(--ink); background:var(--paper); font-size:13px; font-weight:800; }
+  .mobile-nav-panel a:hover { color:var(--red); opacity:1; }
+  .mobile-nav-panel a .mobile-nav-icon { width:28px; height:28px; display:grid; place-items:center; flex:0 0 auto; border-radius:8px; background:#fff; color:var(--red); font:900 13px var(--display); }
+  .mobile-nav-panel .mobile-nav-primary { grid-column:1/-1; justify-content:center; color:#fff; background:var(--ink); border-color:var(--ink); }
+  .mobile-nav-panel .mobile-nav-primary:hover { color:#fff; background:var(--green); }
+  body.mobile-menu-open { overflow:hidden; }
   .home-hero { margin-top:64px; min-height:auto; padding:42px 0 48px; }
   .home-hero h1 { font-size:45px; }
   .hero-lede { font-size:16px; }
@@ -458,10 +480,20 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
   <a class="nav-link desktop-link" href="/tools">学习工具</a>
   <a class="nav-link desktop-link" href="/jlpt">JLPT 题库</a>
   <a class="nav-link nav-cta" href="/app">在线学习</a>
-  <a class="nav-link mobile-start" href="/app">开始学习</a>
+  <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-expanded="false" aria-controls="mobileNavPanel" onclick="toggleMobileMenu()"><span class="menu-icon" aria-hidden="true"><i></i><i></i><i></i></span><span>菜单</span></button>
   <div class="auth-slot">
     <span class="user-badge" id="userBadge" onclick="showUserMenu()"></span>
     <a class="nav-link" id="loginBtn" href="javascript:void(0)" onclick="showAuthModal()">登录</a>
+  </div>
+  <div class="mobile-nav-backdrop" id="mobileNavBackdrop" onclick="closeMobileMenu()" aria-hidden="true"></div>
+  <div class="mobile-nav-panel" id="mobileNavPanel" aria-label="移动端导航">
+    <a href="#method" onclick="closeMobileMenu()"><span class="mobile-nav-icon">路</span>学习路线</a>
+    <a href="#lesson" onclick="closeMobileMenu()"><span class="mobile-nav-icon">文</span>免费微课</a>
+    <a href="/tools" onclick="closeMobileMenu()"><span class="mobile-nav-icon">具</span>学习工具</a>
+    <a href="/jlpt" onclick="closeMobileMenu()"><span class="mobile-nav-icon">N</span>JLPT 题库</a>
+    <a href="#download" onclick="closeMobileMenu()"><span class="mobile-nav-icon">↓</span>App 下载</a>
+    <a href="/support" onclick="closeMobileMenu()"><span class="mobile-nav-icon">?</span>帮助中心</a>
+    <a class="mobile-nav-primary" href="/app" onclick="closeMobileMenu()">免费开始学习 <span>→</span></a>
   </div>
 </nav>
 
@@ -604,7 +636,7 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 </section>
 </main>
 
-<footer class="site-footer"><div class="page-shell"><div class="footer-grid"><div class="footer-brand">言旅 Kotabi<p>为中文母语者设计的日语学习平台。把每天的一小步，连成真正走得远的旅程。</p></div><div class="footer-column"><strong>开始学习</strong><a href="/app">网页版</a><a href="#download">移动端下载</a><a href="/membership">会员权益</a></div><div class="footer-column"><strong>学习资源</strong><a href="/tools">工具箱</a><a href="/jlpt">JLPT 题库</a><a href="/forum">学习社区</a></div><div class="footer-column"><strong>关于与支持</strong><a href="#about">关于言旅</a><a href="/support">帮助中心</a><a href="mailto:kotabi@163.com">联系我们</a></div></div><div class="footer-bottom"><span>© 2026 言旅 Kotabi. All rights reserved.</span><span><a href="/app/terms.html">用户协议</a> · <a href="/app/privacy.html">隐私政策</a> · <a href="/app/tokusho.html">特定商取引法</a></span></div></div></footer>
+<footer class="site-footer"><div class="page-shell"><div class="footer-grid"><div class="footer-brand">言旅 Kotabi<p>为中文母语者设计的日语学习平台。把每天的一小步，连成真正走得远的旅程。</p></div><div class="footer-column"><strong>开始学习</strong><a href="/app">网页版</a><a href="#download">移动端下载</a><a href="/membership">会员权益</a></div><div class="footer-column"><strong>学习资源</strong><a href="/learn">原创指南</a><a href="/tools">工具箱</a><a href="/jlpt">JLPT 题库</a><a href="/forum">学习社区</a></div><div class="footer-column"><strong>关于与支持</strong><a href="/about">关于言旅</a><a href="/editorial-policy">编辑与修订规范</a><a href="/support">帮助中心</a><a href="mailto:kotabi@163.com">联系我们</a></div></div><div class="footer-bottom"><span>© 2026 言旅 Kotabi. All rights reserved.</span><span><a href="/app/terms.html">用户协议</a> · <a href="/app/privacy.html">隐私政策</a> · <a href="/app/tokusho.html">特定商取引法</a></span></div></div></footer>
 
 <!-- Auth Modal -->
 <div class="modal-overlay" id="authModal">
@@ -697,6 +729,32 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 
 <script src="/home/qrcode.min.js"></script>
 <script>
+/* ── Mobile navigation ── */
+function setMobileMenu(open) {
+  const button = document.getElementById('mobileMenuButton');
+  const panel = document.getElementById('mobileNavPanel');
+  const backdrop = document.getElementById('mobileNavBackdrop');
+  if (!button || !panel || !backdrop) return;
+  button.setAttribute('aria-expanded', String(open));
+  panel.classList.toggle('open', open);
+  backdrop.classList.toggle('open', open);
+  document.body.classList.toggle('mobile-menu-open', open);
+}
+
+function toggleMobileMenu() {
+  const button = document.getElementById('mobileMenuButton');
+  setMobileMenu(button?.getAttribute('aria-expanded') !== 'true');
+}
+
+function closeMobileMenu() { setMobileMenu(false); }
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeMobileMenu();
+});
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 600) closeMobileMenu();
+});
+
 /* ── Particle background ── */
 (function() {
   const canvas = document.getElementById('heroCanvas');
