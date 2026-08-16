@@ -155,7 +155,6 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
           tooltip: '返回',
           onPressed: () => context.canPop() ? context.pop() : context.go('/grammar'),
         ),
-        title: Text(lesson == null ? '语法' : _plainGrammarText(lesson.pattern)),
         actions: [
           if (_lesson != null)
             IconButton(
@@ -197,7 +196,6 @@ class _GrammarDetailScreenState extends State<GrammarDetailScreen> {
                             fontSize: 24,
                             color: cs.primary,
                             textAlign: TextAlign.start,
-                            maxLines: 1,
                           ),
                           if (subtitle != null) ...[
                             const SizedBox(height: 4),

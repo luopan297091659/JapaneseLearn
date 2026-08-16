@@ -492,7 +492,6 @@ class _VocabularyDetailScreenState extends State<VocabularyDetailScreen> {
           onPressed: () =>
               context.canPop() ? context.pop() : context.go('/vocabulary'),
         ),
-        title: Text(_vocab?.word ?? '単詞詳細'),
         actions: [
           // ── 白板练习按钮 ────────────────────────────────────────────
           if (_vocab != null)

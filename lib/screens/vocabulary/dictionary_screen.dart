@@ -71,10 +71,10 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     });
   }
 
-  void _playWord(String word, {String? id, String? audioUrl}) {
+  void _playWord(String word, {String? id}) {
     setState(() => _playingId = id ?? word);
+    // 词典发音始终使用设备本地 TTS，避免服务器音频不可用时按钮无声。
     TtsHelper.playJapaneseSmart(
-      audioUrl: audioUrl,
       text: word,
       tts: _tts,
       onComplete: () {
@@ -397,8 +397,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
               vocab: vocab,
               playingId: _playingId,
               itemId: id,
-              onPlay: (word) =>
-                  _playWord(word, id: id, audioUrl: vocab.audioUrl));
+              onPlay: (word) => _playWord(word, id: id));
         }
         final dictIndex = i - vocabCount;
         if (dictIndex == _results.length) {
