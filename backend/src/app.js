@@ -81,6 +81,10 @@ app.use('/home', (_req, res, next) => {
   res.setHeader('Content-Security-Policy', homeCsp);
   next();
 });
+app.use('/download', (_req, res, next) => {
+  res.setHeader('Content-Security-Policy', homeCsp);
+  next();
+});
 app.get('/', (_req, res, next) => {
   res.setHeader('Content-Security-Policy', homeCsp);
   next();
@@ -194,7 +198,13 @@ app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '../public/adm
 app.use('/app', express.static(path.join(__dirname, '../public/app')));
 app.get('/app', (req, res) => res.sendFile(path.join(__dirname, '../public/app/index.html')));
 // Official website (homepage)
-app.use('/home', express.static(path.join(__dirname, '../public/home')));
+app.use('/home', (req, res, next) => {
+  if (req.path === '/' || req.path === '/index.html') return res.redirect(301, '/');
+  next();
+});
+app.use('/home', express.static(path.join(__dirname, '../public/home'), { index: false }));
+app.use('/download', express.static(path.join(__dirname, '../public/download')));
+app.get('/download', (req, res) => res.sendFile(path.join(__dirname, '../public/download/index.html')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../public/home/index.html')));
 // Membership page
 app.use('/membership', express.static(path.join(__dirname, '../public/membership')));
@@ -265,9 +275,10 @@ app.use('/api/v1/tools', require('./routes/tools'));
 app.use('/api/v1/shared-vocab', sharedVocabRoutes);
 
 // 公开接口：支持渠道
-const { getPublicSupportChannels } = require('./controllers/adminController');
+const { getPublicSupportChannels, getPublicFreeLessonAlbums } = require('./controllers/adminController');
 const asyncHandlerPublic = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 app.get('/api/v1/support-channels', asyncHandlerPublic(getPublicSupportChannels));
+app.get('/api/v1/home/free-lessons', asyncHandlerPublic(getPublicFreeLessonAlbums));
 
 // Health check
 app.get('/health', (req, res) => {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import 'services/api_service.dart';
 import 'services/sync_service.dart';
 import 'services/guest_service.dart';
 import 'services/membership_service.dart';
+import 'services/ad_service.dart';
 import 'router/app_router.dart';
 import 'l10n/app_localizations.dart';
 import 'providers/locale_provider.dart';
@@ -77,6 +79,7 @@ void main() async {
   // 从本地缓存恢复会员状态（避免 UI 闪烁）
   final prefs = await SharedPreferences.getInstance();
   membershipService.restoreFromPrefs(prefs);
+  unawaited(adService.initialize());
   // 后台检测服务端内容版本，有更新则清除缓存
   syncService.checkContentVersion();
   // 后台拉取功能开关

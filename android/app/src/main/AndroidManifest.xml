@@ -21,6 +21,9 @@
         android:label="言旅 Kotabi"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-5858977826294206~8843638195" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

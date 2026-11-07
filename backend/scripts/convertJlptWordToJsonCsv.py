@@ -9,8 +9,8 @@ Key rules:
    - 第一部分 语彙・文法
    - 第二部分 読解
    - 第三部分 聴解
-2) Answer-key block (e.g. "2021年12月日语能力考试 N3 真题答案") is fully ignored.
-3) Explanations/transcript are parsed from "真题详解" area and mapped back to questions.
+2) Answer-key block (e.g. "2021年12月日语能力考试 N3 模拟题答案") is fully ignored.
+3) Explanations/transcript are parsed from "模拟题详解" area and mapped back to questions.
 """
 
 import argparse
@@ -58,12 +58,12 @@ def detect_section(line: str):
 
 def is_answer_block_header(line: str) -> bool:
     c = compact(line)
-    return ("真题答案" in c) or ("真題答案" in c) or ("能力考试" in c and "答案" in c)
+    return ("模拟题答案" in c) or ("真題答案" in c) or ("能力考试" in c and "答案" in c)
 
 
 def is_explain_block_header(line: str) -> bool:
     c = compact(line)
-    return ("真题详解" in c) or ("真題詳解" in c) or ("答案详解" in c)
+    return ("模拟题详解" in c) or ("真題詳解" in c) or ("答案详解" in c)
 
 
 def parse_question_start(line: str):

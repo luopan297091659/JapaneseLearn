@@ -6,7 +6,7 @@ from PIL import Image
 
 out = Path(r'D:\PROJECT\JapaneseLearn\temp_jlpt_json_ocr3\_probe_n1_answers.txt')
 
-p = Path(r'D:\JLPT\N1\N1 2019年7月真题+答案+详解+听力原文.pdf')
+p = Path(r'D:\JLPT\N1\N1 2019年7月模拟题+答案+详解+听力原文.pdf')
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 tess = r'D:\PROJECT\JapaneseLearn\tools\tessdata'
 

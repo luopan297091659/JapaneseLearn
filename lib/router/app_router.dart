@@ -49,6 +49,7 @@ import '../screens/membership/qr_payment_page.dart';
 import '../screens/membership/stripe_checkout_page.dart';
 import '../screens/notifications/notifications_page.dart';
 import '../models/models.dart';
+import '../widgets/app_banner_ad.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -364,30 +365,36 @@ class _MainShellState extends State<MainShell> {
               children: _tabPages,
             )
           : widget.child,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: _onTabTap,
-        backgroundColor: cs.surface,
-        indicatorColor: cs.primaryContainer,
-        height: 72,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-        destinations: const [
-          NavigationDestination(
-              icon: Icon(Icons.home_outlined, size: 28),
-              selectedIcon: Icon(Icons.home_rounded, size: 30),
-              label: '主页'),
-          NavigationDestination(
-              icon: Icon(Icons.menu_book_outlined, size: 28),
-              selectedIcon: Icon(Icons.menu_book_rounded, size: 30),
-              label: '学习'),
-          NavigationDestination(
-              icon: Icon(Icons.assignment_outlined, size: 28),
-              selectedIcon: Icon(Icons.assignment_rounded, size: 30),
-              label: '测试'),
-          NavigationDestination(
-              icon: Icon(Icons.build_outlined, size: 28),
-              selectedIcon: Icon(Icons.build_rounded, size: 30),
-              label: '工具'),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          NavigationBar(
+            selectedIndex: _currentIndex,
+            onDestinationSelected: _onTabTap,
+            backgroundColor: cs.surface,
+            indicatorColor: cs.primaryContainer,
+            height: 72,
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+            destinations: const [
+              NavigationDestination(
+                  icon: Icon(Icons.home_outlined, size: 28),
+                  selectedIcon: Icon(Icons.home_rounded, size: 30),
+                  label: '主页'),
+              NavigationDestination(
+                  icon: Icon(Icons.menu_book_outlined, size: 28),
+                  selectedIcon: Icon(Icons.menu_book_rounded, size: 30),
+                  label: '学习'),
+              NavigationDestination(
+                  icon: Icon(Icons.assignment_outlined, size: 28),
+                  selectedIcon: Icon(Icons.assignment_rounded, size: 30),
+                  label: '测试'),
+              NavigationDestination(
+                  icon: Icon(Icons.build_outlined, size: 28),
+                  selectedIcon: Icon(Icons.build_rounded, size: 30),
+                  label: '工具'),
+            ],
+          ),
+          const AppBannerAd(),
         ],
       ),
     );

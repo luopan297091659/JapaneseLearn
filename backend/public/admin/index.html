@@ -120,6 +120,7 @@ button{cursor:pointer;font-family:inherit}
 /* Dashboard grid */
 .db-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 @media(max-width:900px){.db-grid{grid-template-columns:1fr}}
+@media(max-width:700px){.free-lesson-album-row{grid-template-columns:1fr!important}}
 
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;background:var(--bg-card);padding:14px;border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--border)}
 .toolbar input[type=text]{padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;min-width:200px;outline:none;transition:border-color .2s}
@@ -246,7 +247,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item" onclick="nav('shared-vocab')" id="nav-shared-vocab"><span class="icon">📦</span><span class="nav-label">我的词库管理</span></div>
   <div class="nav-item" onclick="nav('grammar')" id="nav-grammar"><span class="icon">📖</span><span class="nav-label">语法管理</span></div>
   <div class="nav-item" onclick="nav('jlpt-exams')" id="nav-jlpt-exams"><span class="icon">📝</span><span class="nav-label">JLPT模拟题</span></div>
-  <div class="nav-item" onclick="nav('jlpt-resources')" id="nav-jlpt-resources"><span class="icon">📄</span><span class="nav-label">JLPT真题资料</span></div>
+  <div class="nav-item" onclick="nav('jlpt-resources')" id="nav-jlpt-resources"><span class="icon">📄</span><span class="nav-label">JLPT模拟题资料</span></div>
   <div class="nav-item" onclick="nav('kana')"    id="nav-kana"><span class="icon">🔤</span><span class="nav-label">五十音管理</span></div>
   <div class="nav-item" onclick="nav('tracks')"  id="nav-tracks"><span class="icon">🎧</span><span class="nav-label">听力管理</span></div>
   <div class="nav-item" onclick="nav('channels')" id="nav-channels"><span class="icon">📺</span><span class="nav-label">频道管理</span></div>
@@ -271,6 +272,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item" onclick="nav('ai-settings')" id="nav-ai-settings"><span class="icon">🤖</span><span class="nav-label">AI设置</span></div>
   <div class="nav-item" onclick="nav('kokoro-settings')" id="nav-kokoro-settings"><span class="icon">🎤</span><span class="nav-label">Kokoro TTS</span></div>
   <div class="nav-item" onclick="nav('email-settings')" id="nav-email-settings"><span class="icon">✉️</span><span class="nav-label">邮件配置</span></div>
+  <div class="nav-item" onclick="nav('free-lessons')" id="nav-free-lessons"><span class="icon">📖</span><span class="nav-label">官网免费微课</span></div>
   <div class="nav-item" onclick="nav('support-channels')" id="nav-support-channels"><span class="icon">🤝</span><span class="nav-label">支持渠道</span></div>
   <div class="nav-item" onclick="nav('admin-mgmt')" id="nav-admin-mgmt"><span class="icon">🔐</span><span class="nav-label">权限管理</span></div>
   <div class="sidebar-footer"><div class="sidebar-footer-txt">言旅 Kotabi v1.0</div></div>
@@ -670,7 +672,7 @@ function showApp(){
   nav('dashboard');
 }
 function applySidebarPermissions(){
-  const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-tokyo-app','nav-ai-settings','nav-kokoro-settings','nav-email-settings','nav-support-channels','nav-admin-mgmt'];
+  const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-tokyo-app','nav-ai-settings','nav-kokoro-settings','nav-email-settings','nav-free-lessons','nav-support-channels','nav-admin-mgmt'];
   const permNavMap = {
     'nav-vocab': 'vocabulary', 'nav-shared-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-jlpt-exams': 'vocabulary', 'nav-jlpt-resources': 'vocabulary', 'nav-kana': 'vocabulary', 'nav-tracks': 'tracks',
     'nav-channels': 'tracks', 'nav-users': 'users', 'nav-reports': 'reports',
@@ -696,14 +698,14 @@ function applySidebarPermissions(){
 const PAGE_TITLES = {
   dashboard:'仪表板', vocab:'词汇管理', 'shared-vocab':'我的词库管理', grammar:'语法管理', kana:'五十音管理',
   'jlpt-exams':'JLPT模拟题',
-  'jlpt-resources':'JLPT真题资料',
+  'jlpt-resources':'JLPT模拟题资料',
   tracks:'听力管理', channels:'频道管理', users:'用户管理', reports:'问题反馈',
   'stat-users':'用户统计', 'stat-traffic':'流量监控',
   'stat-behavior':'行为分析',
   'stat-tools':'官网工具统计',
   membership:'会员配置', orders:'订单审核', import:'内容导入', sync:'全局同步', 'feature-tiers':'功能分级',
   app:'App管理', 'tokyo-app':'东京留学APP', 'tokyo-dialogues':'东京场景对话', 'feature-toggles':'功能开关', 'ai-settings':'AI设置', 'kokoro-settings':'Kokoro TTS设置',
-  'email-settings':'邮件配置', 'support-channels':'支持渠道',
+  'email-settings':'邮件配置', 'free-lessons':'官网免费微课', 'support-channels':'支持渠道',
   'admin-mgmt':'权限管理'
 };
 const PAGE_ICONS = {
@@ -716,19 +718,19 @@ const PAGE_ICONS = {
   'stat-tools':'🧰',
   membership:'👑', orders:'💰', import:'📥', sync:'🔄', 'feature-tiers':'🎯',
   app:'📱', 'tokyo-app':'🗼', 'tokyo-dialogues':'💬', 'feature-toggles':'🔀', 'ai-settings':'🤖', 'kokoro-settings':'🎤',
-  'email-settings':'✉️', 'support-channels':'🤝', 'admin-mgmt':'🔐'
+  'email-settings':'✉️', 'free-lessons':'📖', 'support-channels':'🤝', 'admin-mgmt':'🔐'
 };
 const PAGE_DESCS = {
   vocab:'管理词汇条目', 'shared-vocab':'查看和下架用户分享的个人词库', grammar:'管理语法条目', kana:'管理五十音数据', reports:'查看用户反馈的问题',
   'jlpt-exams':'管理官网 JLPT 模拟测验题库与详解',
-  'jlpt-resources':'上传和管理 JLPT 真题文件',
+  'jlpt-resources':'上传和管理 JLPT 模拟题文件',
   tracks:'管理听力素材', channels:'管理YouTube/B站频道', users:'查看管理用户',
   'stat-users':'用户数据分析', 'stat-traffic':'API流量监控',
   'stat-behavior':'用户行为数据分析',
   'stat-tools':'官网工具箱使用次数统计',
   membership:'会员套餐管理', orders:'审核用户付款订单', import:'Anki/CSV导入', sync:'内容版本发布', 'feature-tiers':'会员功能分级配置',
   app:'App上传下载', 'tokyo-app':'东京留学 APP 上传、发布与下载', 'tokyo-dialogues':'同步场景对话，管理 NPC 台词音频与 Kokoro 一键生成', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量', 'kokoro-settings':'Kokoro TTS 合成参数配置',
-  'email-settings':'SMTP 邮件发送配置', 'support-channels':'管理微信/钉钉/LINE/飞书等支持群组',
+  'email-settings':'SMTP 邮件发送配置', 'free-lessons':'配置官网首页免费微课中的微信公众号文章专辑', 'support-channels':'管理微信/钉钉/LINE/飞书等支持群组',
   'admin-mgmt':'管理员权限配置'
 };
 
@@ -763,7 +765,7 @@ const PAGE_FNS = {
   'stat-tools': renderStatTools,
   membership: renderMembership, orders: renderOrders, import: renderImport, sync: renderSync,
   app: renderAppManage, 'tokyo-app': renderTokyoAppManage, 'tokyo-dialogues': renderTokyoDialogues, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings, 'kokoro-settings': renderKokoroSettings,
-  'email-settings': renderEmailSettings,
+  'email-settings': renderEmailSettings, 'free-lessons': renderFreeLessonSettings,
   'support-channels': renderSupportChannels,
   'admin-mgmt': renderAdminMgmt, reports: renderReports,
 };
@@ -826,7 +828,7 @@ function buildJlptResourceAdmin() {
     <div class="panel">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
         <div>
-          <div style="font-size:20px;font-weight:800;color:#0f172a">JLPT 真题资料</div>
+          <div style="font-size:20px;font-weight:800;color:#0f172a">JLPT 模拟题资料</div>
           <div style="font-size:13px;color:#64748b;margin-top:4px">N1-N5 / 2010-2025 / 7月与12月目录，支持 PDF、Word、MP3 多文件上传。</div>
         </div>
         <div style="font-size:12px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px">共 ${summary} 个文件</div>
@@ -2207,6 +2209,7 @@ function renderFtTable() {
         <h3>🔀 功能开关管理</h3>
         <span style="font-size:12px;color:var(--text-muted)">分别控制 Web 前端和手机 App 端的功能开放/关闭</span>
       </div>
+      <div style="font-size:12px;color:var(--text-muted);margin:-8px 0 14px">“言旅 APP 广告”控制 iOS 横幅广告总开关，客户端约每 2 分钟同步一次。</div>
       <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-sm" style="background:#6366f1;color:#fff" onclick="ftToggleAll('web',true)">Web 全开</button>
         <button class="btn btn-sm btn-ghost" onclick="ftToggleAll('web',false)">Web 全关</button>
@@ -4457,7 +4460,7 @@ async function renderStatTools(){
     `<div class="cards-row" id="tu-cards"></div>
     <div class="charts-grid">
       <div class="chart-card" style="grid-column:1/-1"><h4>📊 各工具使用次数趋势</h4><canvas id="tu-trend-c" style="max-height:280px"></canvas></div>
-      <div class="chart-card" style="grid-column:1/-1"><h4>JLPT真题每日下载</h4><canvas id="tu-jlpt-download-c" style="max-height:260px"></canvas></div>
+      <div class="chart-card" style="grid-column:1/-1"><h4>JLPT模拟题每日下载</h4><canvas id="tu-jlpt-download-c" style="max-height:260px"></canvas></div>
       <div class="chart-card"><h4>🧰 工具使用次数分布</h4><canvas id="tu-pie-c"></canvas></div>
       <div class="chart-card"><h4>🔐 登录用户 vs 匿名访问</h4><canvas id="tu-usertype-c"></canvas></div>
       <div class="chart-card"><h4>⏰ 使用时段分布（小时）</h4><canvas id="tu-hour-c"></canvas></div>
@@ -4466,7 +4469,7 @@ async function renderStatTools(){
         <table class="top-table"><thead><tr><th>工具</th><th>总次数</th><th>独立用户</th><th>独立IP</th><th>打开</th><th>生成</th><th>导出</th><th>下载</th><th>最近使用</th></tr></thead>
         <tbody id="tu-summary-body"></tbody></table>
       </div>
-      <div class="chart-card" style="grid-column:1/-1"><h4>JLPT真题下载日报</h4>
+      <div class="chart-card" style="grid-column:1/-1"><h4>JLPT模拟题下载日报</h4>
         <table class="top-table"><thead><tr><th>日期</th><th>下载量</th><th>下载账号数</th></tr></thead>
         <tbody id="tu-jlpt-download-body"></tbody></table>
       </div>
@@ -6227,6 +6230,71 @@ async function testEmailSettingsUI() {
   try {
     const res = await api('POST', '/admin/settings/email/test', { to });
     toast(res.message || '测试邮件已发送');
+  } catch(e) { toast(e.message, true); }
+}
+
+/* ─────────────────────────── FREE LESSONS ────────────────────────────── */
+let _freeLessonAlbums = [];
+
+async function renderFreeLessonSettings() {
+  document.getElementById('content').innerHTML = '<p style="color:#aaa;padding:40px;text-align:center">加载中…</p>';
+  try {
+    const res = await api('GET', '/admin/settings/free-lessons');
+    _freeLessonAlbums = res.albums || [];
+    renderFreeLessonSettingsForm();
+  } catch(e) {
+    document.getElementById('content').innerHTML = '<div class="panel"><p style="color:#e74c3c">加载失败: '+esc(e.message)+'</p></div>';
+  }
+}
+
+function renderFreeLessonSettingsForm() {
+  const rows = _freeLessonAlbums.map((album, index) => `
+    <div class="free-lesson-album-row" style="display:grid;grid-template-columns:minmax(180px,1fr) minmax(280px,2fr) auto;gap:12px;align-items:end;padding:14px 0;border-bottom:1px solid var(--border)">
+      <div class="form-row"><label>显示标题</label><input data-field="title" maxlength="100" value="${esc(album.title)}" placeholder="例如：N4及N5阶段语法学习" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px"></div>
+      <div class="form-row"><label>微信公众号文章链接</label><input data-field="url" type="url" maxlength="2048" value="${esc(album.url)}" placeholder="https://mp.weixin.qq.com/..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px"></div>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="removeFreeLessonAlbum(${index})">删除</button>
+    </div>`).join('');
+  document.getElementById('content').innerHTML = `
+    <div style="max-width:1000px">
+      <div class="panel">
+        <div class="panel-header">
+          <h3>📖 官网免费微课</h3>
+          <span style="font-size:12px;color:var(--text-muted)">管理首页“免费微课”区域展示的文章专辑</span>
+        </div>
+        <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px">按列表顺序显示；标题或链接均留空的行会忽略，链接必须使用 HTTPS。</p>
+        <div id="freeLessonAlbumRows">${rows || '<p style="padding:18px 0;color:var(--text-muted)">尚未添加微课专辑。</p>'}</div>
+        <div style="display:flex;gap:12px;margin-top:20px">
+          <button class="btn" type="button" onclick="addFreeLessonAlbum()">＋ 添加专辑</button>
+          <button class="btn btn-primary" type="button" onclick="saveFreeLessonSettings()">💾 保存配置</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function readFreeLessonAlbumRows() {
+  return [...document.querySelectorAll('#freeLessonAlbumRows .free-lesson-album-row')].map(row => ({
+    title: row.querySelector('[data-field="title"]').value.trim(),
+    url: row.querySelector('[data-field="url"]').value.trim(),
+  }));
+}
+
+function addFreeLessonAlbum() {
+  _freeLessonAlbums = readFreeLessonAlbumRows();
+  _freeLessonAlbums.push({ title: '', url: '' });
+  renderFreeLessonSettingsForm();
+}
+
+function removeFreeLessonAlbum(index) {
+  _freeLessonAlbums = readFreeLessonAlbumRows();
+  _freeLessonAlbums.splice(index, 1);
+  renderFreeLessonSettingsForm();
+}
+
+async function saveFreeLessonSettings() {
+  try {
+    await api('POST', '/admin/settings/free-lessons', { albums: readFreeLessonAlbumRows() });
+    toast('免费微课配置已保存');
+    renderFreeLessonSettings();
   } catch(e) { toast(e.message, true); }
 }
 

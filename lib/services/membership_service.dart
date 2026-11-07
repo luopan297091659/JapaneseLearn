@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import 'api_service.dart';
@@ -7,7 +8,7 @@ import 'sync_service.dart';
 ///
 /// 集中判断免费用户 vs 会员用户的功能访问权限。
 /// 依赖 [SyncService] 中缓存的分级配置和 [UserModel.isMember]。
-class MembershipService {
+class MembershipService extends ChangeNotifier {
   static final MembershipService _instance = MembershipService._internal();
   factory MembershipService() => _instance;
   MembershipService._internal();
@@ -36,6 +37,7 @@ class MembershipService {
     if (prefs.containsKey(_persistKeyIsMember) || cachedUser != null) {
       _cacheTime = DateTime.now();
     }
+    notifyListeners();
   }
 
   /// 获取缓存的会员状态，如未缓存则自动加载
@@ -68,6 +70,7 @@ class MembershipService {
         prefs.remove(_persistKeyAvatarUrl);
       }
     });
+    notifyListeners();
   }
 
   /// 检查某功能对当前用户是否完全锁定

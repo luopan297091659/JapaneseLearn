@@ -68,7 +68,11 @@ async function fetchNhkMetadata(articleId) {
  * 根据文章 ID 构造 NHK 文章 URL（旧格式，会重定向到新站）
  */
 function buildArticleUrl(articleId) {
-  return `https://www3.nhk.or.jp/news/html/${articleId.replace('-', '/')}.html`;
+  if (/^nd-/i.test(articleId)) {
+    return `https://news.web.nhk/newsweb/na/${articleId}`;
+  }
+  const nhkId = articleId.replace(/^\d{8}-/, '').replace(/^na-/, '');
+  return `https://news.web.nhk/newsweb/na/na-${nhkId}`;
 }
 
 module.exports = {

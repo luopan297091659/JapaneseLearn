@@ -1967,7 +1967,7 @@ async function getFeatureUsage(req, res) {
 const TOOL_LABELS = {
   'screenshot-generator': 'App Store 截图生成器',
   'kokoro-tts': 'AI 语音合成 (Kokoro)',
-  'jlpt-papers': 'JLPT真题下载',
+  'jlpt-papers': 'JLPT模拟题下载',
   'tools-home': '工具箱首页',
 };
 
@@ -2129,6 +2129,7 @@ const DEFAULT_FEATURE_TOGGLES = {
     { id: 'immersion',     name: '磨耳朵',   icon: '📺', web: false, mobile: true  },
     { id: 'kana-writing-test', name: '假名书写', icon: '✍️', web: false, mobile: true  },
     { id: 'study-plan',    name: '学习计划', icon: '📅', web: true,  mobile: true  },
+    { id: 'mobile-ads',    name: '言旅 APP 广告', icon: '📢', web: false, mobile: true },
   ],
   updated_at: null,
 };
@@ -3311,6 +3312,63 @@ async function uploadQrCode(req, res) {
   res.json({ ok: true, qr_url: qrUrl, type });
 }
 
+// ─── 官网免费微课配置 ──────────────────────────────────────────────────────
+const DEFAULT_FREE_LESSON_ALBUMS = [
+  { title: 'N4及N5阶段语法学习', url: 'https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzY4NTM5MjM2Mg==&action=getalbum&album_id=4667497472963821571#wechat_redirect' },
+  { title: 'N3阶段课文及语法学习', url: 'https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzY4NTM5MjM2Mg==&action=getalbum&album_id=4660985521546903554#wechat_redirect' },
+  { title: 'N3配套对话听力练习', url: 'https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzY4NTM5MjM2Mg==&action=getalbum&album_id=4668983569296310278#wechat_redirect' },
+  { title: 'N2阶段课文及语法学习', url: 'https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzY4NTM5MjM2Mg==&action=getalbum&album_id=4656678873097486337#wechat_redirect' },
+  { title: 'N2配套对话听力练习', url: 'https://mp.weixin.qq.com/mp/appmsgalbum?__biz=MzY4NTM5MjM2Mg==&action=getalbum&album_id=4668983747503898624#wechat_redirect' },
+];
+
+function normalizeFreeLessonAlbums(albums) {
+  if (!Array.isArray(albums) || albums.length > 30) {
+    throw apiError('微课专辑格式无效，最多可配置 30 条');
+  }
+
+  return albums.reduce((result, album) => {
+    const title = String(album?.title || '').trim();
+    const url = String(album?.url || '').trim();
+    if (!title && !url) return result;
+    if (!title || !url || title.length > 100 || url.length > 2048) {
+      throw apiError('每条微课都需要填写标题和链接，标题最多 100 字，链接最多 2048 字');
+    }
+
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(url);
+    } catch (_) {
+      throw apiError(`微课链接格式无效：${title}`);
+    }
+    if (parsedUrl.protocol !== 'https:') {
+      throw apiError(`微课链接必须使用 HTTPS：${title}`);
+    }
+
+    result.push({ title, url: parsedUrl.toString() });
+    return result;
+  }, []);
+}
+
+async function getPublicFreeLessonAlbums(req, res) {
+  const config = await AppConfig.findByPk('free_lesson_albums');
+  const albums = config ? normalizeFreeLessonAlbums(JSON.parse(config.value)) : DEFAULT_FREE_LESSON_ALBUMS;
+  res.json({ albums });
+}
+
+async function getFreeLessonAlbums(req, res) {
+  return getPublicFreeLessonAlbums(req, res);
+}
+
+async function saveFreeLessonAlbums(req, res) {
+  const albums = normalizeFreeLessonAlbums(req.body?.albums);
+  await AppConfig.upsert({
+    key: 'free_lesson_albums',
+    value: JSON.stringify(albums),
+    description: '官网首页免费微课微信公众号专辑',
+  });
+  res.json({ ok: true, albums });
+}
+
 // ─── 邮件（SMTP）配置 ──────────────────────────────────────────────────────
 const DEFAULT_EMAIL_SETTINGS = {
   smtp_host: 'smtp.aliyun.com',
@@ -3578,6 +3636,7 @@ module.exports = {
   listTokyoDialogues, syncTokyoDialogues, generateTokyoDialogueAudio,
   listOrders, reviewOrder, uploadQrCode,
   getEmailSettings, saveEmailSettings, testEmailSettings,
+  getFreeLessonAlbums, saveFreeLessonAlbums, getPublicFreeLessonAlbums,
   getSupportChannels, saveSupportChannel, deleteSupportChannel, uploadSupportQrCode, getPublicSupportChannels,
   listSharedVocabDecksAdmin, toggleDefaultSharedVocabDeckAdmin, unshareSharedVocabDeckAdmin,
 };

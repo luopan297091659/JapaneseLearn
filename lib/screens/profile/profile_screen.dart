@@ -24,6 +24,8 @@ import '../../providers/app_appearance_provider.dart';
 import '../../utils/tts_helper.dart';
 import '../../utils/version_utils.dart';
 import '../../services/plan_reminder_service.dart';
+import '../../services/ad_service.dart';
+import '../../services/membership_service.dart';
 import '../common/legal_webview_page.dart';
 
 class UsernameEditor extends StatelessWidget {
@@ -144,6 +146,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         apiService.getProgressSummary(),
       ]);
       final user = results[0] as UserModel;
+      membershipService.updateCache(isMember: user.isMember, avatarUrl: user.avatarUrl);
       final avatarBytes = await _downloadAvatarBytes(user.avatarUrl);
       final prefs = await SharedPreferences.getInstance();
       final remotePreferences = user.preferences;
@@ -1501,6 +1504,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                               ? _pickReminderTime
                               : null,
                         ),
+                        if ((Platform.isIOS || Platform.isAndroid) &&
+                          _user?.isMember == true) ...[
+                          const Divider(height: 1, indent: 56),
+                          AnimatedBuilder(
+                            animation: adService,
+                            builder: (context, _) => SwitchListTile(
+                              secondary: const Icon(Icons.block_outlined),
+                              title: const Text('关闭应用广告'),
+                              subtitle: const Text('会员专属设置，可随时重新开启'),
+                              value: adService.adsDisabled,
+                              onChanged: adService.setAdsDisabled,
+                            ),
+                          ),
+                        ],
                         const Divider(height: 1, indent: 56),
                         ListTile(
                           leading: Icon(Icons.slow_motion_video_rounded,

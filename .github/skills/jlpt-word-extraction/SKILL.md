@@ -1,6 +1,6 @@
 ---
 name: jlpt-word-extraction
-description: 'Extract JLPT papers from corrected Word (.docx) into admin-ready JSON and CSV. Use when document contains question sections (第一部分語彙・文法, 第二部分読解, 第三部分聴解), an answer-key block to skip, and explanation blocks (真题详解, 词汇语法, 読解, 听力原文).'
+description: 'Extract JLPT papers from corrected Word (.docx) into admin-ready JSON and CSV. Use when document contains question sections (第一部分語彙・文法, 第二部分読解, 第三部分聴解), an answer-key block to skip, and explanation blocks (模拟题详解, 词汇语法, 読解, 听力原文).'
 argument-hint: 'Input docx path, jlpt level, year/session, output directory'
 user-invocable: true
 ---
@@ -19,10 +19,10 @@ Use this skill when the source is a corrected .docx and follows this structure:
 - 第二部分 読解
 - 第三部分 聴解
 2. An answer block like:
-- 2021年12月日语能力考试 N3 真题答案
+- 2021年12月日语能力考试 N3 模拟题答案
 - This block must be fully ignored.
 3. Explanation sections (some content may be image-based):
-- 2021年12月日语能力考试 N3 真题详解
+- 2021年12月日语能力考试 N3 模拟题详解
 - 词汇/语法部分
 - 読解部分
 - 听力原文
@@ -43,7 +43,7 @@ Use this skill when the source is a corrected .docx and follows this structure:
 2. Segment document into three logical zones.
 - Zone A: questions (from first section header until answer-key header)
 - Zone B: answer-key area (must be dropped)
-- Zone C: explanations/transcripts (from 真题详解 header to end)
+- Zone C: explanations/transcripts (from 模拟题详解 header to end)
 
 3. Extract questions from Zone A by section.
 - Map section headers to:
@@ -56,7 +56,7 @@ Use this skill when the source is a corrected .docx and follows this structure:
 - Enforce minimum 2 options; auto-fill placeholder options only if source is incomplete.
 
 4. Ignore Zone B entirely.
-- Do not read or merge any answer-key content from the 真题答案 block.
+- Do not read or merge any answer-key content from the 模拟题答案 block.
 - Prevent accidental answer contamination.
 
 5. Extract explanations from Zone C.
@@ -99,7 +99,7 @@ Use this skill when the source is a corrected .docx and follows this structure:
   - question_no
   - prompt
   - options array with >=2 items
-- No content from 真题答案 block appears in final prompt/explanation/transcript.
+- No content from 模拟题答案 block appears in final prompt/explanation/transcript.
 - CSV row count equals JSON question count.
 - parse_meta includes:
   - source_docx
@@ -115,6 +115,6 @@ Use this skill when the source is a corrected .docx and follows this structure:
   - support CSV import using the defined flat columns.
 
 ## Suggested Prompt Examples
-- 从这个 N3 docx 提取试题，过滤真题答案区，输出 JSON+CSV。
-- 解析 Word 真题详解并回填到 questions，未匹配项写到 parse_meta。
+- 从这个 N3 docx 提取试题，过滤模拟题答案区，输出 JSON+CSV。
+- 解析 Word 模拟题详解并回填到 questions，未匹配项写到 parse_meta。
 - 生成管理员可导入 CSV，确保字段和 section_type 标准化。

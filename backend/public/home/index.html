@@ -325,20 +325,14 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 .path-card h3 { font:700 23px/1.3 var(--display); margin:54px 0 12px; }
 .path-card p { color:var(--muted); font-size:14px; line-height:1.75; }
 .path-card small { margin-top:auto; padding-top:18px; color:var(--green); font-weight:800; }
-.sample-lesson { display:grid; grid-template-columns:1fr 1fr; background:var(--green); color:#fff; border-radius:28px; overflow:hidden; }
-.sample-copy { padding:48px; }
-.sample-copy h2 { font:700 clamp(32px,4vw,48px)/1.2 var(--display); margin:16px 0 20px; }
-.sample-copy p { color:rgba(255,255,255,.72); line-height:1.85; }
-.sample-copy .button { margin-top:28px; border-color:#fff; color:var(--green); background:#fff; }
-.sample-board { padding:40px; background:#fff; color:var(--ink); margin:16px; border-radius:19px; }
-.grammar-title { display:flex; justify-content:space-between; align-items:start; border-bottom:1px solid var(--line); padding-bottom:18px; }
-.grammar-title strong { font:700 30px/1.2 var(--display); }
-.level-pill { color:var(--red); background:#fff0eb; border-radius:999px; padding:5px 10px; font-size:11px; font-weight:900; }
-.example-list { display:grid; gap:16px; margin-top:22px; }
-.example-item { padding-left:18px; border-left:3px solid var(--lime); }
-.example-item b { display:block; font-size:16px; }
-.example-item span { color:var(--muted); font-size:13px; }
-.tip { background:var(--paper); padding:14px; margin-top:22px; border-radius:10px; font-size:13px; color:var(--muted); }
+.lesson-album-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+.lesson-album-card { min-height:170px; padding:24px; display:flex; flex-direction:column; border:1px solid var(--line); border-radius:18px; background:rgba(255,255,255,.55); transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease; }
+.lesson-album-card:hover { transform:translateY(-3px); border-color:var(--green); box-shadow:0 12px 28px rgba(21,34,29,.08); opacity:1; }
+.lesson-album-label { color:var(--red); font-size:11px; font-weight:900; letter-spacing:.12em; }
+.lesson-album-card h3 { margin:14px 0 22px; font:700 21px/1.4 var(--display); color:var(--ink); }
+.lesson-album-open { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:auto; color:var(--green); font-size:13px; font-weight:800; }
+.lesson-album-error,.lesson-album-empty { grid-column:1/-1; padding:20px; border-radius:12px; background:rgba(255,255,255,.55); color:var(--muted); }
+.lesson-album-error { color:var(--red); }
 .feature-grid { display:grid; grid-template-columns:1.2fr .8fr .8fr; grid-template-rows:repeat(2,245px); gap:16px; }
 .feature-card { padding:28px; border:1px solid var(--line); border-radius:20px; background:rgba(255,255,255,.35); position:relative; overflow:hidden; }
 .feature-card:first-child { grid-row:span 2; background:var(--red); color:#fff; }
@@ -406,10 +400,11 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 .footer-bottom { display:flex; justify-content:space-between; gap:20px; padding-top:34px; margin-top:42px; border-top:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.42); font-size:12px; }
 @media (max-width: 900px) {
   .site-nav .desktop-link { display:none; }
-  .hero-grid,.section-heading,.sample-lesson,.download-panel,.trust-grid { grid-template-columns:1fr; gap:42px; }
+  .hero-grid,.section-heading,.download-panel,.trust-grid { grid-template-columns:1fr; gap:42px; }
   .home-hero { padding-top:48px; }
   .learning-card { max-width:560px; margin:0 auto; }
   .path-grid { grid-template-columns:repeat(2,1fr); }
+  .lesson-album-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .path-card:nth-child(2) { border-right:0; }
   .path-card:nth-child(-n+2) { border-bottom:1px solid var(--line); }
   .feature-grid { grid-template-columns:1fr 1fr; grid-template-rows:auto; }
@@ -451,8 +446,7 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
   .path-grid,.feature-grid,.resource-grid { grid-template-columns:1fr; }
   .path-card { border-right:0; border-bottom:1px solid var(--line); min-height:250px; }
   .path-card:nth-child(3) { border-bottom:1px solid var(--line); }
-  .sample-copy,.sample-board { padding:28px; }
-  .sample-board { margin:10px; }
+  .lesson-album-grid { grid-template-columns:1fr; }
   .download-panel { padding:26px 18px; }
   .download-panel .dl-grid { grid-template-columns:1fr; }
   .download-panel .dl-card { grid-template-columns:78px minmax(0,1fr); }
@@ -465,6 +459,8 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } *,*::before,*::after { animation-duration:.01ms!important; animation-iteration-count:1!important; } }
 </style>
+
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5858977826294206" crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -479,6 +475,9 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
   <a class="nav-link desktop-link" href="#lesson">免费微课</a>
   <a class="nav-link desktop-link" href="/tools">学习工具</a>
   <a class="nav-link desktop-link" href="/jlpt">JLPT 题库</a>
+  <a class="nav-link desktop-link" href="/download">软件下载</a>
+  <a class="nav-link desktop-link" href="/membership">会员权益</a>
+  <a class="nav-link desktop-link" href="/support">技术支持</a>
   <a class="nav-link nav-cta" href="/app">在线学习</a>
   <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-expanded="false" aria-controls="mobileNavPanel" onclick="toggleMobileMenu()"><span class="menu-icon" aria-hidden="true"><i></i><i></i><i></i></span><span>菜单</span></button>
   <div class="auth-slot">
@@ -491,8 +490,9 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
     <a href="#lesson" onclick="closeMobileMenu()"><span class="mobile-nav-icon">文</span>免费微课</a>
     <a href="/tools" onclick="closeMobileMenu()"><span class="mobile-nav-icon">具</span>学习工具</a>
     <a href="/jlpt" onclick="closeMobileMenu()"><span class="mobile-nav-icon">N</span>JLPT 题库</a>
-    <a href="#download" onclick="closeMobileMenu()"><span class="mobile-nav-icon">↓</span>App 下载</a>
-    <a href="/support" onclick="closeMobileMenu()"><span class="mobile-nav-icon">?</span>帮助中心</a>
+    <a href="/download" onclick="closeMobileMenu()"><span class="mobile-nav-icon">↓</span>软件下载</a>
+    <a href="/membership" onclick="closeMobileMenu()"><span class="mobile-nav-icon">会</span>会员权益</a>
+    <a href="/support" onclick="closeMobileMenu()"><span class="mobile-nav-icon">技</span>技术支持</a>
     <a class="mobile-nav-primary" href="/app" onclick="closeMobileMenu()">免费开始学习 <span>→</span></a>
   </div>
 </nav>
@@ -552,18 +552,13 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 
 <section class="content-section" id="lesson">
   <div class="page-shell">
-    <article class="sample-lesson">
-      <div class="sample-copy"><div class="eyebrow" style="color:#dce8a7">3 分钟免费微课</div><h2>「〜たことがある」<br>不只是“曾经”</h2><p>它表达的是“截至现在的人生经验”。说旅行、饮食、工作经历都很自然；但描述昨天做过的普通动作时，应该直接使用过去式。</p><a class="button" href="/app">进入课程继续练习 →</a></div>
-      <div class="sample-board">
-        <div class="grammar-title"><strong lang="ja">Vた + ことがある</strong><span class="level-pill">JLPT N4</span></div>
-        <div class="example-list">
-          <div class="example-item"><b lang="ja">京都へ行ったことがあります。</b><span>我去过京都。（人生经验）</span></div>
-          <div class="example-item"><b lang="ja">納豆を食べたことがありません。</b><span>我没吃过纳豆。（否定经验）</span></div>
-          <div class="example-item"><b lang="ja">昨日、京都へ行きました。</b><span>昨天去了京都。（具体过去事件，不用「ことがある」）</span></div>
-        </div>
-        <p class="tip"><b>记忆提示：</b>句中出现「去年、昨日、3月に」等明确时间时，通常直接使用过去式。</p>
-      </div>
-    </article>
+    <div class="section-heading">
+      <div><div class="eyebrow">Free Mini Lessons</div><h2>免费微课</h2></div>
+      <p>按 JLPT 阶段整理的课文、语法与听力文章专辑，点击后将在微信公众号中打开。</p>
+    </div>
+    <div class="lesson-album-grid" id="freeLessonAlbums" aria-live="polite">
+      <p class="lesson-album-empty">正在加载免费微课…</p>
+    </div>
   </div>
 </section>
 
@@ -585,7 +580,7 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
     <div class="resource-grid">
       <a class="resource-card" href="/learn"><span class="meta">原创指南 · 系统整理</span><h3>零基础日语学习指南</h3><p>从五十音、教材选择到每日安排，先建立稳定方法，再逐步增加学习内容。</p><span class="arrow">阅读学习指南 →</span></a>
       <a class="resource-card" href="/tools"><span class="meta">免费工具 · 可直接使用</span><h3>日语学习工具箱</h3><p>日语语音生成、学习卡片截图等实用工具，并附适用场景与操作说明。</p><span class="arrow">打开工具箱 →</span></a>
-      <a class="resource-card" href="/jlpt"><span class="meta">备考资源 · N5—N1</span><h3>JLPT 真题与模拟练习</h3><p>按级别进入练习，完成后核对答案、回看错题，把测试结果转化为复习计划。</p><span class="arrow">开始练习 →</span></a>
+      <a class="resource-card" href="/jlpt"><span class="meta">备考资源 · N5—N1</span><h3>JLPT 模拟题与模拟练习</h3><p>按级别进入练习，完成后核对答案、回看错题，把测试结果转化为复习计划。</p><span class="arrow">开始练习 →</span></a>
       <a class="resource-card" href="/forum"><span class="meta">学习社区 · 经验交流</span><h3>把具体问题讲清楚</h3><p>围绕语法辨析、学习方法和赴日生活交流。提问时附上语境，答案才更有价值。</p><span class="arrow">进入社区 →</span></a>
     </div>
   </div>
@@ -747,6 +742,59 @@ function toggleMobileMenu() {
 }
 
 function closeMobileMenu() { setMobileMenu(false); }
+
+function renderFreeLessonAlbums(albums) {
+  const container = document.getElementById('freeLessonAlbums');
+  container.replaceChildren();
+  if (!Array.isArray(albums)) throw new Error('免费微课数据格式无效');
+  if (albums.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'lesson-album-empty';
+    empty.textContent = '免费微课文章正在整理中，敬请期待。';
+    container.appendChild(empty);
+    return;
+  }
+
+  albums.forEach((album) => {
+    const title = String(album?.title || '').trim();
+    const url = new URL(String(album?.url || ''));
+    if (!title || url.protocol !== 'https:') throw new Error('免费微课文章链接无效');
+
+    const link = document.createElement('a');
+    link.className = 'lesson-album-card';
+    link.href = url.href;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+
+    const label = document.createElement('span');
+    label.className = 'lesson-album-label';
+    label.textContent = '微信公众号 · 文章专辑';
+    const heading = document.createElement('h3');
+    heading.textContent = title;
+    const open = document.createElement('span');
+    open.className = 'lesson-album-open';
+    open.innerHTML = '<span>在微信公众号中阅读</span><span aria-hidden="true">↗</span>';
+    link.append(label, heading, open);
+    container.appendChild(link);
+  });
+}
+
+async function loadFreeLessonAlbums() {
+  const container = document.getElementById('freeLessonAlbums');
+  try {
+    const response = await fetch('/api/v1/home/free-lessons');
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `加载失败 (${response.status})`);
+    renderFreeLessonAlbums(result.albums);
+  } catch (error) {
+    const message = document.createElement('p');
+    message.className = 'lesson-album-error';
+    message.textContent = `免费微课加载失败：${error.message}`;
+    container.replaceChildren(message);
+  }
+}
+
+loadFreeLessonAlbums();
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') closeMobileMenu();

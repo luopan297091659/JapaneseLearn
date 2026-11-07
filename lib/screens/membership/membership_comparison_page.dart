@@ -9,6 +9,7 @@ import '../../services/sync_service.dart';
 import '../../services/payment_service.dart';
 import '../../config/app_config.dart';
 import '../common/legal_webview_page.dart';
+import '../../services/membership_service.dart';
 
 /// 会员功能对比页面 — 展示免费用户与会员用户的功能差异
 class MembershipComparisonPage extends StatefulWidget {
@@ -68,6 +69,10 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
       ]);
       final tiers = results[0] as List<Map<String, dynamic>>;
       final user = results[1] as dynamic;
+      membershipService.updateCache(
+        isMember: user.isMember,
+        avatarUrl: membershipService.cachedAvatarUrl,
+      );
       final trialCfg = results[2] as Map<String, dynamic>;
       final plansRes = results[3];
       final plansData = (plansRes as dynamic).data;
@@ -1147,6 +1152,13 @@ class _MembershipComparisonPageState extends State<MembershipComparisonPage> {
             SizedBox(width: 8),
             Text('会员方案', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
+        ),
+        const Padding(
+          padding: EdgeInsets.only(top: 6),
+          child: Text(
+            '会员权益包含：可在「我的」设置中关闭应用内广告。',
+            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          ),
         ),
         const SizedBox(height: 12),
         ...usePlans.asMap().entries.map((e) {

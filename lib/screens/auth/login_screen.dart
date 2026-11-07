@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/api_service.dart';
 import '../../services/guest_service.dart';
+import '../../widgets/app_banner_ad.dart';
 import '../../config/app_config.dart';
 import '../common/legal_webview_page.dart';
 
@@ -111,6 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final cs = Theme.of(context).colorScheme;
     final s = S.of(context);
     return Scaffold(
+      bottomNavigationBar: const AppBannerAd(showOnAuthPage: true),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(

@@ -28,6 +28,7 @@ const {
   listTokyoDialogues, syncTokyoDialogues, generateTokyoDialogueAudio,
   listOrders, reviewOrder, uploadQrCode,
   getEmailSettings, saveEmailSettings, testEmailSettings,
+  getFreeLessonAlbums, saveFreeLessonAlbums,
   getSupportChannels, saveSupportChannel, deleteSupportChannel, uploadSupportQrCode,
   listSharedVocabDecksAdmin, updateSharedVocabDeckLevelAdmin, toggleDefaultSharedVocabDeckAdmin, unshareSharedVocabDeckAdmin,
 } = require('../controllers/adminController');
@@ -264,6 +265,10 @@ router.post('/settings/kokoro', permissionCheck('settings'), asyncHandler(saveKo
 router.get('/settings/email',       superAdminAuth, asyncHandler(getEmailSettings));
 router.post('/settings/email',      superAdminAuth, asyncHandler(saveEmailSettings));
 router.post('/settings/email/test', superAdminAuth, asyncHandler(testEmailSettings));
+
+// 官网免费微课配置
+router.get('/settings/free-lessons',  superAdminAuth, asyncHandler(getFreeLessonAlbums));
+router.post('/settings/free-lessons', superAdminAuth, asyncHandler(saveFreeLessonAlbums));
 
 // 五十音管理 - 具体路由必须在参数化路由之前
 router.post('/kana/batch-audio',         permissionCheck('vocabulary'), asyncHandler(batchGenerateKanaAudio));

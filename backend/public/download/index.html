@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f7f2e8">
+  <meta name="description" content="下载言旅 Kotabi 日语学习 App 与东京留学物语，支持 Android 和 iPhone。查看官方最新版本并扫码安装。">
+  <link rel="canonical" href="https://kotabi.top/download">
+  <link rel="icon" href="/home/app_icon.png" type="image/png">
+  <title>软件下载｜言旅 Kotabi</title>
+  <style>
+    :root{--paper:#f7f2e8;--ink:#15221d;--muted:#68736b;--green:#285c49;--red:#bd5849;--line:#dcd7ca;--lime:#dce8a7;--white:#fff;--shadow:0 20px 60px rgba(21,34,29,.09)}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font-family:"Noto Sans CJK SC","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.6}a{color:inherit;text-decoration:none}button{font:inherit}
+    .nav{height:72px;position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:28px;padding:0 max(24px,calc((100vw - 1180px)/2));background:rgba(247,242,232,.9);border-bottom:1px solid var(--line);backdrop-filter:blur(14px)}.brand{display:flex;align-items:center;gap:10px;font-weight:850;font-size:19px;letter-spacing:.02em}.brand img{width:36px;height:36px;border-radius:10px}.brand small{color:var(--red);font-size:11px;letter-spacing:.12em}.navlinks{display:flex;align-items:center;gap:14px;margin-left:auto;color:var(--muted);font-size:13px;font-weight:650}.navlinks a{white-space:nowrap}.navlinks a:hover,.navlinks .current{color:var(--red)}.navlinks .start{background:var(--ink);color:#fff;padding:9px 17px;border-radius:999px}.mobile-toggle{display:none;border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 12px;color:var(--ink);font-weight:750;font-size:12px}.mobile-panel{display:none}
+    .wrap{width:min(1120px,calc(100% - 40px));margin:auto}.hero{padding:74px 0 54px;position:relative;overflow:hidden}.hero:after{content:"旅";position:absolute;right:4%;top:-70px;font-family:serif;font-size:360px;font-weight:900;line-height:1;color:rgba(40,92,73,.045);pointer-events:none}.eyebrow{text-transform:uppercase;letter-spacing:.16em;font-size:11px;font-weight:900;color:var(--red)}h1,h2,h3,p{margin-top:0}.hero h1{position:relative;z-index:1;max-width:720px;font-size:clamp(40px,7vw,76px);line-height:1.1;letter-spacing:-.055em;margin:18px 0}.hero h1 em{font-style:normal;color:var(--green)}.hero p{max-width:610px;color:var(--muted);font-size:17px;line-height:1.85;margin-bottom:28px}.hero-actions{display:flex;gap:12px;flex-wrap:wrap}.button{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 20px;border-radius:999px;font-size:14px;font-weight:750;border:1px solid var(--ink);transition:.2s}.button:hover{transform:translateY(-2px)}.button.dark{background:var(--ink);color:#fff}.button.outline{background:transparent}
+    .products{padding:8px 0 92px}.product{margin-top:24px;padding:24px;border:1px solid rgba(255,255,255,.15);border-radius:22px;background:linear-gradient(135deg,#172720,#24352d);box-shadow:var(--shadow)}.product-info{padding:2px 2px 16px}.product-index{font:italic 700 13px Georgia,serif;color:var(--lime);letter-spacing:.13em}.product h2{font-size:24px;letter-spacing:-.035em;color:#fff;margin:7px 0 3px}.product-info p{color:rgba(255,255,255,.68);font-size:13px;line-height:1.7;margin-bottom:0}.tags{display:none}.platforms{display:grid;grid-template-columns:1fr 1fr;gap:14px}.platform{display:grid;grid-template-columns:92px minmax(0,1fr);grid-template-rows:auto auto 1fr;align-items:center;column-gap:13px;min-height:126px;padding:12px;border:2px solid rgba(52,168,83,.22);border-radius:16px;background:#fff}.ios.platform{border-color:rgba(21,34,29,.18)}.platform-top{grid-column:2;grid-row:1;display:flex;align-items:center;gap:8px;min-width:0}.platform-icon{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:#34a853;color:#fff;flex:0 0 auto}.platform-icon svg{width:19px;height:19px;display:block}.ios .platform-icon{background:#111827}.platform-name{font-size:13px;font-weight:850;line-height:1.25;color:var(--ink)}.platform-caption{color:#7b847f;font-size:10px;font-weight:600;line-height:1.35;margin-top:3px}.platform-content{display:contents}.qr{grid-column:1;grid-row:1/4;width:92px;height:92px;display:grid;place-items:center;border:3px solid rgba(52,168,83,.12);border-radius:10px;background:#fff;color:#849087;font-size:10px;text-align:center;padding:3px}.ios .qr{border-color:rgba(17,24,39,.1)}.qr canvas{width:84px!important;height:84px!important;max-width:100%}.release{grid-column:2;grid-row:2;font-size:10px;color:#657168;line-height:1.45;align-self:center}.release strong{display:block;color:#526057;font-size:10px}.dl{grid-column:2;grid-row:3;display:flex;align-items:center;justify-content:center;align-self:end;min-height:36px;margin-top:4px;border:0;border-radius:9px;background:#4361ee;color:#fff;font-weight:800;font-size:12px;cursor:pointer;transition:.2s}.dl:hover{background:#2f4ac1}.ios .dl{background:#111827}.dl:disabled{background:#d8d8d2;color:#777;cursor:not-allowed}
+    .note{margin:24px 0 0;padding:18px 20px;border-left:3px solid var(--lime);background:rgba(255,255,255,.42);color:var(--muted);font-size:13px}.note strong{color:var(--ink)}footer{border-top:1px solid var(--line);padding:28px 0 38px;color:var(--muted);font-size:12px}.footer-inner{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap}.footer-links{display:flex;gap:20px}
+    @media(max-width:760px){.nav{height:64px;padding:0 20px;gap:10px}.navlinks{margin-left:auto;gap:9px;font-size:11px}.navlinks a:not(.current):not(.start){display:none}.navlinks .start{padding:8px 13px}.mobile-toggle{display:block}.mobile-panel.open{position:absolute;top:calc(100% + 8px);right:16px;display:grid;gap:2px;min-width:190px;padding:8px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 32px rgba(21,34,29,.15)}.mobile-panel a{padding:10px 12px;border-radius:8px;font-size:13px;font-weight:700;color:var(--ink)}.mobile-panel a:hover,.mobile-panel a.current{background:#f4f1e9;color:var(--red)}.wrap{width:min(100% - 32px,560px)}.hero{padding:54px 0 34px}.hero h1{font-size:clamp(40px,12vw,62px)}.hero p{font-size:15px}.product{padding:19px}.product-info{padding:0 0 14px}.product h2{font-size:23px}.platforms{gap:10px}.platform{grid-template-columns:76px minmax(0,1fr);column-gap:9px;padding:9px;min-height:108px}.qr{width:76px;height:76px}.qr canvas{width:68px!important;height:68px!important}.platform-name{font-size:12px}.platform-caption{font-size:9px}.products{padding-bottom:56px}}
+    @media(max-width:520px){.platforms{grid-template-columns:1fr}.platform{grid-template-columns:92px minmax(0,1fr);min-height:120px;padding:11px}.qr{width:92px;height:92px}.qr canvas{width:82px!important;height:82px!important}.platform-name{font-size:13px}.platform-caption{font-size:10px}}
+    @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+  </style>
+
+<meta name="google-adsense-account" content="ca-pub-5858977826294206">
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5858977826294206" crossorigin="anonymous"></script>
+</head>
+<body>
+  <header class="nav"><a class="brand" href="/"><img src="/home/app_icon.png" alt="言旅">言旅 <small>KOTABI</small></a><nav class="navlinks" aria-label="主导航"><a href="/">官网首页</a><a href="/learn">学习指南</a><a href="/tools">学习工具</a><a href="/jlpt">JLPT 题库</a><a class="current" href="/download" aria-current="page">软件下载</a><a class="start" href="/app">在线学习 →</a></nav><button class="mobile-toggle" type="button" aria-expanded="false" aria-controls="downloadMobileNav" onclick="toggleDownloadNav(this)">菜单</button><nav class="mobile-panel" id="downloadMobileNav" aria-label="移动端导航"><a href="/">官网首页</a><a href="/learn">学习指南</a><a href="/tools">学习工具</a><a href="/jlpt">JLPT 题库</a><a class="current" href="/download" aria-current="page">软件下载</a><a href="/app">在线学习 →</a></nav></header>
+  <main>
+    <section class="hero"><div class="wrap"><div class="eyebrow">Your study, everywhere</div><h1>把日语学习<br><em>装进口袋。</em></h1><p>选择设备，获取官方最新版本。下载言旅 Kotabi 开始系统学习，或进入《东京留学物语》，在剧情中练习赴日生活会话。</p><div class="hero-actions"><a class="button dark" href="#kotabi">下载言旅 Kotabi ↓</a><a class="button outline" href="/app">直接打开网页版</a></div></div></section>
+    <section class="products wrap" aria-label="软件下载">
+      <article class="product" id="kotabi"><div class="product-info"><span class="product-index">01 / LEARN JAPANESE</span><h2>言旅 Kotabi</h2><p>从五十音到 JLPT N1，把词汇、语法、听力和间隔复习串成一条学习路线。</p><div class="tags"><span>五十音入门</span><span>JLPT N5–N1</span><span>每日复习</span></div></div><div class="platforms">
+        <div class="platform android"><div class="platform-top"><span class="platform-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9h10a2 2 0 0 1 2 2v6H5v-6a2 2 0 0 1 2-2Z"/><path d="m8 9-1.5-3M16 9l1.5-3M8 17v3M16 17v3M3 11v5M21 11v5"/><path d="M9 12h.01M15 12h.01" stroke-width="2.6"/></svg></span><div><div class="platform-name">Android 安卓版</div><div class="platform-caption">扫码或直接下载 APK</div></div></div><div class="platform-content"><div class="qr" id="kotabiAndroidQr">加载二维码…</div><div class="release" id="kotabiAndroidVersion"><strong>正在获取版本…</strong>请稍候</div></div><button class="dl" id="kotabiAndroidBtn" disabled>正在获取版本…</button></div>
+        <div class="platform ios"><div class="platform-top"><span class="platform-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.7 12.7c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.8-2-1.6-.2-3.1 1-3.9 1-.8 0-2-1-3.3-1-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.4-.8 1.5 0 2 .8 3.3.8 1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.7-1-2.7-3.9ZM14 5.1c.7-.9 1.2-2.1 1.1-3.3-1.1.1-2.4.7-3.2 1.6-.7.8-1.3 2-1.1 3.2 1.2.1 2.4-.6 3.2-1.5Z"/></svg></span><div><div class="platform-name">iPhone / iPad</div><div class="platform-caption">扫码前往 App Store</div></div></div><div class="platform-content"><div class="qr" id="kotabiIosQr">加载二维码…</div><div class="release" id="kotabiIosVersion"><strong>正在获取版本…</strong>请稍候</div></div><button class="dl" id="kotabiIosBtn" disabled>正在获取版本…</button></div>
+      </div></article>
+      <article class="product" id="tokyo"><div class="product-info"><span class="product-index">02 / TOKYO STORY</span><h2>东京留学物语</h2><p>跟随剧情探索东京生活场景，在点餐、租房、问路与校园交流中练习实用日语。</p><div class="tags"><span>情景会话</span><span>沉浸剧情</span><span>赴日生活</span></div></div><div class="platforms">
+        <div class="platform android"><div class="platform-top"><span class="platform-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9h10a2 2 0 0 1 2 2v6H5v-6a2 2 0 0 1 2-2Z"/><path d="m8 9-1.5-3M16 9l1.5-3M8 17v3M16 17v3M3 11v5M21 11v5"/><path d="M9 12h.01M15 12h.01" stroke-width="2.6"/></svg></span><div><div class="platform-name">Android 安卓版</div><div class="platform-caption">扫码或直接下载 APK</div></div></div><div class="platform-content"><div class="qr" id="tokyoAndroidQr">加载二维码…</div><div class="release" id="tokyoAndroidVersion"><strong>正在获取版本…</strong>请稍候</div></div><button class="dl" id="tokyoAndroidBtn" disabled>正在获取版本…</button></div>
+        <div class="platform ios"><div class="platform-top"><span class="platform-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.7 12.7c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.8-2-1.6-.2-3.1 1-3.9 1-.8 0-2-1-3.3-1-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.4-.8 1.5 0 2 .8 3.3.8 1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.7-1-2.7-3.9ZM14 5.1c.7-.9 1.2-2.1 1.1-3.3-1.1.1-2.4.7-3.2 1.6-.7.8-1.3 2-1.1 3.2 1.2.1 2.4-.6 3.2-1.5Z"/></svg></span><div><div class="platform-name">iPhone / iPad</div><div class="platform-caption">扫码前往 App Store</div></div></div><div class="platform-content"><div class="qr" id="tokyoIosQr">加载二维码…</div><div class="release" id="tokyoIosVersion"><strong>正在获取版本…</strong>请稍候</div></div><button class="dl" id="tokyoIosBtn" disabled>正在获取版本…</button></div>
+      </div></article>
+      <aside class="note"><strong>安装提示：</strong>Android 下载 APK 后，按设备提示允许安装；iPhone / iPad 用户将前往 App Store。版本信息由官方发布接口提供。</aside>
+    </section>
+  </main>
+  <footer><div class="wrap footer-inner"><span>© 言旅 Kotabi · 让日语学习走进真实生活</span><div class="footer-links"><a href="/support">帮助中心</a><a href="/privacy">隐私政策</a><a href="mailto:kotabi@163.com">联系我们</a></div></div></footer>
+  <script src="/home/qrcode.min.js"></script>
+  <script>
+    function toggleDownloadNav(button){
+      const panel=document.getElementById('downloadMobileNav');
+      const expanded=button.getAttribute('aria-expanded')==='true';
+      button.setAttribute('aria-expanded',String(!expanded));
+      panel.classList.toggle('open',!expanded);
+    }
+    const releases = {
+      kotabiAndroid:{platform:'android',version:'kotabiAndroidVersion',qr:'kotabiAndroidQr',button:'kotabiAndroidBtn',label:'Android 下载'},
+      kotabiIos:{platform:'ios',version:'kotabiIosVersion',qr:'kotabiIosQr',button:'kotabiIosBtn',label:'App Store 下载'},
+      tokyoAndroid:{platform:'tokyo_android',version:'tokyoAndroidVersion',qr:'tokyoAndroidQr',button:'tokyoAndroidBtn',label:'Android 下载'},
+      tokyoIos:{platform:'tokyo_ios',version:'tokyoIosVersion',qr:'tokyoIosQr',button:'tokyoIosBtn',label:'App Store 下载'}
+    };
+    async function loadRelease(key, config){
+      const versionEl=document.getElementById(config.version), qrEl=document.getElementById(config.qr), button=document.getElementById(config.button);
+      try{
+        const controller=new AbortController();
+        const timeout=setTimeout(()=>controller.abort(),10000);
+        let response;
+        try{response=await fetch('/api/v1/admin/app/latest?platform='+encodeURIComponent(config.platform),{signal:controller.signal,cache:'no-store'});}
+        finally{clearTimeout(timeout);}
+        if(!response.ok) throw new Error('无可用版本');
+        const result=await response.json(), data=result.data;
+        const url=data.download_url||('/api/v1/admin/downloadApp/'+data.id);
+        const fullUrl=/^https?:\/\//i.test(url)?url:location.origin+url;
+        const version=data.version==='iOS'?'已发布':'v'+data.version;
+        const date=data.published_at?' · '+new Date(data.published_at).toLocaleDateString('zh-CN'):'';
+        versionEl.innerHTML='<strong>'+version+'</strong>'+date;
+        qrEl.textContent='';
+        if(window.QRCode){const canvas=document.createElement('canvas');qrEl.appendChild(canvas);QRCode.toCanvas(canvas,fullUrl,{width:94,margin:1,color:{dark:'#15221d',light:'#ffffff'}});}
+        button.disabled=false; button.textContent=config.label; button.addEventListener('click',()=>window.open(fullUrl,'_blank','noopener'));
+      }catch(error){
+        console.warn('获取下载版本失败：'+config.platform,error);
+        const message=error.name==='AbortError'?'连接超时，请刷新重试':'接口暂不可用，请稍后重试';
+        versionEl.innerHTML='<strong>暂时无法获取版本</strong>'+message;
+        qrEl.textContent='暂不可用'; button.textContent='暂不可用';
+      }
+    }
+    Object.entries(releases).forEach(([key,config])=>loadRelease(key,config));
+  </script>
+</body>
+</html>
