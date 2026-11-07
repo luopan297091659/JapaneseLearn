@@ -44,7 +44,6 @@ workflows:
     cache:
       cache_paths:
         - $HOME/.pub-cache
-        - ios/Pods
     integrations:
       # app_store_connect: app-publish
       app_store_connect: kotabi_test
@@ -74,12 +73,15 @@ workflows:
           new_ver="${major}.${minor}.${new_patch}+${new_build}"
           sed -i.bak "s/^version: .*/version: $new_ver/" pubspec.yaml
           echo "New version: $new_ver"
-      - name: Get Flutter packages
-        script: flutter pub get
-      - name: Install CocoaPods dependencies
+      - name: Clean and install iOS dependencies
         script: |
+          flutter --version
+          flutter clean
+          flutter pub get
           cd ios
-          pod install
+          rm -rf Pods Podfile.lock build
+          pod install --repo-update
+          cd ..
       - name: Set up code signing
         script: |
           xcode-project use-profiles
