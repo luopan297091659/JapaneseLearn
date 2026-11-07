@@ -9,8 +9,11 @@ workflows:
         - $HOME/.pub-cache
         - android/.gradle
     environment:
-      flutter: stable
+      # flutter: stable
       java: 17
+      flutter: 3.27.4
+      xcode: latest   # 或者指定和该 Flutter 版本兼容的 Xcode
+      cocoapods: default
     scripts:
       - name: Bump version
         script: |
@@ -47,8 +50,11 @@ workflows:
       app_store_connect: kotabi_test
 
     environment:
-      flutter: stable
-      xcode: latest
+      # flutter: stable
+      # xcode: latest
+      # cocoapods: default
+      flutter: 3.27.4
+      xcode: latest   # 或者指定和该 Flutter 版本兼容的 Xcode
       cocoapods: default
       ios_signing:
         distribution_type: app_store
