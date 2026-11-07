@@ -44,7 +44,6 @@ workflows:
     cache:
       cache_paths:
         - $HOME/.pub-cache
-        - ios/Pods
     integrations:
       # app_store_connect: app-publish
       app_store_connect: kotabi_test
@@ -56,6 +55,10 @@ workflows:
       flutter: 3.27.4
       xcode: latest   # 或者指定和该 Flutter 版本兼容的 Xcode
       cocoapods: default
+      groups:
+        - shorebird
+      vars:
+        FLUTTER_VERSION: 3.27.4
       ios_signing:
         distribution_type: app_store
         # bundle_identifier: com.kotabi.app
@@ -76,8 +79,14 @@ workflows:
           echo "New version: $new_ver"
       - name: Get Flutter packages
         script: flutter pub get
+      - name: Install Shorebird
+        script: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -fsSL https://shorebird.dev/install.sh | bash
+          echo 'PATH="$HOME/.shorebird/bin:$PATH"' >> "$CM_ENV"
       - name: Install CocoaPods dependencies
         script: |
+          set -euo pipefail
           cd ios
           pod install
       - name: Set up code signing
@@ -86,7 +95,12 @@ workflows:
 
       - name: Build iOS IPA
         script: |
-          flutter build ipa --release --dart-define=ENV=prod --export-options-plist=/Users/builder/export_options.plist | tee build_log_ios.txt
+          set -euo pipefail
+          shorebird release ios \
+            --flutter-version="$FLUTTER_VERSION" \
+            --dart-define=ENV=prod \
+            --export-options-plist=/Users/builder/export_options.plist \
+            2>&1 | tee build_log_ios.txt
 
     artifacts:
       - build/ios/ipa/*.ipa
