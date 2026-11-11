@@ -29,6 +29,7 @@ const {
   listOrders, reviewOrder, uploadQrCode,
   getEmailSettings, saveEmailSettings, testEmailSettings,
   getFreeLessonAlbums, saveFreeLessonAlbums,
+  getTutoringConfig, saveTutoringConfig, uploadTutoringQrCode,
   getSupportChannels, saveSupportChannel, deleteSupportChannel, uploadSupportQrCode,
   listSharedVocabDecksAdmin, updateSharedVocabDeckLevelAdmin, toggleDefaultSharedVocabDeckAdmin, unshareSharedVocabDeckAdmin,
 } = require('../controllers/adminController');
@@ -85,6 +86,17 @@ const imageUpload = multer({
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith('image/')) return cb(null, true);
     cb(new Error('仅支持图片格式'));
+  },
+});
+
+const tutoringQrUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) return cb(null, true);
+    const error = new Error('二维码仅支持 JPG、PNG 或 WebP 图片');
+    error.status = 400;
+    cb(error);
   },
 });
 
@@ -292,5 +304,10 @@ router.get('/support-channels',           superAdminAuth, asyncHandler(getSuppor
 router.post('/support-channels',          superAdminAuth, asyncHandler(saveSupportChannel));
 router.delete('/support-channels/:id',    superAdminAuth, asyncHandler(deleteSupportChannel));
 router.post('/support-channels/upload-qr', superAdminAuth, imageUpload.single('qrcode'), asyncHandler(uploadSupportQrCode));
+
+// 官网名师辅导页面配置
+router.get('/tutoring', superAdminAuth, asyncHandler(getTutoringConfig));
+router.post('/tutoring', superAdminAuth, asyncHandler(saveTutoringConfig));
+router.post('/tutoring/upload-qr', superAdminAuth, tutoringQrUpload.single('qrcode'), asyncHandler(uploadTutoringQrCode));
 
 module.exports = router;

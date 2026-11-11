@@ -20,11 +20,39 @@
     @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
   </style>
 
+  <link rel="stylesheet" href="/site-nav.css">
+  <script src="/site-nav.js" defer></script>
 <meta name="google-adsense-account" content="ca-pub-5858977826294206">
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5858977826294206" crossorigin="anonymous"></script>
 </head>
 <body>
-  <header class="nav"><a class="brand" href="/"><img src="/home/app_icon.png" alt="言旅">言旅 <small>KOTABI</small></a><nav class="navlinks" aria-label="主导航"><a href="/">官网首页</a><a href="/learn">学习指南</a><a href="/tools">学习工具</a><a href="/jlpt">JLPT 题库</a><a class="current" href="/download" aria-current="page">软件下载</a><a class="start" href="/app">在线学习 →</a></nav><button class="mobile-toggle" type="button" aria-expanded="false" aria-controls="downloadMobileNav" onclick="toggleDownloadNav(this)">菜单</button><nav class="mobile-panel" id="downloadMobileNav" aria-label="移动端导航"><a href="/">官网首页</a><a href="/learn">学习指南</a><a href="/tools">学习工具</a><a href="/jlpt">JLPT 题库</a><a class="current" href="/download" aria-current="page">软件下载</a><a href="/app">在线学习 →</a></nav></header>
+  <nav class="site-nav" aria-label="主导航">
+    <a class="logo" href="/"><img src="/home/app_icon.png" alt="言旅">言旅<sub>Kotabi</sub></a>
+    <div class="spacer"></div>
+    <a class="nav-link desktop-link" href="/#method">学习路线</a>
+    <a class="nav-link desktop-link" href="/#lesson">免费微课</a>
+    <a class="nav-link desktop-link" href="/tools">学习工具</a>
+    <a class="nav-link desktop-link" href="/jlpt">JLPT 题库</a>
+    <a class="nav-link desktop-link active" href="/download" aria-current="page">软件下载</a>
+    <a class="nav-link desktop-link" href="/membership">会员权益</a>
+    <a class="nav-link desktop-link" href="/tutoring">名师辅导</a>
+    <a class="nav-link desktop-link" href="/support">技术支持</a>
+    <a class="nav-link nav-cta" href="/app">在线学习</a>
+    <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-expanded="false" aria-controls="mobileNavPanel"><span class="menu-icon" aria-hidden="true"><i></i><i></i><i></i></span><span>菜单</span></button>
+    <div class="auth-slot" aria-hidden="true"></div>
+    <div class="mobile-nav-backdrop" id="mobileNavBackdrop" aria-hidden="true"></div>
+    <div class="mobile-nav-panel" id="mobileNavPanel" aria-label="移动端导航">
+      <a href="/#method"><span class="mobile-nav-icon">路</span>学习路线</a>
+      <a href="/#lesson"><span class="mobile-nav-icon">文</span>免费微课</a>
+      <a href="/tools"><span class="mobile-nav-icon">具</span>学习工具</a>
+      <a href="/jlpt"><span class="mobile-nav-icon">N</span>JLPT 题库</a>
+      <a class="active" href="/download" aria-current="page"><span class="mobile-nav-icon">↓</span>软件下载</a>
+      <a href="/membership"><span class="mobile-nav-icon">会</span>会员权益</a>
+      <a href="/tutoring"><span class="mobile-nav-icon">师</span>名师辅导</a>
+      <a href="/support"><span class="mobile-nav-icon">技</span>技术支持</a>
+      <a class="mobile-nav-primary" href="/app">免费开始学习 <span>→</span></a>
+    </div>
+  </nav>
   <main>
     <section class="hero"><div class="wrap"><div class="eyebrow">Your study, everywhere</div><h1>把日语学习<br><em>装进口袋。</em></h1><p>选择设备，获取官方最新版本。下载言旅 Kotabi 开始系统学习，或进入《东京留学物语》，在剧情中练习赴日生活会话。</p><div class="hero-actions"><a class="button dark" href="#kotabi">下载言旅 Kotabi ↓</a><a class="button outline" href="/app">直接打开网页版</a></div></div></section>
     <section class="products wrap" aria-label="软件下载">
@@ -42,12 +70,6 @@
   <footer><div class="wrap footer-inner"><span>© 言旅 Kotabi · 让日语学习走进真实生活</span><div class="footer-links"><a href="/support">帮助中心</a><a href="/privacy">隐私政策</a><a href="mailto:kotabi@163.com">联系我们</a></div></div></footer>
   <script src="/home/qrcode.min.js"></script>
   <script>
-    function toggleDownloadNav(button){
-      const panel=document.getElementById('downloadMobileNav');
-      const expanded=button.getAttribute('aria-expanded')==='true';
-      button.setAttribute('aria-expanded',String(!expanded));
-      panel.classList.toggle('open',!expanded);
-    }
     const releases = {
       kotabiAndroid:{platform:'android',version:'kotabiAndroidVersion',qr:'kotabiAndroidQr',button:'kotabiAndroidBtn',label:'Android 下载'},
       kotabiIos:{platform:'ios',version:'kotabiIosVersion',qr:'kotabiIosQr',button:'kotabiIosBtn',label:'App Store 下载'},

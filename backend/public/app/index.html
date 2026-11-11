@@ -46,6 +46,11 @@ a { color: inherit; text-decoration: none; }
 button { cursor: pointer; border: none; background: none; font: inherit; }
 input, select, textarea { font: inherit; }
 ul { list-style: none; }
+body.app-ads-disabled .adsbygoogle,
+body.app-ads-disabled .google-auto-placed,
+body.app-ads-disabled [id^="google_ads_iframe"],
+body.app-ads-disabled [id^="google_ads_frame"],
+body.app-ads-disabled [id^="aswift_"] { display: none !important; }
 
 /* ─── 滚动条美化 ─────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -250,11 +255,17 @@ ul { list-style: none; }
 }
 .modal-overlay.open { opacity: 1; pointer-events: all; }
 .modal {
-  background: var(--surface); border-radius: var(--radius); padding: 28px; width: 90%; max-width: 480px;
+  position: relative; background: var(--surface); border-radius: var(--radius); padding: 28px; width: 90%; max-width: 480px;
   box-shadow: var(--shadow-md); transform: scale(.96); transition: transform .2s;
   max-height: 85vh; overflow-y: auto;
 }
 .modal-overlay.open .modal { transform: scale(1); }
+.modal.is-loading::after {
+  content: ''; position: absolute; top: 0; left: 28px; right: 28px; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  animation: modal-loading 1s ease-in-out infinite alternate;
+}
+@keyframes modal-loading { from { transform: translateX(-12%); } to { transform: translateX(12%); } }
 .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 .modal-title { font-size: 18px; font-weight: 700; }
 .modal-close { font-size: 22px; cursor: pointer; color: var(--text-hint); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background .15s; }
@@ -961,6 +972,8 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
       <a href="/app/terms.html" style="color:#7c3aed;text-decoration:none">用户协议</a>
       <span style="margin:0 6px">·</span>
       <a href="/app/privacy.html" style="color:#7c3aed;text-decoration:none">隐私政策</a>
+      <span style="margin:0 6px">·</span>
+      <a href="/support/" style="color:#7c3aed;text-decoration:none">使用帮助</a>
     </div>
   </div>
 </div>
@@ -2159,12 +2172,41 @@ function toast(msg, dur = 2500) {
 // ══════════════════════════════════════════════════════════════════
 //  MODAL
 // ══════════════════════════════════════════════════════════════════
+let _detailModalRequestId = 0;
+
 function openModal(title, html) {
+  _detailModalRequestId++;
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = html;
+  const modal = document.getElementById('modal-box');
+  modal.classList.remove('is-loading');
+  delete modal.dataset.detailType;
+  document.getElementById('modal-body').removeAttribute('aria-busy');
   document.getElementById('modal-overlay').classList.add('open');
 }
-function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+function prepareDetailModal(title, detailType) {
+  const overlay = document.getElementById('modal-overlay');
+  const modal = document.getElementById('modal-box');
+  const body = document.getElementById('modal-body');
+  if (!overlay.classList.contains('open') || modal.dataset.detailType !== detailType) {
+    body.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  }
+  document.getElementById('modal-title').textContent = title;
+  modal.dataset.detailType = detailType;
+  modal.classList.add('is-loading');
+  body.setAttribute('aria-busy', 'true');
+  overlay.classList.add('open');
+}
+function finishDetailModalLoading() {
+  document.getElementById('modal-box').classList.remove('is-loading');
+  document.getElementById('modal-body').removeAttribute('aria-busy');
+}
+function closeModal() {
+  _detailModalRequestId++;
+  document.getElementById('modal-overlay').classList.remove('open');
+  finishDetailModalLoading();
+  delete document.getElementById('modal-box').dataset.detailType;
+}
 function closeModalOutside(e) { if (e.target === document.getElementById('modal-overlay')) closeModal(); }
 
 // ══════════════════════════════════════════════════════════════════
@@ -2505,17 +2547,15 @@ function syncAdSettings(user) {
   renderAdSettings();
   let disabled = false;
   try { disabled = _isMember && localStorage.getItem(_adPreferenceKey) === '1'; } catch(e) {}
-  if (disabled) {
-    if (_appAdsScriptStarted) window.location.reload();
-    return;
-  }
-  loadAppAds();
+  document.body.classList.toggle('app-ads-disabled', disabled);
+  if (!disabled) loadAppAds();
 }
 function setAdFreePreference(disabled) {
   if (!_isMember) return;
   try { localStorage.setItem(_adPreferenceKey, disabled ? '1' : '0'); }
   catch(e) { toast('无法保存广告设置，请检查浏览器存储权限'); return; }
-  window.location.reload();
+  document.body.classList.toggle('app-ads-disabled', disabled);
+  if (!disabled) loadAppAds();
 }
 document.addEventListener('click', function(e) {
   const dd = document.getElementById('settingsDropdown');
@@ -3103,14 +3143,16 @@ function buildConjugationHtml(w) {
 }
 
 async function showVocabDetail(id) {
+  const requestId = ++_detailModalRequestId;
   _stopAllAudio();
   const curIdx = vocabWords.findIndex(w => String(w.id) === String(id));
-  openModal('単語詳細', '<div class="loading"><div class="spinner"></div></div>');
+  prepareDetailModal('単語詳細', 'vocabulary');
   try {
     const w = await GET(`/vocabulary/${id}`);
     const srsCard = await (async () => {
       try { const r = await GET(`/srs/card/${id}`); return r; } catch(_) { return null; }
     })();
+    if (requestId !== _detailModalRequestId) return;
     const audioHtml = w.audio_url ? `<button class="btn btn-sm btn-outline" onclick="playAudio('${escHtml(w.audio_url)}')">🔊 发音</button><button class="btn btn-sm btn-outline" onclick="playAudioSlow('${escHtml(w.audio_url)}')" style="color:var(--warning);border-color:var(--warning)">🐌 慢速</button>` : `<button class="btn btn-sm btn-outline" data-tts="${escHtml(ttsText(w))}" data-tts-rate="0.8" onclick="speakJaFromEl(this)">🔊 发音</button><button class="btn btn-sm btn-outline" data-tts="${escHtml(ttsText(w))}" data-tts-rate="${_slowSpeed * 0.8}" onclick="speakJaFromEl(this)" style="color:var(--warning);border-color:var(--warning)">🐌 慢速</button>`;
     const srsHtml = srsCard
       ? `<button class="btn btn-sm btn-outline" style="color:var(--success);border-color:var(--success)" disabled>✓ 已加入 SRS</button>`
@@ -3147,10 +3189,14 @@ async function showVocabDetail(id) {
         </div>
         <div id="vocab-pron-result" style="margin-top:12px"></div>
       </div>`;
+    finishDetailModalLoading();
     // 自动播放单词发音
     if (w.audio_url) { playAudio(w.audio_url); } else { speakJa(ttsText(w)); }
   } catch(e) {
-    document.getElementById('modal-body').innerHTML = `<p style="color:var(--danger)">加载失败: ${escHtml(e.message)}</p>`;
+    if (requestId === _detailModalRequestId) {
+      document.getElementById('modal-body').innerHTML = `<p style="color:var(--danger)">加载失败: ${escHtml(e.message)}</p>`;
+      finishDetailModalLoading();
+    }
   }
 }
 
@@ -3307,11 +3353,13 @@ function grammarGoPage(p) {
 }
 
 async function showGrammarDetail(id) {
+  const requestId = ++_detailModalRequestId;
   _stopAllAudio();
   const gIdx = grammarLessons.findIndex(g => String(g.id) === String(id));
-  openModal('语法詳細', '<div class="loading"><div class="spinner"></div></div>');
+  prepareDetailModal('语法詳細', 'grammar');
   try {
     const g = await GET(`/grammar/${id}`);
+    if (requestId !== _detailModalRequestId) return;
     const exHtml = (g.examples || []).map((ex, idx) => `
       <div class="grammar-example-item">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -3346,8 +3394,12 @@ async function showGrammarDetail(id) {
           <button class="btn btn-sm btn-outline" onclick="openReportForm('grammar','${escHtml(g.id)}','${escHtml(g.pattern)}')" title="问题反馈" style="color:#e67e22;border-color:#e67e22">ⓘ 反馈</button>
         </div>
       </div>`;
+    finishDetailModalLoading();
   } catch(e) {
-    document.getElementById('modal-body').innerHTML = `<p style="color:var(--danger)">加载失败: ${escHtml(e.message)}</p>`;
+    if (requestId === _detailModalRequestId) {
+      document.getElementById('modal-body').innerHTML = `<p style="color:var(--danger)">加载失败: ${escHtml(e.message)}</p>`;
+      finishDetailModalLoading();
+    }
   }
 }
 

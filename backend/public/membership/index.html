@@ -181,28 +181,47 @@ footer { text-align: center; padding: 28px 16px; font-size: 12px; color: var(--t
 }
 </style>
 
+<link rel="stylesheet" href="/site-nav.css">
+<script src="/site-nav.js" defer></script>
 <meta name="google-adsense-account" content="ca-pub-5858977826294206">
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5858977826294206" crossorigin="anonymous"></script>
 </head>
 <body>
 
 <!-- Nav -->
-<nav>
-  <div class="logo" onclick="location.href='/'">
+<nav class="site-nav" aria-label="主导航">
+  <a class="logo" href="/">
     <img src="/home/app_icon.png" alt="言旅">
     言旅<sub>Kotabi</sub>
-  </div>
+  </a>
   <div class="spacer"></div>
-  <a class="nav-link" href="/">首页</a>
-  <a class="nav-link active" href="/membership">会员</a>
-  <a class="nav-link" href="/tools">工具箱</a>
-  <a class="nav-link" href="/jlpt">JLPT模拟题</a>
-  <a class="nav-link" href="/support">支持</a>
+  <a class="nav-link desktop-link" href="/#method">学习路线</a>
+  <a class="nav-link desktop-link" href="/#lesson">免费微课</a>
+  <a class="nav-link desktop-link" href="/tools">学习工具</a>
+  <a class="nav-link desktop-link" href="/jlpt">JLPT 题库</a>
+  <a class="nav-link desktop-link" href="/download">软件下载</a>
+  <a class="nav-link desktop-link active" href="/membership" aria-current="page">会员权益</a>
+  <a class="nav-link desktop-link" href="/tutoring">名师辅导</a>
+  <a class="nav-link desktop-link" href="/support">技术支持</a>
+  <a class="nav-link nav-cta" href="/app">在线学习</a>
+  <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-expanded="false" aria-controls="mobileNavPanel"><span class="menu-icon" aria-hidden="true"><i></i><i></i><i></i></span><span>菜单</span></button>
   <div class="auth-slot">
     <div class="user-account" id="userAccount">
       <span class="user-badge" id="userBadge" onclick="showUserMenu()"></span>
     </div>
     <a class="nav-link" id="loginBtn" href="javascript:void(0)" onclick="showAuthModal()">登录</a>
+  </div>
+  <div class="mobile-nav-backdrop" id="mobileNavBackdrop" aria-hidden="true"></div>
+  <div class="mobile-nav-panel" id="mobileNavPanel" aria-label="移动端导航">
+    <a href="/#method"><span class="mobile-nav-icon">路</span>学习路线</a>
+    <a href="/#lesson"><span class="mobile-nav-icon">文</span>免费微课</a>
+    <a href="/tools"><span class="mobile-nav-icon">具</span>学习工具</a>
+    <a href="/jlpt"><span class="mobile-nav-icon">N</span>JLPT 题库</a>
+    <a href="/download"><span class="mobile-nav-icon">↓</span>软件下载</a>
+    <a class="active" href="/membership" aria-current="page"><span class="mobile-nav-icon">会</span>会员权益</a>
+    <a href="/tutoring"><span class="mobile-nav-icon">师</span>名师辅导</a>
+    <a href="/support"><span class="mobile-nav-icon">技</span>技术支持</a>
+    <a class="mobile-nav-primary" href="/app">免费开始学习 <span>→</span></a>
   </div>
 </nav>
 
@@ -232,7 +251,7 @@ footer { text-align: center; padding: 28px 16px; font-size: 12px; color: var(--t
   </div>
   <!-- 价格说明（可见于搜索引擎和审核） -->
   <p style="text-align:center;font-size:13px;color:#9ca3af;margin-top:12px">
-    月度会员 ¥18 CNY/月 · 年度会员 ¥168 CNY/年 · 所有价格含税，以实际结算页面为准
+    月度会员 ¥8 CNY/月 · 年度会员 ¥36 CNY/年 · 所有价格含税，以实际结算页面为准
   </p>
 </section>
 
@@ -575,7 +594,7 @@ async function handleAuth(e) {
     loadUser();
     showToast(authMode === 'register' ? '注册成功' : '登录成功', 'success');
     if (pid) {
-      startCheckout(pid);
+      showPaymentModal(pid);
     }
   } catch (err) {
     errEl.textContent = err.message;

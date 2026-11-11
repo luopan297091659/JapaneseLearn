@@ -274,6 +274,7 @@ tbody tr:hover td{background:#f8faff}
   <div class="nav-item" onclick="nav('email-settings')" id="nav-email-settings"><span class="icon">✉️</span><span class="nav-label">邮件配置</span></div>
   <div class="nav-item" onclick="nav('free-lessons')" id="nav-free-lessons"><span class="icon">📖</span><span class="nav-label">官网免费微课</span></div>
   <div class="nav-item" onclick="nav('support-channels')" id="nav-support-channels"><span class="icon">🤝</span><span class="nav-label">支持渠道</span></div>
+  <div class="nav-item" onclick="nav('tutoring')" id="nav-tutoring"><span class="icon">👩‍🏫</span><span class="nav-label">官网名师辅导</span></div>
   <div class="nav-item" onclick="nav('admin-mgmt')" id="nav-admin-mgmt"><span class="icon">🔐</span><span class="nav-label">权限管理</span></div>
   <div class="sidebar-footer"><div class="sidebar-footer-txt">言旅 Kotabi v1.0</div></div>
 </div>
@@ -672,7 +673,7 @@ function showApp(){
   nav('dashboard');
 }
 function applySidebarPermissions(){
-  const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-tokyo-app','nav-ai-settings','nav-kokoro-settings','nav-email-settings','nav-free-lessons','nav-support-channels','nav-admin-mgmt'];
+  const superOnlyNavs = ['nav-feature-toggles','nav-feature-tiers','nav-app','nav-tokyo-app','nav-ai-settings','nav-kokoro-settings','nav-email-settings','nav-free-lessons','nav-support-channels','nav-tutoring','nav-admin-mgmt'];
   const permNavMap = {
     'nav-vocab': 'vocabulary', 'nav-shared-vocab': 'vocabulary', 'nav-grammar': 'grammar', 'nav-jlpt-exams': 'vocabulary', 'nav-jlpt-resources': 'vocabulary', 'nav-kana': 'vocabulary', 'nav-tracks': 'tracks',
     'nav-channels': 'tracks', 'nav-users': 'users', 'nav-reports': 'reports',
@@ -705,7 +706,7 @@ const PAGE_TITLES = {
   'stat-tools':'官网工具统计',
   membership:'会员配置', orders:'订单审核', import:'内容导入', sync:'全局同步', 'feature-tiers':'功能分级',
   app:'App管理', 'tokyo-app':'东京留学APP', 'tokyo-dialogues':'东京场景对话', 'feature-toggles':'功能开关', 'ai-settings':'AI设置', 'kokoro-settings':'Kokoro TTS设置',
-  'email-settings':'邮件配置', 'free-lessons':'官网免费微课', 'support-channels':'支持渠道',
+  'email-settings':'邮件配置', 'free-lessons':'官网免费微课', 'support-channels':'支持渠道', tutoring:'官网名师辅导',
   'admin-mgmt':'权限管理'
 };
 const PAGE_ICONS = {
@@ -718,7 +719,7 @@ const PAGE_ICONS = {
   'stat-tools':'🧰',
   membership:'👑', orders:'💰', import:'📥', sync:'🔄', 'feature-tiers':'🎯',
   app:'📱', 'tokyo-app':'🗼', 'tokyo-dialogues':'💬', 'feature-toggles':'🔀', 'ai-settings':'🤖', 'kokoro-settings':'🎤',
-  'email-settings':'✉️', 'free-lessons':'📖', 'support-channels':'🤝', 'admin-mgmt':'🔐'
+  'email-settings':'✉️', 'free-lessons':'📖', 'support-channels':'🤝', tutoring:'👩‍🏫', 'admin-mgmt':'🔐'
 };
 const PAGE_DESCS = {
   vocab:'管理词汇条目', 'shared-vocab':'查看和下架用户分享的个人词库', grammar:'管理语法条目', kana:'管理五十音数据', reports:'查看用户反馈的问题',
@@ -731,6 +732,7 @@ const PAGE_DESCS = {
   membership:'会员套餐管理', orders:'审核用户付款订单', import:'Anki/CSV导入', sync:'内容版本发布', 'feature-tiers':'会员功能分级配置',
   app:'App上传下载', 'tokyo-app':'东京留学 APP 上传、发布与下载', 'tokyo-dialogues':'同步场景对话，管理 NPC 台词音频与 Kokoro 一键生成', 'feature-toggles':'控制功能开放', 'ai-settings':'Gemini API 配置与用量', 'kokoro-settings':'Kokoro TTS 合成参数配置',
   'email-settings':'SMTP 邮件发送配置', 'free-lessons':'配置官网首页免费微课中的微信公众号文章专辑', 'support-channels':'管理微信/钉钉/LINE/飞书等支持群组',
+  tutoring:'配置官网名师辅导介绍、服务方向与二维码联系方式',
   'admin-mgmt':'管理员权限配置'
 };
 
@@ -767,6 +769,7 @@ const PAGE_FNS = {
   app: renderAppManage, 'tokyo-app': renderTokyoAppManage, 'tokyo-dialogues': renderTokyoDialogues, 'feature-toggles': renderFeatureToggles, 'feature-tiers': renderFeatureTiers, 'ai-settings': renderAiSettings, 'kokoro-settings': renderKokoroSettings,
   'email-settings': renderEmailSettings, 'free-lessons': renderFreeLessonSettings,
   'support-channels': renderSupportChannels,
+  tutoring: renderTutoringSettings,
   'admin-mgmt': renderAdminMgmt, reports: renderReports,
 };
 
@@ -788,7 +791,7 @@ let _jlptResourceQueuedFiles = [];
 
 function jlptResourceYearsOptions() {
   let html = '';
-  for (let y = 2025; y >= 2010; y--) {
+  for (let y = 2030; y >= 2010; y--) {
     html += `<option value="${y}" ${String(_jlptResourceFilter.year) === String(y) ? 'selected' : ''}>${y}</option>`;
   }
   return html;
@@ -829,7 +832,7 @@ function buildJlptResourceAdmin() {
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
         <div>
           <div style="font-size:20px;font-weight:800;color:#0f172a">JLPT 模拟题资料</div>
-          <div style="font-size:13px;color:#64748b;margin-top:4px">N1-N5 / 2010-2025 / 7月与12月目录，支持 PDF、Word、MP3 多文件上传。</div>
+          <div style="font-size:13px;color:#64748b;margin-top:4px">N1-N5 / 2010-2030 / 7月与12月目录，支持 PDF、Word、MP3 多文件上传。</div>
         </div>
         <div style="font-size:12px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px">共 ${summary} 个文件</div>
       </div>
@@ -6040,6 +6043,177 @@ async function delSupportChannel(id){
     renderSupportChannels();
   }catch(e){ toast(e.message,true); }
 }
+
+/* ─────────────────────────── TUTORING PAGE ───────────────────────────── */
+let _tutoringSettings = null;
+
+async function renderTutoringSettings() {
+  document.getElementById('content').innerHTML = '<p style="color:#aaa;padding:40px;text-align:center">加载中…</p>';
+  try {
+    const result = await api('GET', '/admin/tutoring');
+    _tutoringSettings = result.tutoring;
+    renderTutoringSettingsForm();
+  } catch(e) {
+    document.getElementById('content').innerHTML = `<div class="panel"><p style="color:#e74c3c">加载失败: ${esc(e.message)}</p></div>`;
+  }
+}
+
+function renderTutoringSettingsForm() {
+  const config = _tutoringSettings;
+  const services = (config.services || []).map((service, index) => `
+    <div class="tutoring-service-row" style="display:grid;grid-template-columns:minmax(180px,1fr) minmax(280px,2fr) auto;gap:12px;align-items:end;padding:14px 0;border-bottom:1px solid var(--border)">
+      <div class="form-row"><label>服务方向</label><input data-field="title" maxlength="80" value="${esc(service.title)}" placeholder="如：JLPT 备考规划" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px"></div>
+      <div class="form-row"><label>方向介绍</label><textarea data-field="description" maxlength="500" rows="2" placeholder="介绍辅导内容和适合人群" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;resize:vertical">${esc(service.description)}</textarea></div>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="removeTutoringService(${index})">删除</button>
+    </div>`).join('');
+  const qrPreview = config.qr_code_url
+    ? `<img id="tutoring-qr-preview" src="${esc(config.qr_code_url)}" alt="咨询二维码" style="width:120px;height:120px;object-fit:contain;border:1px solid #ddd;border-radius:8px;background:#fff">`
+    : '<div id="tutoring-qr-preview" style="width:120px;height:120px;display:grid;place-items:center;border:1px dashed #bbb;border-radius:8px;color:#999;font-size:12px;text-align:center">尚未上传<br>咨询二维码</div>';
+
+  document.getElementById('content').innerHTML = `
+    <div style="max-width:1000px">
+      <div class="panel">
+        <div class="panel-header">
+          <h3>👩‍🏫 官网名师辅导</h3>
+          <a href="/tutoring" target="_blank" rel="noopener" style="font-size:12px;color:#3b82f6">预览官网页面 ↗</a>
+        </div>
+        <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px">配置官网导航中的“名师辅导”页面。联系方式二维码和文案保存后会同步到官网。请确保教师资历、服务内容等介绍真实准确，不作考试结果保证。</p>
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:18px;font-size:13px;font-weight:600">
+          <input id="tutoring-enabled" type="checkbox" ${config.enabled !== false ? 'checked' : ''}>
+          在官网开放名师辅导咨询
+        </label>
+        <div class="form-row" style="margin-bottom:14px">
+          <label>英文眉题</label>
+          <input id="tutoring-eyebrow" maxlength="100" value="${esc(config.eyebrow)}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px">
+        </div>
+        <div class="form-row" style="margin-bottom:14px">
+          <label>页面主标题</label>
+          <input id="tutoring-title" maxlength="100" value="${esc(config.title)}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px">
+        </div>
+        <div class="form-row" style="margin-bottom:18px">
+          <label>页面介绍</label>
+          <textarea id="tutoring-description" maxlength="1000" rows="3" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;resize:vertical">${esc(config.description)}</textarea>
+        </div>
+        <h4 style="margin:22px 0 4px">辅导方向</h4>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">最多 6 项，每项标题不超过 80 字，介绍不超过 500 字。</p>
+        <div id="tutoring-service-rows">${services || '<p style="padding:18px 0;color:var(--text-muted)">尚未添加辅导方向。</p>'}</div>
+        <button class="btn" type="button" onclick="addTutoringService()">＋ 添加辅导方向</button>
+        <h4 style="margin:24px 0 12px">二维码联系方式</h4>
+        <div class="form-row" style="margin-bottom:14px">
+          <label>联系方式标题</label>
+          <input id="tutoring-contact-title" maxlength="100" value="${esc(config.contact_title)}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px">
+        </div>
+        <div class="form-row" style="margin-bottom:14px">
+          <label>联系方式说明</label>
+          <textarea id="tutoring-contact-description" maxlength="500" rows="3" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;resize:vertical">${esc(config.contact_description)}</textarea>
+        </div>
+        <div class="form-row" style="margin-bottom:14px">
+          <label>二维码下方说明</label>
+          <input id="tutoring-qr-caption" maxlength="80" value="${esc(config.qr_caption)}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px">
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:20px">
+          ${qrPreview}
+          <div>
+            <input id="tutoring-qr-file" type="file" accept="image/jpeg,image/png,image/webp">
+            <input id="tutoring-qr-url" type="hidden" value="${esc(config.qr_code_url)}">
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn btn-ghost btn-sm" type="button" onclick="clearTutoringQr()">移除二维码</button>
+            </div>
+            <p style="font-size:12px;color:var(--text-muted);margin:6px 0 0">支持 JPG、PNG、WebP，最大 10 MB。</p>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="tutoring-save-btn" type="button" onclick="saveTutoringSettings()">💾 保存并同步官网</button>
+      </div>
+    </div>`;
+}
+
+function readTutoringServiceRows() {
+  return [...document.querySelectorAll('#tutoring-service-rows .tutoring-service-row')].map(row => ({
+    title: row.querySelector('[data-field="title"]').value.trim(),
+    description: row.querySelector('[data-field="description"]').value.trim(),
+  }));
+}
+
+function addTutoringService() {
+  _tutoringSettings.services = readTutoringServiceRows();
+  if (_tutoringSettings.services.length >= 6) return toast('最多添加 6 个辅导方向', true);
+  _tutoringSettings.services.push({ title: '', description: '' });
+  renderTutoringSettingsForm();
+}
+
+function removeTutoringService(index) {
+  _tutoringSettings.services = readTutoringServiceRows();
+  _tutoringSettings.services.splice(index, 1);
+  renderTutoringSettingsForm();
+}
+
+function clearTutoringQr() {
+  document.getElementById('tutoring-qr-url').value = '';
+  document.getElementById('tutoring-qr-file').value = '';
+  renderTutoringQrPreview('');
+}
+
+function renderTutoringQrPreview(src) {
+  const preview = document.getElementById('tutoring-qr-preview');
+  if (!src) {
+    preview.outerHTML = '<div id="tutoring-qr-preview" style="width:120px;height:120px;display:grid;place-items:center;border:1px dashed #bbb;border-radius:8px;color:#999;font-size:12px;text-align:center">尚未上传<br>咨询二维码</div>';
+    return;
+  }
+  preview.outerHTML = `<img id="tutoring-qr-preview" src="${src}" alt="咨询二维码" style="width:120px;height:120px;object-fit:contain;border:1px solid #ddd;border-radius:8px;background:#fff">`;
+}
+
+async function saveTutoringSettings() {
+  const button = document.getElementById('tutoring-save-btn');
+  button.disabled = true;
+  button.textContent = '保存中…';
+  try {
+    let qrUrl = document.getElementById('tutoring-qr-url').value.trim();
+    const file = document.getElementById('tutoring-qr-file').files[0];
+    if (file) {
+      const formData = new FormData();
+      formData.append('qrcode', file);
+      const response = await fetch(API + '/admin/tutoring/upload-qr', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + TOKEN },
+        body: formData,
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || '二维码上传失败');
+      qrUrl = result.url;
+    }
+
+    await api('POST', '/admin/tutoring', {
+      enabled: document.getElementById('tutoring-enabled').checked,
+      eyebrow: document.getElementById('tutoring-eyebrow').value.trim(),
+      title: document.getElementById('tutoring-title').value.trim(),
+      description: document.getElementById('tutoring-description').value.trim(),
+      services: readTutoringServiceRows(),
+      contact_title: document.getElementById('tutoring-contact-title').value.trim(),
+      contact_description: document.getElementById('tutoring-contact-description').value.trim(),
+      qr_caption: document.getElementById('tutoring-qr-caption').value.trim(),
+      qr_code_url: qrUrl,
+    });
+    toast('名师辅导配置已保存并同步官网');
+    renderTutoringSettings();
+  } catch(e) {
+    toast(e.message, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = '💾 保存并同步官网';
+  }
+}
+
+document.addEventListener('change', event => {
+  if (event.target?.id !== 'tutoring-qr-file' || !event.target.files?.[0]) return;
+  const file = event.target.files[0];
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    event.target.value = '';
+    return toast('二维码仅支持 JPG、PNG 或 WebP 图片', true);
+  }
+  const reader = new FileReader();
+  reader.onload = () => renderTutoringQrPreview(reader.result);
+  reader.readAsDataURL(file);
+});
 
 /* ───────────────────────────── 问题反馈 (REPORTS) ──────────────────────────── */
 let rpState = {page:1, limit:20, status:'', ref_type:'', search:'', total:0};

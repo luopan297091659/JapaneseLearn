@@ -194,7 +194,10 @@ router.get('/session-status', authenticate, asyncHandler(async (req, res) => {
 // 注意：此路由不能使用 express.json() 中间件，需要 raw body
 // 单独导出，在 app.js 中用 express.raw() 挂载
 async function stripeWebhook(req, res) {
+  let eventId;
+  let eventType;
   try {
+    logger.info(`Stripe webhook received: method=${req.method}, path=${req.originalUrl}`);
     const stripe = getStripe();
     const sig = req.headers['stripe-signature'];
     const { webhookSecret } = getStripeConfig();
@@ -206,50 +209,55 @@ async function stripeWebhook(req, res) {
       logger.error(`Stripe webhook signature verification failed: ${err.message}`);
       return res.status(400).json({ error: 'Webhook signature verification failed' });
     }
+    eventId = event.id;
+    eventType = event.type;
+    logger.info(`Stripe webhook verified: event=${eventId}, type=${eventType}`);
 
     // 处理 checkout.session.completed 事件
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
-      if (session.payment_status === 'paid') {
-        const { user_id, plan_id, plan_period } = session.metadata || {};
-        if (user_id && plan_id) {
-          try {
-            const user = await User.findByPk(user_id);
-            if (user) {
-              // 终身会员不可被降级，同时避免为终身会员叠加日期造成溢出
-              if (user.membership_plan === 'lifetime') {
-                logger.warn(`Stripe payment ignored (already lifetime): user=${user_id}, plan=${plan_id}`);
-              } else if (plan_id === 'lifetime') {
-                await user.update({
-                  membership_plan: 'lifetime',
-                  membership_expire: new Date('2099-12-31'),
-                });
-                logger.info(`Stripe payment success: user=${user_id}, plan=lifetime`);
-              } else {
-                let expire = calcExpire(plan_period);
-                // 如果已有会员且未过期，从当前到期日延长
-                if (user.membership_expire && new Date(user.membership_expire) > new Date()) {
-                  const currentExpire = new Date(user.membership_expire);
-                  const extension = expire.getTime() - Date.now();
-                  expire = new Date(currentExpire.getTime() + extension);
-                }
-                await user.update({
-                  membership_plan: plan_id,
-                  membership_expire: expire,
-                });
-                logger.info(`Stripe payment success: user=${user_id}, plan=${plan_id}, expire=${expire.toISOString()}`);
-              }
-            }
-          } catch (err) {
-            logger.error(`Failed to activate membership after payment: ${err.message}`);
+      const { user_id, plan_id, plan_period } = session.metadata || {};
+      logger.info(`Stripe Checkout completed: event=${eventId}, session=${session.id}, payment_status=${session.payment_status}, user=${user_id || 'missing'}, plan=${plan_id || 'missing'}`);
+      if (session.payment_status !== 'paid') {
+        logger.warn(`Stripe Checkout not paid; membership not activated: event=${eventId}, session=${session.id}, payment_status=${session.payment_status}`);
+      } else if (!user_id || !plan_id) {
+        logger.error(`Stripe Checkout metadata missing; membership not activated: event=${eventId}, session=${session.id}`);
+      } else {
+        const user = await User.findByPk(user_id);
+        if (!user) {
+          throw new Error(`Stripe Checkout user not found: event=${eventId}, user=${user_id}`);
+        }
+        // 终身会员不可被降级，同时避免为终身会员叠加日期造成溢出
+        if (user.membership_plan === 'lifetime') {
+          logger.warn(`Stripe payment ignored (already lifetime): event=${eventId}, user=${user_id}, plan=${plan_id}`);
+        } else if (plan_id === 'lifetime') {
+          await user.update({
+            membership_plan: 'lifetime',
+            membership_expire: new Date('2099-12-31'),
+          });
+          logger.info(`Stripe payment success: event=${eventId}, user=${user_id}, plan=lifetime`);
+        } else {
+          let expire = calcExpire(plan_period);
+          // 如果已有会员且未过期，从当前到期日延长
+          if (user.membership_expire && new Date(user.membership_expire) > new Date()) {
+            const currentExpire = new Date(user.membership_expire);
+            const extension = expire.getTime() - Date.now();
+            expire = new Date(currentExpire.getTime() + extension);
           }
+          await user.update({
+            membership_plan: plan_id,
+            membership_expire: expire,
+          });
+          logger.info(`Stripe payment success: event=${eventId}, user=${user_id}, plan=${plan_id}, expire=${expire.toISOString()}`);
         }
       }
+    } else {
+      logger.info(`Stripe webhook event ignored (no handler): event=${eventId}, type=${eventType}`);
     }
 
     res.json({ received: true });
   } catch (err) {
-    logger.error(`Stripe webhook error: ${err.message}`);
+    logger.error(`Stripe webhook processing failed: event=${eventId || 'unverified'}, type=${eventType || 'unknown'}, error=${err.message}`);
     res.status(500).json({ error: 'Webhook processing failed' });
   }
 }

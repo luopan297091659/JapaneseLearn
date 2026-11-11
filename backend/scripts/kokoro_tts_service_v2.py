@@ -61,8 +61,7 @@ CONFIG = {
     "enabled": True,
     "default_voice": "a",
     "default_emotion": "neutral",
-    "tts_engine": os.getenv("TTS_ENGINE", "edge-tts"),  # 可配置: edge-tts, gtts, google-tts, white-noise (gtts不支持多音色)
-    "audio_format": os.getenv("AUDIO_FORMAT", "mp3"),  # 输出格式: mp3(默认,兼容性最好) 或 wav
+    "tts_engine": os.getenv("TTS_ENGINE", "edge-tts"),  # 可配置: edge-tts, gtts, google-tts
     "voices": {
         "a": {"name": "女声优美", "lang": "ja_JP", "lang_label": "🇯🇵 日语", "supported_emotions": ["neutral", "happy", "sad"]},
         "b": {"name": "女声清晰", "lang": "ja_JP", "lang_label": "🇯🇵 日语", "supported_emotions": ["neutral", "happy", "sad"]},
@@ -135,25 +134,33 @@ class RealTTS:
         if self.engine == "edge-tts":
             try:
                 return self._synthesize_edge(text, speed)
-            except Exception as e:
-                print(f"[!] Edge-TTS failed: {e}")
+            except Exception as edge_error:
+                print(f"[!] Edge-TTS failed: {edge_error}")
+                if not HAS_GTTS:
+                    raise RuntimeError(
+                        f"Edge-TTS failed and gTTS fallback is unavailable: {edge_error}"
+                    ) from edge_error
+                try:
+                    print("[*] Falling back to gTTS")
+                    return self._synthesize_gtts(text, speed)
+                except Exception as gtts_error:
+                    raise RuntimeError(
+                        f"Edge-TTS failed ({edge_error}); gTTS fallback failed ({gtts_error})"
+                    ) from gtts_error
         elif self.engine == "gtts":
             try:
                 return self._synthesize_gtts(text, speed)
             except Exception as e:
                 print(f"[!] gTTS failed: {e}")
+                raise RuntimeError(f"gTTS synthesis failed: {e}") from e
         elif self.engine == "google-tts":
             try:
                 return self._synthesize_google(text, speed)
             except Exception as e:
                 print(f"[!] Google TTS failed: {e}")
-        elif self.engine == "white-noise":
-            print(f"[*] Using configured white-noise fallback")
-            return self._synthesize_fallback(text, speed)
-        
-        # 默认fallback
-        print("[WARNING] Unsupported engine, falling back to white noise")
-        return self._synthesize_fallback(text, speed)
+                raise RuntimeError(f"Google TTS synthesis failed: {e}") from e
+        else:
+            raise ValueError(f"Unsupported TTS engine: {self.engine}")
     
     def _synthesize_edge(self, text: str, speed: float) -> bytes:
         """使用Microsoft Edge-TTS 异步调用"""
@@ -201,6 +208,8 @@ class RealTTS:
                 loop.close()
             
             print(f"[✓] Edge-TTS synthesis successful: {len(audio_bytes)} bytes")
+            if not audio_bytes:
+                raise ValueError("Edge-TTS returned empty audio")
             return audio_bytes
         except ImportError as e:
             raise Exception(f"edge-tts not installed: {e}")
@@ -222,6 +231,8 @@ class RealTTS:
             tts.write_to_fp(fp)
             fp.seek(0)
             audio_bytes = fp.read()
+            if not audio_bytes:
+                raise ValueError("gTTS returned empty audio")
             
             print(f"[✓] gTTS synthesis successful: {len(audio_bytes)} bytes")
             return audio_bytes
@@ -256,6 +267,8 @@ class RealTTS:
                 voice=voice,
                 audio_config=audio_config,
             )
+            if not response.audio_content:
+                raise ValueError("Google TTS returned empty audio")
             
             print(f"[✓] Google TTS synthesis successful: {len(response.audio_content)} bytes")
             return response.audio_content
@@ -264,37 +277,13 @@ class RealTTS:
         except Exception as e:
             raise Exception(f"Google TTS synthesis failed: {str(e)}")
     
-    def _synthesize_fallback(self, text: str, speed: float) -> bytes:
-        """降级方案:白噪声(当没有TTS引擎时)"""
-        import struct
-        import random
-        
-        sample_rate = 24000
-        duration_ms = int(len(text) * 50 / speed)
-        num_samples = int(sample_rate * duration_ms / 1000)
-        
-        # WAV文件头
-        wav_header = bytearray()
-        wav_header.extend(b'RIFF')
-        wav_header.extend(struct.pack('<I', 36 + num_samples * 2))
-        wav_header.extend(b'WAVE')
-        wav_header.extend(b'fmt ')
-        wav_header.extend(struct.pack('<I', 16))
-        wav_header.extend(struct.pack('<HHIIHH', 1, 1, sample_rate, sample_rate * 2, 2, 16))
-        wav_header.extend(b'data')
-        wav_header.extend(struct.pack('<I', num_samples * 2))
-        
-        # 白噪声
-        audio_data = bytearray()
-        for _ in range(num_samples):
-            sample = random.randint(-100, 100)
-            audio_data.extend(struct.pack('<h', sample))
-        
-        return bytes(wav_header) + bytes(audio_data)
-
 # ─── TTS 实例池 ────────────────────────────────────────────────────────────
 tts_instances = {}
 tts_lock = asyncio.Lock()
+
+def audio_format_for_engine(engine: str) -> str:
+    """Return the container format produced by each provider."""
+    return "wav" if engine == "google-tts" else "mp3"
 
 def get_tts_instance(voice: str, emotion: str, engine: str = None):
     """获取或创建 TTS 实例"""
@@ -313,7 +302,7 @@ class TTSRequest(BaseModel):
     voice: str = CONFIG["default_voice"]
     emotion: str = CONFIG["default_emotion"]
     speed: float = 1.0
-    engine: str = None  # 可选:指定TTS引擎(edge-tts, gtts, google-tts, white-noise)
+    engine: str = None  # 可选:指定TTS引擎(edge-tts, gtts, google-tts)
 
 class TTSResponse(BaseModel):
     audio_url: str
@@ -346,9 +335,9 @@ async def health_check():
         "status": "ok",
         "service": "Kokoro TTS v2",
         "voices": list(CONFIG["voices"].keys()),
-        "available_engines": ["edge-tts", "gtts", "google-tts", "white-noise"],
+        "available_engines": ["edge-tts", "gtts", "google-tts"],
         "configured_engine": CONFIG.get("tts_engine", "edge-tts"),
-        "audio_format": CONFIG.get("audio_format", "mp3"),
+        "audio_format": audio_format_for_engine(CONFIG.get("tts_engine", "edge-tts")),
         "note": "Engine can be customized per request or via TTS_ENGINE env var",
     }
 
@@ -359,7 +348,7 @@ async def get_voices():
         "default_voice": CONFIG["default_voice"],
         "default_emotion": CONFIG["default_emotion"],
         "voices": CONFIG["voices"],
-        "available_engines": ["edge-tts", "gtts", "google-tts", "white-noise"],
+        "available_engines": ["edge-tts", "gtts", "google-tts"],
         "configured_engine": CONFIG.get("tts_engine", "edge-tts"),
         "note": "Specify 'engine' parameter in /api/v1/tts/kokoro request to override",
     }
@@ -386,14 +375,15 @@ async def kokoro_tts_api(req: TTSRequest, background_tasks: BackgroundTasks):
     try:
         # 在线程池中运行合成，避免blocking FastAPI的async event loop
         def synthesize_sync():
-            tts = get_tts_instance(req.voice, req.emotion, engine=req.engine)
+            engine = req.engine or CONFIG.get("tts_engine", "edge-tts")
+            tts = get_tts_instance(req.voice, req.emotion, engine=engine)
             return tts.synthesize(req.text, speed=req.speed)
         
         # 使用asyncio.to_thread在线程池中运行，避免event loop冲突
         audio_bytes = await asyncio.to_thread(synthesize_sync)
         
         # 保存到临时文件（根据配置决定格式）
-        audio_fmt = CONFIG.get("audio_format", "mp3")
+        audio_fmt = audio_format_for_engine(req.engine or CONFIG.get("tts_engine", "edge-tts"))
         filename = f"kokoro_{uuid.uuid4().hex}.{audio_fmt}"
         file_path = TEMP_AUDIO_DIR / filename
         
@@ -422,6 +412,8 @@ async def synthesize_single(text: str, voice: str, emotion: str, engine: str, sp
         )
     
     try:
+        engine = engine or CONFIG.get("tts_engine", "edge-tts")
+
         # 在线程池中运行合成（IO密集型），单个文本超时设为15秒
         def synthesize_sync():
             tts = get_tts_instance(voice, emotion, engine=engine)
@@ -434,7 +426,7 @@ async def synthesize_single(text: str, voice: str, emotion: str, engine: str, sp
         )
         
         # 保存到临时文件（根据配置决定格式）
-        audio_fmt = CONFIG.get("audio_format", "mp3")
+        audio_fmt = audio_format_for_engine(engine)
         filename = f"kokoro_{uuid.uuid4().hex}.{audio_fmt}"
         file_path = TEMP_AUDIO_DIR / filename
         
@@ -564,7 +556,7 @@ async def startup_event():
     print(f"\n{'='*60}")
     print(f"  Kokoro TTS Service v2.0.0 Starting")
     print(f"{'='*60}")
-    print(f"  TTS Engine: Microsoft Edge-TTS (Primary)")
+    print(f"  TTS Engine: {CONFIG.get('tts_engine', 'edge-tts')}")
     print(f"  Region: Works in China Mainland (No proxy needed)")
     print(f"  Voices: {', '.join(CONFIG['voices'].keys())}")
     print(f"  Temp Audio Dir: {TEMP_AUDIO_DIR}")
@@ -577,7 +569,7 @@ if __name__ == "__main__":
     host = os.getenv("KOKORO_HOST", CONFIG["host"])
     
     print(f"Starting Kokoro TTS Service v2.0.0 on {host}:{port}")
-    print(f"TTS Engine: Microsoft Edge-TTS (Primary) - Works in China Mainland\n")
+    print(f"TTS Engine: {CONFIG.get('tts_engine', 'edge-tts')}\n")
     
     uvicorn.run(
         app,

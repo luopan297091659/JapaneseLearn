@@ -2,10 +2,11 @@
 
 ## 问题诊断
 
-**当前状态**: 旧版 `kokoro_tts_service.py` 使用 SimpleTTS 模拟器生成白噪声
-- 代码位置: `backend/scripts/kokoro_tts_service.py` 行 68-75
-- 根本原因: `random.randint(-100, 100)` 生成随机音频样本而不是语音
-- 症状: 生成的所有音频文件都是白噪声，无法识别语音
+旧版 `kokoro_tts_service.py` 是没有语音模型的测试模拟器，不是真正的 Kokoro 推理服务。v2 使用 Edge-TTS，Edge-TTS 失败时尝试 gTTS；两者都失败会返回错误，不再保存伪造的白噪声音频。
+
+日志中出现 `Edge-TTS ... 403` 表示 Edge-TTS 请求被服务端拒绝。旧逻辑会把该错误吞掉，再用 `random.randint()` 生成白噪声；同时生成的 WAV 数据可能被命名为 MP3。请运行更新后的 v2 服务，并在日志中确认 gTTS 回退是否成功。
+
+注意：此服务当前调用 Edge-TTS、gTTS 或 Google TTS，并未加载 Kokoro ONNX 模型。
 
 ## 解决方案对比
 
@@ -111,11 +112,12 @@ curl -X POST http://127.0.0.1:8010/api/v1/tts/kokoro \
 ```bash
 pip install gtts uvicorn fastapi pydantic
 
-# 启动时自动选择 gTTS (无需API密钥)
+# 将 gTTS 设为默认引擎 (无需API密钥)
+export TTS_ENGINE=gtts
 python kokoro_tts_service_v2.py
 ```
 
-**注意**: gTTS 质量较低，可能有请求限制。
+默认引擎仍是 Edge-TTS；若 Edge-TTS 失败，服务会尝试使用 gTTS。gTTS 质量较低，且可能有请求限制。
 
 ## PM2 配置 (生产部署)
 
@@ -234,20 +236,18 @@ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/google-creds.json"
 ### Issue 4: 仍然生成白噪声
 
 **可能原因**:
-1. 未启动新的 `v2` 服务 (仍在运行旧版本)
-2. PM2 缓存问题
+1. 运行的仍是旧版 `kokoro_tts_service.py` 模拟器
+2. v2 文件或 Python 服务进程尚未更新
+3. 其他服务或旧数据中仍有此前生成的白噪声音频
 
 **解决**:
 ```bash
-# 完全停止旧服务
-pm2 kill  # 停止所有PM2进程
-# 或
-ps aux | grep kokoro
-kill -9 <PID>
-
-# 启动新服务
-python kokoro_tts_service_v2.py
+# 仅重启 Kokoro TTS 服务，然后确认启动日志显示 TTS Engine
+pm2 restart kokoro-tts
+pm2 logs kokoro-tts --lines 50
 ```
+
+若 Edge-TTS 返回 403，查看后续日志中的 gTTS 回退结果；若回退也失败，接口会返回错误，不会生成音频文件。确认部署了更新后的 v2 脚本且安装了 gTTS。
 
 ### Issue 5: 连接被拒绝
 
@@ -297,7 +297,7 @@ pm2 start ecosystem.config.js --only kokoro-tts
 
 | 文件 | 位置 | 版本 | 状态 |
 |------|------|------|------|
-| `kokoro_tts_service.py` | `backend/scripts/` | v1 (旧) | ❌ 白噪声 |
-| `kokoro_tts_service_v2.py` | `backend/scripts/` | v2 (新) | ✅ 真实语音 |
+| `kokoro_tts_service.py` | `backend/scripts/` | v1 (旧) | ❌ 无语音模型；现已拒绝生成占位音频 |
+| `kokoro_tts_service_v2.py` | `backend/scripts/` | v2 (新) | ✅ Edge-TTS，失败时回退 gTTS |
 
 **推荐升级**: ✅ 立即升级到 v2.0

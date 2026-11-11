@@ -305,6 +305,7 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 .lesson-meaning { margin:22px 0; padding:16px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); font-size:16px; }
 .word-row { display:flex; gap:8px; flex-wrap:wrap; }
 .word-chip { padding:7px 10px; background:var(--paper); border-radius:8px; font-size:12px; }
+.lesson-explanation { margin:16px 0 0; padding:12px 14px; border-left:3px solid var(--red); background:var(--paper); color:var(--muted); font-size:12px; line-height:1.7; }
 .progress-row { display:flex; align-items:center; gap:12px; padding:20px 4px 3px; font-size:12px; }
 .progress-track { flex:1; height:6px; background:rgba(255,255,255,.15); border-radius:99px; overflow:hidden; }
 .progress-track i { display:block; width:68%; height:100%; background:var(--lime); }
@@ -460,16 +461,18 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } *,*::before,*::after { animation-duration:.01ms!important; animation-iteration-count:1!important; } }
 </style>
 
+<link rel="stylesheet" href="/site-nav.css">
+<script src="/site-nav.js" defer></script>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5858977826294206" crossorigin="anonymous"></script>
 </head>
 <body>
 
 <!-- Nav -->
 <nav class="site-nav" aria-label="主导航">
-  <div class="logo" onclick="location.href='/'">
+  <a class="logo" href="/">
     <img src="/home/app_icon.png" alt="言旅">
     言旅<sub>Kotabi</sub>
-  </div>
+  </a>
   <div class="spacer"></div>
   <a class="nav-link active desktop-link" href="#method">学习路线</a>
   <a class="nav-link desktop-link" href="#lesson">免费微课</a>
@@ -477,23 +480,25 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
   <a class="nav-link desktop-link" href="/jlpt">JLPT 题库</a>
   <a class="nav-link desktop-link" href="/download">软件下载</a>
   <a class="nav-link desktop-link" href="/membership">会员权益</a>
+  <a class="nav-link desktop-link" href="/tutoring">名师辅导</a>
   <a class="nav-link desktop-link" href="/support">技术支持</a>
   <a class="nav-link nav-cta" href="/app">在线学习</a>
-  <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-expanded="false" aria-controls="mobileNavPanel" onclick="toggleMobileMenu()"><span class="menu-icon" aria-hidden="true"><i></i><i></i><i></i></span><span>菜单</span></button>
+  <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-expanded="false" aria-controls="mobileNavPanel"><span class="menu-icon" aria-hidden="true"><i></i><i></i><i></i></span><span>菜单</span></button>
   <div class="auth-slot">
     <span class="user-badge" id="userBadge" onclick="showUserMenu()"></span>
     <a class="nav-link" id="loginBtn" href="javascript:void(0)" onclick="showAuthModal()">登录</a>
   </div>
-  <div class="mobile-nav-backdrop" id="mobileNavBackdrop" onclick="closeMobileMenu()" aria-hidden="true"></div>
+  <div class="mobile-nav-backdrop" id="mobileNavBackdrop" aria-hidden="true"></div>
   <div class="mobile-nav-panel" id="mobileNavPanel" aria-label="移动端导航">
-    <a href="#method" onclick="closeMobileMenu()"><span class="mobile-nav-icon">路</span>学习路线</a>
-    <a href="#lesson" onclick="closeMobileMenu()"><span class="mobile-nav-icon">文</span>免费微课</a>
-    <a href="/tools" onclick="closeMobileMenu()"><span class="mobile-nav-icon">具</span>学习工具</a>
-    <a href="/jlpt" onclick="closeMobileMenu()"><span class="mobile-nav-icon">N</span>JLPT 题库</a>
-    <a href="/download" onclick="closeMobileMenu()"><span class="mobile-nav-icon">↓</span>软件下载</a>
-    <a href="/membership" onclick="closeMobileMenu()"><span class="mobile-nav-icon">会</span>会员权益</a>
-    <a href="/support" onclick="closeMobileMenu()"><span class="mobile-nav-icon">技</span>技术支持</a>
-    <a class="mobile-nav-primary" href="/app" onclick="closeMobileMenu()">免费开始学习 <span>→</span></a>
+    <a href="#method"><span class="mobile-nav-icon">路</span>学习路线</a>
+    <a href="#lesson"><span class="mobile-nav-icon">文</span>免费微课</a>
+    <a href="/tools"><span class="mobile-nav-icon">具</span>学习工具</a>
+    <a href="/jlpt"><span class="mobile-nav-icon">N</span>JLPT 题库</a>
+    <a href="/download"><span class="mobile-nav-icon">↓</span>软件下载</a>
+    <a href="/membership"><span class="mobile-nav-icon">会</span>会员权益</a>
+    <a href="/tutoring"><span class="mobile-nav-icon">师</span>名师辅导</a>
+    <a href="/support"><span class="mobile-nav-icon">技</span>技术支持</a>
+    <a class="mobile-nav-primary" href="/app">免费开始学习 <span>→</span></a>
   </div>
 </nav>
 
@@ -512,16 +517,16 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
       </div>
       <div class="hero-note"><span>无需信用卡</span><span>网页与 App 同步</span><span>支持零基础</span></div>
     </div>
-    <div class="learning-card" aria-label="言旅每日学习示例">
-      <div class="lesson-top"><b>言旅 · 每日 20 分钟</b><span>第 12 天</span></div>
+    <div class="learning-card" aria-label="日语例句与句型讲解">
+      <div class="lesson-top"><b>例句拆解 · 问路</b><span>日常表达</span></div>
       <div class="lesson-main">
-        <span class="lesson-tag">TODAY'S SENTENCE</span>
+        <span class="lesson-tag">JAPANESE IN CONTEXT</span>
         <h2 lang="ja">駅まで、どう行けば<br>いいですか。</h2>
         <p class="lesson-reading" lang="ja">えきまで、どういけば いいですか。</p>
         <div class="lesson-meaning">请问去车站该怎么走？</div>
-        <div class="word-row"><span class="word-chip">駅 · 车站</span><span class="word-chip">まで · 到</span><span class="word-chip">どう · 怎样</span></div>
+        <div class="word-row"><span class="word-chip">駅（えき）· 车站</span><span class="word-chip">まで · 到</span><span class="word-chip">どう · 怎样</span></div>
+        <p class="lesson-explanation"><strong>句型：</strong>「どう行けばいいですか」用来询问“怎么去比较好”。「行けば」是「行く」的ば形；把地点放在「まで」前面，就能问去某处的路线。</p>
       </div>
-      <div class="progress-row"><span>今日进度</span><div class="progress-track"><i></i></div><b>4 / 6</b></div>
     </div>
   </div>
 </section>
@@ -724,25 +729,6 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 
 <script src="/home/qrcode.min.js"></script>
 <script>
-/* ── Mobile navigation ── */
-function setMobileMenu(open) {
-  const button = document.getElementById('mobileMenuButton');
-  const panel = document.getElementById('mobileNavPanel');
-  const backdrop = document.getElementById('mobileNavBackdrop');
-  if (!button || !panel || !backdrop) return;
-  button.setAttribute('aria-expanded', String(open));
-  panel.classList.toggle('open', open);
-  backdrop.classList.toggle('open', open);
-  document.body.classList.toggle('mobile-menu-open', open);
-}
-
-function toggleMobileMenu() {
-  const button = document.getElementById('mobileMenuButton');
-  setMobileMenu(button?.getAttribute('aria-expanded') !== 'true');
-}
-
-function closeMobileMenu() { setMobileMenu(false); }
-
 function renderFreeLessonAlbums(albums) {
   const container = document.getElementById('freeLessonAlbums');
   container.replaceChildren();
@@ -795,13 +781,6 @@ async function loadFreeLessonAlbums() {
 }
 
 loadFreeLessonAlbums();
-
-document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') closeMobileMenu();
-});
-window.addEventListener('resize', () => {
-  if (window.innerWidth > 600) closeMobileMenu();
-});
 
 /* ── Particle background ── */
 (function() {

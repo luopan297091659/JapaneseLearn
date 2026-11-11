@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>技术支持 & 社区 — 言旅 Kotabi</title>
+<meta name="description" content="言旅 Kotabi 使用帮助：查看登录验证、学习记录同步、音频播放和软件下载的排查步骤，也可通过邮件联系支持团队。">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://kotabi.top/support/">
 <link rel="icon" type="image/png" href="/home/app_icon.png">
 <style>
 :root {
@@ -124,6 +127,17 @@ nav .nav-link.active { color: var(--primary); }
   background: rgba(255,255,255,.2); backdrop-filter: blur(4px);
 }
 .community-card .comm-arrow { font-size: 24px; flex-shrink: 0; z-index: 1; opacity: .7; }
+.help-section { max-width: 960px; margin: 0 auto; padding: 0 clamp(12px,4vw,48px); }
+.help-section h2 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+.help-intro { color: var(--text-sub); font-size: 14px; margin-bottom: 20px; }
+.help-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.help-item { padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.help-item h3 { margin-bottom: 8px; font-size: 15px; }
+.help-item p { color: var(--text-sub); font-size: 13px; line-height: 1.75; }
+.contact-note { margin-top: 16px; padding: 18px 20px; border-radius: 12px; background: var(--primary-light); color: var(--text); font-size: 13px; line-height: 1.8; }
+.contact-note p { margin: 0; }
+.contact-note a { font-weight: 700; }
+@media (max-width: 600px) { .help-list { grid-template-columns: 1fr; } }
 @media (max-width: 600px) {
   .community-card { flex-direction: column; text-align: center; padding: 28px 20px; }
   .community-card .comm-arrow { display: none; }
@@ -158,53 +172,46 @@ footer {
 /* 与官网首页统一的站点配色和导航 */
 :root { --paper:#f7f2e8; --ink:#15221d; --muted:#647069; --red:#d94f3d; --green:#244f3d; --line:rgba(21,34,29,.13); }
 body { background:var(--paper); color:var(--ink); }
-.site-nav { height:72px; padding:0 max(24px,calc((100vw - 1180px)/2)); background:rgba(247,242,232,.9); border:0; border-bottom:1px solid var(--line); box-shadow:none; overflow:visible; }
-.site-nav .logo { color:var(--ink); font-size:19px; letter-spacing:.02em; }.site-nav .logo img { width:36px; height:36px; border-radius:10px; }.site-nav .logo sub { color:var(--red); letter-spacing:.12em; font-weight:700; }
-.site-nav .nav-link { color:var(--muted); font-size:14px; background:transparent; }.site-nav .nav-link:hover,.site-nav .nav-link.active { color:var(--red); background:transparent; }
-.site-nav .nav-cta { background:var(--ink); color:#fff; border-radius:999px; padding:8px 16px; }.site-nav .nav-cta:hover { background:var(--green); color:#fff; }
-.mobile-menu-button,.mobile-nav-backdrop,.mobile-nav-panel { display:none; }
 .page-header { margin-top:72px; background:var(--paper); color:var(--ink); border-bottom:1px solid var(--line); }.page-header h1 { color:var(--ink); }.page-header p { color:var(--muted); }
 .community-card { background:linear-gradient(135deg,var(--ink),var(--green)); box-shadow:0 8px 32px rgba(21,34,29,.18); }
 .community-card:hover { box-shadow:0 12px 40px rgba(21,34,29,.24); }
-@media(max-width:900px) { .site-nav .desktop-link { display:inline-flex; } }
-@media(max-width:760px) {
-  .site-nav { height:64px; padding:0 16px; }.site-nav .logo { font-size:17px; }.site-nav .logo img { width:32px; height:32px; }.site-nav .logo sub { display:none; }
-  .site-nav .desktop-link,.site-nav .nav-cta { display:none; }.site-nav .mobile-menu-button { display:inline-flex; margin-left:auto; }
-  .mobile-menu-button { align-items:center; gap:7px; height:38px; padding:0 10px; border:1px solid var(--line); border-radius:10px; background:rgba(255,255,255,.45); color:var(--ink); font:800 13px/1 "Noto Sans CJK SC","PingFang SC","Microsoft YaHei",sans-serif; cursor:pointer; }
-  .mobile-menu-button .menu-icon { position:relative; width:18px; height:14px; }.mobile-menu-button .menu-icon i { position:absolute; left:0; width:18px; height:2px; border-radius:2px; background:currentColor; }
-  .mobile-menu-button .menu-icon i:nth-child(1) { top:0; }.mobile-menu-button .menu-icon i:nth-child(2) { top:6px; }.mobile-menu-button .menu-icon i:nth-child(3) { top:12px; }
-  .mobile-menu-button[aria-expanded="true"] .menu-icon i:nth-child(1) { top:6px; transform:rotate(45deg); }.mobile-menu-button[aria-expanded="true"] .menu-icon i:nth-child(2) { opacity:0; }.mobile-menu-button[aria-expanded="true"] .menu-icon i:nth-child(3) { top:6px; transform:rotate(-45deg); }
-  .site-nav .auth-slot { width:auto; min-width:0; flex:0 0 auto; margin-left:0; }
-  .mobile-nav-backdrop.open { position:fixed; display:block; inset:64px 0 0; background:rgba(21,34,29,.3); z-index:99; }
-  .mobile-nav-panel.open { position:absolute; display:grid; grid-template-columns:1fr 1fr; gap:8px; top:calc(100% + 1px); left:12px; right:12px; padding:14px; background:#fffdf8; border:1px solid var(--line); border-radius:0 0 18px 18px; box-shadow:0 20px 42px rgba(21,34,29,.18); z-index:101; }
-  .mobile-nav-panel a { min-height:48px; display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:12px; color:var(--ink); background:var(--paper); font-size:13px; font-weight:800; }.mobile-nav-panel a:hover { color:var(--red); }.mobile-nav-panel .mobile-nav-primary { grid-column:1/-1; justify-content:center; background:var(--ink); color:#fff; }
-  body.mobile-menu-open { overflow:hidden; }.page-header { margin-top:64px; }
-}
 </style>
 
+<link rel="stylesheet" href="/site-nav.css">
+<script src="/site-nav.js" defer></script>
 <meta name="google-adsense-account" content="ca-pub-5858977826294206">
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5858977826294206" crossorigin="anonymous"></script>
 </head>
 <body>
 
-<nav class="site-nav">
-  <div class="logo" onclick="location.href='/'">
+<nav class="site-nav" aria-label="主导航">
+  <a class="logo" href="/">
     <img src="/home/app_icon.png" alt="言旅">
     言旅<sub>Kotabi</sub>
-  </div>
+  </a>
   <div class="spacer"></div>
   <a class="nav-link desktop-link" href="/#method">学习路线</a>
   <a class="nav-link desktop-link" href="/#lesson">免费微课</a>
   <a class="nav-link desktop-link" href="/tools">学习工具</a>
   <a class="nav-link desktop-link" href="/jlpt">JLPT 题库</a>
   <a class="nav-link desktop-link" href="/download">软件下载</a>
-  <a class="nav-link desktop-link active" href="/support">技术支持</a>
+  <a class="nav-link desktop-link" href="/membership">会员权益</a>
+  <a class="nav-link desktop-link" href="/tutoring">名师辅导</a>
+  <a class="nav-link desktop-link active" href="/support" aria-current="page">技术支持</a>
   <a class="nav-link nav-cta" href="/app">在线学习</a>
-  <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-expanded="false" aria-controls="mobileNavPanel" onclick="toggleMobileMenu()"><span class="menu-icon" aria-hidden="true"><i></i><i></i><i></i></span><span>菜单</span></button>
+  <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-expanded="false" aria-controls="mobileNavPanel"><span class="menu-icon" aria-hidden="true"><i></i><i></i><i></i></span><span>菜单</span></button>
   <div class="auth-slot" aria-hidden="true"></div>
-  <div class="mobile-nav-backdrop" id="mobileNavBackdrop" onclick="closeMobileMenu()" aria-hidden="true"></div>
+  <div class="mobile-nav-backdrop" id="mobileNavBackdrop" aria-hidden="true"></div>
   <div class="mobile-nav-panel" id="mobileNavPanel" aria-label="移动端导航">
-    <a href="/#method" onclick="closeMobileMenu()">学习路线</a><a href="/#lesson" onclick="closeMobileMenu()">免费微课</a><a href="/tools" onclick="closeMobileMenu()">学习工具</a><a href="/jlpt" onclick="closeMobileMenu()">JLPT 题库</a><a href="/download" onclick="closeMobileMenu()">软件下载</a><a href="/support" onclick="closeMobileMenu()">技术支持</a><a class="mobile-nav-primary" href="/app" onclick="closeMobileMenu()">在线学习 →</a>
+    <a href="/#method"><span class="mobile-nav-icon">路</span>学习路线</a>
+    <a href="/#lesson"><span class="mobile-nav-icon">文</span>免费微课</a>
+    <a href="/tools"><span class="mobile-nav-icon">具</span>学习工具</a>
+    <a href="/jlpt"><span class="mobile-nav-icon">N</span>JLPT 题库</a>
+    <a href="/download"><span class="mobile-nav-icon">↓</span>软件下载</a>
+    <a href="/membership"><span class="mobile-nav-icon">会</span>会员权益</a>
+    <a href="/tutoring"><span class="mobile-nav-icon">师</span>名师辅导</a>
+    <a class="active" href="/support" aria-current="page"><span class="mobile-nav-icon">技</span>技术支持</a>
+    <a class="mobile-nav-primary" href="/app">免费开始学习 <span>→</span></a>
   </div>
 </nav>
 
@@ -219,13 +226,12 @@ body { background:var(--paper); color:var(--ink); }
     <div class="comm-icon">🌏</div>
     <div class="comm-body">
       <h2>加入言旅学习社区</h2>
-      <p>与数千名日语学习者一起交流！分享学习心得、互助答疑、每日打卡、参与话题讨论。
-        社区由言旅官方运营，定期举办学习活动和挑战赛。</p>
+      <p>围绕日语学习方法、词汇语法和赴日生活交流经验。进入社区后可查看当前开放的讨论内容，也可以先浏览下方的常见问题与排查步骤。</p>
       <div class="comm-tags">
-        <span class="comm-tag">📝 学习打卡</span>
-        <span class="comm-tag">💬 互助答疑</span>
-        <span class="comm-tag">🏆 活动挑战</span>
-        <span class="comm-tag">📚 资源分享</span>
+        <span class="comm-tag">词汇与语法</span>
+        <span class="comm-tag">学习方法</span>
+        <span class="comm-tag">赴日生活</span>
+        <span class="comm-tag">问题反馈</span>
       </div>
     </div>
     <div class="comm-arrow">→</div>
@@ -246,9 +252,39 @@ body { background:var(--paper); color:var(--ink); }
 <div class="channels-grid" id="channelsGrid" style="display:none"></div>
 
 <div class="empty-state" id="emptyState" style="display:none">
-  <div class="icon">🏗️</div>
-  <p>支持渠道正在建设中，敬请期待</p>
+  <div class="icon">💬</div>
+  <p>目前没有可公开展示的交流群。需要产品帮助时，可通过下方邮箱联系。</p>
 </div>
+
+<section class="help-section" id="help">
+  <h2>常见问题与自助排查</h2>
+  <p class="help-intro">先按下面的步骤检查。不同设备和网络环境可能有差异；如果仍无法解决，请把问题现象和复现步骤发给我们。</p>
+  <div class="help-list">
+    <article class="help-item">
+      <h3>收不到登录或注册验证码</h3>
+      <p>确认输入的是注册账号使用的完整邮箱地址，检查垃圾邮件和广告邮件文件夹，并确认邮箱没有拼写错误。稍等片刻后再尝试发送；若仍收不到，请联系支持团队并注明邮箱服务商。请勿在邮件中发送密码或验证码。</p>
+    </article>
+    <article class="help-item">
+      <h3>网页与 App 的学习记录看起来不同</h3>
+      <p>先确认两端登录的是同一个账号，并检查网络连接。重新进入相关学习页面，等待待同步内容完成后再比较记录。不要在数据尚未同步时清除浏览器数据或卸载 App。</p>
+    </article>
+    <article class="help-item">
+      <h3>听力或发音音频无法播放</h3>
+      <p>检查设备音量、静音状态和网络连接；尝试重新打开页面或切换网络。若只有某一条音频失败，请记录课程或词条名称、设备型号、浏览器及系统版本，便于定位具体内容。</p>
+    </article>
+    <article class="help-item">
+      <h3>下载、安装或打开应用遇到问题</h3>
+      <p>请从<a href="/download">官方软件下载页</a>获取当前发布版本，并先核对页面显示的版本状态。iPhone/iPad 用户按页面指引前往 App Store；Android 安装提示与设备系统版本有关，只安装由官方页面提供的文件。</p>
+    </article>
+    <article class="help-item">
+      <h3>会员权益或订单需要协助</h3>
+      <p>查看<a href="/membership">会员权益页面</a>和<a href="/app/refund.html">退款政策</a>。联系时提供账号邮箱、套餐名称、订单时间及遇到的提示；不要发送密码、验证码或完整支付卡号。</p>
+    </article>
+  </div>
+  <div class="contact-note">
+    <p><strong>联系支持：</strong><a href="mailto:kotabi@163.com?subject=%E8%A8%80%E6%97%85%E4%BD%BF%E7%94%A8%E5%8F%8D%E9%A6%88">kotabi@163.com</a>。请附上问题页面、设备与浏览器/App 版本、操作步骤和错误提示；截图请先遮挡邮箱、订单号等个人信息。</p>
+  </div>
+</section>
 
 <footer>© 2026 言旅 Kotabi — 让日语学习成为一段美好旅程<br><a href="/app/terms.html" style="color:#8B4513;text-decoration:none">用户协议</a> <span style="margin:0 4px;color:#9ca3af">·</span> <a href="/app/privacy.html" style="color:#8B4513;text-decoration:none">隐私政策</a> <span style="margin:0 4px;color:#9ca3af">·</span> <a href="/app/tokusho.html" style="color:#8B4513;text-decoration:none">特定商取引法</a></footer>
 
@@ -261,6 +297,7 @@ function esc(s){ const d=document.createElement('div'); d.textContent=s; return 
 async function loadChannels(){
   try{
     const res = await fetch('/api/v1/support-channels');
+    if(!res.ok) throw new Error(`加载支持渠道失败 (${res.status})`);
     const data = await res.json();
     const channels = data.channels || [];
     document.getElementById('loading').style.display = 'none';
@@ -298,15 +335,12 @@ async function loadChannels(){
   }catch(e){
     document.getElementById('loading').style.display = 'none';
     document.getElementById('emptyState').style.display = '';
+    document.getElementById('emptyState').querySelector('p').textContent = '暂时无法加载公开交流群。需要产品帮助时，可通过下方邮箱联系。';
     console.error('加载支持渠道失败:', e);
   }
 }
 
 loadChannels();
-</script>
-<script>
-function toggleMobileMenu(){const button=document.getElementById('mobileMenuButton');const panel=document.getElementById('mobileNavPanel');const backdrop=document.getElementById('mobileNavBackdrop');const open=button.getAttribute('aria-expanded')!=='true';button.setAttribute('aria-expanded',String(open));panel.classList.toggle('open',open);backdrop.classList.toggle('open',open);document.body.classList.toggle('mobile-menu-open',open)}
-function closeMobileMenu(){const button=document.getElementById('mobileMenuButton');const panel=document.getElementById('mobileNavPanel');const backdrop=document.getElementById('mobileNavBackdrop');button.setAttribute('aria-expanded','false');panel.classList.remove('open');backdrop.classList.remove('open');document.body.classList.remove('mobile-menu-open')}
 </script>
 </body>
 </html>

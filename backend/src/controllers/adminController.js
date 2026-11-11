@@ -2749,7 +2749,7 @@ async function getKokoroSettings(req, res) {
       default_engine: 'edge-tts',
       default_speed: 1.0,
       speed_range: { min: 0.5, max: 2.0 },
-      engines: ['edge-tts', 'gtts', 'google-tts', 'white-noise'],
+      engines: ['edge-tts', 'gtts', 'google-tts'],
       voices: {
         'a': { name: '女声优美', lang: 'ja_JP', emotions: ['neutral', 'happy', 'sad'] },
         'b': { name: '女声清晰', lang: 'ja_JP', emotions: ['neutral', 'happy', 'sad'] },
@@ -2806,7 +2806,7 @@ async function saveKokoroSettings(req, res) {
     }
     
     // 验证engine参数
-    const validEngines = ['edge-tts', 'gtts', 'google-tts', 'white-noise'];
+    const validEngines = ['edge-tts', 'gtts', 'google-tts'];
     if (default_engine && !validEngines.includes(default_engine)) {
       return res.status(400).json({ error: `Invalid engine: must be one of ${validEngines.join(', ')}` });
     }
@@ -3525,6 +3525,94 @@ async function getPublicSupportChannels(req, res) {
   res.json({ channels: visible });
 }
 
+// ─── 名师辅导官网配置 ──────────────────────────────────────────────────────
+const TUTORING_KEY = 'tutoring_page';
+const DEFAULT_TUTORING_CONFIG = {
+  enabled: true,
+  eyebrow: 'PERSONALIZED JAPANESE COACHING',
+  title: '把学习目标，变成清晰可走的进阶路线。',
+  description: '无论是日语入门、JLPT 备考，还是口语表达与赴日生活准备，告诉我们你的目标与目前水平，获取适合自己的学习建议。',
+  services: [
+    { title: 'JLPT 备考规划', description: '结合目标等级与备考周期，梳理词汇、语法、读解和听力的复习重点。' },
+    { title: '日语基础与能力提升', description: '根据目前水平制定学习节奏，针对薄弱环节安排练习与阶段复盘。' },
+    { title: '口语与赴日准备', description: '围绕真实生活与交流场景，练习表达并提前熟悉常见沟通内容。' },
+  ],
+  contact_title: '扫码咨询名师辅导',
+  contact_description: '添加辅导顾问，说明你的目标、目前水平与可安排时间，获取课程介绍和学习建议。',
+  qr_code_url: '',
+  qr_caption: '名师辅导咨询',
+};
+
+async function _readTutoringConfig() {
+  const kv = await sequelize.models.AppConfig.findOne({ where: { key: TUTORING_KEY } });
+  if (!kv) return { ...DEFAULT_TUTORING_CONFIG };
+  const config = JSON.parse(kv.value);
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    throw apiError('名师辅导配置格式无效', 500);
+  }
+  return { ...DEFAULT_TUTORING_CONFIG, ...config };
+}
+
+async function _writeTutoringConfig(config) {
+  await sequelize.models.AppConfig.upsert({
+    key: TUTORING_KEY,
+    value: JSON.stringify(config),
+    description: '官网名师辅导页面配置',
+  });
+}
+
+async function getTutoringConfig(req, res) {
+  res.json({ tutoring: await _readTutoringConfig() });
+}
+
+async function saveTutoringConfig(req, res) {
+  const body = req.body || {};
+  const config = {
+    enabled: body.enabled === true,
+    eyebrow: String(body.eyebrow || '').trim(),
+    title: String(body.title || '').trim(),
+    description: String(body.description || '').trim(),
+    services: Array.isArray(body.services) ? body.services.map(service => ({
+      title: String(service?.title || '').trim(),
+      description: String(service?.description || '').trim(),
+    })) : [],
+    contact_title: String(body.contact_title || '').trim(),
+    contact_description: String(body.contact_description || '').trim(),
+    qr_code_url: String(body.qr_code_url || '').trim(),
+    qr_caption: String(body.qr_caption || '').trim(),
+  };
+
+  if (!config.title || config.title.length > 100) return res.status(400).json({ error: '页面标题必填且不能超过 100 个字符' });
+  if (config.eyebrow.length > 100) return res.status(400).json({ error: '英文眉题不能超过 100 个字符' });
+  if (!config.description || config.description.length > 1000) return res.status(400).json({ error: '页面介绍必填且不能超过 1000 个字符' });
+  if (config.services.length < 1 || config.services.length > 6) return res.status(400).json({ error: '辅导方向需设置 1 至 6 项' });
+  if (config.services.some(service => !service.title || service.title.length > 80 || !service.description || service.description.length > 500)) {
+    return res.status(400).json({ error: '每个辅导方向都需要标题和介绍，标题最多 80 字、介绍最多 500 字' });
+  }
+  if (!config.contact_title || config.contact_title.length > 100) return res.status(400).json({ error: '联系方式标题必填且不能超过 100 个字符' });
+  if (!config.contact_description || config.contact_description.length > 500) return res.status(400).json({ error: '联系方式介绍必填且不能超过 500 个字符' });
+  if (config.qr_code_url.length > 500) return res.status(400).json({ error: '二维码图片地址不能超过 500 个字符' });
+  if (!config.qr_caption || config.qr_caption.length > 80) return res.status(400).json({ error: '二维码说明必填且不能超过 80 个字符' });
+
+  await _writeTutoringConfig(config);
+  res.json({ ok: true, tutoring: config });
+}
+
+async function uploadTutoringQrCode(req, res) {
+  if (!req.file) return res.status(400).json({ error: '请上传二维码图片' });
+  const ext = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' }[req.file.mimetype];
+  if (!ext) return res.status(400).json({ error: '二维码仅支持 JPG、PNG 或 WebP 图片' });
+  const filename = `tutoring_${Date.now()}_${uuidv4().slice(0, 8)}${ext}`;
+  const dir = path.join(__dirname, '../../uploads/tutoring');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, filename), req.file.buffer);
+  res.json({ ok: true, url: `/uploads/tutoring/${filename}` });
+}
+
+async function getPublicTutoringConfig(req, res) {
+  res.json({ tutoring: await _readTutoringConfig() });
+}
+
 async function listSharedVocabDecksAdmin(req, res) {
   const { q, status = '', page = 1, limit = 20 } = req.query;
   const lim = Math.min(parseInt(limit, 10) || 20, 100);
@@ -3637,6 +3725,7 @@ module.exports = {
   listOrders, reviewOrder, uploadQrCode,
   getEmailSettings, saveEmailSettings, testEmailSettings,
   getFreeLessonAlbums, saveFreeLessonAlbums, getPublicFreeLessonAlbums,
+  getTutoringConfig, saveTutoringConfig, uploadTutoringQrCode, getPublicTutoringConfig,
   getSupportChannels, saveSupportChannel, deleteSupportChannel, uploadSupportQrCode, getPublicSupportChannels,
   listSharedVocabDecksAdmin, toggleDefaultSharedVocabDeckAdmin, unshareSharedVocabDeckAdmin,
 };

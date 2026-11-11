@@ -5,7 +5,7 @@ const { JlptResourceDirectory, JlptResourceFile, ToolUsageLog } = require('../mo
 const { isActiveMember } = require('../middlewares/membership');
 
 const LEVELS = ['N1', 'N2', 'N3', 'N4', 'N5'];
-const YEARS = Array.from({ length: 16 }, (_, i) => 2010 + i);
+const YEARS = Array.from({ length: 21 }, (_, i) => 2010 + i);
 const SESSIONS = ['07', '12'];
 const UPLOAD_ROOT = path.join(__dirname, '../../private/jlpt-resources');
 const PUBLIC_ROOT = '/api/v1/jlpt-resources/files';
@@ -15,7 +15,7 @@ function assertDirectoryInput(level, year, session) {
   const normalizedYear = Number(year);
   const normalizedSession = String(session || '').padStart(2, '0');
   if (!LEVELS.includes(normalizedLevel)) throw new Error('JLPT 级别无效');
-  if (!YEARS.includes(normalizedYear)) throw new Error('年份必须在 2010-2025 之间');
+  if (!YEARS.includes(normalizedYear)) throw new Error('年份必须在 2010-2030 之间');
   if (!SESSIONS.includes(normalizedSession)) throw new Error('场次必须是 07 或 12');
   return { level: normalizedLevel, year: normalizedYear, session: normalizedSession };
 }

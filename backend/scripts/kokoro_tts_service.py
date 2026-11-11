@@ -57,32 +57,10 @@ class SimpleTTS:
         print(f"TTS instance created: voice={voice}, emotion={emotion}")
     
     def synthesize(self, text: str, speed: float = 1.0) -> bytes:
-        """模拟音频合成 - 返回WAV文件头+简单音频数据"""
-        # 创建最小的WAV文件（实际应使用真实ONNX模型）
-        sample_rate = 24000
-        duration_ms = int(len(text) * 50 / speed)  # 估算时长
-        num_samples = int(sample_rate * duration_ms / 1000)
-        
-        # WAV文件头
-        import struct
-        wav_header = bytearray()
-        wav_header.extend(b'RIFF')
-        wav_header.extend(struct.pack('<I', 36 + num_samples * 2))
-        wav_header.extend(b'WAVE')
-        wav_header.extend(b'fmt ')
-        wav_header.extend(struct.pack('<I', 16))
-        wav_header.extend(struct.pack('<HHIIHH', 1, 1, sample_rate, sample_rate * 2, 2, 16))
-        wav_header.extend(b'data')
-        wav_header.extend(struct.pack('<I', num_samples * 2))
-        
-        # 简单音频数据（白噪声或静音）
-        import random
-        audio_data = bytearray()
-        for _ in range(num_samples):
-            sample = random.randint(-100, 100)  # 微弱信号
-            audio_data.extend(struct.pack('<h', sample))
-        
-        return bytes(wav_header) + bytes(audio_data)
+        raise RuntimeError(
+            "The legacy service has no speech model; refusing to generate placeholder noise. "
+            "Run kokoro_tts_service_v2.py with a working TTS provider."
+        )
 
 # ─── TTS 实例池 ────────────────────────────────────────────────────────────
 tts_instances = {}
@@ -349,4 +327,3 @@ if __name__ == "__main__":
         workers=1,  # Kokoro 模型较重，1个worker避免内存过度
         log_level="info",
     )
-

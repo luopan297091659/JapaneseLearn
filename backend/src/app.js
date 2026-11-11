@@ -89,7 +89,7 @@ app.get('/', (_req, res, next) => {
   res.setHeader('Content-Security-Policy', homeCsp);
   next();
 });
-app.use('/support', (_req, res, next) => {
+app.use(['/support', '/tutoring'], (_req, res, next) => {
   res.setHeader('Content-Security-Policy', homeCsp);
   next();
 });
@@ -189,6 +189,15 @@ app.use(apiLogger);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/audio', express.static(path.join(__dirname, '../uploads/audio')));
 app.use('/uploads/shared-vocab-covers', express.static(path.join(__dirname, '../uploads/shared-vocab-covers')));
+const tutoringPagePath = path.join(__dirname, '../public/tutoring/index.html');
+app.get('/tutoring', (_req, res, next) => {
+  res.type('html');
+  res.setHeader('Content-Disposition', 'inline');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.sendFile(tutoringPagePath, err => {
+    if (err) next(err);
+  });
+});
 // Root-level static files (meta.json etc)
 app.use(express.static(path.join(__dirname, '../public'), { index: false }));
 // Admin panel static files
@@ -275,10 +284,15 @@ app.use('/api/v1/tools', require('./routes/tools'));
 app.use('/api/v1/shared-vocab', sharedVocabRoutes);
 
 // 公开接口：支持渠道
-const { getPublicSupportChannels, getPublicFreeLessonAlbums } = require('./controllers/adminController');
+const {
+  getPublicSupportChannels,
+  getPublicFreeLessonAlbums,
+  getPublicTutoringConfig,
+} = require('./controllers/adminController');
 const asyncHandlerPublic = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 app.get('/api/v1/support-channels', asyncHandlerPublic(getPublicSupportChannels));
 app.get('/api/v1/home/free-lessons', asyncHandlerPublic(getPublicFreeLessonAlbums));
+app.get('/api/v1/tutoring', asyncHandlerPublic(getPublicTutoringConfig));
 
 // Health check
 app.get('/health', (req, res) => {
