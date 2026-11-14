@@ -90,23 +90,14 @@ body.app-ads-disabled [id^="aswift_"] { display: none !important; }
   transition: all .15s; border: 1px solid color-mix(in srgb, var(--primary) 12%, transparent);
 }
 #topbar .user-btn:hover { background: var(--primary); color: #fff; transform: translateY(-1px); }
-#topbar .settings-wrap { position: relative; }
-#topbar .settings-btn {
-  display: flex; align-items: center; justify-content: center;
-  width: 38px; height: 38px; border-radius: 999px; cursor: pointer;
-  background: var(--primary-light); color: var(--primary); font-size: 18px;
-  transition: all .15s; border: 1px solid color-mix(in srgb, var(--primary) 12%, transparent);
-}
-#topbar .settings-btn:hover { background: var(--primary); color: #fff; transform: translateY(-1px); }
-.settings-dropdown {
-  display: none; position: absolute; top: calc(100% + 8px); right: 0;
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  box-shadow: var(--shadow-md); padding: 16px; min-width: 260px; z-index: 200;
-}
-.settings-dropdown.show { display: block; }
-.settings-dropdown .sd-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
-.settings-dropdown .sd-section { font-size: 11px; color: var(--text-hint); margin: 12px 0 6px; text-transform: uppercase; letter-spacing: .5px; }
-.settings-dropdown .sd-section:first-child { margin-top: 0; }
+#topbar .user-avatar { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%; background: var(--primary); color: #fff; font-size: 13px; font-weight: 800; flex-shrink: 0; }
+#topbar .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.profile-preference-section { padding: 14px 0; border-bottom: 1px solid var(--border); }
+.profile-preference-section:last-child { border-bottom: none; }
+.profile-preference-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+.profile-preference-section .sd-section { font-size: 11px; color: var(--text-hint); margin: 10px 0 6px; text-transform: uppercase; letter-spacing: .5px; }
+.profile-ad-control { padding: 10px 0 0 36px; }
+.profile-ad-control .ad-settings-toggle { font-size: 13px; }
 .ad-settings-toggle { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 12px; cursor: pointer; }
 .ad-settings-toggle input { accent-color: var(--primary); }
 .ad-settings-note { color: var(--text-sub); font-size: 11px; line-height: 1.5; margin-top: 5px; }
@@ -394,6 +385,21 @@ body.app-ads-disabled [id^="aswift_"] { display: none !important; }
   gap: 14px;
   margin-bottom: 16px;
 }
+.home-checkin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -4px 0 16px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 16%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--primary-light) 68%, var(--surface));
+}
+.home-checkin-copy { min-width: 0; }
+.home-checkin-title { font-size: 13px; font-weight: 800; color: var(--text); }
+.home-checkin-subtitle { margin-top: 3px; font-size: 12px; color: var(--text-sub); }
+.home-checkin-row .btn { flex: 0 0 auto; white-space: nowrap; }
 .home-today-summary {
   display: inline-flex;
   align-items: center;
@@ -566,6 +572,8 @@ body.app-ads-disabled [id^="aswift_"] { display: none !important; }
 @media (max-width: 640px) {
   .home-progress-card { padding: 16px; }
   .home-progress-head { align-items: flex-start; flex-direction: column; }
+  .home-checkin-row { align-items: stretch; flex-direction: column; }
+  .home-checkin-row .btn { width: 100%; justify-content: center; }
   .home-stats-grid, .home-goals-list { grid-template-columns: 1fr; }
 }
 .welcome-text h2 { color: var(--primary); }
@@ -705,7 +713,9 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
 
 /* ─── Profile ──────────────────────────────────────────────── */
 .profile-avatar { width: 80px; height: 80px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; margin: 0 auto 12px; position: relative; }
-.profile-avatar .avatar-edit { position: absolute; bottom: 0; right: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--primary); border: 2px solid var(--bg); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px; color: #fff; }
+.profile-avatar > img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.profile-avatar .avatar-edit { position: absolute; bottom: 0; right: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--primary); border: 2px solid var(--surface); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; color: #fff; }
+.profile-avatar .avatar-edit:disabled { cursor: wait; opacity: .7; }
 .profile-info { text-align: center; margin-bottom: 16px; }
 .profile-info h2 { font-size: 22px; font-weight: 700; margin: 0 0 2px; }
 .profile-info p { color: var(--text-sub); margin: 0; }
@@ -762,6 +772,8 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
   #main.sidebar-collapsed #content { margin-left: 0; }
   #topbar .hdr-stats { display: none; }
   #topbar .hdr-greeting { display: none; }
+  #topbar .user-btn { max-width: 150px; padding: 7px 10px; }
+  #topbar .user-btn #topbar-username { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 #topbar .hamburger { display: none; flex-direction: column; gap: 4px; padding: 8px; cursor: pointer; border-radius: 10px; background: var(--primary-light); }
 #topbar .hamburger span { width: 20px; height: 2px; background: var(--text); border-radius: 1px; }
@@ -1002,19 +1014,8 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
     </div>
     <span id="topbar-member-badge" class="member-badge free" onclick="navigate('membership')" style="display:none">免费版</span>
     <div class="user-btn" onclick="navigate('profile')">
+      <span class="user-avatar" id="topbar-avatar" aria-hidden="true">我</span>
       <span id="topbar-username">...</span>
-    </div>
-    <div class="settings-wrap">
-      <button class="settings-btn" onclick="toggleSettingsDropdown(event)" title="设置">⚙</button>
-      <div class="settings-dropdown" id="settingsDropdown">
-        <div class="sd-title">主题设置</div>
-        <div class="sd-section">浅色</div>
-        <div class="theme-grid" id="lightThemes"></div>
-        <div class="sd-section">素色</div>
-        <div class="theme-grid" id="darkThemes"></div>
-        <div class="sd-section">广告设置</div>
-        <div id="ad-settings-control"></div>
-      </div>
     </div>
   </div>
 
@@ -1049,7 +1050,7 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
       <div class="nav-item" data-page="wrong-answers" onclick="navigate('wrong-answers')"><span class="icon">📝</span>错题集<span class="nav-lock" title="会员功能">🔒</span></div>
       <div class="nav-section">账号</div>
       <div class="nav-item" data-page="membership" onclick="navigate('membership')"><span class="icon">👑</span>会员</div>
-      <div class="nav-item" data-page="profile" onclick="navigate('profile')"><span class="icon">👤</span>我的</div>
+      <div class="nav-item" data-page="profile" onclick="navigate('profile')"><span class="icon">👤</span>个人设置</div>
       <div class="nav-footer">
         <div style="padding:6px 14px 10px;font-size:12px;display:flex;gap:10px;flex-wrap:wrap">
           <a href="/app/terms.html" style="color:var(--primary);text-decoration:none;opacity:.7" target="_blank">用户协议</a>
@@ -1105,6 +1106,13 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
           <div class="home-progress-head">
             <div class="home-progress-title"><span class="icon">📊</span><span>今日学习</span></div>
             <div class="home-today-summary" id="home-today-summary">今日状态</div>
+          </div>
+          <div class="home-checkin-row">
+            <div class="home-checkin-copy">
+              <div class="home-checkin-title">🎁 每日签到</div>
+              <div class="home-checkin-subtitle" id="home-checkin-status">签到领取 5 XP，保持学习连续性</div>
+            </div>
+            <button class="btn btn-primary btn-sm" id="home-checkin-btn" onclick="doDailyCheckin()">立即签到 +5 XP</button>
           </div>
           <div class="home-stats-grid">
             <div class="home-stat-tile">
@@ -1913,7 +1921,7 @@ ruby rt { font-size: 0.6em; color: var(--text-sub); font-weight: 600; }
 
       <!-- 个人页 -->
       <div class="page" id="page-profile">
-        <h2 style="margin-bottom:20px;font-size:22px">👤 我的</h2>
+        <h2 style="margin-bottom:20px;font-size:22px">👤 个人设置</h2>
         <div class="card" id="profile-card">
           <div class="loading"><div class="spinner"></div></div>
         </div>
@@ -1996,8 +2004,16 @@ function clearTokens() {
 }
 
 let _isRefreshing = false;
+function getLocalDateString() {
+  const now = new Date();
+  const pad = value => String(value).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
 async function request(method, path, body = null, opts = {}, _retryCount = 0) {
-  const headers = { 'Content-Type': 'application/json' };
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+  const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
+  headers['X-Client-Date'] = getLocalDateString();
   const token = getToken();
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -2009,7 +2025,7 @@ async function request(method, path, body = null, opts = {}, _retryCount = 0) {
   try {
     res = await fetch(API + path, {
       method, headers,
-      body: body ? JSON.stringify(body) : undefined,
+      body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
       signal: controller.signal,
       ...opts,
     });
@@ -2156,6 +2172,7 @@ async function cachedGET(path, opts = {}) {
 const GET  = (p, opts) => cachedGET(p, opts);
 const POST = async (p, b) => { const data = await request('POST', p, b); clearApiCache(); return data; };
 const PUT  = async (p, b) => { const data = await request('PUT', p, b); clearApiCache(); return data; };
+const UPLOAD = async (p, formData) => { const data = await request('POST', p, formData); clearApiCache(); return data; };
 
 // ══════════════════════════════════════════════════════════════════
 //  TOAST
@@ -2307,6 +2324,22 @@ function showApp() {
   document.getElementById('app').style.display = 'flex';
 }
 
+function getAvatarImageUrl(url) {
+  if (!url) return '';
+  return `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`;
+}
+
+function renderTopbarUser(user = {}) {
+  const username = user.username || '我';
+  const nameEl = document.getElementById('topbar-username');
+  const avatarEl = document.getElementById('topbar-avatar');
+  if (nameEl) nameEl.textContent = username;
+  if (!avatarEl) return;
+  avatarEl.innerHTML = user.avatar_url
+    ? `<img src="${escHtml(getAvatarImageUrl(user.avatar_url))}" alt="">`
+    : escHtml((username.trim()[0] || '我').toUpperCase());
+}
+
 function switchAuthTab(tab) {
   document.getElementById('tab-login').classList.toggle('active', tab === 'login');
   document.getElementById('tab-code-login').classList.toggle('active', tab === 'code-login');
@@ -2356,7 +2389,7 @@ async function doLogin() {
     setToken(res.accessToken, res.refreshToken);
     showApp();
     loadHome();
-    if (res.user) document.getElementById('topbar-username').textContent = res.user.username || email;
+    renderTopbarUser(res.user || { username: email });
   } catch(e) {
     showAuthError(errEl, formatAuthError(e, '登录失败', 'password'));
   }
@@ -2382,7 +2415,7 @@ async function doRegister() {
     setToken(res.accessToken, res.refreshToken);
     showApp();
     loadHome();
-    if (res.user) document.getElementById('topbar-username').textContent = res.user.username || name;
+    renderTopbarUser(res.user || { username: name });
   } catch(e) {
     showAuthError(errEl, e.message || '注册失败，请稍后重试');
   }
@@ -2453,7 +2486,7 @@ async function doCodeLogin() {
     setToken(res.accessToken, res.refreshToken);
     showApp();
     loadHome();
-    if (res.user) document.getElementById('topbar-username').textContent = res.user.username || email;
+    renderTopbarUser(res.user || { username: email });
   } catch(e) {
     showAuthError(errEl, formatAuthError(e, '登录失败', 'code'));
   }
@@ -2495,8 +2528,8 @@ function applyTheme(themeId) {
   renderThemeDots(themeId);
 }
 function renderThemeDots(activeId) {
-  const lightC = document.getElementById('lightThemes');
-  const darkC = document.getElementById('darkThemes');
+  const lightC = document.getElementById('profile-light-themes');
+  const darkC = document.getElementById('profile-dark-themes');
   if (!lightC || !darkC) return;
   lightC.innerHTML = ''; darkC.innerHTML = '';
   THEMES.forEach(t => {
@@ -2508,16 +2541,11 @@ function renderThemeDots(activeId) {
     (isDark ? darkC : lightC).appendChild(el);
   });
 }
-function toggleSettingsDropdown(e) {
-  e.stopPropagation();
-  const dd = document.getElementById('settingsDropdown');
-  dd.classList.toggle('show');
-}
 const APP_ADS_CLIENT = 'ca-pub-5858977826294206';
 let _appAdsScriptStarted = false;
 let _adPreferenceKey = 'kotabi_ads_disabled';
 function renderAdSettings() {
-  const control = document.getElementById('ad-settings-control');
+  const control = document.getElementById('profile-ad-settings-control');
   if (!control) return;
   if (!_isMember) {
     control.innerHTML = '<div class="ad-settings-note">开通会员后，可在应用设置中关闭广告。</div><button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:8px;font-size:12px" onclick="navigate(\'membership\')">查看会员权益</button>';
@@ -2557,10 +2585,6 @@ function setAdFreePreference(disabled) {
   document.body.classList.toggle('app-ads-disabled', disabled);
   if (!disabled) loadAppAds();
 }
-document.addEventListener('click', function(e) {
-  const dd = document.getElementById('settingsDropdown');
-  if (dd && !dd.contains(e.target) && !e.target.closest('.settings-btn')) dd.classList.remove('show');
-});
 (function initTheme() {
   try {
     const saved = localStorage.getItem('kotabi_theme');
@@ -2600,7 +2624,7 @@ const PAGE_META = {
   'listening-exercise': { icon: '👂', name: '听力测验' },
   'listening-study': { icon: '🎧', name: '听力练习' },
   news:          { icon: '📰', name: '日语新闻' },
-  profile:       { icon: '👤', name: '我的' },
+  profile:       { icon: '👤', name: '个人设置' },
   pronunciation: { icon: '🎤', name: '发音训练' },
   flashcard:     { icon: '🃏', name: '闪卡练习' },
   gojuon:        { icon: '🔤', name: '五十音' },
@@ -2723,6 +2747,38 @@ async function homeSearchDict() {
 }
 
 let _homeLoadFailed = false;
+let _checkedInToday = false;
+let _checkingIn = false;
+
+function updateDailyCheckinUI() {
+  const btn = document.getElementById('home-checkin-btn');
+  const status = document.getElementById('home-checkin-status');
+  if (!btn || !status) return;
+  const streak = document.getElementById('home-streak')?.textContent || '0';
+  btn.disabled = _checkingIn || _checkedInToday;
+  btn.textContent = _checkingIn ? '签到中…' : _checkedInToday ? '今日已签到 ✓' : '立即签到 +5 XP';
+  status.textContent = _checkedInToday
+    ? `今日签到已完成 · 当前连续 ${streak} 天`
+    : '签到领取 5 XP，保持学习连续性';
+}
+
+async function doDailyCheckin() {
+  if (_checkingIn || _checkedInToday) return;
+  _checkingIn = true;
+  updateDailyCheckinUI();
+  try {
+    const result = await POST('/progress/checkin', {});
+    _checkedInToday = true;
+    await loadHome();
+    toast(result.already ? '今天已经签到过了' : '签到成功，获得 5 XP 🎉');
+  } catch (e) {
+    toast('签到失败：' + e.message);
+  } finally {
+    _checkingIn = false;
+    updateDailyCheckinUI();
+  }
+}
+
 async function loadHome() {
   _homeLoadFailed = false;
   let errorCount = 0;
@@ -2732,7 +2788,9 @@ async function loadHome() {
     const me = await GET('/auth/me');
     const u = me.user || me;
     const username = u.username || '';
-    document.getElementById('topbar-username').textContent = username || '我';
+    renderTopbarUser(u);
+    _checkedInToday = !!(u.last_study_date && u.last_study_date >= getLocalDateString());
+    updateDailyCheckinUI();
     updateWelcomeGreeting(username);
     // 更新会员徽章
     const isMember = u.is_member || false;
@@ -2833,6 +2891,7 @@ async function loadHome() {
     // 连续打卡
     document.getElementById('home-streak').textContent = dg.streak_days || 0;
     document.getElementById('hdr-streak').textContent = dg.streak_days || 0;
+    updateDailyCheckinUI();
 
     // 今日统计
     const td = dg.today || {};
@@ -5231,6 +5290,7 @@ async function loadProfile() {
     const me = await GET('/auth/me');
     const u = me.user || me;
     _profileUser = u;
+    renderTopbarUser(u);
     const isMember = u.is_member || false;
     const planLabel = isMember
       ? (u.membership_plan === 'yearly' ? '年度会员' : u.membership_plan === 'monthly' ? '月度会员' : u.membership_plan === 'lifetime' ? '终身会员' : '会员')
@@ -5239,9 +5299,12 @@ async function loadProfile() {
     const notifChecked = u.notification_enabled !== false ? 'checked' : '';
     el.innerHTML = `
       <div class="profile-avatar">
-        ${(u.username || '?')[0].toUpperCase()}
-        <div class="avatar-edit" onclick="editUsername()" title="修改用户名">✎</div>
+        ${u.avatar_url
+          ? `<img src="${escHtml(getAvatarImageUrl(u.avatar_url))}" alt="用户头像">`
+          : escHtml((u.username || '?')[0].toUpperCase())}
+        <button type="button" class="avatar-edit" onclick="triggerAvatarUpload()" title="更换头像" aria-label="更换头像">📷</button>
       </div>
+      <input type="file" id="profile-avatar-input" accept="image/*" style="display:none" onchange="uploadProfileAvatar(this)">
       <div class="profile-info">
         <h2 id="prof-username-display">${escHtml(u.username || '')}</h2>
         <p>${escHtml(u.email || '')}</p>
@@ -5312,6 +5375,17 @@ async function loadProfile() {
             <span class="slider"></span>
           </label>
         </div>
+        <div class="profile-preference-section">
+          <div class="profile-preference-title">🎨 主题设置</div>
+          <div class="sd-section">浅色</div>
+          <div class="theme-grid" id="profile-light-themes"></div>
+          <div class="sd-section">素色</div>
+          <div class="theme-grid" id="profile-dark-themes"></div>
+        </div>
+        <div class="profile-preference-section">
+          <div class="profile-preference-title">📢 广告设置</div>
+          <div id="profile-ad-settings-control" class="profile-ad-control"></div>
+        </div>
         <div class="setting-row" onclick="showChangePassword()">
           <span class="setting-icon">🔒</span>
           <div class="setting-body">
@@ -5326,9 +5400,51 @@ async function loadProfile() {
           </div>
         </div>
       </div>`;
+    const savedTheme = localStorage.getItem('kotabi_theme') || 'default';
+    renderThemeDots(savedTheme);
+    renderAdSettings();
   } catch(e) {
     el.innerHTML = `<p style="color:var(--danger)">加载失败: ${escHtml(e.message)}</p>`;
     settingsEl.style.display = 'none';
+  }
+}
+
+function triggerAvatarUpload() {
+  document.getElementById('profile-avatar-input')?.click();
+}
+
+async function uploadProfileAvatar(input) {
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    toast('请选择图片文件');
+    return;
+  }
+  if (file.size > 6 * 1024 * 1024) {
+    toast('头像图片不能超过 6MB');
+    return;
+  }
+
+  const button = document.querySelector('#profile-card .avatar-edit');
+  if (button) {
+    button.disabled = true;
+    button.textContent = '…';
+  }
+  const formData = new FormData();
+  formData.append('avatar', file);
+  try {
+    const user = await UPLOAD('/users/avatar', formData);
+    _profileUser = user;
+    renderTopbarUser(user);
+    await loadProfile();
+    toast('头像已更新并同步显示 ✓');
+  } catch (e) {
+    toast('头像上传失败：' + e.message);
+    if (button) {
+      button.disabled = false;
+      button.textContent = '📷';
+    }
   }
 }
 
@@ -5483,26 +5599,34 @@ function showChangePassword() {
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
       <button class="btn btn-outline" onclick="closeModal()">取消</button>
-      <button class="btn btn-primary" onclick="doChangePassword()">确认修改</button>
+      <button class="btn btn-primary" id="pwd-submit-btn" onclick="doChangePassword()">确认修改</button>
     </div>`;
   openModal('修改密码', html);
 }
 async function doChangePassword() {
   const errEl = document.getElementById('pwd-error');
+  const submitBtn = document.getElementById('pwd-submit-btn');
   const cur = document.getElementById('pwd-current')?.value;
   const nw  = document.getElementById('pwd-new')?.value;
   const cf  = document.getElementById('pwd-confirm')?.value;
   if (!cur) { errEl.textContent = '请输入当前密码'; errEl.style.display = ''; return; }
-  if (nw.length < 8) { errEl.textContent = '新密码至少8个字符'; errEl.style.display = ''; return; }
+  if (!nw || nw.length < 8) { errEl.textContent = '新密码至少8个字符'; errEl.style.display = ''; return; }
   if (nw !== cf) { errEl.textContent = '两次输入的新密码不一致'; errEl.style.display = ''; return; }
+  submitBtn.disabled = true;
+  submitBtn.textContent = '提交中...';
   try {
     await PUT('/users/change-password', { currentPassword: cur, newPassword: nw });
     closeModal();
     toast('密码已更新，请重新登录');
     setTimeout(() => doLogout(), 1500);
   } catch(e) {
-    errEl.textContent = '修改失败：当前密码不正确或网络错误';
+    errEl.textContent = '修改失败：' + e.message;
     errEl.style.display = '';
+  } finally {
+    if (submitBtn.isConnected) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '确认修改';
+    }
   }
 }
 

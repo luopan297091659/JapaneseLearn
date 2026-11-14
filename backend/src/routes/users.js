@@ -3,6 +3,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { authenticate } = require('../middlewares/auth');
 const { readFeatureTiers, getDailyUsageCount, isActiveMember } = require('../middlewares/membership');
 const User = require('../models/User');
+const HttpError = require('../utils/httpError');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
@@ -108,13 +109,21 @@ router.post('/avatar', authenticate, avatarUpload.single('avatar'), asyncHandler
 }));
 
 router.put('/change-password', authenticate, asyncHandler(async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
+  const { currentPassword, newPassword } = req.body || {};
+  if (typeof currentPassword !== 'string' || !currentPassword) {
+    throw new HttpError(400, '请输入当前密码');
+  }
+  if (typeof newPassword !== 'string' || newPassword.length < 8) {
+    throw new HttpError(400, '新密码至少需要 8 个字符');
+  }
+  if (newPassword === currentPassword) {
+    throw new HttpError(400, '新密码不能与当前密码相同');
+  }
   if (!(await req.user.validatePassword(currentPassword))) {
-    const HttpError = require('../utils/httpError');
-    throw new HttpError(401, 'Incorrect current password');
+    throw new HttpError(400, '当前密码不正确');
   }
   await req.user.update({ password_hash: newPassword });
-  res.json({ message: 'Password updated' });
+  res.json({ message: '密码已更新' });
 }));
 
 // ── GET /usage  获取今日功能用量（供客户端显示剩余额度）──

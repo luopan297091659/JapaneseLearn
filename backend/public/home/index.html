@@ -134,7 +134,6 @@ body.auth-ready .auth-slot { visibility: visible; }
   background: linear-gradient(135deg, #0f0c29 0%, #1a1a4e 40%, #24243e 100%);
   color: #fff; min-height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-#heroCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 .hero-content { position: relative; z-index: 2; }
 
 .hero h1 { font-size: clamp(24px,5vw,44px); font-weight: 900; margin-bottom: 12px; }
@@ -462,7 +461,9 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 </style>
 
 <link rel="stylesheet" href="/site-nav.css">
+<link rel="stylesheet" href="/site-particles.css">
 <script src="/site-nav.js" defer></script>
+<script src="/site-particles.js" defer></script>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5858977826294206" crossorigin="anonymous"></script>
 </head>
 <body>
@@ -505,7 +506,6 @@ body::before { content:""; position:fixed; inset:0; pointer-events:none; z-index
 <main>
 <!-- Hero -->
 <section class="home-hero" id="hero">
-  <canvas id="heroCanvas"></canvas>
   <div class="page-shell hero-grid">
     <div>
       <div class="eyebrow">为中文母语者设计</div>
@@ -781,44 +781,6 @@ async function loadFreeLessonAlbums() {
 }
 
 loadFreeLessonAlbums();
-
-/* ── Particle background ── */
-(function() {
-  const canvas = document.getElementById('heroCanvas');
-  const ctx = canvas.getContext('2d');
-  let W, H, particles = [], mouse = { x: -999, y: -999 };
-  const COUNT = 80, LINK = 120, MDIST = 150;
-  function resize() {
-    const h = document.getElementById('hero');
-    W = canvas.width = h.offsetWidth; H = canvas.height = h.offsetHeight;
-  }
-  function init() {
-    particles = [];
-    for (let i = 0; i < COUNT; i++)
-      particles.push({ x: Math.random()*W, y: Math.random()*H, vx:(Math.random()-.5)*.6, vy:(Math.random()-.5)*.6, r:Math.random()*2+1, c:['rgba(96,165,250,','rgba(167,139,250,','rgba(244,114,182,'][Math.floor(Math.random()*3)] });
-  }
-  function loop() {
-    ctx.clearRect(0,0,W,H);
-    for (const p of particles) {
-      p.x+=p.vx; p.y+=p.vy;
-      if(p.x<0||p.x>W)p.vx*=-1; if(p.y<0||p.y>H)p.vy*=-1;
-      const dx=p.x-mouse.x, dy=p.y-mouse.y, d=Math.sqrt(dx*dx+dy*dy);
-      if(d<MDIST){const f=(MDIST-d)/MDIST*.02;p.vx+=dx*f;p.vy+=dy*f;}
-      const s=Math.sqrt(p.vx*p.vx+p.vy*p.vy);if(s>1.5){p.vx*=1.5/s;p.vy*=1.5/s;}
-      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle=p.c+'0.7)'; ctx.fill();
-    }
-    for(let i=0;i<particles.length;i++)for(let j=i+1;j<particles.length;j++){
-      const dx=particles[i].x-particles[j].x,dy=particles[i].y-particles[j].y,d=Math.sqrt(dx*dx+dy*dy);
-      if(d<LINK){ctx.beginPath();ctx.moveTo(particles[i].x,particles[i].y);ctx.lineTo(particles[j].x,particles[j].y);ctx.strokeStyle='rgba(255,255,255,'+(.12*(1-d/LINK))+')';ctx.stroke();}
-    }
-    requestAnimationFrame(loop);
-  }
-  const hero=document.getElementById('hero');
-  hero.addEventListener('mousemove',e=>{const r=hero.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top;});
-  hero.addEventListener('mouseleave',()=>{mouse.x=-999;mouse.y=-999;});
-  window.addEventListener('resize',()=>{resize();init();});
-  resize(); init(); loop();
-})();
 
 /* ── App Download QR ── */
 const downloadUrls = {};

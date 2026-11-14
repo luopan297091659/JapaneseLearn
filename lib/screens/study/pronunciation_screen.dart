@@ -6,10 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:speech_to_text/speech_recognition_result.dart';
-import 'package:audio_session/audio_session.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
 import '../../utils/japanese_text_utils.dart';
+import '../../utils/audio_manager.dart';
 import '../../widgets/furigana_text.dart';
 import '../../utils/tts_helper.dart';
 import '../../services/permission_service.dart';
@@ -34,6 +34,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
   bool _listening = false;
   bool _speechAvailable = false;
   String? _speechLocaleId;
+  Future<void>? _speechInitialization;
   bool _isMember = true; // optimistic default
   bool _attemptFinalized = false;
   Timer? _resultDebounce;
@@ -67,7 +68,13 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
     await TtsHelper.configureForJapanese(_tts);
   }
 
-  Future<void> _initSpeech() async {
+  Future<void> _initSpeech() {
+    return _speechInitialization ??= _initializeSpeech().whenComplete(() {
+      _speechInitialization = null;
+    });
+  }
+
+  Future<void> _initializeSpeech() async {
     _speechAvailable = await _speech.initialize(
       onError: (error) {
         debugPrint('Speech init error: $error');
@@ -179,7 +186,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
 
   String _lastRecognized = '';
   bool _toggling = false;
-  bool _preferOnDevice = true; // 优先本地识别，失败后回退到在线
+  bool _preferOnDevice = true; // Android 优先本地识别，失败后回退到在线
   DateTime? _listenStartTime;
   String _debugStatus = 'idle';
   String _debugListenStarted = '-';
@@ -187,23 +194,29 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
   String _debugPartial = '-';
 
   /// 统一 finalize 入口 —— 所有路径都走这里
-  void _finalizeAttempt() {
+  Future<void> _finalizeAttempt() async {
     if (_attemptFinalized || !mounted) return;
     _attemptFinalized = true;
     _resultDebounce?.cancel();
     _safetyTimeout?.cancel();
-    _speech.stop();
 
-    // iOS: 恢复音频会话到 playback，确保后续TTS正常
-    if (Platform.isIOS) {
-      AudioSession.instance.then((session) {
-        session.configure(AudioSessionConfiguration(
-          avAudioSessionCategory: AVAudioSessionCategory.playback,
-          avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.duckOthers,
-        ));
-      }).catchError((_) {});
+    try {
+      await _speech.stop();
+    } catch (stopError) {
+      debugPrint('Speech stop error: $stopError');
+      try {
+        await _speech.cancel();
+      } catch (cancelError) {
+        debugPrint('Speech cancel error: $cancelError');
+        _attemptFinalized = false;
+        if (mounted) {
+          setState(() => _feedback = '停止录音失败，请再次点击停止');
+        }
+        return;
+      }
     }
 
+    if (!mounted) return;
     if (_lastRecognized.trim().isNotEmpty) {
       _processResult(_lastRecognized);
     } else {
@@ -223,7 +236,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
 
   Future<void> _doToggleRecord() async {
     if (_listening) {
-      _finalizeAttempt();
+      await _finalizeAttempt();
       return;
     }
 
@@ -238,30 +251,12 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
       return;
     }
 
-    // 确保 TTS 完全停止，释放 iOS 音频会话
-    await _tts.stop();
+    await AudioManager.instance.stopAll();
     await Future.delayed(const Duration(milliseconds: 300));
 
-    // iOS: 显式切换音频会话到 playAndRecord，确保麦克风可用
-    if (Platform.isIOS) {
-      try {
-        final session = await AudioSession.instance;
-        await session.configure(AudioSessionConfiguration(
-          avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
-          avAudioSessionCategoryOptions:
-              AVAudioSessionCategoryOptions.defaultToSpeaker |
-              AVAudioSessionCategoryOptions.allowBluetooth,
-          avAudioSessionMode: AVAudioSessionMode.measurement,
-        ));
-        await Future.delayed(const Duration(milliseconds: 200));
-      } catch (e) {
-        debugPrint('iOS AudioSession switch error: $e');
-      }
+    if (!_speechAvailable) {
+      await _initSpeech();
     }
-
-    // 每次录音前重新初始化 STT，避免 iOS 音频会话冲突
-    _speechAvailable = false;
-    await _initSpeech();
     if (!_speechAvailable) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -301,7 +296,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
             elapsed > 3000 &&
             _listening &&
             !_attemptFinalized) {
-          _finalizeAttempt();
+          unawaited(_finalizeAttempt());
         }
       };
 
@@ -314,27 +309,28 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
             });
           }
           if (result.finalResult && !_attemptFinalized) {
-            _finalizeAttempt();
+            unawaited(_finalizeAttempt());
             return;
           }
           _resultDebounce?.cancel();
           if (_lastRecognized.trim().isNotEmpty) {
             _resultDebounce = Timer(const Duration(seconds: 2), () {
               if (!_attemptFinalized && _listening) {
-                _finalizeAttempt();
+                unawaited(_finalizeAttempt());
               }
             });
           }
       }
 
-      // 优先本地识别，失败后自动回退到在线模式（兼容不支持 onDevice 的设备）
+      // Avoid immediate iOS fallback while the plugin may still be starting its audio engine.
       bool listenStarted = false;
-      final modesToTry = _preferOnDevice ? [true, false] : [false];
+      final modesToTry =
+          Platform.isIOS ? [false] : (_preferOnDevice ? [true, false] : [false]);
       for (final tryOnDevice in modesToTry) {
         try {
           final dynamic listenResult = await _speech.listen(
             localeId: _speechLocaleId ?? 'ja-JP',
-            onDevice: tryOnDevice,
+            listenOptions: stt.SpeechListenOptions(onDevice: tryOnDevice),
             onResult: onSttResult,
             listenFor: const Duration(seconds: 10),
             pauseFor: const Duration(seconds: 3),
@@ -343,7 +339,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
           final started = listenResult is bool ? listenResult : true;
           debugPrint('listen(onDevice: $tryOnDevice) => $listenResult');
           if (started) {
-            if (!tryOnDevice && _preferOnDevice) {
+            if (!Platform.isIOS && !tryOnDevice && _preferOnDevice) {
               _preferOnDevice = false;
               debugPrint('Falling back to online STT for this device');
             }
@@ -381,7 +377,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
       _safetyTimeout = Timer(const Duration(seconds: 13), () {
         if (!_attemptFinalized && _listening) {
           debugPrint('Safety timeout triggered');
-          _finalizeAttempt();
+          unawaited(_finalizeAttempt());
         }
       });
     } catch (e) {
@@ -524,7 +520,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
     _resultDebounce?.cancel();
     _safetyTimeout?.cancel();
     _tts.stop();
-    _speech.stop();
+    if (!_attemptFinalized) _speech.stop();
     super.dispose();
   }
 
@@ -774,7 +770,7 @@ class _PronunciationScreenState extends State<PronunciationScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('STT DEBUG', style: TextStyle(fontWeight: FontWeight.w700)),
-            Text('locale: ${_speechLocaleId ?? 'system-default'}, onDevice: $_preferOnDevice'),
+            Text('locale: ${_speechLocaleId ?? 'system-default'}, onDevice: ${Platform.isIOS ? false : _preferOnDevice}'),
             Text('available: $_speechAvailable, listening: $_listening, started: $_debugListenStarted'),
             Text('status: $_debugStatus'),
             Text('result: $_debugPartial'),

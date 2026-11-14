@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:speech_to_text/speech_recognition_result.dart';
 import '../../services/api_service.dart';
 import '../../services/permission_service.dart';
+import '../../utils/audio_manager.dart';
 import '../../widgets/furigana_text.dart';
 import '../../utils/tts_helper.dart';
 
@@ -34,6 +36,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
   bool _speechAvailable = false;
   bool _listening = false;
   String? _speechLocaleId;
+  Future<void>? _speechInitialization;
 
   // ── 评分 ──
   int? _score;
@@ -65,7 +68,13 @@ class _ListeningScreenState extends State<ListeningScreen> {
     } catch (_) {}
   }
 
-  Future<void> _initSpeech() async {
+  Future<void> _initSpeech() {
+    return _speechInitialization ??= _initializeSpeech().whenComplete(() {
+      _speechInitialization = null;
+    });
+  }
+
+  Future<void> _initializeSpeech() async {
     _speechAvailable = await _speech.initialize(
       onError: (error) {
         debugPrint('Speech init error: $error');
@@ -192,7 +201,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
   }
 
   bool _toggling = false;
-  bool _preferOnDevice = true; // 优先本地识别，失败后回退到在线
+  bool _preferOnDevice = true; // Android 优先本地识别，失败后回退到在线
   DateTime? _listenStartTime;
   String _debugStatus = 'idle';
   String _debugListenStarted = '-';
@@ -200,16 +209,33 @@ class _ListeningScreenState extends State<ListeningScreen> {
   String _debugPartial = '-';
 
   /// 统一 finalize 入口 —— 所有路径（手动停止/statusListener/debounce/timeout）都走这里
-  void _finalizeAttempt() {
+  Future<void> _finalizeAttempt() async {
     if (_attemptFinalized || !mounted) return;
     _attemptFinalized = true;
     _resultDebounce?.cancel();
     _safetyTimeout?.cancel();
-    _speech.stop();
+
+    try {
+      await _speech.stop();
+    } catch (stopError) {
+      debugPrint('Speech stop error: $stopError');
+      try {
+        await _speech.cancel();
+      } catch (cancelError) {
+        debugPrint('Speech cancel error: $cancelError');
+        _attemptFinalized = false;
+        if (mounted) {
+          setState(() => _feedback = '停止录音失败，请再次点击停止');
+        }
+        return;
+      }
+    }
+
+    if (!mounted) return;
     if (_lastRecognized.trim().isNotEmpty) {
       _processResult(_lastRecognized);
     } else {
-      if (mounted) setState(() { _listening = false; _feedback = '未检测到语音，请靠近麦克风重试'; });
+      if (mounted) setState(() { _listening = false; _recognized = ''; _feedback = '未检测到语音，请靠近麦克风重试'; });
     }
   }
 
@@ -225,7 +251,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
 
   Future<void> _doToggleRecord() async {
     if (_listening) {
-      _finalizeAttempt();
+      await _finalizeAttempt();
       return;
     }
 
@@ -238,6 +264,9 @@ class _ListeningScreenState extends State<ListeningScreen> {
       }
       return;
     }
+
+    await AudioManager.instance.stopAll();
+    await Future.delayed(const Duration(milliseconds: 300));
 
     // 每次开始前先清理上一次会话状态
     if (!_speechAvailable) {
@@ -288,7 +317,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
         if ((status == 'done' || status == 'notListening') &&
             elapsed > 2000 &&
             mounted && _listening && !_attemptFinalized) {
-          _finalizeAttempt();
+          unawaited(_finalizeAttempt());
         }
       };
 
@@ -301,27 +330,28 @@ class _ListeningScreenState extends State<ListeningScreen> {
             });
           }
           if (result.finalResult && !_attemptFinalized) {
-            _finalizeAttempt();
+            unawaited(_finalizeAttempt());
             return;
           }
           _resultDebounce?.cancel();
           if (_lastRecognized.trim().isNotEmpty) {
             _resultDebounce = Timer(resultDebounce, () {
               if (!_attemptFinalized && _listening) {
-                _finalizeAttempt();
+                unawaited(_finalizeAttempt());
               }
             });
           }
       }
 
-      // 优先本地识别，失败后自动回退到在线模式（兼容不支持 onDevice 的设备）
+      // Avoid immediate iOS fallback while the plugin may still be starting its audio engine.
       bool listenStarted = false;
-      final modesToTry = _preferOnDevice ? [true, false] : [false];
+      final modesToTry =
+          Platform.isIOS ? [false] : (_preferOnDevice ? [true, false] : [false]);
       for (final tryOnDevice in modesToTry) {
         try {
           final dynamic listenResult = await _speech.listen(
             localeId: _speechLocaleId ?? 'ja-JP',
-            onDevice: tryOnDevice,
+            listenOptions: stt.SpeechListenOptions(onDevice: tryOnDevice),
             onResult: onSttResult,
             listenFor: listenFor,
             pauseFor: pauseFor,
@@ -329,7 +359,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
           final started = listenResult is bool ? listenResult : true;
           debugPrint('listen(onDevice: $tryOnDevice) => $listenResult');
           if (started) {
-            if (!tryOnDevice && _preferOnDevice) {
+            if (!Platform.isIOS && !tryOnDevice && _preferOnDevice) {
               _preferOnDevice = false;
               debugPrint('Falling back to online STT for this device');
             }
@@ -367,7 +397,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
       _safetyTimeout = Timer(safetyTimeout, () {
         if (!_attemptFinalized && _listening) {
           debugPrint('Safety timeout triggered');
-          _finalizeAttempt();
+          unawaited(_finalizeAttempt());
         }
       });
     } catch (e) {
@@ -512,7 +542,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
     _resultDebounce?.cancel();
     _safetyTimeout?.cancel();
     _tts.stop();
-    _speech.stop();
+    if (!_attemptFinalized) _speech.stop();
     _inputCtrl.dispose();
     if (_scores.isNotEmpty) {
       final avg = (_scores.reduce((a, b) => a + b) / _scores.length).round();
@@ -802,7 +832,7 @@ class _ListeningScreenState extends State<ListeningScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('STT DEBUG', style: TextStyle(fontWeight: FontWeight.w700)),
-            Text('locale: ${_speechLocaleId ?? 'system-default'}, onDevice: $_preferOnDevice'),
+            Text('locale: ${_speechLocaleId ?? 'system-default'}, onDevice: ${Platform.isIOS ? false : _preferOnDevice}'),
             Text('available: $_speechAvailable, listening: $_listening, started: $_debugListenStarted'),
             Text('status: $_debugStatus'),
             Text('result: $_debugPartial'),
